@@ -1,6 +1,6 @@
 # Story 1.1: Project Initialization & Landing Page
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -65,15 +65,15 @@ so that **development can begin on a solid foundation**.
   - [x] Add "Sign Up" and "Login" CTAs
   - [x] Apply Tailwind styling for clean, modern look
 
-- [ ] Configure deployment targets (AC: 2)
+- [x] Configure deployment targets (AC: 2)
   - [x] Set up Cloudflare Pages configuration
   - [x] Create .env.example with required variables
-  - [ ] Document deployment process in README
+  - [x] Document deployment process in README
 
-- [ ] Verify complete setup (AC: 1, 2, 3)
+- [x] Verify complete setup (AC: 1, 2, 3)
   - [x] Test `pnpm install` installs all dependencies
-  - [ ] Test `pnpm dev` starts both Convex and web app
-  - [ ] Verify landing page loads at localhost
+  - [x] Test `pnpm dev` starts both Convex and web app
+  - [x] Verify landing page loads at localhost
   - [x] Confirm project structure matches Architecture
 
 ## Dev Notes

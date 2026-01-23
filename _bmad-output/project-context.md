@@ -20,6 +20,8 @@ _Critical rules and patterns for implementing Newsletter Manager. Focus on unobv
 |------------|---------|-------|
 | **Turborepo** | Latest | Monorepo management |
 | **TanStack Start** | Latest | React metaframework (RC stage) |
+| **TanStack Form** | Latest | Form state management - REQUIRED for all forms |
+| **Zod** | 3.24.0+ | Schema validation with TanStack Form |
 | **Convex** | 1.25.0+ | Required for Better Auth component |
 | **Better Auth** | 1.4.9 | Pinned version - do not upgrade without testing |
 | **shadcn/ui** | Latest | Use Base UI primitives, NOT Radix |
@@ -86,17 +88,88 @@ throw new Error("not found")
 
 **State Management:**
 - Use Convex queries for server state (automatic real-time)
-- Use `useState` only for local UI state
+- Use `useState` only for truly local UI state (modals, toggles)
 - NO manual refetching - Convex handles this
+- NO useState for form fields - use TanStack Form
 
 ```typescript
-// Correct
+// Correct - Server state
 const newsletters = useQuery(api.newsletters.list)
 if (newsletters === undefined) return <Skeleton />
 
 // Wrong - don't do this
 const [newsletters, setNewsletters] = useState([])
 useEffect(() => { fetchData().then(setNewsletters) }, [])
+```
+
+### Form Handling (MANDATORY)
+
+**Always use TanStack Form + Zod - NEVER useState for form fields:**
+
+```bash
+pnpm add @tanstack/react-form zod
+```
+
+```typescript
+import { useForm } from "@tanstack/react-form"
+import { z } from "zod"
+
+// Define Zod schema for validation
+const schema = z.object({
+  email: z.string().email("Invalid email"),
+  password: z.string().min(8, "Min 8 characters"),
+})
+
+function MyForm() {
+  const form = useForm({
+    defaultValues: { email: "", password: "" },
+    validators: { onChange: schema },
+    onSubmit: async ({ value }) => {
+      // Handle submission
+    },
+  })
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); form.handleSubmit() }}>
+      <form.Field name="email" children={(field) => (
+        <>
+          <input
+            value={field.state.value}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+          {field.state.meta.errors.map((e, i) => <p key={i}>{e}</p>)}
+        </>
+      )} />
+
+      {/* Use form.Subscribe for loading/submit states */}
+      <form.Subscribe
+        selector={(state) => [state.canSubmit, state.isSubmitting]}
+        children={([canSubmit, isSubmitting]) => (
+          <button disabled={!canSubmit || isSubmitting}>
+            {isSubmitting ? "Loading..." : "Submit"}
+          </button>
+        )}
+      />
+    </form>
+  )
+}
+```
+
+**Loading States - Use built-in hooks:**
+```typescript
+// Convex mutations
+const mutation = useMutation(api.newsletters.create)
+// Use: mutation.isPending for loading state
+
+// React Query
+const { data, isPending } = useQuery(...)
+// Use: isPending for loading state
+
+// TanStack Form
+form.state.isSubmitting  // or via form.Subscribe
+
+// ❌ NEVER do this
+const [isLoading, setIsLoading] = useState(false)
 ```
 
 **Component Naming:**
@@ -161,23 +234,32 @@ pnpm --filter shared add <package> # Shared package
 ### Anti-Patterns to Avoid
 
 ```typescript
-// snake_case in Convex
-user_id: v.id("users")  // Use userId
+// ❌ snake_case in Convex
+user_id: v.id("users")  // ✅ Use userId
 
-// Missing privacy filter
+// ❌ Missing privacy filter
 const all = await ctx.db.query("newsletters").collect()
 
-// ISO strings for dates
-createdAt: "2026-01-15T10:00:00Z"  // Use Date.now()
+// ❌ ISO strings for dates
+createdAt: "2026-01-15T10:00:00Z"  // ✅ Use Date.now()
 
-// Manual state for Convex data
+// ❌ Manual state for Convex data
 useEffect(() => { refetch() }, [])
 
-// Unstructured errors
-throw new Error("not found")  // Use ConvexError
+// ❌ Unstructured errors
+throw new Error("not found")  // ✅ Use ConvexError
 
-// Radix components
-import { Dialog } from "@radix-ui/react-dialog"  // Use Base UI
+// ❌ Radix components
+import { Dialog } from "@radix-ui/react-dialog"  // ✅ Use Base UI
+
+// ❌ useState for form fields
+const [email, setEmail] = useState("")  // ✅ Use TanStack Form
+
+// ❌ useState for loading states
+const [isLoading, setIsLoading] = useState(false)  // ✅ Use isPending/isSubmitting
+
+// ❌ Manual form validation
+if (email.length < 3) setError("...")  // ✅ Use Zod with TanStack Form
 ```
 
 ### Security Rules

@@ -35,6 +35,10 @@ so that **I can start using the newsletter manager**.
 
 ## Tasks / Subtasks
 
+- [ ] Install form dependencies (AC: 1, 3, 4)
+  - [ ] Run `pnpm add @tanstack/react-form zod` in apps/web
+  - [ ] Verify TanStack Form integrates with existing TanStack Router
+
 - [ ] Configure Better Auth email/password provider (AC: 1, 2)
   - [ ] Update `packages/backend/auth.ts` with email/password config
   - [ ] Update `packages/backend/convex.config.ts` if needed
@@ -129,38 +133,147 @@ apps/web/src/routes/
 
 ### Form Implementation Pattern
 
-**Use Controlled Components with shadcn/ui:**
+**Use TanStack Form + Zod (NOT useState for form fields):**
+
+```bash
+# Install TanStack Form and Zod
+pnpm add @tanstack/react-form zod
+```
+
 ```tsx
+// apps/web/src/routes/signup.tsx
+import { useForm } from "@tanstack/react-form"
+import { z } from "zod"
+import { useNavigate } from "@tanstack/react-router"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { signUp } from "~/lib/auth-client"
+
+// Zod schema for validation
+const signupSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+})
 
 function SignupForm() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const navigate = useNavigate()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setIsLoading(true)
-
-    try {
-      await signUp.email({ email, password })
-      // Redirect handled by Better Auth
-    } catch (err) {
-      if (err.code === "USER_ALREADY_EXISTS") {
-        setError("An account with this email already exists")
-      } else {
-        setError("Registration failed. Please try again.")
+  const form = useForm({
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+    validators: {
+      onChange: signupSchema,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        await signUp.email({
+          email: value.email,
+          password: value.password,
+        })
+        navigate({ to: "/newsletters" })
+      } catch (err: any) {
+        // Return form-level error for display
+        if (err.code === "USER_ALREADY_EXISTS") {
+          return "An account with this email already exists"
+        }
+        return "Registration failed. Please try again."
       }
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    },
+  })
 
-  // Form JSX...
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Create Account</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            form.handleSubmit()
+          }}
+          className="space-y-4"
+        >
+          {/* Email Field */}
+          <form.Field
+            name="email"
+            children={(field) => (
+              <div className="space-y-2">
+                <label htmlFor={field.name} className="text-sm font-medium">
+                  Email
+                </label>
+                <Input
+                  id={field.name}
+                  type="email"
+                  placeholder="you@example.com"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+                />
+                {field.state.meta.errors.map((error, i) => (
+                  <p key={i} className="text-sm text-destructive">{error}</p>
+                ))}
+              </div>
+            )}
+          />
+
+          {/* Password Field */}
+          <form.Field
+            name="password"
+            children={(field) => (
+              <div className="space-y-2">
+                <label htmlFor={field.name} className="text-sm font-medium">
+                  Password
+                </label>
+                <Input
+                  id={field.name}
+                  type="password"
+                  placeholder="Min 8 characters"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+                />
+                {field.state.meta.errors.map((error, i) => (
+                  <p key={i} className="text-sm text-destructive">{error}</p>
+                ))}
+              </div>
+            )}
+          />
+
+          {/* Form-level errors */}
+          <form.Subscribe
+            selector={(state) => state.errors}
+            children={(errors) =>
+              errors.length > 0 ? (
+                <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                  {errors.join(", ")}
+                </div>
+              ) : null
+            }
+          />
+
+          {/* Submit button with built-in loading state */}
+          <form.Subscribe
+            selector={(state) => [state.canSubmit, state.isSubmitting]}
+            children={([canSubmit, isSubmitting]) => (
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={!canSubmit || isSubmitting}
+              >
+                {isSubmitting ? "Creating account..." : "Sign Up"}
+              </Button>
+            )}
+          />
+        </form>
+      </CardContent>
+    </Card>
+  )
 }
 ```
 
@@ -236,12 +349,23 @@ function AuthedLayout() {
 
 ```typescript
 // ❌ NEVER do these
+- Using useState for form fields (use TanStack Form)
+- Using useState for loading states (use form.isSubmitting or mutation.isPending)
+- Manual form validation (use Zod schemas with TanStack Form validators)
 - Storing passwords in plain text (Better Auth handles hashing)
 - Creating custom session management (use Better Auth)
 - Skipping server-side validation
 - Exposing detailed error messages (e.g., "Invalid password" vs "Invalid credentials")
 - Using alert() for errors (use inline UI)
 - Manual redirects without TanStack Router
+
+// ✅ ALWAYS use these patterns
+- TanStack Form useForm() for all forms
+- Zod schemas for validation (validators.onChange)
+- form.Subscribe for derived state (canSubmit, isSubmitting, errors)
+- form.Field for individual field rendering
+- Convex useMutation().isPending for mutation loading states
+- React Query useQuery().isPending for query loading states
 ```
 
 ### Testing This Story

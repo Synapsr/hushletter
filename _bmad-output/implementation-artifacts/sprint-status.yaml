@@ -42,8 +42,8 @@ story_location: {project-root}/_bmad-output/implementation-artifacts
 development_status:
   epic-1: in-progress
   1-1-project-initialization-landing-page: done
-  1-2-user-registration: ready-for-dev
-  1-3-user-login-logout: backlog
+  1-2-user-registration: done
+  1-3-user-login-logout: done
   1-4-dedicated-email-address-generation: backlog
   1-5-account-settings: backlog
   epic-1-retrospective: optional

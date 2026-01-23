@@ -1,0 +1,91 @@
+# generated: 2026-01-22
+# project: newsletter manager
+# project_key: newsletter-manager
+# tracking_system: file-system
+# story_location: {project-root}/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-01-22
+project: newsletter manager
+project_key: newsletter-manager
+tracking_system: file-system
+story_location: {project-root}/_bmad-output/implementation-artifacts
+
+development_status:
+  epic-1: in-progress
+  1-1-project-initialization-landing-page: review
+  1-2-user-registration: backlog
+  1-3-user-login-logout: backlog
+  1-4-dedicated-email-address-generation: backlog
+  1-5-account-settings: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-email-worker-setup-basic-reception: backlog
+  2-2-email-parsing-content-storage: backlog
+  2-3-automatic-sender-detection: backlog
+  2-4-real-time-newsletter-display: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-newsletter-list-organized-by-sender: backlog
+  3-2-clean-newsletter-reader: backlog
+  3-3-folder-category-browsing: backlog
+  3-4-reading-progress-mark-as-read: backlog
+  3-5-hide-newsletters: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-gmail-oauth-connection: backlog
+  4-2-newsletter-sender-scanning: backlog
+  4-3-sender-review-approval: backlog
+  4-4-historical-email-import: backlog
+  4-5-gmail-disconnect: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-ai-summary-generation: backlog
+  5-2-summary-display-management: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-default-public-sharing: backlog
+  6-2-privacy-controls-for-senders: backlog
+  6-3-community-back-catalog-access: backlog
+  6-4-browse-newsletters-not-personally-received: backlog
+  epic-6-retrospective: optional
+
+  epic-7: backlog
+  7-1-admin-dashboard-system-health: backlog
+  7-2-email-delivery-monitoring: backlog
+  7-3-privacy-content-review: backlog
+  7-4-community-content-management: backlog
+  epic-7-retrospective: optional

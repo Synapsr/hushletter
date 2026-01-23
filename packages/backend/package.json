@@ -1,0 +1,24 @@
+{
+  "name": "@newsletter-manager/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./_generated/api.js",
+  "types": "./_generated/api.d.ts",
+  "exports": {
+    ".": "./_generated/api.js",
+    "./api": "./_generated/api.js",
+    "./_generated/api": "./_generated/api.js",
+    "./_generated/dataModel": "./_generated/dataModel.js"
+  },
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy",
+    "generate": "convex dev --once --typecheck=disable"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.10.10",
+    "better-auth": "1.4.9",
+    "convex": "^1.31.6"
+  }
+}

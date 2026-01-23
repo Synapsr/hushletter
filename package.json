@@ -1,0 +1,21 @@
+{
+  "name": "newsletter-manager",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "^2.7.5",
+    "oxlint": "^1.0.0"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=18"
+  }
+}

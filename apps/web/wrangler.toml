@@ -1,0 +1,12 @@
+# Cloudflare Pages configuration for Newsletter Manager
+name = "newsletter-manager"
+compatibility_date = "2026-01-01"
+
+# Build configuration
+[build]
+command = "pnpm build"
+publish = ".vinxi/build/output/public"
+
+# Environment variables (set in Cloudflare dashboard)
+# CONVEX_URL - Your Convex deployment URL
+# BETTER_AUTH_SECRET - Secret for Better Auth (use: openssl rand -base64 32)

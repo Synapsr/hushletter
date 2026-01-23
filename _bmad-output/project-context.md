@@ -262,6 +262,22 @@ const [isLoading, setIsLoading] = useState(false)  // ✅ Use isPending/isSubmit
 if (email.length < 3) setError("...")  // ✅ Use Zod with TanStack Form
 ```
 
+### Email Sending Rules
+
+**Production:** Use Convex Resend component
+- Component: https://www.convex.dev/components/resend
+- Package: `@convex-dev/resend`
+- Requires Resend API key in Convex environment
+
+**Development:** Log email content only (never send real emails)
+```typescript
+if (process.env.NODE_ENV === "development") {
+  console.log("📧 Email would be sent:", { to, subject, body })
+} else {
+  await resend.emails.send({ to, subject, html: body })
+}
+```
+
 ### Security Rules
 
 - Gmail OAuth tokens: Never expose to client, managed by Better Auth

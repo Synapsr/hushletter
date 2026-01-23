@@ -15,10 +15,10 @@ function LandingPage() {
           Newsletter Manager
         </div>
         <nav className="flex gap-4">
-          <Link to="/">
+          <Link to="/login">
             <Button variant="ghost">Sign In</Button>
           </Link>
-          <Link to="/">
+          <Link to="/signup">
             <Button>Get Started</Button>
           </Link>
         </nav>
@@ -34,12 +34,12 @@ function LandingPage() {
           interface.
         </p>
         <div className="flex gap-4 justify-center">
-          <Link to="/">
+          <Link to="/signup">
             <Button size="lg" className="text-lg px-8 py-6">
               Get Started
             </Button>
           </Link>
-          <Link to="/">
+          <Link to="/login">
             <Button variant="outline" size="lg" className="text-lg px-8 py-6">
               Sign In
             </Button>
@@ -87,7 +87,7 @@ function LandingPage() {
               Join thousands of readers who have simplified their newsletter
               experience.
             </p>
-            <Link to="/">
+            <Link to="/signup">
               <Button
                 size="lg"
                 variant="secondary"

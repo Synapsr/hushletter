@@ -1,6 +1,6 @@
 # Story 1.1: Project Initialization & Landing Page
 
-Status: review
+Status: in-progress
 
 ## Story
 

@@ -290,3 +290,120 @@ describe("Gmail Queries Contract (Story 4.1 Task 6.3)", () => {
     expect(typeof disconnected).toBe("boolean")
   })
 })
+
+// Story 4.5: Disconnect Flow Tests
+describe("GmailConnect Disconnect Flow (Story 4.5)", () => {
+  const connectedAccount = {
+    email: "user@gmail.com",
+    connectedAt: Date.now(),
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSearchParams = {}
+    mockDisconnectGmail.mockResolvedValue({ success: true })
+  })
+
+  describe("AC#1: Confirmation Dialog", () => {
+    it("opens confirmation dialog on disconnect button click", async () => {
+      await act(async () => {
+        renderWithProviders(connectedAccount)
+      })
+
+      const disconnectButton = screen.getByRole("button", { name: /disconnect gmail/i })
+
+      await act(async () => {
+        fireEvent.click(disconnectButton)
+      })
+
+      // Dialog should be visible
+      await waitFor(() => {
+        expect(screen.getByText("Disconnect Gmail?")).toBeTruthy()
+      })
+    })
+  })
+
+  describe("AC#2: Disconnect Processing", () => {
+    it("calls disconnectGmail on dialog confirmation", async () => {
+      await act(async () => {
+        renderWithProviders(connectedAccount)
+      })
+
+      // Open dialog
+      const disconnectButton = screen.getByRole("button", { name: /disconnect gmail/i })
+      await act(async () => {
+        fireEvent.click(disconnectButton)
+      })
+
+      // Wait for dialog to appear
+      await waitFor(() => {
+        expect(screen.getByText("Disconnect Gmail?")).toBeTruthy()
+      })
+
+      // Click confirm button
+      const confirmButton = screen.getByRole("button", { name: /^disconnect$/i })
+      await act(async () => {
+        fireEvent.click(confirmButton)
+      })
+
+      expect(mockDisconnectGmail).toHaveBeenCalled()
+    })
+  })
+
+  describe("AC#2: UI Updates After Disconnect", () => {
+    it("calls disconnectGmail and handles success flow", async () => {
+      await act(async () => {
+        renderWithProviders(connectedAccount)
+      })
+
+      // Open dialog
+      const disconnectButton = screen.getByRole("button", { name: /disconnect gmail/i })
+      await act(async () => {
+        fireEvent.click(disconnectButton)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText("Disconnect Gmail?")).toBeTruthy()
+      })
+
+      // Click confirm
+      const confirmButton = screen.getByRole("button", { name: /^disconnect$/i })
+      await act(async () => {
+        fireEvent.click(confirmButton)
+      })
+
+      // Verify disconnectGmail was called - UI update happens via queryClient.invalidateQueries()
+      await waitFor(() => {
+        expect(mockDisconnectGmail).toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe("AC#4: Reconnection", () => {
+    it("shows DisconnectedState with Connect Gmail button when not connected", async () => {
+      // After disconnect, gmailAccount becomes null, showing DisconnectedState
+      await act(async () => {
+        renderWithProviders(null) // Simulates state after disconnect
+      })
+
+      // DisconnectedState should show Connect Gmail button
+      const connectButton = screen.getByRole("button", { name: /connect gmail/i })
+      expect(connectButton).toBeTruthy()
+      expect(connectButton.hasAttribute("disabled")).toBe(false)
+    })
+
+    it("Connect Gmail button is available for reconnection after disconnect", async () => {
+      await act(async () => {
+        renderWithProviders(null) // Simulates disconnected state
+      })
+
+      // Verify the Connect Gmail button exists and is clickable
+      // This tests that after disconnect (null state), user can reconnect
+      const connectButton = screen.getByRole("button", { name: /connect gmail/i })
+      expect(connectButton).toBeTruthy()
+
+      // Button text confirms it's ready for OAuth flow
+      expect(connectButton.textContent).toContain("Connect Gmail")
+    })
+  })
+})

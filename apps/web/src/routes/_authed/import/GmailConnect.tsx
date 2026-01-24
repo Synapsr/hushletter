@@ -1,6 +1,7 @@
 /**
  * GmailConnect Component
  * Story 4.1: Task 3 (AC #1, #3, #4, #5)
+ * Story 4.5: Task 3 (AC #1) - Added confirmation dialog integration
  *
  * Displays Gmail connection status and provides OAuth connection flow.
  * Handles connected, disconnected, connecting, and error states.
@@ -22,6 +23,7 @@ import {
 } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { Mail, Check, AlertCircle, Loader2, RefreshCw } from "lucide-react"
+import { DisconnectConfirmDialog } from "./DisconnectConfirmDialog"
 
 // Search params type for this route
 type ImportSearchParams = {
@@ -31,15 +33,14 @@ type ImportSearchParams = {
 /**
  * Connected state - shows Gmail account info and next actions
  * Story 4.1: Task 3.3, 3.4 (AC #4)
+ * Story 4.5: Task 3.1 (AC #1) - Dialog trigger for disconnect
  */
 function ConnectedState({
   email,
-  onDisconnect,
-  isDisconnecting,
+  onOpenDisconnectDialog,
 }: {
   email: string
-  onDisconnect: () => void
-  isDisconnecting: boolean
+  onOpenDisconnectDialog: () => void
 }) {
   return (
     <div className="space-y-4">
@@ -63,19 +64,11 @@ function ConnectedState({
 
       <div className="pt-2">
         <Button
-          onClick={onDisconnect}
-          disabled={isDisconnecting}
+          onClick={onOpenDisconnectDialog}
           variant="ghost"
           size="sm"
         >
-          {isDisconnecting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Disconnecting...
-            </>
-          ) : (
-            "Disconnect Gmail"
-          )}
+          Disconnect Gmail
         </Button>
       </div>
     </div>
@@ -183,14 +176,20 @@ function LoadingSkeleton() {
 /**
  * GmailConnect - Main component for Gmail OAuth connection
  * Story 4.1: Task 3 (All ACs)
+ * Story 4.5: Task 3 (AC #1) - Added confirmation dialog for disconnect
  */
 export function GmailConnect() {
   // Note: useState for isConnecting is acceptable here because OAuth flows redirect
   // away from the page. This tracks "user clicked, waiting for redirect" which is
   // UI state, not data loading state. There's no isPending equivalent for redirects.
   const [isConnecting, setIsConnecting] = useState(false)
+  // Note: useState for isDisconnecting is required because Convex useAction doesn't
+  // provide isPending like useMutation does. This is an accepted exception per
+  // ReaderView.tsx:104-113 pattern in the codebase.
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  // Story 4.5: Dialog state for confirmation
+  const [isDisconnectDialogOpen, setIsDisconnectDialogOpen] = useState(false)
 
   // Use TanStack Router hooks for URL params
   const searchParams = useSearch({ strict: false }) as ImportSearchParams
@@ -277,10 +276,19 @@ export function GmailConnect() {
   }
 
   /**
-   * Disconnect Gmail account
+   * Open disconnect confirmation dialog
+   * Story 4.5: Task 3.1 (AC #1)
+   */
+  const handleOpenDisconnectDialog = () => {
+    setIsDisconnectDialogOpen(true)
+  }
+
+  /**
+   * Confirm disconnect Gmail account
+   * Story 4.5: Task 3.2 (AC #2) - Called when user confirms in dialog
    * Removes the Google account link and cleans up scan data
    */
-  const handleDisconnect = async () => {
+  const handleConfirmDisconnect = async () => {
     setIsDisconnecting(true)
     setLocalError(null)
 
@@ -288,13 +296,16 @@ export function GmailConnect() {
       await disconnectGmail({})
       // Invalidate queries to refresh UI state
       await queryClient.invalidateQueries()
+      // Close dialog on success
+      setIsDisconnectDialogOpen(false)
     } catch (err) {
-      setIsDisconnecting(false)
       if (err instanceof Error) {
         setLocalError(err.message)
       } else {
         setLocalError("Failed to disconnect Gmail. Please try again.")
       }
+    } finally {
+      setIsDisconnecting(false)
     }
   }
 
@@ -304,32 +315,44 @@ export function GmailConnect() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Mail className="h-5 w-5" />
-          Gmail Integration
-        </CardTitle>
-        <CardDescription>
-          Import newsletters from your existing Gmail inbox
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {displayError ? (
-          <ErrorState message={displayError} onRetry={handleRetry} />
-        ) : isConnected ? (
-          <ConnectedState
-            email={gmailAccount.email}
-            onDisconnect={handleDisconnect}
-            isDisconnecting={isDisconnecting}
-          />
-        ) : (
-          <DisconnectedState
-            onConnect={handleConnect}
-            isConnecting={isConnecting}
-          />
-        )}
-      </CardContent>
-    </Card>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Gmail Integration
+          </CardTitle>
+          <CardDescription>
+            Import newsletters from your existing Gmail inbox
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {displayError ? (
+            <ErrorState message={displayError} onRetry={handleRetry} />
+          ) : isConnected ? (
+            <ConnectedState
+              email={gmailAccount.email}
+              onOpenDisconnectDialog={handleOpenDisconnectDialog}
+            />
+          ) : (
+            <DisconnectedState
+              onConnect={handleConnect}
+              isConnecting={isConnecting}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Story 4.5: Disconnect confirmation dialog */}
+      {isConnected && (
+        <DisconnectConfirmDialog
+          open={isDisconnectDialogOpen}
+          onOpenChange={setIsDisconnectDialogOpen}
+          onConfirm={handleConfirmDisconnect}
+          isPending={isDisconnecting}
+          gmailAddress={gmailAccount.email}
+        />
+      )}
+    </>
   )
 }

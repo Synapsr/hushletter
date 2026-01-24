@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
+import { useAction } from "convex/react"
 import { api } from "@newsletter-manager/backend"
 import { useForm } from "@tanstack/react-form"
 import { z } from "zod"
@@ -15,7 +16,8 @@ import {
 } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
-import { Pencil, X, Check } from "lucide-react"
+import { Pencil, X, Check, Mail, AlertCircle } from "lucide-react"
+import { DisconnectConfirmDialog } from "~/routes/_authed/import/DisconnectConfirmDialog"
 
 export const Route = createFileRoute("/_authed/settings/")({
   component: SettingsPage,
@@ -35,6 +37,138 @@ type CurrentUserData = {
   name: string | null
   dedicatedEmail: string | null
 } | null
+
+// Type for Gmail account data
+type GmailAccountData = { email: string; connectedAt: number } | null
+
+/**
+ * Gmail Integration Settings Section
+ * Story 4.5: Task 4 (AC #1) - Disconnect option in settings
+ */
+function GmailSettingsSection() {
+  const queryClient = useQueryClient()
+  const disconnectGmail = useAction(api.gmail.disconnectGmail)
+
+  // Note: useState for isDisconnecting is required because Convex useAction doesn't
+  // provide isPending like useMutation does. This is an accepted exception per
+  // ReaderView.tsx:104-113 pattern in the codebase.
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Query Gmail connection status
+  const { data, isPending, error: queryError } = useQuery(
+    convexQuery(api.gmail.getGmailAccount, {})
+  )
+  const gmailAccount = data as GmailAccountData | undefined
+
+  const isConnected = gmailAccount !== null && gmailAccount !== undefined
+
+  const handleConfirmDisconnect = async () => {
+    setIsDisconnecting(true)
+    setError(null)
+
+    try {
+      await disconnectGmail({})
+      await queryClient.invalidateQueries()
+      // Clear any previous error and close dialog on success
+      setError(null)
+      setIsDialogOpen(false)
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("Failed to disconnect Gmail. Please try again.")
+      }
+    } finally {
+      setIsDisconnecting(false)
+    }
+  }
+
+  if (isPending) {
+    return (
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="h-6 bg-muted rounded w-1/3 animate-pulse" />
+          <div className="h-4 bg-muted rounded w-2/3 animate-pulse mt-2" />
+        </CardHeader>
+        <CardContent>
+          <div className="h-16 bg-muted rounded animate-pulse" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Gmail Integration
+          </CardTitle>
+          <CardDescription>
+            Import newsletters directly from your Gmail inbox
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {queryError ? (
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-sm">Unable to check Gmail status</span>
+            </div>
+          ) : isConnected ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-green-700 dark:text-green-400">Connected</p>
+                  <p className="text-sm text-muted-foreground">{gmailAccount.email}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  Disconnect
+                </Button>
+              </div>
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Go to the{" "}
+                <Link to="/import" className="text-primary hover:underline">
+                  Import page
+                </Link>{" "}
+                to scan and import newsletters.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Gmail is not connected. Connect your Gmail to scan and import
+                your existing newsletters.
+              </p>
+              <Button asChild variant="outline">
+                <Link to="/import">Connect Gmail</Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {isConnected && (
+        <DisconnectConfirmDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          onConfirm={handleConfirmDisconnect}
+          isPending={isDisconnecting}
+          gmailAddress={gmailAccount.email}
+        />
+      )}
+    </>
+  )
+}
 
 // Profile Edit Form Component
 function ProfileNameEditForm({
@@ -185,6 +319,9 @@ function SettingsPage() {
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
         Settings
       </h1>
+
+      {/* Gmail Integration Section - Story 4.5: Task 4 */}
+      <GmailSettingsSection />
 
       {/* Email Settings Section */}
       <Card className="mb-6">

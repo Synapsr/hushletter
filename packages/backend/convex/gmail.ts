@@ -192,8 +192,52 @@ export const getGmailAccount = query({
 })
 
 /**
+ * Revoke Google OAuth token at Google's endpoint
+ * Story 4.5: Task 1.2 (AC #2, #5)
+ *
+ * This is NON-BLOCKING: disconnect must succeed even if revocation fails.
+ * Reasons:
+ * - User wants to disconnect; we shouldn't block that
+ * - Token may already be expired or invalid
+ * - Better Auth will delete the token from our DB regardless
+ * - Google will eventually expire the token anyway (1 hour for access tokens)
+ *
+ * @param accessToken - The Google OAuth access token to revoke
+ */
+async function revokeGoogleToken(accessToken: string): Promise<void> {
+  try {
+    const response = await fetch(
+      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(accessToken)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    )
+
+    if (response.ok) {
+      console.log("[gmail.revokeGoogleToken] Successfully revoked Google OAuth token")
+    } else {
+      // Log but don't fail - token may already be expired
+      console.warn(`[gmail.revokeGoogleToken] Token revocation returned status ${response.status}`)
+    }
+  } catch (error) {
+    // Network error - log but continue
+    console.warn("[gmail.revokeGoogleToken] Token revocation network error:", error)
+  }
+}
+
+/**
  * Disconnect Gmail account
  * Story 4.2 fix: Allow users to disconnect and reconnect Gmail
+ * Story 4.5: Added Google token revocation before unlinking (AC #2, #5)
+ *
+ * Flow:
+ * 1. Get current access token for revocation
+ * 2. Revoke token at Google (non-blocking)
+ * 3. Unlink account via Better Auth
+ * 4. Clean up scan progress and detected senders (NOT newsletters!)
  *
  * @returns Success status
  * @throws ConvexError if unable to disconnect
@@ -205,7 +249,20 @@ export const disconnectGmail = action({
       // Get Better Auth API
       const { auth, headers } = await authComponent.getAuth(createAuth, ctx)
 
-      // Unlink the Google account
+      // Step 1: Get current access token for revocation (Story 4.5)
+      try {
+        const tokenResult = await ctx.runQuery(internal.gmailApi.getAccessToken)
+
+        // Step 2: Revoke token at Google (non-blocking - proceed even if fails)
+        if (tokenResult.accessToken) {
+          await revokeGoogleToken(tokenResult.accessToken)
+        }
+      } catch (error) {
+        // Token may not exist or be invalid - continue with disconnect
+        console.warn("[gmail.disconnectGmail] Could not revoke token (may already be invalid):", error)
+      }
+
+      // Step 3: Unlink the Google account
       await auth.api.unlinkAccount({
         body: {
           providerId: "google",
@@ -213,7 +270,7 @@ export const disconnectGmail = action({
         headers,
       })
 
-      // Also clean up any scan progress and detected senders for this user
+      // Step 4: Clean up scan progress and detected senders (NOT newsletters!)
       // (they'll need to rescan after reconnecting)
       const authUser = await ctx.runQuery(api.auth.getCurrentUser)
       if (authUser) {
@@ -240,6 +297,19 @@ export const disconnectGmail = action({
 
 /**
  * Internal mutation to clean up user's scan data when disconnecting
+ * Story 4.5: Task 5 (AC #3) - Newsletter preservation
+ *
+ * CRITICAL: This mutation ONLY deletes:
+ * - gmailScanProgress (scan status)
+ * - detectedSenders (pending sender approvals)
+ *
+ * It NEVER deletes:
+ * - userNewsletters (imported newsletters must be preserved!)
+ * - newsletterContent (shared content)
+ * - gmailImportProgress (import history)
+ *
+ * This ensures that previously imported newsletters remain in the user's
+ * account after disconnecting Gmail (AC #3).
  */
 export const cleanupUserScanData = internalMutation({
   args: { userId: v.id("users") },
@@ -253,7 +323,7 @@ export const cleanupUserScanData = internalMutation({
       await ctx.db.delete(progress._id)
     }
 
-    // Delete detected senders
+    // Delete detected senders (pending approvals only)
     const senders = await ctx.db
       .query("detectedSenders")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -261,6 +331,9 @@ export const cleanupUserScanData = internalMutation({
     for (const sender of senders) {
       await ctx.db.delete(sender._id)
     }
+
+    // NOTE: Do NOT delete userNewsletters or newsletterContent!
+    // Imported newsletters must be preserved after Gmail disconnect (Story 4.5 AC #3)
   },
 })
 

@@ -95,11 +95,13 @@ vi.mock("@convex-dev/react-query", () => ({
 describe("SenderSidebar", () => {
   let mockOnSenderSelect: ReturnType<typeof vi.fn>
   let mockOnFolderSelect: ReturnType<typeof vi.fn>
+  let mockOnFilterSelect: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
     mockOnSenderSelect = vi.fn()
     mockOnFolderSelect = vi.fn()
+    mockOnFilterSelect = vi.fn()
     // Reset call count for query ordering
     queryCallCount = 0
     // Reset to default mock data
@@ -117,7 +119,9 @@ describe("SenderSidebar", () => {
     selectedSenderId: string | null = null,
     selectedFolderId: string | null = null,
     totalNewsletterCount = 17,
-    totalUnreadCount = 4
+    totalUnreadCount = 4,
+    selectedFilter: string | null = null,
+    hiddenCount = 0
   ) => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -127,10 +131,13 @@ describe("SenderSidebar", () => {
         <SenderSidebar
           selectedSenderId={selectedSenderId}
           selectedFolderId={selectedFolderId}
+          selectedFilter={selectedFilter}
           onSenderSelect={mockOnSenderSelect}
           onFolderSelect={mockOnFolderSelect}
+          onFilterSelect={mockOnFilterSelect}
           totalNewsletterCount={totalNewsletterCount}
           totalUnreadCount={totalUnreadCount}
+          hiddenCount={hiddenCount}
         />
       </QueryClientProvider>
     )
@@ -217,7 +224,9 @@ describe("SenderSidebar", () => {
       fireEvent.click(senderButton!)
 
       // Story 3.3: Now also clears folder selection
+      // Story 3.5: Also clears filter selection
       expect(mockOnFolderSelect).toHaveBeenCalledWith(null)
+      expect(mockOnFilterSelect).toHaveBeenCalledWith(null)
       expect(mockOnSenderSelect).toHaveBeenCalledWith("sender-1")
     })
 
@@ -228,8 +237,10 @@ describe("SenderSidebar", () => {
       fireEvent.click(allButton!)
 
       // Story 3.3: "All" clears both sender and folder
+      // Story 3.5: Also clears filter
       expect(mockOnSenderSelect).toHaveBeenCalledWith(null)
       expect(mockOnFolderSelect).toHaveBeenCalledWith(null)
+      expect(mockOnFilterSelect).toHaveBeenCalledWith(null)
     })
   })
 
@@ -268,7 +279,9 @@ describe("SenderSidebar", () => {
       const folderButton = screen.getByText("Important").closest("button")
       fireEvent.click(folderButton!)
 
+      // Story 3.5: Also clears filter selection
       expect(mockOnSenderSelect).toHaveBeenCalledWith(null)
+      expect(mockOnFilterSelect).toHaveBeenCalledWith(null)
       expect(mockOnFolderSelect).toHaveBeenCalledWith("folder-1")
     })
 
@@ -278,7 +291,9 @@ describe("SenderSidebar", () => {
       const uncategorizedButton = screen.getByText("Uncategorized").closest("button")
       fireEvent.click(uncategorizedButton!)
 
+      // Story 3.5: Also clears filter selection
       expect(mockOnSenderSelect).toHaveBeenCalledWith(null)
+      expect(mockOnFilterSelect).toHaveBeenCalledWith(null)
       expect(mockOnFolderSelect).toHaveBeenCalledWith("uncategorized")
     })
   })
@@ -349,6 +364,48 @@ describe("SenderSidebar", () => {
       // Should show skeleton elements
       const skeletonElements = document.querySelectorAll(".animate-pulse")
       expect(skeletonElements.length).toBeGreaterThan(0)
+    })
+  })
+
+  // Story 3.5: Hidden section tests
+  describe("Hidden Section (Story 3.5 AC3)", () => {
+    it("displays Hidden section when hiddenCount > 0", () => {
+      renderSidebar(null, null, 17, 4, null, 5)
+
+      expect(screen.getByText("Hidden")).toBeInTheDocument()
+    })
+
+    it("does not display Hidden section when hiddenCount is 0", () => {
+      renderSidebar(null, null, 17, 4, null, 0)
+
+      expect(screen.queryByText("Hidden")).not.toBeInTheDocument()
+    })
+
+    it("displays hidden count badge", () => {
+      renderSidebar(null, null, 17, 4, null, 3)
+
+      // The hidden count badge shows "3"
+      const hiddenButton = screen.getByText("Hidden").closest("button")
+      expect(hiddenButton).toBeInTheDocument()
+      expect(hiddenButton!.textContent).toContain("3")
+    })
+
+    it("highlights Hidden when selected", () => {
+      renderSidebar(null, null, 17, 4, "hidden", 5)
+
+      const hiddenButton = screen.getByText("Hidden").closest("button")
+      expect(hiddenButton).toHaveClass("bg-accent")
+    })
+
+    it("calls onFilterSelect with 'hidden' when Hidden clicked", () => {
+      renderSidebar(null, null, 17, 4, null, 5)
+
+      const hiddenButton = screen.getByText("Hidden").closest("button")
+      fireEvent.click(hiddenButton!)
+
+      expect(mockOnSenderSelect).toHaveBeenCalledWith(null)
+      expect(mockOnFolderSelect).toHaveBeenCalledWith(null)
+      expect(mockOnFilterSelect).toHaveBeenCalledWith("hidden")
     })
   })
 })

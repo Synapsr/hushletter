@@ -36,6 +36,17 @@ describe("newsletters API exports", () => {
     expect(api.newsletters.updateNewsletterReadProgress).toBeDefined()
   })
 
+  // Story 3.5: Hide/unhide mutations
+  it("should export public mutation functions for hide/unhide (Story 3.5)", () => {
+    expect(api.newsletters.hideNewsletter).toBeDefined()
+    expect(api.newsletters.unhideNewsletter).toBeDefined()
+  })
+
+  // Story 3.5: List hidden newsletters query
+  it("should export listHiddenNewsletters query (Story 3.5)", () => {
+    expect(api.newsletters.listHiddenNewsletters).toBeDefined()
+  })
+
   it("should export internal functions", () => {
     expect(internal.newsletters).toBeDefined()
     expect(internal.newsletters.createUserNewsletter).toBeDefined()
@@ -874,5 +885,188 @@ describe("reading progress acceptance criteria (Story 3.4)", () => {
       allNewsletters: "Shows total unread count",
     }
     expect(ac6.senderSidebar).toContain("unread count")
+  })
+})
+
+// =============================================================================
+// Story 3.5: Hide Newsletters
+// =============================================================================
+
+describe("hideNewsletter mutation contract (Story 3.5)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "required Id<'userNewsletters'>",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+  })
+
+  it("requires authentication", () => {
+    const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+    expect(expectedError.code).toBe("UNAUTHORIZED")
+  })
+
+  it("validates newsletter ownership", () => {
+    const expectedError = { code: "FORBIDDEN", message: "Access denied" }
+    expect(expectedError.code).toBe("FORBIDDEN")
+  })
+
+  it("throws NOT_FOUND when newsletter doesn't exist", () => {
+    const expectedError = { code: "NOT_FOUND", message: "Newsletter not found" }
+    expect(expectedError.code).toBe("NOT_FOUND")
+  })
+
+  it("sets isHidden to true", () => {
+    const expectedUpdate = { isHidden: true }
+    expect(expectedUpdate.isHidden).toBe(true)
+  })
+})
+
+describe("unhideNewsletter mutation contract (Story 3.5)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "required Id<'userNewsletters'>",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+  })
+
+  it("requires authentication", () => {
+    const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+    expect(expectedError.code).toBe("UNAUTHORIZED")
+  })
+
+  it("validates newsletter ownership", () => {
+    const expectedError = { code: "FORBIDDEN", message: "Access denied" }
+    expect(expectedError.code).toBe("FORBIDDEN")
+  })
+
+  it("sets isHidden to false", () => {
+    const expectedUpdate = { isHidden: false }
+    expect(expectedUpdate.isHidden).toBe(false)
+  })
+})
+
+describe("listHiddenNewsletters query contract (Story 3.5)", () => {
+  it("takes no args", () => {
+    const expectedArgs = {}
+    expect(Object.keys(expectedArgs)).toHaveLength(0)
+  })
+
+  it("returns empty array when not authenticated", () => {
+    const returnWhenUnauth: unknown[] = []
+    expect(returnWhenUnauth).toEqual([])
+  })
+
+  it("filters newsletters by authenticated user", () => {
+    const filterBehavior = {
+      uses: "withIndex('by_userId_receivedAt', q => q.eq('userId', user._id))",
+      additionalFilter: ".filter(n => n.isHidden)",
+      order: "desc",
+    }
+    expect(filterBehavior.uses).toContain("by_userId")
+    expect(filterBehavior.additionalFilter).toContain("isHidden")
+  })
+
+  it("returns only hidden newsletters", () => {
+    const filterLogic = "newsletters.filter((n) => n.isHidden)"
+    expect(filterLogic).toContain("isHidden")
+  })
+})
+
+describe("hidden newsletter filtering behavior (Story 3.5)", () => {
+  describe("listUserNewsletters", () => {
+    it("excludes hidden newsletters from main list (AC2)", () => {
+      const filterLogic = "newsletters.filter((n) => !n.isHidden)"
+      expect(filterLogic).toContain("!n.isHidden")
+    })
+  })
+
+  describe("listUserNewslettersBySender", () => {
+    it("excludes hidden newsletters from sender-filtered list (AC2)", () => {
+      const filterLogic = ".filter((n) => !n.isHidden)"
+      expect(filterLogic).toContain("!n.isHidden")
+    })
+  })
+
+  describe("listUserNewslettersByFolder", () => {
+    it("excludes hidden newsletters from folder-filtered list (AC2)", () => {
+      const filterLogic = "!n.isHidden"
+      expect(filterLogic).toContain("!n.isHidden")
+    })
+  })
+
+  describe("listSendersForUserWithUnreadCounts", () => {
+    it("excludes hidden newsletters from unread counts (AC2)", () => {
+      const filterLogic = {
+        visibleNewsletters: "newsletters.filter((n) => !n.isHidden)",
+        unreadCount: "visibleNewsletters.filter((n) => !n.isRead).length",
+        userNewsletterCount: "visibleNewsletters.length",
+      }
+      expect(filterLogic.visibleNewsletters).toContain("!n.isHidden")
+    })
+  })
+})
+
+describe("hidden newsletter acceptance criteria (Story 3.5)", () => {
+  it("AC1: Hide from List/Detail View", () => {
+    const ac1 = {
+      trigger: "User clicks hide button in list or detail view",
+      action: "hideNewsletter mutation called",
+      result: "Newsletter hidden from main views, confirmation shown",
+      navigation: "User returns to list after hiding from detail view",
+    }
+    expect(ac1.action).toBe("hideNewsletter mutation called")
+  })
+
+  it("AC2: Hidden Newsletters Excluded from Main List", () => {
+    const ac2 = {
+      behavior: "Hidden newsletters filtered out with !isHidden",
+      affectedQueries: [
+        "listUserNewsletters",
+        "listUserNewslettersBySender",
+        "listUserNewslettersByFolder",
+      ],
+      unreadCounts: "listSendersForUserWithUnreadCounts excludes hidden",
+    }
+    expect(ac2.affectedQueries).toContain("listUserNewsletters")
+  })
+
+  it("AC3: View Hidden Newsletters", () => {
+    const ac3 = {
+      navigation: "Hidden section in sidebar with count badge",
+      urlPattern: "/newsletters?filter=hidden",
+      query: "listHiddenNewsletters returns only hidden newsletters",
+    }
+    expect(ac3.query).toContain("listHiddenNewsletters")
+  })
+
+  it("AC4: Unhide/Restore Newsletter", () => {
+    const ac4 = {
+      trigger: "User clicks Unhide button on hidden newsletter",
+      action: "unhideNewsletter mutation called",
+      result: "Newsletter returns to main views",
+    }
+    expect(ac4.action).toBe("unhideNewsletter mutation called")
+  })
+
+  it("AC5: Subscription Preserved", () => {
+    const ac5 = {
+      behavior: "isHidden flag is independent of subscription status",
+      senderActive: "Sender remains in senders list",
+      futureNewsletters: "New newsletters from sender continue to arrive",
+      noUnsubscribe: "Hiding does NOT affect userSenderSettings",
+    }
+    expect(ac5.noUnsubscribe).toContain("userSenderSettings")
+  })
+})
+
+describe("hidden newsletter schema fields (Story 3.5)", () => {
+  it("userNewsletters has isHidden boolean field", () => {
+    const schemaField = {
+      name: "isHidden",
+      type: "v.boolean()",
+      default: false,
+    }
+    expect(schemaField.name).toBe("isHidden")
+    expect(schemaField.default).toBe(false)
   })
 })

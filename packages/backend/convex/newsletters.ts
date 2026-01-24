@@ -526,6 +526,7 @@ export const getNewsletterContentInternal = internalQuery({
 /**
  * List userNewsletters for current user
  * Story 2.5.1: Updated to use userNewsletters table
+ * Story 3.5: AC2 - Exclude hidden newsletters from main list
  */
 export const listUserNewsletters = query({
   args: {},
@@ -542,17 +543,21 @@ export const listUserNewsletters = query({
 
     // Use by_userId_receivedAt index for proper sorting by receivedAt (AC2)
     // Convex index ordering: when using compound index, order applies to last indexed field
-    return await ctx.db
+    const newsletters = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
       .order("desc")
       .collect()
+
+    // Story 3.5 AC2: Exclude hidden newsletters from main list
+    return newsletters.filter((n) => !n.isHidden)
   },
 })
 
 /**
  * List user newsletters filtered by sender
  * Story 3.1: Task 5 - Support sender-based filtering (AC2, AC3)
+ * Story 3.5: AC2 - Exclude hidden newsletters from main list
  *
  * If senderId is provided, returns only newsletters from that sender.
  * If senderId is undefined/null, returns all newsletters (same as listUserNewsletters).
@@ -584,22 +589,28 @@ export const listUserNewslettersBySender = query({
         )
         .collect()
 
-      // Sort by receivedAt descending (newest first)
-      return newsletters.sort((a, b) => b.receivedAt - a.receivedAt)
+      // Story 3.5 AC2: Exclude hidden newsletters, then sort by receivedAt descending
+      return newsletters
+        .filter((n) => !n.isHidden)
+        .sort((a, b) => b.receivedAt - a.receivedAt)
     }
 
-    // No filter - return all (existing behavior using proper index)
-    return await ctx.db
+    // No filter - return all non-hidden (existing behavior using proper index)
+    const newsletters = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
       .order("desc")
       .collect()
+
+    // Story 3.5 AC2: Exclude hidden newsletters
+    return newsletters.filter((n) => !n.isHidden)
   },
 })
 
 /**
  * List newsletters filtered by folder (all senders in that folder)
  * Story 3.3: AC3 - Browse newsletters by folder
+ * Story 3.5: AC2 - Exclude hidden newsletters from main list
  *
  * - If folderId is null, returns newsletters from "uncategorized" senders
  *   (senders with no folder assignment)
@@ -647,9 +658,9 @@ export const listUserNewslettersByFolder = query({
       .order("desc")
       .collect()
 
-    // Filter to only newsletters from matching senders
-    const filteredNewsletters = newsletters.filter((n) =>
-      matchingSenderIds.includes(n.senderId)
+    // Filter to only newsletters from matching senders AND exclude hidden (Story 3.5 AC2)
+    const filteredNewsletters = newsletters.filter(
+      (n) => matchingSenderIds.includes(n.senderId) && !n.isHidden
     )
 
     // Batch-fetch all unique senders to avoid N+1 queries
@@ -830,5 +841,101 @@ export const updateNewsletterReadProgress = mutation({
       readProgress: clampedProgress,
       isRead: clampedProgress >= 100,
     })
+  },
+})
+
+/**
+ * Hide newsletter (public mutation)
+ * Story 3.5: AC1 - Hide from list/detail view
+ */
+export const hideNewsletter = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    if (!userNewsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user || userNewsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    await ctx.db.patch(args.userNewsletterId, {
+      isHidden: true,
+    })
+  },
+})
+
+/**
+ * Unhide newsletter (public mutation)
+ * Story 3.5: AC4 - Restore from hidden
+ */
+export const unhideNewsletter = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    if (!userNewsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user || userNewsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    await ctx.db.patch(args.userNewsletterId, {
+      isHidden: false,
+    })
+  },
+})
+
+/**
+ * List hidden newsletters for current user
+ * Story 3.5: AC3 - View hidden newsletters
+ */
+export const listHiddenNewsletters = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return []
+
+    const newsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .collect()
+
+    // Return ONLY hidden newsletters
+    return newsletters.filter((n) => n.isHidden)
   },
 })

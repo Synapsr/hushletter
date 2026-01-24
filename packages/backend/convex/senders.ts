@@ -493,6 +493,7 @@ export const updateSenderSettings = mutation({
 /**
  * List senders for user with unread counts
  * Story 3.1: Task 7 - Enhanced sender list with unread indicators (AC1)
+ * Story 3.5: AC2 - Exclude hidden newsletters from unread counts
  *
  * Returns senders sorted alphabetically with:
  * - displayName (name or email fallback)
@@ -534,7 +535,9 @@ export const listSendersForUserWithUnreadCounts = query({
           )
           .collect()
 
-        const unreadCount = newsletters.filter((n) => !n.isRead).length
+        // Story 3.5 AC2: Exclude hidden newsletters from counts
+        const visibleNewsletters = newsletters.filter((n) => !n.isHidden)
+        const unreadCount = visibleNewsletters.filter((n) => !n.isRead).length
 
         return {
           _id: sender._id,
@@ -542,8 +545,8 @@ export const listSendersForUserWithUnreadCounts = query({
           name: sender.name,
           displayName: sender.name || sender.email,
           domain: sender.domain,
-          userNewsletterCount: newsletters.length,
-          unreadCount, // Unread newsletters from this sender
+          userNewsletterCount: visibleNewsletters.length, // Only count non-hidden
+          unreadCount, // Unread (and non-hidden) newsletters from this sender
           isPrivate: setting.isPrivate,
           folderId: setting.folderId,
         }

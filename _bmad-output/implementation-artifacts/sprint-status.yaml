@@ -75,7 +75,7 @@ development_status:
   3-2-clean-newsletter-reader: done  # Code review complete with 6 fixes applied
   3-3-folder-category-browsing: done  # Code review complete with N+1 query fix
   3-4-reading-progress-mark-as-read: done  # Code review complete with test fixes
-  3-5-hide-newsletters: backlog
+  3-5-hide-newsletters: done  # Code review #2 complete - 8 total fixes (HIGH: 2, MEDIUM: 4, LOW: 2)
   epic-3-retrospective: optional
 
   epic-4: backlog

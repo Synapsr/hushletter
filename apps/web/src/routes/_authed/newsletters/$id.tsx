@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { useMutation } from "convex/react"
 import { convexQuery } from "@convex-dev/react-query"
@@ -8,7 +8,7 @@ import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
 import { ReaderView, clearCacheEntry } from "~/components/ReaderView"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { ArrowLeft, BookOpen, BookMarked } from "lucide-react"
+import { ArrowLeft, BookOpen, BookMarked, EyeOff, Eye } from "lucide-react"
 
 export const Route = createFileRoute("/_authed/newsletters/$id")({
   component: NewsletterDetailPage,
@@ -22,6 +22,7 @@ interface NewsletterMetadata {
   senderName?: string
   receivedAt: number
   isRead: boolean
+  isHidden: boolean
   isPrivate: boolean
   readProgress?: number
   contentStatus: "available" | "missing" | "error"
@@ -103,6 +104,7 @@ function PageError({ message }: { message: string }) {
 /**
  * Newsletter header with subject, sender, date, and read status controls
  * Story 3.4: AC2 (Resume), AC4 (Mark read/unread), AC5 (Progress display)
+ * Story 3.5: AC1, AC4 (Hide/Unhide)
  */
 function NewsletterHeader({
   subject,
@@ -111,9 +113,12 @@ function NewsletterHeader({
   receivedAt,
   readProgress,
   isRead,
+  isHidden,
   onResumeClick,
   onMarkRead,
   onMarkUnread,
+  onHide,
+  onUnhide,
   isUpdating,
 }: {
   subject: string
@@ -122,9 +127,12 @@ function NewsletterHeader({
   receivedAt: number
   readProgress?: number
   isRead: boolean
+  isHidden: boolean
   onResumeClick?: () => void
   onMarkRead: () => void
   onMarkUnread: () => void
+  onHide: () => void
+  onUnhide: () => void
   isUpdating: boolean
 }) {
   const senderDisplay = senderName || senderEmail
@@ -203,6 +211,31 @@ function NewsletterHeader({
               Mark as read
             </Button>
           )}
+
+          {/* Story 3.5: Hide/Unhide button (AC1, AC4) */}
+          {isHidden ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onUnhide}
+              disabled={isUpdating}
+              className="gap-1"
+            >
+              <Eye className="h-4 w-4" />
+              Unhide
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onHide}
+              disabled={isUpdating}
+              className="gap-1"
+            >
+              <EyeOff className="h-4 w-4" />
+              Hide
+            </Button>
+          )}
         </div>
       </div>
     </header>
@@ -244,13 +277,21 @@ function NewsletterContent({
 
 function NewsletterDetailPage() {
   const { id } = Route.useParams()
+  const navigate = useNavigate()
 
   // Story 3.4: Track if user wants to resume from saved position
   const [shouldResume, setShouldResume] = useState(false)
 
+  // Code review fix (HIGH-1): Track hide/unhide feedback state for AC1 confirmation
+  const [hideConfirmation, setHideConfirmation] = useState<string | null>(null)
+
   // Story 3.4: Mutations for mark read/unread
   const markRead = useMutation(api.newsletters.markNewsletterRead)
   const markUnread = useMutation(api.newsletters.markNewsletterUnread)
+
+  // Story 3.5: Mutations for hide/unhide
+  const hideNewsletter = useMutation(api.newsletters.hideNewsletter)
+  const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter)
 
   // Validate route param before using - prevents invalid ID errors
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -309,6 +350,37 @@ function NewsletterDetailPage() {
     setShouldResume(true)
   }
 
+  // Story 3.5: Handlers for hide/unhide (AC1, AC4)
+  // Code review fix (HIGH-1): Added confirmation feedback per AC1 requirement
+  const handleHide = async () => {
+    try {
+      await hideNewsletter({ userNewsletterId: id })
+      // Show confirmation briefly before navigating (AC1: "confirmation is briefly shown")
+      setHideConfirmation("Newsletter hidden")
+      // Brief delay to show confirmation, then navigate
+      setTimeout(() => {
+        navigate({ to: "/newsletters" })
+      }, 800)
+    } catch (error) {
+      console.error("[NewsletterDetail] Failed to hide newsletter:", error)
+      setHideConfirmation("Failed to hide newsletter")
+      setTimeout(() => setHideConfirmation(null), 2000)
+    }
+  }
+
+  const handleUnhide = async () => {
+    try {
+      await unhideNewsletter({ userNewsletterId: id })
+      // Show confirmation (AC1)
+      setHideConfirmation("Newsletter restored")
+      setTimeout(() => setHideConfirmation(null), 2000)
+    } catch (error) {
+      console.error("[NewsletterDetail] Failed to unhide newsletter:", error)
+      setHideConfirmation("Failed to restore newsletter")
+      setTimeout(() => setHideConfirmation(null), 2000)
+    }
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Back navigation - uses history.back() to preserve URL params like ?sender= (AC4) */}
@@ -317,7 +389,18 @@ function NewsletterDetailPage() {
         Back to newsletters
       </Button>
 
-      {/* Newsletter header with reading controls (Story 3.4) */}
+      {/* Code review fix (HIGH-1): Confirmation feedback for hide/unhide (AC1) */}
+      {hideConfirmation && (
+        <div
+          className="mb-4 px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm animate-in fade-in duration-200"
+          role="status"
+          aria-live="polite"
+        >
+          {hideConfirmation}
+        </div>
+      )}
+
+      {/* Newsletter header with reading controls (Story 3.4, Story 3.5) */}
       {/* TODO: isUpdating should track mutation pending state, but Convex useMutation
           doesn't expose isPending. Mutations are fast (~100ms) so impact is minimal.
           Consider using optimistic updates or manual state tracking if UX feedback needed. */}
@@ -328,9 +411,12 @@ function NewsletterDetailPage() {
         receivedAt={newsletter.receivedAt}
         readProgress={newsletter.readProgress}
         isRead={newsletter.isRead}
+        isHidden={newsletter.isHidden}
         onResumeClick={handleResumeClick}
         onMarkRead={handleMarkRead}
         onMarkUnread={handleMarkUnread}
+        onHide={handleHide}
+        onUnhide={handleUnhide}
         isUpdating={false}
       />
 

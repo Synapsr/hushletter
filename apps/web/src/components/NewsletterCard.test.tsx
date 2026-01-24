@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { NewsletterCard, type NewsletterData } from "./NewsletterCard"
 
 // Mock TanStack Router's Link component
@@ -9,6 +9,33 @@ vi.mock("@tanstack/react-router", () => ({
       {children}
     </a>
   ),
+}))
+
+// Mock the api export
+vi.mock("@newsletter-manager/backend", () => ({
+  api: {
+    newsletters: {
+      hideNewsletter: "hideNewsletter",
+      unhideNewsletter: "unhideNewsletter",
+    },
+  },
+}))
+
+// Track mock mutation calls for Story 3.5 tests
+let mockHideMutation: ReturnType<typeof vi.fn>
+let mockUnhideMutation: ReturnType<typeof vi.fn>
+
+// Override the useMutation mock to track calls
+vi.mock("convex/react", () => ({
+  useMutation: (mutationRef: string) => {
+    if (mutationRef === "hideNewsletter") {
+      return mockHideMutation
+    }
+    if (mutationRef === "unhideNewsletter") {
+      return mockUnhideMutation
+    }
+    return vi.fn()
+  },
 }))
 
 describe("NewsletterCard", () => {
@@ -25,6 +52,8 @@ describe("NewsletterCard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockHideMutation = vi.fn().mockResolvedValue(undefined)
+    mockUnhideMutation = vi.fn().mockResolvedValue(undefined)
   })
 
   describe("Rendering", () => {
@@ -175,6 +204,123 @@ describe("NewsletterCard", () => {
       // Should show formatted date like "Jan 14, 2026"
       const timeElement = screen.getByRole("time")
       expect(timeElement).toHaveAttribute("datetime")
+    })
+  })
+
+  // Story 3.5: Hide/Unhide functionality tests (HIGH-2 fix)
+  describe("Hide/Unhide Actions (Story 3.5)", () => {
+    it("renders hide button with correct aria-label", () => {
+      render(<NewsletterCard newsletter={mockNewsletter} />)
+
+      const hideButton = screen.getByRole("button", { name: "Hide newsletter" })
+      expect(hideButton).toBeInTheDocument()
+    })
+
+    it("renders unhide button when showUnhide prop is true", () => {
+      render(<NewsletterCard newsletter={mockNewsletter} showUnhide={true} />)
+
+      const unhideButton = screen.getByRole("button", { name: "Unhide newsletter" })
+      expect(unhideButton).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Hide newsletter" })).not.toBeInTheDocument()
+    })
+
+    it("hide button has hover-reveal styling with mobile visibility", () => {
+      render(<NewsletterCard newsletter={mockNewsletter} />)
+
+      const hideButton = screen.getByRole("button", { name: "Hide newsletter" })
+      // Visible on mobile (opacity-50), hidden on desktop until hover (md:opacity-0)
+      expect(hideButton).toHaveClass("opacity-50")
+      expect(hideButton).toHaveClass("md:opacity-0")
+      expect(hideButton).toHaveClass("group-hover:opacity-100")
+    })
+
+    it("unhide button is always visible (opacity-100)", () => {
+      render(<NewsletterCard newsletter={mockNewsletter} showUnhide={true} />)
+
+      const unhideButton = screen.getByRole("button", { name: "Unhide newsletter" })
+      expect(unhideButton).toHaveClass("opacity-100")
+    })
+
+    it("calls hideNewsletter mutation when hide button clicked", async () => {
+      render(<NewsletterCard newsletter={mockNewsletter} />)
+
+      const hideButton = screen.getByRole("button", { name: "Hide newsletter" })
+      await fireEvent.click(hideButton)
+
+      expect(mockHideMutation).toHaveBeenCalledWith({ userNewsletterId: "test-id-123" })
+    })
+
+    it("calls unhideNewsletter mutation when unhide button clicked", async () => {
+      render(<NewsletterCard newsletter={mockNewsletter} showUnhide={true} />)
+
+      const unhideButton = screen.getByRole("button", { name: "Unhide newsletter" })
+      await fireEvent.click(unhideButton)
+
+      expect(mockUnhideMutation).toHaveBeenCalledWith({ userNewsletterId: "test-id-123" })
+    })
+
+    it("stops event propagation on hide click (prevents navigation)", async () => {
+      const mockLinkClick = vi.fn()
+      render(
+        <div onClick={mockLinkClick}>
+          <NewsletterCard newsletter={mockNewsletter} />
+        </div>
+      )
+
+      const hideButton = screen.getByRole("button", { name: "Hide newsletter" })
+      await fireEvent.click(hideButton)
+
+      // Parent click handler should NOT be called due to stopPropagation
+      expect(mockLinkClick).not.toHaveBeenCalled()
+    })
+
+    it("handles mutation error gracefully", async () => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+      mockHideMutation.mockRejectedValueOnce(new Error("Network error"))
+
+      render(<NewsletterCard newsletter={mockNewsletter} />)
+
+      const hideButton = screen.getByRole("button", { name: "Hide newsletter" })
+      await fireEvent.click(hideButton)
+
+      expect(consoleError).toHaveBeenCalledWith(
+        "[NewsletterCard] Failed to hide newsletter:",
+        expect.any(Error)
+      )
+      consoleError.mockRestore()
+    })
+  })
+
+  // Story 3.4: Reading progress indicator tests
+  describe("Reading Progress (Story 3.4 AC5)", () => {
+    it("shows progress indicator for partially read newsletters", () => {
+      const partiallyRead: NewsletterData = {
+        ...mockNewsletter,
+        isRead: false,
+        readProgress: 45,
+      }
+
+      render(<NewsletterCard newsletter={partiallyRead} />)
+
+      expect(screen.getByText("45% read")).toBeInTheDocument()
+    })
+
+    it("does not show progress indicator for unread newsletters with no progress", () => {
+      render(<NewsletterCard newsletter={mockNewsletter} />)
+
+      expect(screen.queryByText(/% read/)).not.toBeInTheDocument()
+    })
+
+    it("does not show progress indicator for fully read newsletters", () => {
+      const fullyRead: NewsletterData = {
+        ...mockNewsletter,
+        isRead: true,
+        readProgress: 100,
+      }
+
+      render(<NewsletterCard newsletter={fullyRead} />)
+
+      expect(screen.queryByText(/% read/)).not.toBeInTheDocument()
     })
   })
 })

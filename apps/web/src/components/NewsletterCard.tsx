@@ -1,6 +1,11 @@
+import { useState } from "react"
 import { Link } from "@tanstack/react-router"
+import { useMutation } from "convex/react"
+import { api } from "@newsletter-manager/backend"
 import { Card, CardContent } from "~/components/ui/card"
+import { Button } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
+import { EyeOff, Eye } from "lucide-react"
 
 /** Newsletter data from listUserNewsletters query */
 export interface NewsletterData {
@@ -17,6 +22,8 @@ export interface NewsletterData {
 
 interface NewsletterCardProps {
   newsletter: NewsletterData
+  /** Story 3.5: Whether to show "Unhide" instead of "Hide" action */
+  showUnhide?: boolean
 }
 
 /**
@@ -60,9 +67,17 @@ function getSenderDisplay(newsletter: NewsletterData): string {
 /**
  * NewsletterCard - Displays a newsletter list item with sender, subject, and date
  * Story 3.4: Shows read/unread status with visual distinction and progress indicator (AC5)
+ * Story 3.5: AC1 - Hide action on hover, AC4 - Unhide action for hidden newsletters
  */
-export function NewsletterCard({ newsletter }: NewsletterCardProps) {
+export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCardProps) {
   const senderDisplay = getSenderDisplay(newsletter)
+
+  // Code review fix (HIGH-1): Track feedback state for AC1 confirmation
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  // Story 3.5: Hide/unhide mutations
+  const hideNewsletter = useMutation(api.newsletters.hideNewsletter)
+  const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter)
 
   // Story 3.4 AC5: Show progress for partially read newsletters (0 < progress < 100)
   const isPartiallyRead =
@@ -70,11 +85,43 @@ export function NewsletterCard({ newsletter }: NewsletterCardProps) {
     newsletter.readProgress > 0 &&
     newsletter.readProgress < 100
 
+  // Story 3.5: Handle hide/unhide with event stopping to prevent navigation
+  // Code review fix (HIGH-1): Added feedback for AC1 confirmation requirement
+  const handleHideClick = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    try {
+      setFeedback("Hiding...")
+      await hideNewsletter({ userNewsletterId: newsletter._id })
+      // Note: Item will disappear from list due to Convex reactivity - that's the primary feedback
+      // The "Hiding..." text provides immediate feedback before the item disappears
+    } catch (error) {
+      console.error("[NewsletterCard] Failed to hide newsletter:", error)
+      setFeedback("Failed")
+      setTimeout(() => setFeedback(null), 2000)
+    }
+  }
+
+  const handleUnhideClick = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    try {
+      setFeedback("Restoring...")
+      await unhideNewsletter({ userNewsletterId: newsletter._id })
+      setFeedback("Restored!")
+      setTimeout(() => setFeedback(null), 1500)
+    } catch (error) {
+      console.error("[NewsletterCard] Failed to unhide newsletter:", error)
+      setFeedback("Failed")
+      setTimeout(() => setFeedback(null), 2000)
+    }
+  }
+
   return (
     <Link
       to="/newsletters/$id"
       params={{ id: newsletter._id }}
-      className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+      className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl group"
     >
       <Card
         className={cn(
@@ -114,19 +161,52 @@ export function NewsletterCard({ newsletter }: NewsletterCardProps) {
                 </p>
               </div>
             </div>
-            {/* Date and progress indicator */}
-            <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              <time
-                dateTime={new Date(newsletter.receivedAt).toISOString()}
-                className="text-xs text-muted-foreground whitespace-nowrap"
-              >
-                {formatDate(newsletter.receivedAt)}
-              </time>
-              {/* Story 3.4 AC5: Progress indicator for partially read */}
-              {isPartiallyRead && (
-                <span className="text-xs text-muted-foreground">
-                  {newsletter.readProgress}% read
-                </span>
+            {/* Date, progress indicator, feedback, and hide action */}
+            <div className="flex items-start gap-2 flex-shrink-0">
+              <div className="flex flex-col items-end gap-1">
+                {/* Code review fix (HIGH-1): Show feedback when action in progress */}
+                {feedback ? (
+                  <span className="text-xs text-muted-foreground animate-pulse" role="status">
+                    {feedback}
+                  </span>
+                ) : (
+                  <time
+                    dateTime={new Date(newsletter.receivedAt).toISOString()}
+                    className="text-xs text-muted-foreground whitespace-nowrap"
+                  >
+                    {formatDate(newsletter.receivedAt)}
+                  </time>
+                )}
+                {/* Story 3.4 AC5: Progress indicator for partially read */}
+                {isPartiallyRead && !feedback && (
+                  <span className="text-xs text-muted-foreground">
+                    {newsletter.readProgress}% read
+                  </span>
+                )}
+              </div>
+              {/* Story 3.5: Hide/Unhide button - appears on hover (AC1, AC4)
+                  Code review fix (MEDIUM-3): Always visible on touch devices (md:opacity-0)
+                  since hover states don't work on mobile */}
+              {showUnhide ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-100"
+                  onClick={handleUnhideClick}
+                  aria-label="Unhide newsletter"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-50 md:opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={handleHideClick}
+                  aria-label="Hide newsletter"
+                >
+                  <EyeOff className="h-4 w-4" />
+                </Button>
               )}
             </div>
           </div>

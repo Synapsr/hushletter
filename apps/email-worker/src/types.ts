@@ -2,8 +2,12 @@
  * Environment variables for the email worker
  */
 export interface Env {
+  // Production
   CONVEX_URL: string
   INTERNAL_API_KEY: string
+  // Development (optional - for -dev@ addresses)
+  CONVEX_URL_DEV?: string
+  INTERNAL_API_KEY_DEV?: string
 }
 
 /**

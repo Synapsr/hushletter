@@ -1,20 +1,28 @@
-import type { Env, EmailPayload, ConvexEmailResponse } from "./types"
+import type { EmailPayload, ConvexEmailResponse } from "./types"
+
+/**
+ * Configuration for Convex connection
+ */
+export interface ConvexConfig {
+  url: string
+  apiKey: string
+}
 
 /**
  * Sends email data to Convex for processing
  * Uses internal API key authentication
  */
 export async function callConvex(
-  env: Env,
+  config: ConvexConfig,
   payload: EmailPayload
 ): Promise<ConvexEmailResponse> {
-  const url = `${env.CONVEX_URL}/api/email/ingest`
+  const url = `${config.url}/api/email/ingest`
 
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Internal-API-Key": env.INTERNAL_API_KEY,
+      "X-Internal-API-Key": config.apiKey,
     },
     body: JSON.stringify({
       to: payload.to,

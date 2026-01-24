@@ -8,7 +8,7 @@
  * Tokens are NEVER exposed to the client - only connection status and email are returned.
  */
 
-import { query, mutation, internalMutation, internalQuery, action } from "./_generated/server"
+import { query, mutation, internalMutation, internalQuery, action, internalAction } from "./_generated/server"
 import { v, ConvexError } from "convex/values"
 import { internal, api } from "./_generated/api"
 import { authComponent, createAuth } from "./auth"
@@ -1043,5 +1043,484 @@ export const approveSelectedSenders = mutation({
     )
 
     return { approvedCount: selectedSenders.length }
+  },
+})
+
+// ============================================================
+// Story 4.4: Historical Email Import
+// ============================================================
+
+// Type for import progress
+type ImportProgress = {
+  _id: Id<"gmailImportProgress">
+  userId: Id<"users">
+  status: "pending" | "importing" | "complete" | "error"
+  totalEmails: number
+  importedEmails: number
+  failedEmails: number
+  skippedEmails: number
+  startedAt: number
+  completedAt?: number
+  error?: string
+}
+
+/**
+ * Get current import progress for the authenticated user
+ * Story 4.4: Task 1.5 (AC #1, #5) - Progress query for real-time UI feedback
+ *
+ * @returns Import progress object or null if no import has been started
+ */
+export const getImportProgress = query({
+  args: {},
+  handler: async (ctx): Promise<ImportProgress | null> => {
+    const authUser = await authComponent.safeGetAuthUser(ctx)
+    if (!authUser) {
+      return null
+    }
+
+    // Get the app user record
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+
+    if (!user) {
+      return null
+    }
+
+    // Get the most recent import progress for this user
+    const progress = await ctx.db
+      .query("gmailImportProgress")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first()
+
+    return progress as ImportProgress | null
+  },
+})
+
+/**
+ * Internal mutation to initialize import progress
+ * Story 4.4: Task 1.2 (AC #1) - Initialize progress tracking
+ */
+export const initImportProgress = internalMutation({
+  args: {
+    userId: v.id("users"),
+    totalEmails: v.number(),
+  },
+  handler: async (ctx, args): Promise<Id<"gmailImportProgress">> => {
+    // Delete any existing import progress for this user
+    const existingProgress = await ctx.db
+      .query("gmailImportProgress")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first()
+
+    if (existingProgress) {
+      await ctx.db.delete(existingProgress._id)
+    }
+
+    // Create new import progress record
+    return await ctx.db.insert("gmailImportProgress", {
+      userId: args.userId,
+      status: "importing",
+      totalEmails: args.totalEmails,
+      importedEmails: 0,
+      failedEmails: 0,
+      skippedEmails: 0,
+      startedAt: Date.now(),
+    })
+  },
+})
+
+/**
+ * Internal mutation to update import progress
+ * Story 4.4: Task 1.3 (AC #1, #5) - Progress update for real-time UI
+ */
+export const updateImportProgress = internalMutation({
+  args: {
+    progressId: v.id("gmailImportProgress"),
+    importedEmails: v.number(),
+    failedEmails: v.number(),
+    skippedEmails: v.number(),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    await ctx.db.patch(args.progressId, {
+      importedEmails: args.importedEmails,
+      failedEmails: args.failedEmails,
+      skippedEmails: args.skippedEmails,
+    })
+  },
+})
+
+/**
+ * Internal mutation to complete import
+ * Story 4.4: Task 1.4 (AC #3, #4) - Mark import as complete or error
+ */
+export const completeImport = internalMutation({
+  args: {
+    progressId: v.id("gmailImportProgress"),
+    status: v.union(v.literal("complete"), v.literal("error")),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const updates: {
+      status: "complete" | "error"
+      completedAt: number
+      error?: string
+    } = {
+      status: args.status,
+      completedAt: Date.now(),
+    }
+
+    if (args.error) {
+      updates.error = args.error
+    }
+
+    await ctx.db.patch(args.progressId, updates)
+  },
+})
+
+/**
+ * Internal query to check for existing import progress
+ * Used to prevent concurrent imports (race condition fix)
+ */
+export const getExistingImportProgress = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("gmailImportProgress")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first()
+  },
+})
+
+/**
+ * Internal query to get approved senders for import
+ * Story 4.4: Task 5.1 - Get senders approved by user
+ */
+export const getApprovedSenders = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const senders = await ctx.db
+      .query("detectedSenders")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect()
+
+    // Return only approved senders
+    return senders.filter((s) => s.isApproved === true)
+  },
+})
+
+/**
+ * Start historical email import action
+ * Story 4.4: Task 5 (AC #1, #2, #4, #5, #6)
+ *
+ * This action:
+ * 1. Gets approved senders from detectedSenders
+ * 2. Fetches all message IDs for each sender
+ * 3. Initializes import progress
+ * 4. Processes emails in batches with progress updates
+ * 5. Handles errors per-email (don't fail entire import)
+ */
+export const startHistoricalImport = action({
+  args: {},
+  handler: async (ctx): Promise<{ success: boolean; error?: string }> => {
+    // Track progressId outside try block so we can update it on error
+    let progressId: Id<"gmailImportProgress"> | null = null
+
+    try {
+      // Get authenticated user
+      const authUser = await ctx.runQuery(api.auth.getCurrentUser)
+      if (!authUser) {
+        return { success: false, error: "Please sign in to import emails." }
+      }
+
+      // Get the app user record by authId
+      const user = await ctx.runQuery(internal.gmail.getUserByAuthId, {
+        authId: authUser.id,
+      })
+
+      if (!user) {
+        return { success: false, error: "User account not found." }
+      }
+
+      // Check for existing import in progress to prevent race conditions
+      const existingProgress = await ctx.runQuery(internal.gmail.getExistingImportProgress, {
+        userId: user._id,
+      })
+      if (existingProgress?.status === "importing") {
+        return { success: false, error: "An import is already in progress. Please wait for it to complete." }
+      }
+
+      // Get approved senders
+      const approvedSenders = await ctx.runQuery(internal.gmail.getApprovedSenders, {
+        userId: user._id,
+      })
+
+      if (approvedSenders.length === 0) {
+        return { success: false, error: "No approved senders. Please scan and approve senders first." }
+      }
+
+      console.log(`[gmail.startHistoricalImport] Starting import for ${approvedSenders.length} senders`)
+
+      // Estimate total emails from sender email counts
+      const totalEstimate = approvedSenders.reduce((sum, s) => sum + s.emailCount, 0)
+
+      // Initialize import progress
+      progressId = await ctx.runMutation(internal.gmail.initImportProgress, {
+        userId: user._id,
+        totalEmails: totalEstimate,
+      })
+
+      // Process each sender's emails
+      let importedCount = 0
+      let failedCount = 0
+      let skippedCount = 0
+
+      const BATCH_SIZE = 10
+
+      for (const sender of approvedSenders) {
+        console.log(`[gmail.startHistoricalImport] Processing sender: ${sender.email}`)
+
+        // Fetch all message IDs for this sender (paginated)
+        let allMessageIds: string[] = []
+        let pageToken: string | undefined
+
+        do {
+          const page = await ctx.runAction(internal.gmailApi.listMessagesFromSender, {
+            senderEmail: sender.email,
+            maxResults: 100,
+            pageToken,
+          })
+          allMessageIds = allMessageIds.concat(page.messages.map((m) => m.id))
+          pageToken = page.nextPageToken
+        } while (pageToken)
+
+        console.log(`[gmail.startHistoricalImport] Found ${allMessageIds.length} messages from ${sender.email}`)
+
+        // Process in batches
+        for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {
+          const batchIds = allMessageIds.slice(i, i + BATCH_SIZE)
+
+          // Fetch full content for batch
+          const fullMessages = await ctx.runAction(internal.gmailApi.getFullMessageContents, {
+            messageIds: batchIds,
+          })
+
+          // Process each message
+          for (const message of fullMessages) {
+            try {
+              const result = await ctx.runAction(internal.gmail.processAndStoreImportedEmail, {
+                userId: user._id,
+                senderEmail: sender.email,
+                senderName: sender.name,
+                message,
+              })
+
+              if (result.skipped) {
+                skippedCount++
+              } else {
+                importedCount++
+              }
+            } catch (error) {
+              failedCount++
+              console.error("[gmail.startHistoricalImport] Failed to import email:", {
+                messageId: message.id,
+                error: error instanceof Error ? error.message : "Unknown error",
+              })
+              // Continue processing other emails (AC#4)
+            }
+          }
+
+          // Update progress after each batch (AC#1, #5)
+          await ctx.runMutation(internal.gmail.updateImportProgress, {
+            progressId,
+            importedEmails: importedCount,
+            failedEmails: failedCount,
+            skippedEmails: skippedCount,
+          })
+        }
+      }
+
+      // Mark import complete (AC#3)
+      await ctx.runMutation(internal.gmail.completeImport, {
+        progressId,
+        status: "complete",
+      })
+
+      console.log(`[gmail.startHistoricalImport] Import complete: ${importedCount} imported, ${skippedCount} skipped, ${failedCount} failed`)
+
+      return { success: true }
+    } catch (error) {
+      console.error("[gmail.startHistoricalImport] Import failed:", error)
+
+      const errorMessage =
+        error instanceof ConvexError
+          ? error.data.message
+          : error instanceof Error
+            ? error.message
+            : "An unexpected error occurred"
+
+      // Update import progress to error status if we have a progress record
+      if (progressId) {
+        try {
+          await ctx.runMutation(internal.gmail.completeImport, {
+            progressId,
+            status: "error",
+            error: errorMessage,
+          })
+        } catch (updateError) {
+          // Log but don't throw - we want to return the original error
+          console.error("[gmail.startHistoricalImport] Failed to update progress to error:", updateError)
+        }
+      }
+
+      return { success: false, error: errorMessage }
+    }
+  },
+})
+
+/**
+ * Process and store a single imported email (action)
+ * Story 4.4: Task 3.1 (AC #2, #6)
+ *
+ * This is an ACTION (not mutation) because it needs to:
+ * - Call R2 storage via the existing storeNewsletterContent action
+ * - Run queries and mutations in sequence
+ *
+ * Flow:
+ * 1. Extract email content (subject, sender, date, HTML body)
+ * 2. Check for duplicates (by date+subject and content hash)
+ * 3. Get or create sender and userSenderSettings
+ * 4. Store content via storeNewsletterContent action (handles R2 + dedup)
+ */
+export const processAndStoreImportedEmail = internalAction({
+  args: {
+    userId: v.id("users"),
+    senderEmail: v.string(),
+    senderName: v.optional(v.string()),
+    message: v.any(), // GmailFullMessage type - validated at runtime
+  },
+  handler: async (ctx, args): Promise<{ skipped: boolean; userNewsletterId?: Id<"userNewsletters"> }> => {
+    // Import helper functions
+    const { extractHtmlBody, extractHeadersFromFullMessage } = await import("./gmailApi")
+
+    const message = args.message as import("./gmailApi").GmailFullMessage
+
+    // Step 1: Extract headers and content
+    const headers = extractHeadersFromFullMessage(message)
+    const htmlContent = extractHtmlBody(message)
+
+    // Step 2: Check for duplicates via mutation (needs DB access)
+    const duplicateCheck = await ctx.runMutation(internal.gmail.checkEmailDuplicate, {
+      userId: args.userId,
+      senderEmail: args.senderEmail,
+      receivedAt: headers.date,
+      subject: headers.subject,
+    })
+
+    if (duplicateCheck.isDuplicate) {
+      console.log(`[gmail.processAndStoreImportedEmail] Skipping duplicate: ${headers.subject}`)
+      return { skipped: true }
+    }
+
+    // Step 3: Get or create sender via existing mutation
+    const sender = await ctx.runMutation(internal.senders.getOrCreateSender, {
+      email: args.senderEmail,
+      name: args.senderName,
+    })
+
+    // Step 4: Get or create userSenderSettings
+    const userSettings = await ctx.runMutation(internal.senders.getOrCreateUserSenderSettings, {
+      userId: args.userId,
+      senderId: sender._id,
+    })
+
+    // Step 5: Store content using the existing storeNewsletterContent action
+    // This properly handles R2 upload, deduplication, and record creation
+    const result = await ctx.runAction(internal.newsletters.storeNewsletterContent, {
+      userId: args.userId,
+      senderId: sender._id,
+      subject: headers.subject,
+      senderEmail: args.senderEmail,
+      senderName: args.senderName,
+      receivedAt: headers.date,
+      htmlContent: htmlContent || undefined,
+      textContent: !htmlContent ? `<p>${headers.subject}</p>` : undefined,
+      isPrivate: userSettings.isPrivate,
+    })
+
+    // Step 6: Mark imported newsletter as read (they're historical)
+    await ctx.runMutation(internal.gmail.markImportedAsRead, {
+      userNewsletterId: result.userNewsletterId,
+    })
+
+    return { skipped: false, userNewsletterId: result.userNewsletterId }
+  },
+})
+
+/**
+ * Check if an email already exists for this user (duplicate detection - Phase 1)
+ * Story 4.4: AC#6 - Duplicate detection
+ *
+ * TWO-PHASE DEDUPLICATION APPROACH:
+ * Phase 1 (this function): Fast check using date+subject match
+ *   - Catches obvious exact duplicates before expensive content fetching
+ *   - Low cost: only queries existing userNewsletters
+ *
+ * Phase 2 (storeNewsletterContent): Content hash check
+ *   - Catches content-identical emails with different metadata
+ *   - Higher cost: requires content normalization and hashing
+ *   - Runs only if Phase 1 passes (not already duplicate)
+ *
+ * This two-phase approach optimizes performance by failing fast on
+ * obvious duplicates while still catching content-level duplicates.
+ */
+export const checkEmailDuplicate = internalMutation({
+  args: {
+    userId: v.id("users"),
+    senderEmail: v.string(),
+    receivedAt: v.number(),
+    subject: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ isDuplicate: boolean; senderId?: Id<"senders"> }> => {
+    // First get sender ID if exists
+    const sender = await ctx.db
+      .query("senders")
+      .withIndex("by_email", (q) => q.eq("email", args.senderEmail))
+      .first()
+
+    if (!sender) {
+      // No sender = no existing newsletters = not a duplicate
+      return { isDuplicate: false }
+    }
+
+    // Check if user already has a newsletter from this sender with same date+subject
+    const existingNewsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_senderId", (q) =>
+        q.eq("userId", args.userId).eq("senderId", sender._id)
+      )
+      .collect()
+
+    // Check for duplicate by exact date and subject match
+    const isDuplicate = existingNewsletters.some(
+      (n) => n.receivedAt === args.receivedAt && n.subject === args.subject
+    )
+
+    return { isDuplicate, senderId: sender._id }
+  },
+})
+
+/**
+ * Mark an imported newsletter as read
+ * Story 4.4: Historical imports are pre-read
+ */
+export const markImportedAsRead = internalMutation({
+  args: { userNewsletterId: v.id("userNewsletters") },
+  handler: async (ctx, args): Promise<void> => {
+    await ctx.db.patch(args.userNewsletterId, {
+      isRead: true,
+      readProgress: 100,
+    })
   },
 })

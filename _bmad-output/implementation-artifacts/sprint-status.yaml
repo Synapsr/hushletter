@@ -1,5 +1,5 @@
 # generated: 2026-01-22
-# updated: 2026-01-24 (Story 4.3 code review complete)
+# updated: 2026-01-24 (Story 4.4 done)
 # project: newsletter manager
 # project_key: newsletter-manager
 # tracking_system: file-system
@@ -82,8 +82,8 @@ development_status:
   4-1-gmail-oauth-connection: done  # Code review #2 complete - 6 fixes (2 HIGH, 4 MEDIUM)
   4-2-newsletter-sender-scanning: done  # Code review complete - 7 fixes (4 HIGH, 3 MEDIUM)
   4-3-sender-review-approval: done  # Code review complete - 9 fixes (Base UI migration, optimistic updates, accessibility)
-  4-4-historical-email-import: backlog
-  4-5-gmail-disconnect: backlog
+  4-4-historical-email-import: done  # Code review complete - 93 tests added, rate limit retry, fixes applied
+  4-5-gmail-disconnect: ready-for-dev  # Story file created with comprehensive context
   epic-4-retrospective: optional
 
   epic-5: backlog

@@ -18,7 +18,7 @@
  */
 
 import { useState, useCallback, useMemo } from "react"
-import { useQuery, useMutation } from "convex/react"
+import { useQuery, useMutation, useAction } from "convex/react"
 import { api } from "@newsletter-manager/backend"
 import {
   Card,
@@ -140,7 +140,7 @@ function SenderRow({
         >
           <Checkbox
             checked={isSelected}
-            onCheckedChange={(checked) => onSelectionChange(checked)}
+            onCheckedChange={(checked) => onSelectionChange(checked === true)}
             aria-label={`Select ${sender.name || sender.email} for import`}
           />
         </div>
@@ -334,15 +334,20 @@ function ConfirmImportView({
 }
 
 /**
- * Success view after approval
+ * Success view after approval - starts import automatically
  * Story 4.3: Task 5.4 - Transition to import progress view
+ * Story 4.4: Task 7.2 - Start import after approval
  */
 function ApprovalSuccessView({
   approvedCount,
-  onContinue,
+  onStartImport,
+  isStartingImport,
+  importError,
 }: {
   approvedCount: number
-  onContinue: () => void
+  onStartImport: () => void
+  isStartingImport: boolean
+  importError: string | null
 }) {
   return (
     <div className="space-y-4">
@@ -355,19 +360,40 @@ function ApprovalSuccessView({
             Senders Approved!
           </p>
           <p className="text-sm text-green-600 dark:text-green-400">
-            {approvedCount} sender{approvedCount !== 1 ? "s" : ""} approved for
+            {approvedCount} sender{approvedCount !== 1 ? "s" : ""} ready for
             import
           </p>
         </div>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Your selected senders have been approved. Historical email import will
-        be available in the next update (Story 4.4).
+        Click the button below to start importing historical emails from your
+        approved senders. This may take a few minutes depending on the number
+        of emails.
       </p>
 
-      <Button onClick={onContinue} className="w-full">
-        Done
+      {importError && (
+        <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-900">
+          <p className="text-sm text-red-700 dark:text-red-300">{importError}</p>
+        </div>
+      )}
+
+      <Button
+        onClick={onStartImport}
+        disabled={isStartingImport}
+        className="w-full"
+      >
+        {isStartingImport ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Starting Import...
+          </>
+        ) : (
+          <>
+            <Mail className="mr-2 h-4 w-4" />
+            Start Import
+          </>
+        )}
       </Button>
     </div>
   )
@@ -376,21 +402,24 @@ function ApprovalSuccessView({
 /**
  * SenderReview - Main component for reviewing and selecting senders
  * Story 4.3: All Tasks and ACs
+ * Story 4.4: Task 7.1, 7.2 - Integrate import flow after approval
  *
  * Uses optimistic updates for instant selection feedback without lag
  */
 export function SenderReview({
   onBack,
-  onComplete,
+  onStartImport,
 }: {
   onBack?: () => void
-  onComplete?: () => void
+  onStartImport?: () => void
 }) {
   // State for view management
   const [view, setView] = useState<"review" | "confirm" | "success">("review")
   const [approvedCount, setApprovedCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [isApproving, setIsApproving] = useState(false)
+  const [isStartingImport, setIsStartingImport] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
 
   // Optimistic updates map for instant feedback
   // Key: senderId, Value: optimistic isSelected state
@@ -409,6 +438,9 @@ export function SenderReview({
   const selectAll = useMutation(api.gmail.selectAllSenders)
   const deselectAll = useMutation(api.gmail.deselectAllSenders)
   const approveSelected = useMutation(api.gmail.approveSelectedSenders)
+
+  // Action for starting import (Story 4.4)
+  const startHistoricalImport = useAction(api.gmail.startHistoricalImport)
 
   // Calculate optimistic counts
   const { selectedCount, totalCount } = useMemo(() => {
@@ -535,6 +567,26 @@ export function SenderReview({
     }
   }, [approveSelected])
 
+  // Handle start import - Story 4.4: Task 7.2
+  const handleStartImport = useCallback(async () => {
+    setIsStartingImport(true)
+    setImportError(null)
+    try {
+      const result = await startHistoricalImport()
+      if (result.success) {
+        // Notify parent to show import progress
+        onStartImport?.()
+      } else {
+        setImportError(result.error || "Failed to start import.")
+      }
+    } catch (err) {
+      console.error("[SenderReview] Failed to start import:", err)
+      setImportError("Failed to start import. Please try again.")
+    } finally {
+      setIsStartingImport(false)
+    }
+  }, [startHistoricalImport, onStartImport])
+
   // Show loading skeleton while fetching
   if (detectedSenders === undefined) {
     return <LoadingSkeleton />
@@ -636,10 +688,9 @@ export function SenderReview({
         {view === "success" && (
           <ApprovalSuccessView
             approvedCount={approvedCount}
-            onContinue={() => {
-              onComplete?.()
-              setView("review")
-            }}
+            onStartImport={handleStartImport}
+            isStartingImport={isStartingImport}
+            importError={importError}
           />
         )}
       </CardContent>

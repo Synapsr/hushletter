@@ -130,4 +130,33 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_email", ["userId", "email"])
     .index("by_userId_isSelected", ["userId", "isSelected"]), // Story 4.3: For efficient selected count queries
+
+  // ============================================================
+  // Story 4.4: Historical Email Import Progress
+  // ============================================================
+
+  // Track ongoing Gmail import progress per user
+  // Story 4.4: Task 1.1 - gmailImportProgress table
+  //
+  // Status values:
+  // - "pending": Reserved for future queue-based imports (not currently used)
+  // - "importing": Import actively in progress
+  // - "complete": Import finished successfully
+  // - "error": Import failed with error
+  gmailImportProgress: defineTable({
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("pending"), // Reserved for future queue-based imports
+      v.literal("importing"),
+      v.literal("complete"),
+      v.literal("error")
+    ),
+    totalEmails: v.number(),
+    importedEmails: v.number(),
+    failedEmails: v.number(),
+    skippedEmails: v.number(), // Duplicates
+    startedAt: v.number(), // Unix timestamp ms
+    completedAt: v.optional(v.number()), // Unix timestamp ms
+    error: v.optional(v.string()),
+  }).index("by_userId", ["userId"]),
 })

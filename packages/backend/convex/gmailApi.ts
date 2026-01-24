@@ -51,6 +51,31 @@ export type GmailMessageDetail = {
   }
 }
 
+// Story 4.4: Full message types for email import
+export type GmailMessagePart = {
+  mimeType: string
+  body?: {
+    size: number
+    data?: string // Base64url encoded content
+  }
+  parts?: GmailMessagePart[] // Nested parts for multipart messages
+}
+
+export type GmailFullMessage = {
+  id: string
+  threadId: string
+  internalDate: string // Unix timestamp in ms as string
+  payload: {
+    mimeType: string
+    headers?: GmailMessageHeader[]
+    body?: {
+      size: number
+      data?: string
+    }
+    parts?: GmailMessagePart[]
+  }
+}
+
 /**
  * Internal query to get Google access token from Better Auth
  * Story 4.2: Task 1.2 - Retrieve token from Better Auth
@@ -88,6 +113,15 @@ export const getAccessToken = internalQuery({
       (account) => account.providerId === "google"
     )
 
+    console.log("[gmailApi.getAccessToken] Google account found:", {
+      found: !!googleAccount,
+      providerId: googleAccount?.providerId,
+      accountId: googleAccount?.accountId,
+      hasAccessToken: !!googleAccount?.accessToken,
+      hasRefreshToken: !!googleAccount?.refreshToken,
+      expiresAt: googleAccount?.accessTokenExpiresAt,
+    })
+
     if (!googleAccount) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -97,6 +131,8 @@ export const getAccessToken = internalQuery({
 
     // Use Better Auth's getAccessToken API - handles token refresh automatically
     try {
+      console.log("[gmailApi.getAccessToken] Requesting token from Better Auth...")
+
       const tokenResult = await auth.api.getAccessToken({
         body: {
           providerId: "google",
@@ -104,17 +140,26 @@ export const getAccessToken = internalQuery({
         headers,
       })
 
+      console.log("[gmailApi.getAccessToken] Token result:", {
+        hasAccessToken: !!tokenResult?.accessToken,
+        expiresAt: tokenResult?.accessTokenExpiresAt,
+      })
+
       if (!tokenResult?.accessToken) {
+        console.error("[gmailApi.getAccessToken] No access token in result:", tokenResult)
         throw new ConvexError({
           code: "TOKEN_UNAVAILABLE",
           message: "Gmail access token not available. Please disconnect and reconnect your Gmail account.",
         })
       }
 
-      // Better Auth returns accessTokenExpiresAt as Date, convert to timestamp
-      const expiresAt = tokenResult.accessTokenExpiresAt
-        ? tokenResult.accessTokenExpiresAt.getTime()
-        : null
+      // Better Auth may return accessTokenExpiresAt as Date or number depending on version
+      let expiresAt: number | null = null
+      if (tokenResult.accessTokenExpiresAt) {
+        expiresAt = typeof tokenResult.accessTokenExpiresAt === 'number'
+          ? tokenResult.accessTokenExpiresAt
+          : tokenResult.accessTokenExpiresAt.getTime()
+      }
 
       return {
         accessToken: tokenResult.accessToken,
@@ -122,7 +167,17 @@ export const getAccessToken = internalQuery({
       }
     } catch (error) {
       // If token refresh fails, user needs to reconnect
-      console.error("[gmailApi.getAccessToken] Token retrieval failed:", error)
+      // Log detailed error info to help diagnose the issue
+      const errorDetails = error instanceof Error
+        ? { name: error.name, message: error.message, stack: error.stack?.substring(0, 500) }
+        : error
+      console.error("[gmailApi.getAccessToken] Token retrieval failed:", JSON.stringify(errorDetails, null, 2))
+
+      // Check if it's a specific Better Auth error
+      if (error && typeof error === 'object' && 'code' in error) {
+        console.error("[gmailApi.getAccessToken] Error code:", (error as { code: string }).code)
+      }
+
       throw new ConvexError({
         code: "TOKEN_UNAVAILABLE",
         message: "Gmail access token expired. Please disconnect and reconnect your Gmail account.",
@@ -137,6 +192,63 @@ export const getAccessToken = internalQuery({
 const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
 
 /**
+ * Retry configuration for rate-limited requests
+ */
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000, // Start with 1 second
+  maxDelayMs: 30000, // Max 30 seconds
+}
+
+/**
+ * Sleep helper for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Execute a function with exponential backoff on rate limit errors
+ */
+async function withRateLimitRetry<T>(
+  fn: () => Promise<T>,
+  context: string
+): Promise<T> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      // Check if it's a rate limit error
+      if (
+        error instanceof ConvexError &&
+        error.data.code === "RATE_LIMITED"
+      ) {
+        if (attempt < RETRY_CONFIG.maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s, etc.
+          const delay = Math.min(
+            RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt),
+            RETRY_CONFIG.maxDelayMs
+          )
+          console.log(
+            `[gmailApi.${context}] Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries})`
+          )
+          await sleep(delay)
+          lastError = error instanceof Error ? error : new Error(String(error))
+          continue
+        }
+      }
+      // Not a rate limit error or max retries exceeded
+      throw error
+    }
+  }
+
+  // Should not reach here, but TypeScript needs this
+  throw lastError || new Error("Max retries exceeded")
+}
+
+/**
  * Gmail API error codes
  */
 export type GmailApiErrorCode =
@@ -149,6 +261,7 @@ export type GmailApiErrorCode =
 /**
  * List messages from Gmail with optional search query
  * Story 4.2: Task 1.4 - Gmail API wrapper with error handling
+ * Includes automatic retry with exponential backoff for rate limits
  *
  * @param accessToken - Google OAuth access token
  * @param options - Search options
@@ -162,26 +275,28 @@ async function listGmailMessages(
     query?: string
   }
 ): Promise<GmailMessageList> {
-  const url = new URL(`${GMAIL_API_BASE}/messages`)
-  url.searchParams.set("maxResults", String(options.maxResults ?? 100))
+  return withRateLimitRetry(async () => {
+    const url = new URL(`${GMAIL_API_BASE}/messages`)
+    url.searchParams.set("maxResults", String(options.maxResults ?? 100))
 
-  if (options.pageToken) {
-    url.searchParams.set("pageToken", options.pageToken)
-  }
+    if (options.pageToken) {
+      url.searchParams.set("pageToken", options.pageToken)
+    }
 
-  if (options.query) {
-    url.searchParams.set("q", options.query)
-  }
+    if (options.query) {
+      url.searchParams.set("q", options.query)
+    }
 
-  const response = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
 
-  if (!response.ok) {
-    throw await handleGmailApiError(response)
-  }
+    if (!response.ok) {
+      throw await handleGmailApiError(response)
+    }
 
-  return response.json()
+    return response.json()
+  }, "listGmailMessages")
 }
 
 /**
@@ -227,6 +342,7 @@ async function getGmailMessage(
 /**
  * Get multiple messages in a batch request
  * More efficient than individual requests for large scans
+ * Includes automatic retry with exponential backoff for rate limits
  *
  * @param accessToken - Google OAuth access token
  * @param messageIds - Array of message IDs
@@ -250,19 +366,25 @@ async function batchGetGmailMessages(
 
   for (let i = 0; i < messageIds.length; i += BATCH_SIZE) {
     const batch = messageIds.slice(i, i + BATCH_SIZE)
-    const batchResults = await Promise.all(
-      batch.map((id, idx) => {
-        // Log the very first message to see the API response structure
-        const shouldLog = isFirstMessage && idx === 0
-        if (shouldLog) isFirstMessage = false
-        return getGmailMessage(accessToken, id, shouldLog)
-      })
+
+    // Wrap batch processing with rate limit retry
+    const batchResults = await withRateLimitRetry(
+      () =>
+        Promise.all(
+          batch.map((id, idx) => {
+            // Log the very first message to see the API response structure
+            const shouldLog = isFirstMessage && idx === 0
+            if (shouldLog) isFirstMessage = false
+            return getGmailMessage(accessToken, id, shouldLog)
+          })
+        ),
+      "batchGetGmailMessages"
     )
     results.push(...batchResults)
 
     // Add delay between batches (except after last batch)
     if (i + BATCH_SIZE < messageIds.length) {
-      await new Promise((resolve) => setTimeout(resolve, DELAY_MS))
+      await sleep(DELAY_MS)
     }
   }
 
@@ -435,22 +557,44 @@ export const checkGmailAccess = action({
 
       // Try a simple API call to verify token works
       const url = new URL(`${GMAIL_API_BASE}/profile`)
+      console.log("[gmailApi.checkGmailAccess] Testing token with Gmail profile API...")
+
       const response = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
 
+      console.log("[gmailApi.checkGmailAccess] Gmail API response status:", response.status)
+
       if (!response.ok) {
+        // Get the error body for better diagnostics
+        let errorBody = ""
+        try {
+          errorBody = await response.text()
+          console.error("[gmailApi.checkGmailAccess] Gmail API error body:", errorBody)
+        } catch {
+          console.error("[gmailApi.checkGmailAccess] Could not read error body")
+        }
+
         if (response.status === 401) {
           return {
             valid: false,
             error: "Gmail token expired. Please reconnect your Gmail account.",
           }
         }
+        if (response.status === 403) {
+          return {
+            valid: false,
+            error: "Gmail access denied. Please ensure you granted the required permissions when connecting.",
+          }
+        }
         return {
           valid: false,
-          error: "Unable to access Gmail. Please check your permissions.",
+          error: `Unable to access Gmail (${response.status}). Please check your permissions.`,
         }
       }
+
+      const profile = await response.json()
+      console.log("[gmailApi.checkGmailAccess] Gmail profile retrieved:", profile.emailAddress)
 
       return { valid: true }
     } catch (error) {
@@ -458,6 +602,261 @@ export const checkGmailAccess = action({
         return { valid: false, error: error.data.message }
       }
       return { valid: false, error: "Failed to check Gmail access." }
+    }
+  },
+})
+
+// ============================================================
+// Story 4.4: Full Message Fetching for Email Import
+// ============================================================
+
+/**
+ * Decode base64url encoded string (Gmail uses URL-safe base64)
+ * Story 4.4: Task 2.4 - Handle different Gmail message formats
+ *
+ * @param data - Base64url encoded string
+ * @returns Decoded UTF-8 string
+ */
+function decodeBase64Url(data: string): string {
+  // Gmail uses base64url encoding (- and _ instead of + and /)
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/")
+  // Add padding if needed
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4)
+  // Decode
+  const binary = atob(padded)
+  // Convert to UTF-8 string
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return new TextDecoder("utf-8").decode(bytes)
+}
+
+/**
+ * Find a message part by MIME type (recursive)
+ * Story 4.4: Task 2.2 - Extract HTML body from Gmail message
+ *
+ * @param parts - Array of message parts to search
+ * @param mimeType - MIME type to find (e.g., "text/html")
+ * @returns Matching part or null
+ */
+function findPartByMimeType(
+  parts: GmailMessagePart[],
+  mimeType: string
+): GmailMessagePart | null {
+  for (const part of parts) {
+    if (part.mimeType === mimeType) {
+      return part
+    }
+    // Recurse into nested parts (multipart/alternative, multipart/mixed)
+    if (part.parts) {
+      const found = findPartByMimeType(part.parts, mimeType)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/**
+ * Escape HTML special characters for safe display
+ * Used when converting plain text to HTML
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+/**
+ * Extract HTML body from Gmail message
+ * Story 4.4: Task 2.2 - Handle multipart/alternative, text/html, text/plain
+ *
+ * Priority: text/html > text/plain (converted to HTML)
+ *
+ * @param message - Full Gmail message
+ * @returns HTML content or null if no body found
+ */
+export function extractHtmlBody(message: GmailFullMessage): string | null {
+  const payload = message.payload
+
+  // Direct body (simple messages with single content type)
+  if (payload.body?.data && payload.mimeType === "text/html") {
+    return decodeBase64Url(payload.body.data)
+  }
+
+  // Direct body - plain text
+  if (payload.body?.data && payload.mimeType === "text/plain") {
+    const text = decodeBase64Url(payload.body.data)
+    return `<pre>${escapeHtml(text)}</pre>`
+  }
+
+  // Multipart message - search for text/html part
+  if (payload.parts) {
+    const htmlPart = findPartByMimeType(payload.parts, "text/html")
+    if (htmlPart?.body?.data) {
+      return decodeBase64Url(htmlPart.body.data)
+    }
+
+    // Fallback to text/plain if no HTML
+    const textPart = findPartByMimeType(payload.parts, "text/plain")
+    if (textPart?.body?.data) {
+      const text = decodeBase64Url(textPart.body.data)
+      return `<pre>${escapeHtml(text)}</pre>`
+    }
+  }
+
+  return null
+}
+
+/**
+ * Extract headers from full Gmail message
+ * Story 4.4: Task 2.1 - Extract email metadata
+ */
+export function extractHeadersFromFullMessage(message: GmailFullMessage): {
+  from: string
+  subject: string
+  date: number
+} {
+  const headers = message.payload.headers || []
+  let from = ""
+  let subject = ""
+
+  for (const header of headers) {
+    const name = header.name.toLowerCase()
+    if (name === "from") from = header.value
+    if (name === "subject") subject = header.value
+  }
+
+  // Use internalDate (Unix timestamp in ms) for date
+  const date = parseInt(message.internalDate, 10)
+
+  return { from, subject, date }
+}
+
+/**
+ * Get full Gmail message with body content
+ * Story 4.4: Task 2.1 - Fetch full email content
+ *
+ * @param accessToken - Google OAuth access token
+ * @param messageId - Gmail message ID
+ * @returns Full message with body
+ */
+async function getFullGmailMessage(
+  accessToken: string,
+  messageId: string
+): Promise<GmailFullMessage> {
+  const url = new URL(`${GMAIL_API_BASE}/messages/${messageId}`)
+  url.searchParams.set("format", "full") // Get full content including body
+
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+
+  if (!response.ok) {
+    throw await handleGmailApiError(response)
+  }
+
+  return response.json() as Promise<GmailFullMessage>
+}
+
+/**
+ * Batch get full Gmail messages with rate limiting
+ * Story 4.4: Task 2.3 - Batch content fetching with rate limiting
+ * Includes automatic retry with exponential backoff for rate limits
+ *
+ * @param accessToken - Google OAuth access token
+ * @param messageIds - Array of message IDs
+ * @returns Array of full messages
+ */
+async function batchGetFullGmailMessages(
+  accessToken: string,
+  messageIds: string[]
+): Promise<GmailFullMessage[]> {
+  const results: GmailFullMessage[] = []
+
+  // Process in batches of 10 to respect rate limits
+  // (250 quota units/sec, 5 units per request = 50 requests/sec max)
+  const BATCH_SIZE = 10
+  const DELAY_MS = 250 // 4 batches per second = 40 requests/sec (safe margin)
+
+  for (let i = 0; i < messageIds.length; i += BATCH_SIZE) {
+    const batch = messageIds.slice(i, i + BATCH_SIZE)
+
+    // Wrap batch processing with rate limit retry
+    const batchResults = await withRateLimitRetry(
+      () => Promise.all(batch.map((id) => getFullGmailMessage(accessToken, id))),
+      "batchGetFullGmailMessages"
+    )
+    results.push(...batchResults)
+
+    // Add delay between batches (except after last batch)
+    if (i + BATCH_SIZE < messageIds.length) {
+      await sleep(DELAY_MS)
+    }
+  }
+
+  return results
+}
+
+/**
+ * Internal action to get full message content for import
+ * Story 4.4: Task 2.1 - Fetch full email content
+ *
+ * @param messageIds - Array of Gmail message IDs
+ * @returns Array of full messages with body content
+ */
+export const getFullMessageContents = internalAction({
+  args: {
+    messageIds: v.array(v.string()),
+  },
+  handler: async (ctx, args): Promise<GmailFullMessage[]> => {
+    // Get access token from Better Auth
+    const { accessToken } = await ctx.runQuery(internal.gmailApi.getAccessToken)
+
+    // Fetch full messages in batches with rate limiting
+    const results = await batchGetFullGmailMessages(accessToken, args.messageIds)
+
+    return results
+  },
+})
+
+/**
+ * List messages from a specific sender
+ * Story 4.4: Task 5.2 - Paginated email fetching per sender
+ *
+ * @param senderEmail - Email address of the sender
+ * @param maxResults - Maximum results per page
+ * @param pageToken - Pagination token
+ * @returns List of message IDs from this sender
+ */
+export const listMessagesFromSender = internalAction({
+  args: {
+    senderEmail: v.string(),
+    maxResults: v.optional(v.number()),
+    pageToken: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ messages: GmailMessage[]; nextPageToken?: string }> => {
+    // Get access token from Better Auth
+    const { accessToken } = await ctx.runQuery(internal.gmailApi.getAccessToken)
+
+    // Search for messages from this specific sender
+    const query = `from:${args.senderEmail}`
+
+    const result = await listGmailMessages(accessToken, {
+      maxResults: args.maxResults ?? 100,
+      pageToken: args.pageToken,
+      query,
+    })
+
+    return {
+      messages: result.messages ?? [],
+      nextPageToken: result.nextPageToken,
     }
   },
 })

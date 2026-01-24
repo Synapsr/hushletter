@@ -28,6 +28,7 @@ import {
   Inbox,
 } from "lucide-react"
 import { SenderReview } from "./SenderReview"
+import { ImportProgress } from "./ImportProgress"
 
 /**
  * Types for scan progress and detected senders
@@ -390,13 +391,15 @@ function CompleteState({
 /**
  * View state type for the scanner component
  * Story 4.3: Added "review" view for sender review step
+ * Story 4.4: Added "importing" view for import progress
  */
-type ScannerView = "scanner" | "review"
+type ScannerView = "scanner" | "review" | "importing"
 
 /**
  * SenderScanner - Main component for scanning Gmail for newsletters
  * Story 4.2: Task 4 (All ACs)
  * Story 4.3: Added review view integration
+ * Story 4.4: Added importing view integration
  */
 export function SenderScanner() {
   // Query scan progress (reactive - updates in real-time)
@@ -410,6 +413,12 @@ export function SenderScanner() {
     | DetectedSender[]
     | undefined
 
+  // Story 4.4: Query import progress to check for active imports
+  const importProgress = useQuery(api.gmail.getImportProgress) as
+    | { status: string }
+    | null
+    | undefined
+
   // Mutation to start scan
   const startScan = useAction(api.gmail.startScan)
 
@@ -418,7 +427,15 @@ export function SenderScanner() {
   const [isStarting, setIsStarting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   // Story 4.3: View state for scanner vs review
+  // Story 4.4: Added "importing" view
   const [currentView, setCurrentView] = useState<ScannerView>("scanner")
+
+  // Story 4.4: Check for active imports on mount and show import view if needed
+  useEffect(() => {
+    if (importProgress?.status === "importing") {
+      setCurrentView("importing")
+    }
+  }, [importProgress?.status])
 
   // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true)
@@ -454,12 +471,21 @@ export function SenderScanner() {
     }
   }
 
+  // Story 4.4: If in importing view, show the ImportProgress component
+  if (currentView === "importing") {
+    return (
+      <ImportProgress
+        onBack={() => setCurrentView("scanner")}
+      />
+    )
+  }
+
   // Story 4.3: If in review view, show the SenderReview component
   if (currentView === "review") {
     return (
       <SenderReview
         onBack={() => setCurrentView("scanner")}
-        onComplete={() => setCurrentView("scanner")}
+        onStartImport={() => setCurrentView("importing")}
       />
     )
   }

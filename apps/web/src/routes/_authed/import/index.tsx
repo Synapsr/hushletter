@@ -1,6 +1,7 @@
 /**
  * Import Page - Gmail Integration Entry Point
  * Story 4.1: Task 2 (AC #1, #4)
+ * Story 4.2: Task 5 - Integrate SenderScanner
  *
  * Allows users to connect their Gmail account for importing newsletters.
  * This page serves as the hub for all import-related functionality.
@@ -8,7 +9,10 @@
 
 import { createFileRoute } from "@tanstack/react-router"
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
+import { useQuery } from "convex/react"
+import { api } from "@newsletter-manager/backend"
 import { GmailConnect } from "./GmailConnect"
+import { SenderScanner } from "./SenderScanner"
 import { Button } from "~/components/ui/button"
 import {
   Card,
@@ -27,27 +31,33 @@ export const Route = createFileRoute("/_authed/import/")({
  * Error fallback for GmailConnect component failures
  * Per project-context.md: "Use feature-level error boundaries"
  */
-function GmailConnectError({ error, resetErrorBoundary }: FallbackProps) {
+/**
+ * Error fallback for component failures
+ * Per project-context.md: "Use feature-level error boundaries"
+ */
+function ComponentError({
+  error,
+  resetErrorBoundary,
+  title,
+  description,
+}: FallbackProps & { title: string; description: string }) {
   // react-error-boundary v6 types error as unknown, safely extract message
-  const errorMessage = error instanceof Error
-    ? error.message
-    : "An unexpected error occurred. Please try again."
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : "An unexpected error occurred. Please try again."
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
           <AlertCircle className="h-5 w-5" />
-          Gmail Integration Error
+          {title}
         </CardTitle>
-        <CardDescription>
-          Something went wrong loading the Gmail connection
-        </CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          {errorMessage}
-        </p>
+        <p className="text-sm text-muted-foreground">{errorMessage}</p>
         <Button onClick={resetErrorBoundary} variant="outline">
           <RefreshCw className="mr-2 h-4 w-4" />
           Try Again
@@ -57,7 +67,32 @@ function GmailConnectError({ error, resetErrorBoundary }: FallbackProps) {
   )
 }
 
+function GmailConnectError(props: FallbackProps) {
+  return (
+    <ComponentError
+      {...props}
+      title="Gmail Integration Error"
+      description="Something went wrong loading the Gmail connection"
+    />
+  )
+}
+
+function SenderScannerError(props: FallbackProps) {
+  return (
+    <ComponentError
+      {...props}
+      title="Scanner Error"
+      description="Something went wrong with the newsletter scanner"
+    />
+  )
+}
+
 function ImportPage() {
+  // Query Gmail connection status to conditionally show scanner
+  // Story 4.2: Task 5.1 - Show SenderScanner only when Gmail is connected
+  const gmailAccount = useQuery(api.gmail.getGmailAccount)
+  const isGmailConnected = gmailAccount !== null && gmailAccount !== undefined
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -68,10 +103,20 @@ function ImportPage() {
         new ones.
       </p>
 
-      {/* Gmail Connection Section with Error Boundary */}
-      <ErrorBoundary FallbackComponent={GmailConnectError}>
-        <GmailConnect />
-      </ErrorBoundary>
+      <div className="space-y-6">
+        {/* Gmail Connection Section with Error Boundary */}
+        <ErrorBoundary FallbackComponent={GmailConnectError}>
+          <GmailConnect />
+        </ErrorBoundary>
+
+        {/* Newsletter Scanner - shown only when Gmail is connected */}
+        {/* Story 4.2: Task 5.1 - Conditionally show SenderScanner */}
+        {isGmailConnected && (
+          <ErrorBoundary FallbackComponent={SenderScannerError}>
+            <SenderScanner />
+          </ErrorBoundary>
+        )}
+      </div>
     </div>
   )
 }

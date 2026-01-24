@@ -73,6 +73,10 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
           "profile",
           "https://www.googleapis.com/auth/gmail.readonly",
         ],
+        // Story 4.2 fix: Required to get refresh tokens for Gmail API access
+        // Without these, Google only returns tokens on first consent
+        accessType: "offline",
+        prompt: "consent",
       },
     },
     plugins: [

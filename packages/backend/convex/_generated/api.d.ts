@@ -10,11 +10,13 @@
 
 import type * as _internal_contentNormalization from "../_internal/contentNormalization.js";
 import type * as _internal_emailGeneration from "../_internal/emailGeneration.js";
+import type * as _internal_newsletterDetection from "../_internal/newsletterDetection.js";
 import type * as _internal_users from "../_internal/users.js";
 import type * as auth from "../auth.js";
 import type * as emailIngestion from "../emailIngestion.js";
 import type * as folders from "../folders.js";
 import type * as gmail from "../gmail.js";
+import type * as gmailApi from "../gmailApi.js";
 import type * as http from "../http.js";
 import type * as newsletters from "../newsletters.js";
 import type * as r2 from "../r2.js";
@@ -30,11 +32,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   "_internal/contentNormalization": typeof _internal_contentNormalization;
   "_internal/emailGeneration": typeof _internal_emailGeneration;
+  "_internal/newsletterDetection": typeof _internal_newsletterDetection;
   "_internal/users": typeof _internal_users;
   auth: typeof auth;
   emailIngestion: typeof emailIngestion;
   folders: typeof folders;
   gmail: typeof gmail;
+  gmailApi: typeof gmailApi;
   http: typeof http;
   newsletters: typeof newsletters;
   r2: typeof r2;

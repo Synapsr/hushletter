@@ -23,8 +23,15 @@ vi.mock("@newsletter-manager/backend", () => ({
   api: {
     gmail: {
       getGmailAccount: "api.gmail.getGmailAccount",
+      disconnectGmail: "api.gmail.disconnectGmail",
     },
   },
+}))
+
+// Mock Convex useAction hook
+const mockDisconnectGmail = vi.fn()
+vi.mock("convex/react", () => ({
+  useAction: vi.fn(() => mockDisconnectGmail),
 }))
 
 // Mock TanStack Router hooks
@@ -144,16 +151,20 @@ describe("GmailConnect Component (Story 4.1)", () => {
       expect(screen.getByText("user@gmail.com")).toBeTruthy()
     })
 
-    it("displays available actions (disabled for future stories)", async () => {
+    it("displays available actions with enabled disconnect button", async () => {
+      // Story 4.2: Scan for Newsletters button moved to SenderScanner component
+      // Disconnect Gmail button is now enabled
       await act(async () => {
         renderWithProviders(connectedAccount)
       })
 
-      const scanButton = screen.getByRole("button", { name: /scan for newsletters/i })
+      // Scan button no longer exists in this component - moved to SenderScanner
+      // Disconnect button should be enabled now
       const disconnectButton = screen.getByRole("button", { name: /disconnect gmail/i })
+      expect(disconnectButton.hasAttribute("disabled")).toBe(false)
 
-      expect(scanButton.hasAttribute("disabled")).toBe(true)
-      expect(disconnectButton.hasAttribute("disabled")).toBe(true)
+      // Verify connected text directs user to scanner below
+      expect(screen.getByText(/scan for newsletters below/i)).toBeTruthy()
     })
   })
 

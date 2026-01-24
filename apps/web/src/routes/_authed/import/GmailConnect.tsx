@@ -8,7 +8,8 @@
 
 import { useState } from "react"
 import { useSearch, useNavigate } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useAction } from "convex/react"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
 import { authClient } from "~/lib/auth-client"
@@ -31,7 +32,15 @@ type ImportSearchParams = {
  * Connected state - shows Gmail account info and next actions
  * Story 4.1: Task 3.3, 3.4 (AC #4)
  */
-function ConnectedState({ email }: { email: string }) {
+function ConnectedState({
+  email,
+  onDisconnect,
+  isDisconnecting,
+}: {
+  email: string
+  onDisconnect: () => void
+  isDisconnecting: boolean
+}) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
@@ -48,23 +57,25 @@ function ConnectedState({ email }: { email: string }) {
 
       <div className="space-y-2">
         <p className="text-sm text-muted-foreground">
-          Your Gmail is connected. You can now:
+          Your Gmail is connected. You can now scan for newsletters below.
         </p>
-        <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-2">
-          <li>Scan for newsletter senders (coming in Story 4.2)</li>
-          <li>Import historical newsletters (coming in Story 4.4)</li>
-        </ul>
       </div>
 
-      {/* Future story buttons - disabled until implementation
-          Story 4.2: Scan for Newsletters
-          Story 4.5 (or later): Disconnect Gmail functionality */}
-      <div className="flex gap-3 pt-2">
-        <Button disabled variant="outline">
-          Scan for Newsletters
-        </Button>
-        <Button disabled variant="ghost">
-          Disconnect Gmail
+      <div className="pt-2">
+        <Button
+          onClick={onDisconnect}
+          disabled={isDisconnecting}
+          variant="ghost"
+          size="sm"
+        >
+          {isDisconnecting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Disconnecting...
+            </>
+          ) : (
+            "Disconnect Gmail"
+          )}
         </Button>
       </div>
     </div>
@@ -178,11 +189,16 @@ export function GmailConnect() {
   // away from the page. This tracks "user clicked, waiting for redirect" which is
   // UI state, not data loading state. There's no isPending equivalent for redirects.
   const [isConnecting, setIsConnecting] = useState(false)
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
   // Use TanStack Router hooks for URL params
   const searchParams = useSearch({ strict: false }) as ImportSearchParams
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  // Disconnect Gmail action
+  const disconnectGmail = useAction(api.gmail.disconnectGmail)
 
   // Type for Gmail account data returned by the query
   type GmailAccountData = { email: string; connectedAt: number } | null
@@ -260,6 +276,28 @@ export function GmailConnect() {
     navigate({ to: "/import", search: {}, replace: true })
   }
 
+  /**
+   * Disconnect Gmail account
+   * Removes the Google account link and cleans up scan data
+   */
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true)
+    setLocalError(null)
+
+    try {
+      await disconnectGmail({})
+      // Invalidate queries to refresh UI state
+      await queryClient.invalidateQueries()
+    } catch (err) {
+      setIsDisconnecting(false)
+      if (err instanceof Error) {
+        setLocalError(err.message)
+      } else {
+        setLocalError("Failed to disconnect Gmail. Please try again.")
+      }
+    }
+  }
+
   // Show loading skeleton while fetching connection status
   if (isPending) {
     return <LoadingSkeleton />
@@ -280,7 +318,11 @@ export function GmailConnect() {
         {displayError ? (
           <ErrorState message={displayError} onRetry={handleRetry} />
         ) : isConnected ? (
-          <ConnectedState email={gmailAccount.email} />
+          <ConnectedState
+            email={gmailAccount.email}
+            onDisconnect={handleDisconnect}
+            isDisconnecting={isDisconnecting}
+          />
         ) : (
           <DisconnectedState
             onConnect={handleConnect}

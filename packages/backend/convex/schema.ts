@@ -89,4 +89,41 @@ export default defineSchema({
     color: v.optional(v.string()), // Optional color for UI
     createdAt: v.number(), // Unix timestamp ms
   }).index("by_userId", ["userId"]),
+
+  // ============================================================
+  // Epic 4: Gmail Import Tables
+  // Story 4.2: Newsletter Sender Scanning
+  // ============================================================
+
+  // Track ongoing Gmail scan progress per user
+  // Story 4.2: Task 3.3 - gmailScanProgress table
+  gmailScanProgress: defineTable({
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("scanning"),
+      v.literal("complete"),
+      v.literal("error")
+    ),
+    totalEmails: v.number(),
+    processedEmails: v.number(),
+    sendersFound: v.number(),
+    startedAt: v.number(), // Unix timestamp ms
+    completedAt: v.optional(v.number()), // Unix timestamp ms
+    error: v.optional(v.string()),
+  }).index("by_userId", ["userId"]),
+
+  // Store detected newsletter senders before user approval (Story 4.3)
+  // Story 4.2: Task 3.4 - detectedSenders table
+  detectedSenders: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    name: v.optional(v.string()),
+    domain: v.string(),
+    emailCount: v.number(),
+    confidenceScore: v.number(), // 0-100 score from heuristics
+    sampleSubjects: v.array(v.string()), // Up to 5 sample subjects
+    detectedAt: v.number(), // Unix timestamp ms
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_email", ["userId", "email"]),
 })

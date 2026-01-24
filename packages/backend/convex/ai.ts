@@ -32,6 +32,9 @@ import type { Id } from "./_generated/dataModel"
 
 /** System prompt for consistent, useful summaries */
 const SUMMARY_SYSTEM_PROMPT = `You are a helpful assistant that summarizes newsletter content.
+
+IMPORTANT: Write the summary in the SAME LANGUAGE as the newsletter content. If the newsletter is in French, write the summary in French. If in Spanish, write in Spanish. Match the content's language exactly.
+
 Create a concise summary that captures:
 - Key points and main topics (3-5 bullet points)
 - Important takeaways
@@ -163,7 +166,8 @@ export const generateSummary = action({
       const summary = await generateCompletion(
         {
           apiKey,
-          model: "moonshotai/kimi-k2", // openai/gpt-oss-120b
+          model: "openai/gpt-oss-120b",
+
 
           timeout: 25000, // 25s timeout (NFR3: 10s target, allow buffer for edge cases)
         },

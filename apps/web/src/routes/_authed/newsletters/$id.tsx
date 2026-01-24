@@ -4,11 +4,13 @@ import { useQuery } from "@tanstack/react-query"
 import { useMutation } from "convex/react"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
+import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
 import { ReaderView, clearCacheEntry } from "~/components/ReaderView"
+import { SummaryPanel } from "~/components/SummaryPanel"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { ArrowLeft, BookOpen, BookMarked, EyeOff, Eye } from "lucide-react"
+import { ArrowLeft, BookOpen, BookMarked, EyeOff, Eye, RefreshCw } from "lucide-react"
 
 export const Route = createFileRoute("/_authed/newsletters/$id")({
   component: NewsletterDetailPage,
@@ -76,6 +78,29 @@ function ContentErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
         <Button onClick={resetErrorBoundary}>Try Again</Button>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Error fallback for AI Summary feature (NFR11 - AI failure isolation)
+ * Story 5.1: Code review fix (MEDIUM-2) - Provides retry capability
+ */
+function SummaryErrorFallback({ resetErrorBoundary }: FallbackProps) {
+  return (
+    <div className="mb-6 p-4 bg-muted/50 rounded-lg flex items-center justify-between">
+      <span className="text-sm text-muted-foreground">
+        AI summary feature is temporarily unavailable.
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={resetErrorBoundary}
+        className="gap-1"
+      >
+        <RefreshCw className="h-3 w-3" />
+        Retry
+      </Button>
+    </div>
   )
 }
 
@@ -419,6 +444,13 @@ function NewsletterDetailPage() {
         onUnhide={handleUnhide}
         isUpdating={false}
       />
+
+      {/* Story 5.1: AI Summary panel (collapsible, above content per UX spec)
+          Wrapped in error boundary per NFR11 - AI failure should not block reading
+          Code review fix (MEDIUM-2): Uses FallbackComponent with retry capability */}
+      <ErrorBoundary FallbackComponent={SummaryErrorFallback}>
+        <SummaryPanel userNewsletterId={id as Id<"userNewsletters">} />
+      </ErrorBoundary>
 
       {/* Newsletter content with error boundary and scroll tracking (Story 3.4) */}
       <NewsletterContent

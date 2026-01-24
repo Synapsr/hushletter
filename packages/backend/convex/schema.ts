@@ -22,6 +22,7 @@ export default defineSchema({
 
   // Shared newsletter content (deduplicated) - only for public newsletters
   // Story 2.5.1: Task 1 - newsletterContent table
+  // Story 5.1: Task 1.1 - Added summary fields for shared AI summaries
   newsletterContent: defineTable({
     contentHash: v.string(), // SHA-256 of normalized HTML
     r2Key: v.string(),
@@ -30,6 +31,9 @@ export default defineSchema({
     senderName: v.optional(v.string()),
     firstReceivedAt: v.number(), // Unix timestamp ms
     readerCount: v.number(), // Denormalized count for community discovery
+    // Story 5.1: AI Summary (shared for public newsletters - first user to generate shares with all)
+    summary: v.optional(v.string()),
+    summaryGeneratedAt: v.optional(v.number()), // Unix timestamp ms
   })
     .index("by_contentHash", ["contentHash"])
     .index("by_senderEmail", ["senderEmail"])
@@ -37,6 +41,7 @@ export default defineSchema({
 
   // User's relationship to newsletters (per-user, references shared content or private)
   // Story 2.5.1: Task 1 - userNewsletters table
+  // Story 5.1: Task 1.2 - Added summary fields for personal/private summaries
   userNewsletters: defineTable({
     userId: v.id("users"),
     senderId: v.id("senders"),
@@ -50,6 +55,9 @@ export default defineSchema({
     isHidden: v.boolean(),
     isPrivate: v.boolean(),
     readProgress: v.optional(v.number()), // 0-100 percentage
+    // Story 5.1: AI Summary (personal for private newsletters, or user-regenerated summaries)
+    summary: v.optional(v.string()),
+    summaryGeneratedAt: v.optional(v.number()), // Unix timestamp ms
   })
     .index("by_userId", ["userId"])
     .index("by_userId_receivedAt", ["userId", "receivedAt"])

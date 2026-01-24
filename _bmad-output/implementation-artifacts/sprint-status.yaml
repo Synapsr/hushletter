@@ -44,8 +44,8 @@ development_status:
   1-1-project-initialization-landing-page: done
   1-2-user-registration: done
   1-3-user-login-logout: done
-  1-4-dedicated-email-address-generation: backlog
-  1-5-account-settings: backlog
+  1-4-dedicated-email-address-generation: done
+  1-5-account-settings: done
   epic-1-retrospective: optional
 
   epic-2: backlog

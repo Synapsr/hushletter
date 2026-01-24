@@ -14,11 +14,16 @@
   "scripts": {
     "dev": "convex dev",
     "deploy": "convex deploy",
-    "generate": "convex dev --once --typecheck=disable"
+    "generate": "convex dev --once --typecheck=disable",
+    "test": "vitest"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.10.10",
     "better-auth": "1.4.9",
     "convex": "^1.31.6"
+  },
+  "devDependencies": {
+    "convex-test": "^0.0.41",
+    "vitest": "^4.0.18"
   }
 }

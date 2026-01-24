@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedNewslettersIndexRouteImport } from './routes/_authed/newsletters/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -35,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedNewslettersIndexRoute = AuthedNewslettersIndexRouteImport.update({
   id: '/newsletters/',
   path: '/newsletters/',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/newsletters/': typeof AuthedNewslettersIndexRoute
+  '/settings/': typeof AuthedSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/newsletters': typeof AuthedNewslettersIndexRoute
+  '/settings': typeof AuthedSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,12 +76,19 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/newsletters/': typeof AuthedNewslettersIndexRoute
+  '/_authed/settings/': typeof AuthedSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/signup' | '/api/auth/$' | '/newsletters/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/api/auth/$'
+    | '/newsletters/'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/signup' | '/api/auth/$' | '/newsletters'
+  to: '/' | '/login' | '/signup' | '/api/auth/$' | '/newsletters' | '/settings'
   id:
     | '__root__'
     | '/'
@@ -82,6 +97,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/api/auth/$'
     | '/_authed/newsletters/'
+    | '/_authed/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -122,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/settings/': {
+      id: '/_authed/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthedSettingsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/newsletters/': {
       id: '/_authed/newsletters/'
       path: '/newsletters'
@@ -141,10 +164,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthedRouteChildren {
   AuthedNewslettersIndexRoute: typeof AuthedNewslettersIndexRoute
+  AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedNewslettersIndexRoute: AuthedNewslettersIndexRoute,
+  AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
 }
 
 const AuthedRouteWithChildren =

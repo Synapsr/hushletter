@@ -1,7 +1,8 @@
-import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router"
 import type { RouterContext } from "~/router"
 import { signOut } from "~/lib/auth-client"
 import { Button } from "~/components/ui/button"
+import { Settings } from "lucide-react"
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ context }) => {
@@ -36,9 +37,19 @@ function AuthedLayout() {
           <div className="text-xl font-bold text-gray-900 dark:text-white">
             Newsletter Manager
           </div>
-          <Button variant="ghost" onClick={handleLogout}>
-            Sign Out
-          </Button>
+          <nav className="flex items-center gap-2">
+            <Link
+              to="/settings"
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+              activeProps={{ className: "text-foreground bg-gray-100 dark:bg-gray-800" }}
+              aria-label="Settings"
+            >
+              <Settings className="h-5 w-5" />
+            </Link>
+            <Button variant="ghost" onClick={handleLogout}>
+              Sign Out
+            </Button>
+          </nav>
         </div>
       </header>
       <main>

@@ -57,18 +57,26 @@ _Critical rules and patterns for implementing Newsletter Manager. Focus on unobv
 - One file per domain: `newsletters.ts`, `users.ts`, `senders.ts`
 - NOT by type (don't create `queries.ts`, `mutations.ts`)
 
-**MANDATORY Privacy Pattern:**
+**MANDATORY Privacy Pattern (Epic 2.5+ Shared Schema):**
 ```typescript
-// EVERY newsletter query MUST include this filter
-const newsletters = await ctx.db
-  .query("newsletters")
-  .filter(q =>
-    q.or(
-      q.eq(q.field("isPrivate"), false),
-      q.eq(q.field("userId"), ctx.auth.userId)
-    )
-  )
+// For userNewsletters queries (per-user data):
+// Filter by userId is sufficient - each user only sees their own records
+const userNewsletters = await ctx.db
+  .query("userNewsletters")
+  .withIndex("by_userId", (q) => q.eq("userId", user._id))
+
+// For newsletterContent queries (shared public content - Epic 6):
+// Only query public content OR content the user has access to via userNewsletters
+// This pattern applies when implementing community/discovery features
+const publicContent = await ctx.db
+  .query("newsletterContent")
+  .withIndex("by_readerCount")  // Public content only - no private content here
 ```
+
+**Privacy Architecture (Epic 2.5):**
+- `userNewsletters`: Per-user records - filter by userId
+- `newsletterContent`: Shared public content only (private content uses `privateR2Key` on userNewsletters)
+- `userSenderSettings.isPrivate`: Determines if future newsletters from sender are private
 
 **Error Handling:**
 ```typescript

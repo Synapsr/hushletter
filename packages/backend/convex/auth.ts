@@ -57,10 +57,17 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 }
 
 // Query to get the current authenticated user with dedicated email
+// Returns null if not authenticated (instead of throwing)
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    const authUser = await authComponent.getAuthUser(ctx)
+    let authUser
+    try {
+      authUser = await authComponent.getAuthUser(ctx)
+    } catch {
+      // getAuthUser throws ConvexError when unauthenticated - this is expected
+      return null
+    }
     if (!authUser) return null
 
     // Get the app user record which has the dedicated email (linked by authId)

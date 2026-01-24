@@ -142,6 +142,7 @@ This document provides the complete epic and story breakdown for Newsletter Mana
 | FR6 | Epic 2 | System can parse and store incoming newsletter content |
 | FR7 | Epic 2 | System can detect and identify newsletter senders automatically |
 | FR8 | Epic 2 | Users see new newsletters appear in real-time without refresh |
+| - | Epic 2.5 | **Enables FR21-24** via shared content architecture (deduplication, global senders) |
 | FR9 | Epic 4 | Users can connect their Gmail account via OAuth |
 | FR10 | Epic 4 | System can scan Gmail for newsletter senders |
 | FR11 | Epic 4 | Users can review and approve detected newsletter senders |
@@ -187,6 +188,26 @@ Newsletters sent to a user's dedicated address are received, parsed, and appear 
 - Cloudflare R2 for newsletter content storage
 - Convex real-time subscriptions for instant updates
 - Automatic sender detection and categorization
+
+---
+
+### Epic 2.5: Content Sharing Architecture
+Refactor newsletter storage to support shared content for community discovery while maintaining privacy controls.
+
+**FRs covered:** Enables FR21, FR22, FR23, FR24 (Community Database features)
+
+**Implementation Notes:**
+- Schema migration from per-user to shared content model
+- Content deduplication via normalization and hashing
+- Privacy-first design: private newsletters bypass deduplication entirely
+- Global senders enable "X users subscribe to this" discovery
+- Foundation for community back-catalog (Epic 6)
+
+**Why This Epic Exists:**
+The original per-user newsletter storage (Story 2.2) doesn't scale for community discovery features. This epic introduces a shared content model where:
+- Public newsletter content is deduplicated (stored once, referenced by many)
+- Private newsletters are stored per-user (maximum privacy isolation)
+- Senders become global entities enabling cross-user statistics
 
 ---
 
@@ -461,24 +482,40 @@ Newsletters sent to a user's dedicated address are received, parsed, and appear 
 
 **Acceptance Criteria:**
 
-**Given** a newsletter arrives from a new sender
+**Given** a newsletter arrives from a new sender (globally)
 **When** the system processes it
-**Then** a new sender record is created automatically
+**Then** a new global `senders` record is created
 **And** it captures sender email, sender name, and domain
+**And** `subscriberCount` is set to 1
+**And** `newsletterCount` is set to 1
 
-**Given** a newsletter arrives from an existing sender
+**Given** a newsletter arrives from an existing global sender
 **When** the system processes it
 **Then** it links to the existing sender record
 **And** no duplicate sender is created
+**And** `newsletterCount` is incremented
+
+**Given** a user receives from a sender for the first time
+**When** the system processes the newsletter
+**Then** a `userSenderSettings` record is created for that user/sender
+**And** `isPrivate` defaults to false
+**And** the sender's `subscriberCount` is incremented
 
 **Given** a sender record exists
 **When** viewing sender information
 **Then** the sender name is displayed (or email if name unavailable)
 **And** the domain is extracted correctly (e.g., "substack.com" from "newsletter@substack.com")
+**And** `subscriberCount` shows how many users receive from this sender
 
-**Given** a sender has the isPrivate flag set
+**Given** a user has marked a sender as private in `userSenderSettings`
 **When** new newsletters arrive from that sender
-**Then** the newsletters inherit the private status
+**Then** the newsletters are stored with `privateR2Key` (bypassing deduplication)
+**And** the `userNewsletter.isPrivate` is set to true
+
+**Implementation Notes (Epic 2.5 Schema):**
+- Senders are now GLOBAL (shared across all users)
+- User-specific sender preferences live in `userSenderSettings`
+- Privacy is determined by `userSenderSettings.isPrivate`, not `senders.isPrivate`
 
 ---
 
@@ -499,6 +536,13 @@ Newsletters sent to a user's dedicated address are received, parsed, and appear 
 **When** viewing my newsletters
 **Then** they are displayed in reverse chronological order (newest first)
 **And** each item shows sender name, subject, and received date
+**And** the data comes from the `userNewsletters` table (not old `newsletters` table)
+
+**Given** I click on a newsletter to read it
+**When** retrieving the content
+**Then** the system checks if `contentId` is set (public newsletter)
+**And** if public, fetches signed URL from `newsletterContent.r2Key`
+**And** if private, fetches signed URL from `userNewsletters.privateR2Key`
 
 **Given** Convex real-time subscriptions are active
 **When** the connection is stable
@@ -508,6 +552,151 @@ Newsletters sent to a user's dedicated address are received, parsed, and appear 
 **Given** I have no newsletters yet
 **When** I view the newsletters page
 **Then** I see an empty state with instructions to use my dedicated email address
+
+**Implementation Notes (Epic 2.5 Schema):**
+- Query `userNewsletters` for user's newsletter list (denormalized fields for fast listing)
+- For content retrieval: check `contentId` vs `privateR2Key` to determine R2 key source
+- Join to `senders` table for additional sender metadata if needed
+
+---
+
+## Epic 2.5: Content Sharing Architecture
+
+Refactor newsletter storage to support shared content for community discovery while maintaining privacy controls.
+
+### Story 2.5.1: Shared Content Schema Implementation
+
+**As a** developer,
+**I want** to implement a shared content schema for newsletters,
+**So that** public newsletters can be deduplicated and discovered by other users.
+
+**Acceptance Criteria:**
+
+**Given** the new schema is implemented
+**When** reviewing the database structure
+**Then** `newsletterContent` table exists for shared public content
+**And** `userNewsletters` table exists for per-user newsletter relationships
+**And** `senders` table is global (not user-scoped)
+**And** `userSenderSettings` table exists for per-user sender preferences
+
+**Given** the schema migration completes
+**When** the system starts
+**Then** the old `newsletters` table data is cleared (dev environment)
+**And** existing code references are updated to new table names
+
+**Given** the new schema is in place
+**When** creating newsletter records
+**Then** public newsletters reference `newsletterContent.contentId`
+**And** private newsletters store content directly via `privateR2Key`
+
+**Schema Definition:**
+```typescript
+// Shared content (deduplicated) - only for public newsletters
+newsletterContent: defineTable({
+  contentHash: v.string(),        // SHA-256 of normalized HTML
+  r2Key: v.string(),
+  subject: v.string(),
+  senderEmail: v.string(),
+  senderName: v.optional(v.string()),
+  firstReceivedAt: v.number(),
+  readerCount: v.number(),        // Denormalized count
+})
+  .index("by_contentHash", ["contentHash"])
+  .index("by_senderEmail", ["senderEmail"])
+  .index("by_readerCount", ["readerCount"]),
+
+// Global sender registry
+senders: defineTable({
+  email: v.string(),
+  name: v.optional(v.string()),
+  domain: v.string(),
+  subscriberCount: v.number(),
+  newsletterCount: v.number(),
+})
+  .index("by_email", ["email"])
+  .index("by_domain", ["domain"])
+  .index("by_subscriberCount", ["subscriberCount"]),
+
+// User's relationship to newsletters
+userNewsletters: defineTable({
+  userId: v.id("users"),
+  senderId: v.id("senders"),
+  contentId: v.optional(v.id("newsletterContent")),  // If public
+  privateR2Key: v.optional(v.string()),              // If private
+  subject: v.string(),
+  senderEmail: v.string(),
+  senderName: v.optional(v.string()),
+  receivedAt: v.number(),
+  isRead: v.boolean(),
+  isHidden: v.boolean(),
+  isPrivate: v.boolean(),
+  readProgress: v.optional(v.number()),
+})
+  .index("by_userId", ["userId"])
+  .index("by_userId_receivedAt", ["userId", "receivedAt"])
+  .index("by_senderId", ["senderId"])
+  .index("by_contentId", ["contentId"]),
+
+// User's sender-specific settings
+userSenderSettings: defineTable({
+  userId: v.id("users"),
+  senderId: v.id("senders"),
+  isPrivate: v.boolean(),
+  folderId: v.optional(v.id("folders")),
+})
+  .index("by_userId", ["userId"])
+  .index("by_userId_senderId", ["userId", "senderId"]),
+```
+
+---
+
+### Story 2.5.2: Content Deduplication Pipeline
+
+**As a** user receiving newsletters,
+**I want** the system to deduplicate public newsletter content,
+**So that** storage is efficient and community discovery is enabled.
+
+**Acceptance Criteria:**
+
+**Given** an email arrives for a user
+**When** the sender is NOT marked private for that user
+**Then** the content is normalized and hashed
+**And** the system checks if `newsletterContent` exists with that hash
+**And** if exists, the existing `contentId` is used (readerCount incremented)
+**And** if not exists, new `newsletterContent` is created with R2 upload
+
+**Given** an email arrives for a user
+**When** the sender IS marked private for that user
+**Then** the content is uploaded to R2 with a user-specific key
+**And** a `userNewsletter` is created with `privateR2Key` (no contentId)
+**And** no `newsletterContent` record is created
+
+**Given** content normalization is performed
+**When** computing the content hash
+**Then** tracking pixels are stripped
+**And** unique unsubscribe links are normalized
+**And** personalized greetings are normalized
+**And** email-specific IDs are stripped
+**And** whitespace is normalized
+
+**Given** two users receive the same public newsletter
+**When** both emails are processed
+**Then** only one `newsletterContent` record exists
+**And** both users have `userNewsletter` records referencing the same `contentId`
+**And** `readerCount` equals 2
+
+**Content Normalization Algorithm:**
+```typescript
+function normalizeForHash(html: string): string {
+  return html
+    .replace(/<img[^>]*tracking[^>]*>/gi, '')
+    .replace(/href="[^"]*unsubscribe[^"]*"/gi, 'href="UNSUBSCRIBE"')
+    .replace(/Hi \w+,/gi, 'Hi USER,')
+    .replace(/[a-f0-9]{32,}/gi, 'HASH')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+```
 
 ---
 
@@ -938,6 +1127,8 @@ Users can generate AI summaries to quickly understand newsletter content.
 
 Users can discover and access newsletters from the shared community database.
 
+**Note:** Epic 2.5 (Content Sharing Architecture) provides the foundation for all community features. The shared content model with `newsletterContent` and global `senders` tables enables efficient community discovery.
+
 ### Story 6.1: Default Public Sharing
 
 **As a** user receiving newsletters,
@@ -948,13 +1139,13 @@ Users can discover and access newsletters from the shared community database.
 
 **Given** a newsletter is received at my dedicated address
 **When** it is stored in the system
-**Then** it is marked as public by default (`isPrivate: false`)
-**And** it becomes available in the community database
+**Then** it references shared `newsletterContent` by default (if sender not marked private)
+**And** the content becomes available in the community database via `newsletterContent` table
 
-**Given** newsletters are stored in the database
+**Given** newsletters are stored with shared content
 **When** querying for community newsletters
-**Then** the query uses mandatory privacy filtering
-**And** only newsletters with `isPrivate: false` are returned
+**Then** query the `newsletterContent` table directly
+**And** no user-specific data is exposed (userNewsletters not queried for community views)
 
 **Given** I am a new user
 **When** I sign up
@@ -963,8 +1154,14 @@ Users can discover and access newsletters from the shared community database.
 
 **Given** newsletters are shared to the community
 **When** other users view them
-**Then** they can see the content but not which user contributed it
+**Then** they see the content from `newsletterContent` table
+**And** they cannot see which users contributed (no join to userNewsletters)
 **And** user privacy is maintained
+
+**Implementation Notes (Epic 2.5 enables this):**
+- Public sharing is AUTOMATIC via the shared content model
+- `newsletterContent` table IS the community database
+- `readerCount` shows popularity without exposing user identities
 
 ---
 
@@ -978,13 +1175,14 @@ Users can discover and access newsletters from the shared community database.
 
 **Given** I am viewing my senders list or a sender's settings
 **When** I toggle the "Private" option for a sender
-**Then** that sender is marked as private
-**And** all newsletters from that sender are marked as private
+**Then** my `userSenderSettings.isPrivate` is updated
+**And** this affects FUTURE newsletters only (private newsletters store content separately)
 
-**Given** a sender is marked as private
+**Given** a sender is marked as private in my settings
 **When** new newsletters arrive from that sender
-**Then** they are automatically marked as private
+**Then** they are stored with `privateR2Key` (NOT in `newsletterContent`)
 **And** they never appear in the community database (NFR7)
+**And** `userNewsletters.isPrivate` is set to true
 
 **Given** I have private senders
 **When** viewing my own newsletter list
@@ -993,13 +1191,19 @@ Users can discover and access newsletters from the shared community database.
 
 **Given** I change a sender from private to public
 **When** the change is saved
-**Then** existing newsletters from that sender become public
-**And** they appear in the community database
+**Then** FUTURE newsletters will use shared content model
+**And** EXISTING private newsletters remain private (content already stored separately)
+**And** UI indicates which newsletters are private vs public
 
 **Given** I am in settings
 **When** I navigate to privacy settings
-**Then** I see a list of all my senders with their privacy status
+**Then** I see a list of all my senders with their privacy status (from `userSenderSettings`)
 **And** I can bulk-manage privacy settings
+
+**Implementation Notes (Epic 2.5 enables this):**
+- Privacy is per-user via `userSenderSettings.isPrivate`
+- Global `senders` table has no privacy flag (privacy is user-specific)
+- Changing privacy affects future newsletters, not retroactively (by design)
 
 ---
 
@@ -1013,28 +1217,34 @@ Users can discover and access newsletters from the shared community database.
 
 **Given** I am logged in
 **When** I navigate to the Community or Explore section
-**Then** I see a browsable list of public newsletters from all users
-**And** newsletters are organized by sender or topic
+**Then** I see a browsable list from `newsletterContent` table
+**And** newsletters are organized by sender (via `senderEmail`) or sorted by `readerCount`
 
 **Given** I am browsing the community back-catalog
 **When** I search or filter
-**Then** I can find newsletters by sender name, subject, or content
-**And** results load quickly (NFR1)
+**Then** I can find newsletters by sender name, subject
+**And** results load quickly (NFR1) - direct query on `newsletterContent`
 
 **Given** I find an interesting newsletter in the community
 **When** I click on it
-**Then** I can read the full content in the reader view
+**Then** I can read the full content (signed URL from `newsletterContent.r2Key`)
 **And** the experience is the same as reading my own newsletters
 
 **Given** I am viewing a community newsletter
 **When** I want to save it
 **Then** I can add it to my personal collection
+**And** a `userNewsletter` record is created referencing the `contentId`
 **And** it appears in my newsletter list
 
-**Given** privacy filtering is enforced
+**Given** privacy is enforced by architecture
 **When** querying the community database
-**Then** only public newsletters are ever returned
-**And** private newsletters are never exposed
+**Then** only `newsletterContent` is queried (inherently public)
+**And** private newsletters never enter `newsletterContent` (Epic 2.5 design)
+
+**Implementation Notes (Epic 2.5 enables this):**
+- Community queries hit `newsletterContent` directly - simple and fast
+- `readerCount` enables "popular newsletters" sorting
+- Adding to personal collection = creating `userNewsletter` with `contentId` reference
 
 ---
 
@@ -1049,27 +1259,34 @@ Users can discover and access newsletters from the shared community database.
 **Given** I am a new user with no newsletters yet
 **When** I access the app
 **Then** I can browse the community back-catalog immediately
-**And** I see popular or recommended newsletters
+**And** I see popular newsletters sorted by `readerCount`
 
 **Given** I am browsing community newsletters
 **When** I find a sender I like
-**Then** I can see all public newsletters from that sender
-**And** I can "follow" or save that sender for easy access
+**Then** I can see all content from that sender via `newsletterContent.senderEmail`
+**And** I see `senders.subscriberCount` showing "X users subscribe to this"
+**And** I can "follow" the sender
 
 **Given** I follow a sender from the community
 **When** I view my senders list
-**Then** that sender appears (even if I haven't received emails from them)
+**Then** a `userSenderSettings` record is created for me (even without newsletters)
 **And** I can access their back-catalog from my personal view
 
 **Given** I am exploring newsletters
 **When** viewing the discover section
-**Then** I see newsletters sorted by popularity, recency, or topic
-**And** I can filter by category or sender domain
+**Then** I see newsletters sorted by `readerCount` (popularity), `firstReceivedAt` (recency)
+**And** I can filter by `senders.domain`
 
 **Given** I find a newsletter I want to subscribe to
 **When** viewing the newsletter or sender
-**Then** I see information about how to subscribe (the sender's signup link if available)
-**And** I'm encouraged to update my subscription to use my dedicated email
+**Then** I see information about how to subscribe (if available)
+**And** I see my dedicated email address to use for subscription
+**And** I see "X users also read this" from `readerCount`
+
+**Implementation Notes (Epic 2.5 enables this):**
+- Global `senders` table with `subscriberCount` enables "X users subscribe"
+- `newsletterContent.readerCount` enables popularity-based discovery
+- Following a sender creates `userSenderSettings` without requiring newsletters
 
 ---
 

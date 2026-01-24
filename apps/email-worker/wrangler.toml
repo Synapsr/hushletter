@@ -1,0 +1,12 @@
+name = "newsletter-manager-email-worker"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# Email routing configuration
+# The actual email routing is configured in Cloudflare dashboard
+# This worker receives emails routed to it
+
+[vars]
+# Environment variables are set via wrangler secret or dashboard
+# CONVEX_URL = "https://your-deployment.convex.cloud"
+# INTERNAL_API_KEY = "your-secret-key"

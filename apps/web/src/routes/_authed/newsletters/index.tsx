@@ -10,6 +10,7 @@ import {
   SenderSidebar,
   SenderSidebarSkeleton,
   type SenderData,
+  type FolderData,
 } from "~/components/SenderSidebar"
 import {
   Sheet,
@@ -21,17 +22,20 @@ import { Button } from "~/components/ui/button"
 import { Menu } from "lucide-react"
 
 /**
- * Search params schema for URL-based sender filtering
- * Task 4: URL format /newsletters?sender={senderId}
+ * Search params schema for URL-based filtering
+ * Story 3.1: Task 4 - URL format /newsletters?sender={senderId}
+ * Story 3.3: Task 1.5, 2.2 - Added folder param
  */
 type NewsletterSearchParams = {
   sender?: string
+  folder?: string
 }
 
 export const Route = createFileRoute("/_authed/newsletters/")({
   component: NewslettersPage,
   validateSearch: (search: Record<string, unknown>): NewsletterSearchParams => ({
     sender: typeof search.sender === "string" ? search.sender : undefined,
+    folder: typeof search.folder === "string" ? search.folder : undefined,
   }),
 })
 
@@ -85,8 +89,8 @@ function PageSkeleton() {
 }
 
 function NewslettersPage() {
-  // Task 4: URL-based filter state (AC2, AC3)
-  const { sender: senderIdParam } = Route.useSearch()
+  // Story 3.3 Task 1.5, 2.2: URL-based filter state for both sender and folder
+  const { sender: senderIdParam, folder: folderIdParam } = Route.useSearch()
   const navigate = useNavigate()
 
   // Mobile sidebar state
@@ -104,15 +108,33 @@ function NewslettersPage() {
   )
   const senders = (sendersData ?? []) as SenderData[]
 
-  // Task 5: Get newsletters with optional sender filtering (AC2, AC3)
-  // Uses convexQuery for automatic real-time updates
-  // senderId from URL is a string - cast to Id<"senders"> for Convex type safety
-  // Convex validates at runtime that the ID is valid
-  const { data: newsletters, isPending: newslettersPending } = useQuery(
-    convexQuery(api.newsletters.listUserNewslettersBySender, {
-      senderId: senderIdParam as Id<"senders"> | undefined,
-    })
+  // Get folders with unread counts
+  // Story 3.3 Task 1.1
+  const { data: foldersData, isPending: foldersPending } = useQuery(
+    convexQuery(api.folders.listFoldersWithUnreadCounts, {})
   )
+  const folders = (foldersData ?? []) as FolderData[]
+
+  // Determine if we're filtering by folder
+  const isFilteringByFolder = !!folderIdParam && !senderIdParam
+
+  // Story 3.3 Task 2.1: Get newsletters by folder OR by sender
+  // Folder filter and sender filter are mutually exclusive
+  const { data: newslettersBySender, isPending: newslettersBySenderPending } = useQuery({
+    ...convexQuery(api.newsletters.listUserNewslettersBySender, {
+      senderId: senderIdParam as Id<"senders"> | undefined,
+    }),
+    enabled: !isFilteringByFolder, // Only run when NOT filtering by folder
+  })
+
+  // Story 3.3 Task 2.1: Query for folder-filtered newsletters
+  const { data: newslettersByFolder, isPending: newslettersByFolderPending } = useQuery({
+    ...convexQuery(api.newsletters.listUserNewslettersByFolder, {
+      // "uncategorized" becomes null for uncategorized senders
+      folderId: folderIdParam === "uncategorized" ? null : (folderIdParam as Id<"folders">),
+    }),
+    enabled: isFilteringByFolder, // Only run when filtering by folder
+  })
 
   // Calculate totals for "All Newsletters" display
   const { totalNewsletterCount, totalUnreadCount } = useMemo(() => {
@@ -131,7 +153,17 @@ function NewslettersPage() {
     return senders.find((s) => s._id === senderIdParam) ?? null
   }, [senders, senderIdParam])
 
-  // Task 4: Handle sender selection with URL update
+  // Get selected folder details for header
+  // Story 3.3 Task 2.3
+  const selectedFolder = useMemo(() => {
+    if (!folderIdParam) return null
+    if (folderIdParam === "uncategorized") {
+      return { name: "Uncategorized", _id: "uncategorized" }
+    }
+    return folders.find((f) => f._id === folderIdParam) ?? null
+  }, [folders, folderIdParam])
+
+  // Story 3.3 Task 1.5: Handle sender selection with URL update
   const handleSenderSelect = (selectedSenderId: string | null) => {
     navigate({
       to: "/newsletters",
@@ -141,21 +173,48 @@ function NewslettersPage() {
     setSidebarOpen(false)
   }
 
+  // Story 3.3 Task 1.5: Handle folder selection with URL update
+  const handleFolderSelect = (selectedFolderId: string | null) => {
+    navigate({
+      to: "/newsletters",
+      search: selectedFolderId ? { folder: selectedFolderId } : {},
+    })
+    // Close mobile sidebar on selection
+    setSidebarOpen(false)
+  }
+
   // Show loading skeleton while initial data is loading
-  if (userPending || sendersPending || newslettersPending) {
+  const isPending = userPending || sendersPending || foldersPending ||
+    (isFilteringByFolder ? newslettersByFolderPending : newslettersBySenderPending)
+
+  if (isPending) {
     return <PageSkeleton />
   }
 
   const dedicatedEmail = user?.dedicatedEmail ?? null
-  const newsletterList = (newsletters ?? []) as NewsletterData[]
+
+  // Select the appropriate newsletter list based on filter type
+  const newsletterList = isFilteringByFolder
+    ? (newslettersByFolder ?? []) as NewsletterData[]
+    : (newslettersBySender ?? []) as NewsletterData[]
 
   // Sidebar props shared between desktop and mobile
   const sidebarProps = {
     selectedSenderId: senderIdParam ?? null,
+    selectedFolderId: folderIdParam ?? null,
     onSenderSelect: handleSenderSelect,
+    onFolderSelect: handleFolderSelect,
     totalNewsletterCount,
     totalUnreadCount,
   }
+
+  // Determine header text based on current filter
+  // Story 3.3 Task 2.3
+  const headerText = selectedSender
+    ? selectedSender.displayName
+    : selectedFolder
+      ? selectedFolder.name
+      : "All Newsletters"
 
   return (
     <div className="flex min-h-screen">
@@ -184,18 +243,25 @@ function NewslettersPage() {
 
       {/* Task 6: Main content area - flex grow */}
       <main className="flex-1 p-6 md:p-8">
-        {/* Dynamic header based on filter (AC3) */}
+        {/* Dynamic header based on filter (AC3) - Story 3.3 Task 2.3 */}
         <h1 className="text-3xl font-bold text-foreground mb-6">
-          {selectedSender ? selectedSender.displayName : "All Newsletters"}
+          {headerText}
         </h1>
 
         {/* Empty state when no newsletters (AC5 from 2.4) */}
         {newsletterList.length === 0 ? (
           selectedSender ? (
-            // Empty state for filtered view
+            // Empty state for sender-filtered view
             <div className="text-center py-12">
               <p className="text-muted-foreground">
                 No newsletters from {selectedSender.displayName} yet.
+              </p>
+            </div>
+          ) : selectedFolder ? (
+            // Empty state for folder-filtered view - Story 3.3
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                No newsletters in {selectedFolder.name}.
               </p>
             </div>
           ) : (

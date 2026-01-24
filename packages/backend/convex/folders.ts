@@ -140,6 +140,92 @@ export const updateFolder = mutation({
  * Story 2.5.1: Basic folder deletion
  * Note: This will unset folderId on any userSenderSettings that reference this folder
  */
+/**
+ * List folders for current user with unread newsletter counts
+ * Story 3.3: AC4 - Folders with unread counts in sidebar
+ *
+ * Returns folders enriched with:
+ * - newsletterCount: total newsletters from senders in folder
+ * - unreadCount: unread newsletters from senders in folder
+ * - senderCount: number of senders assigned to folder
+ *
+ * Performance: Uses batch fetching to avoid N+1 query problem.
+ * Fetches all user data once, then computes counts in memory.
+ */
+export const listFoldersWithUnreadCounts = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return []
+
+    // Fetch all required data upfront to avoid N+1 queries
+    const [folders, allSettings, allNewsletters] = await Promise.all([
+      ctx.db
+        .query("folders")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("userSenderSettings")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("userNewsletters")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+    ])
+
+    // Build lookup map for newsletter counts by sender
+    const newsletterCountsBySender = new Map<
+      string,
+      { total: number; unread: number }
+    >()
+    for (const newsletter of allNewsletters) {
+      const senderId = newsletter.senderId
+      const current = newsletterCountsBySender.get(senderId) ?? {
+        total: 0,
+        unread: 0,
+      }
+      current.total++
+      if (!newsletter.isRead) current.unread++
+      newsletterCountsBySender.set(senderId, current)
+    }
+
+    // Compute folder stats by iterating through settings
+    const foldersWithCounts = folders.map((folder) => {
+      const folderSettings = allSettings.filter(
+        (s) => s.folderId === folder._id
+      )
+
+      let newsletterCount = 0
+      let unreadCount = 0
+      for (const setting of folderSettings) {
+        const counts = newsletterCountsBySender.get(setting.senderId) ?? {
+          total: 0,
+          unread: 0,
+        }
+        newsletterCount += counts.total
+        unreadCount += counts.unread
+      }
+
+      return {
+        ...folder,
+        newsletterCount,
+        unreadCount,
+        senderCount: folderSettings.length,
+      }
+    })
+
+    return foldersWithCounts
+  },
+})
+
 export const deleteFolder = mutation({
   args: {
     folderId: v.id("folders"),

@@ -9,7 +9,9 @@
     ".": "./_generated/api.js",
     "./api": "./_generated/api.js",
     "./_generated/api": "./_generated/api.js",
-    "./_generated/dataModel": "./_generated/dataModel.js"
+    "./convex/_generated/dataModel": {
+      "types": "./convex/_generated/dataModel.d.ts"
+    }
   },
   "scripts": {
     "dev": "convex dev",

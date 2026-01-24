@@ -597,6 +597,81 @@ export const listUserNewslettersBySender = query({
 })
 
 /**
+ * List newsletters filtered by folder (all senders in that folder)
+ * Story 3.3: AC3 - Browse newsletters by folder
+ *
+ * - If folderId is null, returns newsletters from "uncategorized" senders
+ *   (senders with no folder assignment)
+ * - If folderId is undefined/not provided, returns empty array
+ *   (use listUserNewslettersBySender for unfiltered list)
+ */
+export const listUserNewslettersByFolder = query({
+  args: {
+    folderId: v.optional(v.union(v.id("folders"), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    // If no folderId provided, return empty - caller should use different query
+    if (args.folderId === undefined) return []
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return []
+
+    // Get senders matching the folder filter
+    const allSettings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+
+    const matchingSenderIds = allSettings
+      .filter((s) => {
+        if (args.folderId === null) {
+          // "Uncategorized" - senders with no folder
+          return s.folderId === undefined
+        }
+        return s.folderId === args.folderId
+      })
+      .map((s) => s.senderId)
+
+    // Get newsletters from matching senders
+    const newsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .collect()
+
+    // Filter to only newsletters from matching senders
+    const filteredNewsletters = newsletters.filter((n) =>
+      matchingSenderIds.includes(n.senderId)
+    )
+
+    // Batch-fetch all unique senders to avoid N+1 queries
+    const uniqueSenderIds = [...new Set(filteredNewsletters.map((n) => n.senderId))]
+    const senders = await Promise.all(uniqueSenderIds.map((id) => ctx.db.get(id)))
+    const senderMap = new Map(
+      senders
+        .filter((s): s is NonNullable<typeof s> => s !== null)
+        .map((s) => [s._id, s])
+    )
+
+    // Enrich with sender info for display (O(1) lookup from map)
+    return filteredNewsletters.map((newsletter) => {
+      const sender = senderMap.get(newsletter.senderId)
+      return {
+        ...newsletter,
+        senderDisplayName: sender?.name || sender?.email || newsletter.senderEmail,
+      }
+    })
+  },
+})
+
+/**
  * Mark userNewsletter as read
  * Story 2.5.1: Updated for userNewsletters table
  */

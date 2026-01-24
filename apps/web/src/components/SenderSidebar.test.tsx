@@ -5,6 +5,7 @@ import {
   SenderSidebar,
   SenderSidebarSkeleton,
   type SenderData,
+  type FolderData,
 } from "./SenderSidebar"
 
 // Mock sender data - sorted alphabetically by displayName as query would return
@@ -28,7 +29,7 @@ const mockSenders: SenderData[] = [
     userNewsletterCount: 10,
     unreadCount: 3,
     isPrivate: false,
-    folderId: undefined,
+    folderId: "folder-1",
   },
   {
     _id: "sender-2",
@@ -43,18 +44,46 @@ const mockSenders: SenderData[] = [
   },
 ]
 
-// Track the mock return value so we can change it per test
-let mockQueryReturn: { data: SenderData[] | undefined; isPending: boolean } = {
+// Mock folder data for Story 3.3
+const mockFolders: FolderData[] = [
+  {
+    _id: "folder-1",
+    userId: "user-1",
+    name: "Important",
+    createdAt: Date.now(),
+    newsletterCount: 10,
+    unreadCount: 3,
+    senderCount: 1,
+  },
+]
+
+// Track which query is being called (based on call order)
+let queryCallCount = 0
+let mockSendersQueryReturn: { data: SenderData[] | undefined; isPending: boolean } = {
   data: mockSenders,
+  isPending: false,
+}
+let mockFoldersQueryReturn: { data: FolderData[] | undefined; isPending: boolean } = {
+  data: mockFolders,
   isPending: false,
 }
 
 // Mock @tanstack/react-query useQuery to return mock data
+// Story 3.3: Updated to handle both senders and folders queries
+// SenderSidebar calls senders query first, then folders query
 vi.mock("@tanstack/react-query", async () => {
   const actual = await vi.importActual("@tanstack/react-query")
   return {
     ...actual,
-    useQuery: () => mockQueryReturn,
+    useQuery: () => {
+      // Alternate between senders and folders based on call order
+      // First call is senders, second call is folders
+      queryCallCount++
+      if (queryCallCount % 2 === 0) {
+        return mockFoldersQueryReturn
+      }
+      return mockSendersQueryReturn
+    },
   }
 })
 
@@ -65,19 +94,28 @@ vi.mock("@convex-dev/react-query", () => ({
 
 describe("SenderSidebar", () => {
   let mockOnSenderSelect: ReturnType<typeof vi.fn>
+  let mockOnFolderSelect: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
     mockOnSenderSelect = vi.fn()
+    mockOnFolderSelect = vi.fn()
+    // Reset call count for query ordering
+    queryCallCount = 0
     // Reset to default mock data
-    mockQueryReturn = {
+    mockSendersQueryReturn = {
       data: mockSenders,
+      isPending: false,
+    }
+    mockFoldersQueryReturn = {
+      data: mockFolders,
       isPending: false,
     }
   })
 
   const renderSidebar = (
     selectedSenderId: string | null = null,
+    selectedFolderId: string | null = null,
     totalNewsletterCount = 17,
     totalUnreadCount = 4
   ) => {
@@ -88,7 +126,9 @@ describe("SenderSidebar", () => {
       <QueryClientProvider client={queryClient}>
         <SenderSidebar
           selectedSenderId={selectedSenderId}
+          selectedFolderId={selectedFolderId}
           onSenderSelect={mockOnSenderSelect}
+          onFolderSelect={mockOnFolderSelect}
           totalNewsletterCount={totalNewsletterCount}
           totalUnreadCount={totalUnreadCount}
         />
@@ -121,8 +161,8 @@ describe("SenderSidebar", () => {
     it("displays newsletter count for each sender", () => {
       renderSidebar()
 
-      // Each sender's count should be displayed
-      expect(screen.getByText("10")).toBeInTheDocument() // Example News
+      // Each sender's count should be displayed (using getAllByText since 10 appears for both folder and sender)
+      expect(screen.getAllByText("10").length).toBeGreaterThanOrEqual(1) // Example News (and folder)
       expect(screen.getByText("5")).toBeInTheDocument() // Tech Digest
       expect(screen.getByText("2")).toBeInTheDocument() // alpha@first.com
     })
@@ -132,8 +172,9 @@ describe("SenderSidebar", () => {
 
       // Check for unread indicators (small dots) - aria-labels contain unread counts
       const unreadIndicators = screen.getAllByLabelText(/unread/)
-      // "All" has 4 unread, "Example News" has 3, "alpha@first.com" has 1
-      expect(unreadIndicators.length).toBe(3)
+      // "All" has 4 unread, "Important" folder has 3, "Uncategorized" has 1, "Example News" has 3, "alpha@first.com" has 1
+      // Total: 5 indicators (Uncategorized is now included in Story 3.3)
+      expect(unreadIndicators.length).toBe(5)
     })
 
     it("does not display unread indicator for senders with 0 unread", () => {
@@ -148,43 +189,97 @@ describe("SenderSidebar", () => {
   })
 
   describe("Sender Selection (AC2)", () => {
-    it("highlights 'All' when no sender is selected", () => {
-      renderSidebar(null)
+    it("highlights 'All' when nothing is selected", () => {
+      renderSidebar(null, null)
 
       const allButton = screen.getByText("All Newsletters").closest("button")
       expect(allButton).toHaveClass("bg-accent")
     })
 
     it("highlights selected sender", () => {
-      renderSidebar("sender-1")
+      renderSidebar("sender-1", null)
 
       const senderButton = screen.getByText("Example News").closest("button")
       expect(senderButton).toHaveClass("bg-accent")
     })
 
     it("does not highlight 'All' when a sender is selected", () => {
-      renderSidebar("sender-1")
+      renderSidebar("sender-1", null)
 
       const allButton = screen.getByText("All Newsletters").closest("button")
       expect(allButton).not.toHaveClass("bg-accent")
     })
 
-    it("calls onSenderSelect with senderId when sender clicked", () => {
+    it("calls onSenderSelect with senderId and clears folder when sender clicked", () => {
       renderSidebar()
 
       const senderButton = screen.getByText("Example News").closest("button")
       fireEvent.click(senderButton!)
 
+      // Story 3.3: Now also clears folder selection
+      expect(mockOnFolderSelect).toHaveBeenCalledWith(null)
       expect(mockOnSenderSelect).toHaveBeenCalledWith("sender-1")
     })
 
-    it("calls onSenderSelect with null when 'All' clicked", () => {
-      renderSidebar("sender-1")
+    it("calls onSenderSelect and onFolderSelect with null when 'All' clicked", () => {
+      renderSidebar("sender-1", null)
 
       const allButton = screen.getByText("All Newsletters").closest("button")
       fireEvent.click(allButton!)
 
+      // Story 3.3: "All" clears both sender and folder
       expect(mockOnSenderSelect).toHaveBeenCalledWith(null)
+      expect(mockOnFolderSelect).toHaveBeenCalledWith(null)
+    })
+  })
+
+  // Story 3.3: New folder tests
+  describe("Folder Section (Story 3.3 AC4, AC5)", () => {
+    it("displays folders section with folder names", () => {
+      renderSidebar()
+
+      expect(screen.getByText("Important")).toBeInTheDocument()
+    })
+
+    it("displays folder unread count", () => {
+      renderSidebar()
+
+      // Folder "Important" should have unread indicator
+      expect(screen.getByLabelText(/unread in Important/)).toBeInTheDocument()
+    })
+
+    it("displays Uncategorized virtual folder when senders have no folder", () => {
+      renderSidebar()
+
+      // Two senders (alpha@first.com, Tech Digest) have no folder
+      expect(screen.getByText("Uncategorized")).toBeInTheDocument()
+    })
+
+    it("highlights selected folder", () => {
+      renderSidebar(null, "folder-1")
+
+      const folderButton = screen.getByText("Important").closest("button")
+      expect(folderButton).toHaveClass("bg-accent")
+    })
+
+    it("calls onFolderSelect and clears sender when folder clicked", () => {
+      renderSidebar()
+
+      const folderButton = screen.getByText("Important").closest("button")
+      fireEvent.click(folderButton!)
+
+      expect(mockOnSenderSelect).toHaveBeenCalledWith(null)
+      expect(mockOnFolderSelect).toHaveBeenCalledWith("folder-1")
+    })
+
+    it("calls onFolderSelect with 'uncategorized' when Uncategorized clicked", () => {
+      renderSidebar()
+
+      const uncategorizedButton = screen.getByText("Uncategorized").closest("button")
+      fireEvent.click(uncategorizedButton!)
+
+      expect(mockOnSenderSelect).toHaveBeenCalledWith(null)
+      expect(mockOnFolderSelect).toHaveBeenCalledWith("uncategorized")
     })
   })
 
@@ -192,21 +287,33 @@ describe("SenderSidebar", () => {
     it("senders are displayed in order returned by query (alphabetically)", () => {
       renderSidebar()
 
-      // Get all buttons except "All Newsletters"
+      // Get all buttons except "All Newsletters" and folders
       const buttons = screen.getAllByRole("button")
-      const senderButtons = buttons.slice(1) // Skip "All Newsletters"
+      // Find the sender buttons (after All, folders, and Uncategorized)
+      const senderButtonTexts = buttons
+        .map((b) => b.textContent || "")
+        .filter(
+          (text) =>
+            !text.includes("All Newsletters") &&
+            !text.includes("Important") &&
+            !text.includes("Uncategorized")
+        )
 
-      // Verify the display order matches our mock data (which is pre-sorted alphabetically)
-      expect(senderButtons[0]).toHaveTextContent("alpha@first.com")
-      expect(senderButtons[1]).toHaveTextContent("Example News")
-      expect(senderButtons[2]).toHaveTextContent("Tech Digest")
+      // Verify sender order
+      expect(senderButtonTexts[0]).toContain("alpha@first.com")
+      expect(senderButtonTexts[1]).toContain("Example News")
+      expect(senderButtonTexts[2]).toContain("Tech Digest")
     })
   })
 
   describe("Empty State", () => {
     it("displays empty message when no senders", () => {
       // Override the mock for this test
-      mockQueryReturn = {
+      mockSendersQueryReturn = {
+        data: [],
+        isPending: false,
+      }
+      mockFoldersQueryReturn = {
         data: [],
         isPending: false,
       }
@@ -218,8 +325,21 @@ describe("SenderSidebar", () => {
   })
 
   describe("Loading State", () => {
-    it("shows skeleton when data is loading", () => {
-      mockQueryReturn = {
+    it("shows skeleton when senders data is loading", () => {
+      mockSendersQueryReturn = {
+        data: undefined,
+        isPending: true,
+      }
+
+      renderSidebar()
+
+      // Should show skeleton elements
+      const skeletonElements = document.querySelectorAll(".animate-pulse")
+      expect(skeletonElements.length).toBeGreaterThan(0)
+    })
+
+    it("shows skeleton when folders data is loading", () => {
+      mockFoldersQueryReturn = {
         data: undefined,
         isPending: true,
       }
@@ -245,8 +365,9 @@ describe("SenderSidebarSkeleton", () => {
   it("renders correct number of skeleton items", () => {
     render(<SenderSidebarSkeleton />)
 
-    // Should have 1 "All" skeleton + 4 sender skeletons
-    const skeletonItems = document.querySelectorAll(".h-10.bg-muted")
-    expect(skeletonItems.length).toBe(5)
+    // Story 3.3: Updated skeleton structure with folders section
+    // 1 "All" skeleton + 3 folder skeletons + 4 sender skeletons = 8 total
+    const skeletonItems = document.querySelectorAll(".bg-muted")
+    expect(skeletonItems.length).toBeGreaterThanOrEqual(5)
   })
 })

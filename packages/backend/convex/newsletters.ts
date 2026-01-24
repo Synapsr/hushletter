@@ -2,6 +2,7 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  mutation,
   query,
   action,
 } from "./_generated/server"
@@ -579,7 +580,7 @@ export const listUserNewslettersBySender = query({
       const newsletters = await ctx.db
         .query("userNewsletters")
         .withIndex("by_userId_senderId", (q) =>
-          q.eq("userId", user._id).eq("senderId", args.senderId)
+          q.eq("userId", user._id).eq("senderId", args.senderId as Id<"senders">)
         )
         .collect()
 
@@ -717,6 +718,117 @@ export const toggleHidden = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userNewsletterId, {
       isHidden: args.isHidden,
+    })
+  },
+})
+
+/**
+ * Mark newsletter as read (public mutation)
+ * Story 3.4: AC3, AC4 - Manual/auto mark as read
+ */
+export const markNewsletterRead = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+    readProgress: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    if (!userNewsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    // Get user for ownership check
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user || userNewsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    await ctx.db.patch(args.userNewsletterId, {
+      isRead: true,
+      readProgress: args.readProgress ?? 100,
+    })
+  },
+})
+
+/**
+ * Mark newsletter as unread (public mutation)
+ * Story 3.4: AC4 - Mark as unread functionality
+ */
+export const markNewsletterUnread = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    if (!userNewsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user || userNewsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    await ctx.db.patch(args.userNewsletterId, {
+      isRead: false,
+      // Keep readProgress for "resume reading" feature
+    })
+  },
+})
+
+/**
+ * Update reading progress (public mutation)
+ * Story 3.4: AC1, AC3 - Scroll tracking with auto-mark as read at 100%
+ */
+export const updateNewsletterReadProgress = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+    readProgress: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    if (!userNewsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user || userNewsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    // Clamp progress to 0-100
+    const clampedProgress = Math.max(0, Math.min(100, args.readProgress))
+
+    await ctx.db.patch(args.userNewsletterId, {
+      readProgress: clampedProgress,
+      isRead: clampedProgress >= 100,
     })
   },
 })

@@ -12,6 +12,7 @@ export interface NewsletterData {
   isRead: boolean
   isHidden: boolean
   isPrivate: boolean
+  readProgress?: number
 }
 
 interface NewsletterCardProps {
@@ -58,10 +59,16 @@ function getSenderDisplay(newsletter: NewsletterData): string {
 
 /**
  * NewsletterCard - Displays a newsletter list item with sender, subject, and date
- * Shows read/unread status with visual distinction
+ * Story 3.4: Shows read/unread status with visual distinction and progress indicator (AC5)
  */
 export function NewsletterCard({ newsletter }: NewsletterCardProps) {
   const senderDisplay = getSenderDisplay(newsletter)
+
+  // Story 3.4 AC5: Show progress for partially read newsletters (0 < progress < 100)
+  const isPartiallyRead =
+    newsletter.readProgress !== undefined &&
+    newsletter.readProgress > 0 &&
+    newsletter.readProgress < 100
 
   return (
     <Link
@@ -77,37 +84,51 @@ export function NewsletterCard({ newsletter }: NewsletterCardProps) {
       >
         <CardContent className="py-4">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              {/* Sender name/email */}
-              <p
-                className={cn(
-                  "text-sm truncate",
-                  newsletter.isRead
-                    ? "text-muted-foreground"
-                    : "font-semibold text-foreground"
-                )}
-              >
-                {senderDisplay}
-              </p>
-              {/* Subject line */}
-              <p
-                className={cn(
-                  "text-base truncate mt-1",
-                  newsletter.isRead
-                    ? "text-muted-foreground"
-                    : "font-medium text-foreground"
-                )}
-              >
-                {newsletter.subject}
-              </p>
+            {/* Story 3.4 AC5: Unread indicator dot */}
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              {!newsletter.isRead && (
+                <div className="h-2 w-2 rounded-full bg-primary/60 mt-2 shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                {/* Sender name/email */}
+                <p
+                  className={cn(
+                    "text-sm truncate",
+                    newsletter.isRead
+                      ? "text-muted-foreground"
+                      : "font-semibold text-foreground"
+                  )}
+                >
+                  {senderDisplay}
+                </p>
+                {/* Subject line */}
+                <p
+                  className={cn(
+                    "text-base truncate mt-1",
+                    newsletter.isRead
+                      ? "text-muted-foreground"
+                      : "font-medium text-foreground"
+                  )}
+                >
+                  {newsletter.subject}
+                </p>
+              </div>
             </div>
-            {/* Date */}
-            <time
-              dateTime={new Date(newsletter.receivedAt).toISOString()}
-              className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0"
-            >
-              {formatDate(newsletter.receivedAt)}
-            </time>
+            {/* Date and progress indicator */}
+            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+              <time
+                dateTime={new Date(newsletter.receivedAt).toISOString()}
+                className="text-xs text-muted-foreground whitespace-nowrap"
+              >
+                {formatDate(newsletter.receivedAt)}
+              </time>
+              {/* Story 3.4 AC5: Progress indicator for partially read */}
+              {isPartiallyRead && (
+                <span className="text-xs text-muted-foreground">
+                  {newsletter.readProgress}% read
+                </span>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

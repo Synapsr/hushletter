@@ -1,11 +1,16 @@
-import { useState, useEffect } from "react"
-import { useAction } from "convex/react"
+import { useState, useEffect, useRef } from "react"
+import { useAction, useMutation } from "convex/react"
 import { api } from "@newsletter-manager/backend"
 import DOMPurify from "dompurify"
+import { useScrollProgress } from "~/hooks/useScrollProgress"
 
 interface ReaderViewProps {
   /** userNewsletter document ID */
   userNewsletterId: string
+  /** Initial reading progress percentage (0-100) for resume feature */
+  initialProgress?: number
+  /** Callback when reading is complete (100% scrolled) */
+  onReadingComplete?: () => void
 }
 
 /**
@@ -93,18 +98,46 @@ function ContentEmpty() {
  * ReaderView - Displays newsletter content with XSS protection
  * Fetches content via action (for signed R2 URLs) and sanitizes HTML
  *
+ * Story 3.4: Added scroll progress tracking with auto-mark as read
+ *
  * Note on useState for loading: This is an ACCEPTED EXCEPTION to project-context.md rules.
  * Convex useAction doesn't provide isPending like useMutation does, so manual loading
  * state management is required here. See Story 3.2 code review for rationale.
  */
-export function ReaderView({ userNewsletterId }: ReaderViewProps) {
+export function ReaderView({
+  userNewsletterId,
+  initialProgress,
+  onReadingComplete,
+}: ReaderViewProps) {
   const [contentHtml, setContentHtml] = useState<string | null>(null)
   // Exception: useAction doesn't have isPending, manual loading state required
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Ref for scrollable container (Story 3.4: AC1)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
   // Use action for content retrieval (generates signed R2 URL)
   const getNewsletterWithContent = useAction(api.newsletters.getUserNewsletterWithContent)
+
+  // Story 3.4: Mutation for updating read progress
+  const updateReadProgress = useMutation(api.newsletters.updateNewsletterReadProgress)
+
+  // Story 3.4: Track scroll progress with debounce
+  useScrollProgress({
+    containerRef: scrollContainerRef,
+    onProgress: (progress) => {
+      // Update progress in database
+      updateReadProgress({ userNewsletterId, readProgress: progress })
+
+      // Notify parent when reading is complete (AC3)
+      if (progress === 100 && onReadingComplete) {
+        onReadingComplete()
+      }
+    },
+    debounceMs: 2000,
+    thresholdPercent: 5,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -210,6 +243,18 @@ export function ReaderView({ userNewsletterId }: ReaderViewProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userNewsletterId])
 
+  // Story 3.4 AC2: Scroll to saved position when content loads and initialProgress is provided
+  useEffect(() => {
+    if (!isLoading && contentHtml && initialProgress && initialProgress > 0 && initialProgress < 100) {
+      // Small delay to ensure content is rendered and measured
+      const timeoutId = setTimeout(() => {
+        scrollToProgress(scrollContainerRef, initialProgress)
+      }, 100)
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [isLoading, contentHtml, initialProgress])
+
   // Loading state
   if (isLoading) {
     return <ContentSkeleton />
@@ -225,15 +270,41 @@ export function ReaderView({ userNewsletterId }: ReaderViewProps) {
     return <ContentEmpty />
   }
 
-  // Render sanitized HTML content
+  // Render sanitized HTML content in scrollable container for progress tracking
   return (
-    <article
-      className="prose prose-gray dark:prose-invert max-w-none
-        prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-        prose-img:rounded-lg prose-img:mx-auto
-        prose-headings:font-semibold
-        prose-p:leading-relaxed"
-      dangerouslySetInnerHTML={{ __html: contentHtml }}
-    />
+    <div
+      ref={scrollContainerRef}
+      className="overflow-y-auto max-h-[calc(100vh-200px)]"
+    >
+      <article
+        className="prose prose-gray dark:prose-invert max-w-none
+          prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+          prose-img:rounded-lg prose-img:mx-auto
+          prose-headings:font-semibold
+          prose-p:leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: contentHtml }}
+      />
+    </div>
   )
+}
+
+/**
+ * Scroll to a specific progress percentage within a container
+ * Story 3.4: AC2 - Resume reading from saved position
+ */
+function scrollToProgress(
+  containerRef: React.RefObject<HTMLElement | null>,
+  progress: number
+): void {
+  const container = containerRef.current
+  if (!container) return
+
+  const { scrollHeight, clientHeight } = container
+  const scrollableHeight = scrollHeight - clientHeight
+  const targetScroll = (progress / 100) * scrollableHeight
+
+  container.scrollTo({
+    top: targetScroll,
+    behavior: "smooth",
+  })
 }

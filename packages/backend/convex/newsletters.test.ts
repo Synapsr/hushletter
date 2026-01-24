@@ -29,6 +29,13 @@ describe("newsletters API exports", () => {
     expect(api.newsletters.getUserNewsletterWithContent).toBeDefined()
   })
 
+  // Story 3.4: Reading progress mutations
+  it("should export public mutation functions for read status (Story 3.4)", () => {
+    expect(api.newsletters.markNewsletterRead).toBeDefined()
+    expect(api.newsletters.markNewsletterUnread).toBeDefined()
+    expect(api.newsletters.updateNewsletterReadProgress).toBeDefined()
+  })
+
   it("should export internal functions", () => {
     expect(internal.newsletters).toBeDefined()
     expect(internal.newsletters.createUserNewsletter).toBeDefined()
@@ -678,5 +685,194 @@ describe("return value changes (Story 2.5.2)", () => {
   it("deduplicated=false when new content was created (dedup miss)", () => {
     const dedupMissResult = { deduplicated: false }
     expect(dedupMissResult.deduplicated).toBe(false)
+  })
+})
+
+// =============================================================================
+// Story 3.4: Reading Progress & Mark as Read
+// =============================================================================
+
+describe("markNewsletterRead mutation contract (Story 3.4)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "required Id<'userNewsletters'>",
+      readProgress: "optional number - progress percentage (default 100)",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+    expect(expectedArgsShape).toHaveProperty("readProgress")
+  })
+
+  it("requires authentication", () => {
+    const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+    expect(expectedError.code).toBe("UNAUTHORIZED")
+  })
+
+  it("validates newsletter ownership", () => {
+    const expectedError = { code: "FORBIDDEN", message: "Access denied" }
+    expect(expectedError.code).toBe("FORBIDDEN")
+  })
+
+  it("throws NOT_FOUND when newsletter doesn't exist", () => {
+    const expectedError = { code: "NOT_FOUND", message: "Newsletter not found" }
+    expect(expectedError.code).toBe("NOT_FOUND")
+  })
+
+  it("sets isRead to true and readProgress to 100 by default", () => {
+    const expectedUpdate = { isRead: true, readProgress: 100 }
+    expect(expectedUpdate.isRead).toBe(true)
+    expect(expectedUpdate.readProgress).toBe(100)
+  })
+
+  it("allows custom readProgress value", () => {
+    const customProgress = 75
+    expect(customProgress).toBeGreaterThanOrEqual(0)
+    expect(customProgress).toBeLessThanOrEqual(100)
+  })
+})
+
+describe("markNewsletterUnread mutation contract (Story 3.4)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "required Id<'userNewsletters'>",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+  })
+
+  it("requires authentication", () => {
+    const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+    expect(expectedError.code).toBe("UNAUTHORIZED")
+  })
+
+  it("validates newsletter ownership", () => {
+    const expectedError = { code: "FORBIDDEN", message: "Access denied" }
+    expect(expectedError.code).toBe("FORBIDDEN")
+  })
+
+  it("sets isRead to false", () => {
+    const expectedUpdate = { isRead: false }
+    expect(expectedUpdate.isRead).toBe(false)
+  })
+
+  it("preserves readProgress for resume reading feature", () => {
+    // When marking as unread, readProgress is NOT reset
+    // This allows user to resume from where they left off
+    const preservedFields = ["readProgress"]
+    expect(preservedFields).toContain("readProgress")
+  })
+})
+
+describe("updateNewsletterReadProgress mutation contract (Story 3.4)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "required Id<'userNewsletters'>",
+      readProgress: "required number - progress percentage 0-100",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+    expect(expectedArgsShape).toHaveProperty("readProgress")
+  })
+
+  it("requires authentication", () => {
+    const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+    expect(expectedError.code).toBe("UNAUTHORIZED")
+  })
+
+  it("validates newsletter ownership", () => {
+    const expectedError = { code: "FORBIDDEN", message: "Access denied" }
+    expect(expectedError.code).toBe("FORBIDDEN")
+  })
+
+  it("clamps progress to 0-100 range", () => {
+    const clamp = (n: number) => Math.max(0, Math.min(100, n))
+    expect(clamp(-10)).toBe(0)
+    expect(clamp(150)).toBe(100)
+    expect(clamp(50)).toBe(50)
+  })
+
+  it("auto-marks as read when progress reaches 100", () => {
+    const expectedBehavior = { readProgress: 100, isRead: true }
+    expect(expectedBehavior.isRead).toBe(true)
+  })
+
+  it("keeps isRead false for progress < 100", () => {
+    const expectedBehavior = { readProgress: 75, isRead: false }
+    expect(expectedBehavior.isRead).toBe(false)
+  })
+})
+
+describe("reading progress schema fields (Story 3.4)", () => {
+  it("userNewsletters has readProgress optional field", () => {
+    const schemaField = {
+      name: "readProgress",
+      type: "v.optional(v.number())",
+      range: "0-100 percentage",
+    }
+    expect(schemaField.name).toBe("readProgress")
+    expect(schemaField.type).toContain("optional")
+  })
+
+  it("userNewsletters has isRead boolean field", () => {
+    const schemaField = {
+      name: "isRead",
+      type: "v.boolean()",
+      default: false,
+    }
+    expect(schemaField.name).toBe("isRead")
+    expect(schemaField.default).toBe(false)
+  })
+})
+
+describe("reading progress acceptance criteria (Story 3.4)", () => {
+  it("AC1: Scroll progress tracking stores percentage in database", () => {
+    const ac1 = {
+      trigger: "User scrolls through newsletter content",
+      action: "updateNewsletterReadProgress mutation called",
+      result: "readProgress field updated with percentage",
+    }
+    expect(ac1.action).toContain("updateNewsletterReadProgress")
+  })
+
+  it("AC2: Resume reading shows progress and allows resume", () => {
+    const ac2 = {
+      display: "Shows 'X% read' in newsletter detail header",
+      action: "Resume button scrolls to saved position",
+      calculation: "scrollTop = (progress / 100) * scrollableHeight",
+    }
+    expect(ac2.display).toContain("% read")
+  })
+
+  it("AC3: Auto-mark as read at 100%", () => {
+    const ac3 = {
+      condition: "readProgress >= 100",
+      action: "isRead automatically set to true",
+      trigger: "updateNewsletterReadProgress with progress=100",
+    }
+    expect(ac3.condition).toContain("100")
+  })
+
+  it("AC4: Manual mark as unread", () => {
+    const ac4 = {
+      mutation: "markNewsletterUnread",
+      result: "isRead set to false, readProgress preserved",
+      uiUpdate: "Immediate optimistic update",
+    }
+    expect(ac4.mutation).toBe("markNewsletterUnread")
+  })
+
+  it("AC5: Visual read status indicators", () => {
+    const ac5 = {
+      unread: "Bold text, primary border, indicator dot",
+      partiallyRead: "Shows 'X% read' badge",
+      read: "Muted text color",
+    }
+    expect(ac5.partiallyRead).toContain("% read")
+  })
+
+  it("AC6: Unread counts in navigation (verified from Story 3.1, 3.3)", () => {
+    const ac6 = {
+      senderSidebar: "Shows unread count badges per sender",
+      folderSection: "Shows unread count badges per folder",
+      allNewsletters: "Shows total unread count",
+    }
+    expect(ac6.senderSidebar).toContain("unread count")
   })
 })

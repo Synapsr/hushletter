@@ -1,12 +1,14 @@
+import { useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
+import { useMutation } from "convex/react"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
 import { ReaderView, clearCacheEntry } from "~/components/ReaderView"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, BookOpen, BookMarked } from "lucide-react"
 
 export const Route = createFileRoute("/_authed/newsletters/$id")({
   component: NewsletterDetailPage,
@@ -21,6 +23,7 @@ interface NewsletterMetadata {
   receivedAt: number
   isRead: boolean
   isPrivate: boolean
+  readProgress?: number
   contentStatus: "available" | "missing" | "error"
 }
 
@@ -98,42 +101,109 @@ function PageError({ message }: { message: string }) {
 }
 
 /**
- * Newsletter header with subject, sender, and date
+ * Newsletter header with subject, sender, date, and read status controls
+ * Story 3.4: AC2 (Resume), AC4 (Mark read/unread), AC5 (Progress display)
  */
 function NewsletterHeader({
   subject,
   senderName,
   senderEmail,
   receivedAt,
+  readProgress,
+  isRead,
+  onResumeClick,
+  onMarkRead,
+  onMarkUnread,
+  isUpdating,
 }: {
   subject: string
   senderName?: string
   senderEmail: string
   receivedAt: number
+  readProgress?: number
+  isRead: boolean
+  onResumeClick?: () => void
+  onMarkRead: () => void
+  onMarkUnread: () => void
+  isUpdating: boolean
 }) {
   const senderDisplay = senderName || senderEmail
   const date = new Date(receivedAt)
 
+  // Show resume button for partially read newsletters (0 < progress < 100)
+  const showResumeButton =
+    readProgress !== undefined && readProgress > 0 && readProgress < 100
+
   return (
     <header className="border-b pb-6 mb-6">
       <h1 className="text-2xl font-bold text-foreground mb-2">{subject}</h1>
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <span className="font-medium text-foreground">{senderDisplay}</span>
-        {senderName && (
-          <span className="text-sm">&lt;{senderEmail}&gt;</span>
-        )}
-        <span className="text-sm">
-          {" \u2022 "}
-          <time dateTime={date.toISOString()}>
-            {date.toLocaleDateString(undefined, {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </time>
-        </span>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <span className="font-medium text-foreground">{senderDisplay}</span>
+          {senderName && (
+            <span className="text-sm">&lt;{senderEmail}&gt;</span>
+          )}
+          <span className="text-sm">
+            {" \u2022 "}
+            <time dateTime={date.toISOString()}>
+              {date.toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </time>
+          </span>
+        </div>
+
+        {/* Story 3.4: Reading progress and controls */}
+        <div className="flex items-center gap-2">
+          {/* Progress indicator for partially read (AC5) */}
+          {showResumeButton && (
+            <span className="text-sm text-muted-foreground">
+              {readProgress}% read
+            </span>
+          )}
+
+          {/* Resume reading button (AC2) */}
+          {showResumeButton && onResumeClick && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onResumeClick}
+              className="gap-1"
+            >
+              <BookOpen className="h-4 w-4" />
+              Resume
+            </Button>
+          )}
+
+          {/* Mark as read/unread button (AC4) */}
+          {isRead ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMarkUnread}
+              disabled={isUpdating}
+              className="gap-1"
+            >
+              <BookMarked className="h-4 w-4" />
+              Mark unread
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMarkRead}
+              disabled={isUpdating}
+              className="gap-1"
+            >
+              <BookOpen className="h-4 w-4" />
+              Mark as read
+            </Button>
+          )}
+        </div>
       </div>
     </header>
   )
@@ -141,9 +211,18 @@ function NewsletterHeader({
 
 /**
  * Content wrapper with error boundary (NFR11)
+ * Story 3.4: Added scroll progress tracking and resume feature
  * Clears content cache on reset to ensure fresh fetch on retry
  */
-function NewsletterContent({ newsletterId }: { newsletterId: string }) {
+function NewsletterContent({
+  newsletterId,
+  initialProgress,
+  onReadingComplete,
+}: {
+  newsletterId: string
+  initialProgress?: number
+  onReadingComplete?: () => void
+}) {
   const handleReset = () => {
     // Clear cached content for this newsletter to force refetch
     clearCacheEntry(newsletterId)
@@ -154,13 +233,24 @@ function NewsletterContent({ newsletterId }: { newsletterId: string }) {
       FallbackComponent={ContentErrorFallback}
       onReset={handleReset}
     >
-      <ReaderView userNewsletterId={newsletterId} />
+      <ReaderView
+        userNewsletterId={newsletterId}
+        initialProgress={initialProgress}
+        onReadingComplete={onReadingComplete}
+      />
     </ErrorBoundary>
   )
 }
 
 function NewsletterDetailPage() {
   const { id } = Route.useParams()
+
+  // Story 3.4: Track if user wants to resume from saved position
+  const [shouldResume, setShouldResume] = useState(false)
+
+  // Story 3.4: Mutations for mark read/unread
+  const markRead = useMutation(api.newsletters.markNewsletterRead)
+  const markUnread = useMutation(api.newsletters.markNewsletterUnread)
 
   // Validate route param before using - prevents invalid ID errors
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -205,6 +295,20 @@ function NewsletterDetailPage() {
     )
   }
 
+  // Story 3.4: Handlers for mark read/unread (AC4)
+  const handleMarkRead = () => {
+    markRead({ userNewsletterId: id, readProgress: 100 })
+  }
+
+  const handleMarkUnread = () => {
+    markUnread({ userNewsletterId: id })
+  }
+
+  // Story 3.4: Handler for resume button (AC2)
+  const handleResumeClick = () => {
+    setShouldResume(true)
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Back navigation - uses history.back() to preserve URL params like ?sender= (AC4) */}
@@ -213,16 +317,28 @@ function NewsletterDetailPage() {
         Back to newsletters
       </Button>
 
-      {/* Newsletter header */}
+      {/* Newsletter header with reading controls (Story 3.4) */}
+      {/* TODO: isUpdating should track mutation pending state, but Convex useMutation
+          doesn't expose isPending. Mutations are fast (~100ms) so impact is minimal.
+          Consider using optimistic updates or manual state tracking if UX feedback needed. */}
       <NewsletterHeader
         subject={newsletter.subject}
         senderName={newsletter.senderName}
         senderEmail={newsletter.senderEmail}
         receivedAt={newsletter.receivedAt}
+        readProgress={newsletter.readProgress}
+        isRead={newsletter.isRead}
+        onResumeClick={handleResumeClick}
+        onMarkRead={handleMarkRead}
+        onMarkUnread={handleMarkUnread}
+        isUpdating={false}
       />
 
-      {/* Newsletter content with error boundary (AC3) */}
-      <NewsletterContent newsletterId={id} />
+      {/* Newsletter content with error boundary and scroll tracking (Story 3.4) */}
+      <NewsletterContent
+        newsletterId={id}
+        initialProgress={shouldResume ? newsletter.readProgress : undefined}
+      />
     </div>
   )
 }

@@ -114,6 +114,7 @@ export default defineSchema({
 
   // Store detected newsletter senders before user approval (Story 4.3)
   // Story 4.2: Task 3.4 - detectedSenders table
+  // Story 4.3: Task 1.1 - Added isSelected and isApproved fields
   detectedSenders: defineTable({
     userId: v.id("users"),
     email: v.string(),
@@ -123,7 +124,10 @@ export default defineSchema({
     confidenceScore: v.number(), // 0-100 score from heuristics
     sampleSubjects: v.array(v.string()), // Up to 5 sample subjects
     detectedAt: v.number(), // Unix timestamp ms
+    isSelected: v.optional(v.boolean()), // Story 4.3: Selection state for import approval (defaults to true)
+    isApproved: v.optional(v.boolean()), // Story 4.3: Set to true after "Import Selected" clicked
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_email", ["userId", "email"]),
+    .index("by_userId_email", ["userId", "email"])
+    .index("by_userId_isSelected", ["userId", "isSelected"]), // Story 4.3: For efficient selected count queries
 })

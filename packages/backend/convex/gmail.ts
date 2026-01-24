@@ -291,6 +291,8 @@ type DetectedSender = {
   confidenceScore: number
   sampleSubjects: string[]
   detectedAt: number
+  isSelected: boolean // Story 4.3: Selection state for import approval (defaults to true if undefined)
+  isApproved: boolean // Story 4.3: Approval state after user confirms (defaults to false if undefined)
 }
 
 /**
@@ -330,6 +332,7 @@ export const getScanProgress = query({
 /**
  * Get detected senders for the authenticated user
  * Story 4.2: Task 5.2 - Query detected senders for display
+ * Story 4.3: Added isSelected and isApproved fields with defaults
  *
  * @returns Array of detected senders sorted by email count (descending)
  */
@@ -358,7 +361,14 @@ export const getDetectedSenders = query({
       .collect()
 
     // Sort by email count (descending) - most prolific senders first
-    return (senders as DetectedSender[]).sort((a, b) => b.emailCount - a.emailCount)
+    // Story 4.3: Apply defaults for optional isSelected/isApproved fields
+    return senders
+      .map((sender) => ({
+        ...sender,
+        isSelected: sender.isSelected ?? true, // Default to true per AC#1
+        isApproved: sender.isApproved ?? false, // Default to false
+      }))
+      .sort((a, b) => b.emailCount - a.emailCount)
   },
 })
 
@@ -481,6 +491,7 @@ export const upsertDetectedSender = internalMutation({
 
     if (existingSender) {
       // Update existing sender with new data
+      // Note: isSelected and isApproved are NOT reset on rescan - preserve user's previous selections
       await ctx.db.patch(existingSender._id, {
         name: args.name ?? existingSender.name,
         emailCount: args.emailCount,
@@ -490,6 +501,7 @@ export const upsertDetectedSender = internalMutation({
       })
     } else {
       // Insert new detected sender
+      // Story 4.3: New senders default to isSelected: true (per AC#1) and isApproved: false
       await ctx.db.insert("detectedSenders", {
         userId: args.userId,
         email: args.email,
@@ -499,6 +511,8 @@ export const upsertDetectedSender = internalMutation({
         confidenceScore: args.confidenceScore,
         sampleSubjects: args.sampleSubjects,
         detectedAt: Date.now(),
+        isSelected: true, // Story 4.3: Senders are selected by default (AC#1)
+        isApproved: false, // Story 4.3: Not approved until user confirms import
       })
     }
   },
@@ -793,5 +807,241 @@ export const getExistingScanProgress = internalQuery({
       .query("gmailScanProgress")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .first()
+  },
+})
+
+// ============================================================
+// Story 4.3: Sender Review & Approval
+// ============================================================
+
+/**
+ * Update selection state for a single sender
+ * Story 4.3: Task 1.2 (AC #1, #5)
+ *
+ * @param senderId - The ID of the detected sender to update
+ * @param isSelected - Whether the sender should be selected for import
+ */
+export const updateSenderSelection = mutation({
+  args: {
+    senderId: v.id("detectedSenders"),
+    isSelected: v.boolean(),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const authUser = await authComponent.safeGetAuthUser(ctx)
+    if (!authUser) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Please sign in to update sender selection.",
+      })
+    }
+
+    // Get the app user record
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "User account not found.",
+      })
+    }
+
+    // Get the sender and verify ownership
+    const sender = await ctx.db.get(args.senderId)
+    if (!sender) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Sender not found.",
+      })
+    }
+
+    if (sender.userId !== user._id) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Cannot modify this sender.",
+      })
+    }
+
+    await ctx.db.patch(args.senderId, { isSelected: args.isSelected })
+  },
+})
+
+/**
+ * Select all detected senders for import
+ * Story 4.3: Task 1.3 (AC #2)
+ */
+export const selectAllSenders = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ updatedCount: number }> => {
+    const authUser = await authComponent.safeGetAuthUser(ctx)
+    if (!authUser) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Please sign in to update sender selection.",
+      })
+    }
+
+    // Get the app user record
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "User account not found.",
+      })
+    }
+
+    // Get all unselected senders for this user
+    const senders = await ctx.db
+      .query("detectedSenders")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+
+    // Update all to selected (treating undefined as true, so only update explicit false)
+    const unselectedSenders = senders.filter((s) => s.isSelected === false)
+    await Promise.all(
+      unselectedSenders.map((s) => ctx.db.patch(s._id, { isSelected: true }))
+    )
+
+    return { updatedCount: unselectedSenders.length }
+  },
+})
+
+/**
+ * Deselect all detected senders
+ * Story 4.3: Task 1.3 (AC #2)
+ */
+export const deselectAllSenders = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ updatedCount: number }> => {
+    const authUser = await authComponent.safeGetAuthUser(ctx)
+    if (!authUser) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Please sign in to update sender selection.",
+      })
+    }
+
+    // Get the app user record
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "User account not found.",
+      })
+    }
+
+    // Get all selected senders for this user
+    const senders = await ctx.db
+      .query("detectedSenders")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+
+    // Update all to deselected (treating undefined as true, so deselect those too)
+    const selectedSenders = senders.filter((s) => s.isSelected !== false)
+    await Promise.all(
+      selectedSenders.map((s) => ctx.db.patch(s._id, { isSelected: false }))
+    )
+
+    return { updatedCount: selectedSenders.length }
+  },
+})
+
+/**
+ * Get count of selected senders for real-time display
+ * Story 4.3: Task 1.4 (AC #5)
+ *
+ * @returns Object with selected count and total count
+ */
+export const getSelectedSendersCount = query({
+  args: {},
+  handler: async (ctx): Promise<{ selectedCount: number; totalCount: number }> => {
+    const authUser = await authComponent.safeGetAuthUser(ctx)
+    if (!authUser) {
+      return { selectedCount: 0, totalCount: 0 }
+    }
+
+    // Get the app user record
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+
+    if (!user) {
+      return { selectedCount: 0, totalCount: 0 }
+    }
+
+    // Get all detected senders for this user
+    const allSenders = await ctx.db
+      .query("detectedSenders")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+
+    // Count selected senders (default to true if isSelected is undefined - per AC#1)
+    const selectedCount = allSenders.filter((s) => s.isSelected ?? true).length
+
+    return { selectedCount, totalCount: allSenders.length }
+  },
+})
+
+/**
+ * Approve selected senders for import
+ * Story 4.3: Task 5.2 (AC #4)
+ *
+ * Marks selected senders as approved for import (used by Story 4.4)
+ */
+export const approveSelectedSenders = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ approvedCount: number }> => {
+    const authUser = await authComponent.safeGetAuthUser(ctx)
+    if (!authUser) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Please sign in to approve senders.",
+      })
+    }
+
+    // Get the app user record
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "User account not found.",
+      })
+    }
+
+    // Get all selected senders for this user (treating undefined as true)
+    const selectedSenders = await ctx.db
+      .query("detectedSenders")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+      .then((senders) => senders.filter((s) => s.isSelected !== false))
+
+    if (selectedSenders.length === 0) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: "No senders selected for import.",
+      })
+    }
+
+    // Mark all selected senders as approved
+    await Promise.all(
+      selectedSenders.map((s) => ctx.db.patch(s._id, { isApproved: true }))
+    )
+
+    return { approvedCount: selectedSenders.length }
   },
 })

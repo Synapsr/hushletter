@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   Inbox,
 } from "lucide-react"
+import { SenderReview } from "./SenderReview"
 
 /**
  * Types for scan progress and detected senders
@@ -315,17 +316,20 @@ function SenderItem({ sender }: { sender: DetectedSender }) {
 }
 
 /**
- * Complete state - show detected senders
+ * Complete state - show detected senders with option to review
  * Story 4.2: Task 4.4 - Detected senders list
+ * Story 4.3: Updated to enable "Review & Approve" button
  */
 function CompleteState({
   senders,
   onRescan,
   isRescanning,
+  onReview,
 }: {
   senders: DetectedSender[]
   onRescan: () => void
   isRescanning: boolean
+  onReview: () => void
 }) {
   return (
     <div className="space-y-4">
@@ -358,12 +362,11 @@ function CompleteState({
       )}
 
       <p className="text-sm text-muted-foreground">
-        Review the detected senders and approve them to start importing their
-        newsletters. (Coming in Story 4.3)
+        Review the detected senders and select which ones to import.
       </p>
 
       <div className="flex gap-3">
-        <Button disabled className="flex-1">
+        <Button onClick={onReview} className="flex-1">
           Review &amp; Approve Senders
         </Button>
         <Button
@@ -385,8 +388,15 @@ function CompleteState({
 }
 
 /**
+ * View state type for the scanner component
+ * Story 4.3: Added "review" view for sender review step
+ */
+type ScannerView = "scanner" | "review"
+
+/**
  * SenderScanner - Main component for scanning Gmail for newsletters
  * Story 4.2: Task 4 (All ACs)
+ * Story 4.3: Added review view integration
  */
 export function SenderScanner() {
   // Query scan progress (reactive - updates in real-time)
@@ -407,6 +417,8 @@ export function SenderScanner() {
   // (action is async, need to track initiating state)
   const [isStarting, setIsStarting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  // Story 4.3: View state for scanner vs review
+  const [currentView, setCurrentView] = useState<ScannerView>("scanner")
 
   // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true)
@@ -440,6 +452,16 @@ export function SenderScanner() {
         setIsStarting(false)
       }
     }
+  }
+
+  // Story 4.3: If in review view, show the SenderReview component
+  if (currentView === "review") {
+    return (
+      <SenderReview
+        onBack={() => setCurrentView("scanner")}
+        onComplete={() => setCurrentView("scanner")}
+      />
+    )
   }
 
   // Show loading skeleton while fetching initial state
@@ -482,6 +504,7 @@ export function SenderScanner() {
               senders={detectedSenders ?? []}
               onRescan={handleStartScan}
               isRescanning={isStarting}
+              onReview={() => setCurrentView("review")}
             />
           )
         ) : (

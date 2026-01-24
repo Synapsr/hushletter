@@ -14,6 +14,7 @@ import type * as _internal_users from "../_internal/users.js";
 import type * as auth from "../auth.js";
 import type * as emailIngestion from "../emailIngestion.js";
 import type * as folders from "../folders.js";
+import type * as gmail from "../gmail.js";
 import type * as http from "../http.js";
 import type * as newsletters from "../newsletters.js";
 import type * as r2 from "../r2.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   emailIngestion: typeof emailIngestion;
   folders: typeof folders;
+  gmail: typeof gmail;
   http: typeof http;
   newsletters: typeof newsletters;
   r2: typeof r2;

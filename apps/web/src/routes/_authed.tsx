@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/
 import type { RouterContext } from "~/router"
 import { signOut } from "~/lib/auth-client"
 import { Button } from "~/components/ui/button"
-import { Settings } from "lucide-react"
+import { Settings, Download } from "lucide-react"
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ context }) => {
@@ -38,6 +38,14 @@ function AuthedLayout() {
             Newsletter Manager
           </div>
           <nav className="flex items-center gap-2">
+            <Link
+              to="/import"
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+              activeProps={{ className: "text-foreground bg-gray-100 dark:bg-gray-800" }}
+              aria-label="Import Newsletters"
+            >
+              <Download className="h-5 w-5" />
+            </Link>
             <Link
               to="/settings"
               className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"

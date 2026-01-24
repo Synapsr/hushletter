@@ -49,6 +49,32 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       requireEmailVerification: false, // MVP - add verification in future story
       minPasswordLength: 8,
     },
+    // Account linking configuration
+    // Story 4.1: Allow linking Gmail accounts with different emails than login email
+    // This is required for newsletter import - users may want to import from
+    // a Gmail account different from their app login email
+    account: {
+      accountLinking: {
+        enabled: true,
+        allowDifferentEmails: true,
+      },
+    },
+    // Social providers for OAuth authentication
+    // Story 4.1: Gmail OAuth integration for newsletter import
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        // Request Gmail read-only access for newsletter import (Stories 4.2-4.4)
+        // plus standard scopes for user identification
+        scope: [
+          "openid",
+          "email",
+          "profile",
+          "https://www.googleapis.com/auth/gmail.readonly",
+        ],
+      },
+    },
     plugins: [
       // Convex plugin required for Convex compatibility
       convex({ authConfig }),

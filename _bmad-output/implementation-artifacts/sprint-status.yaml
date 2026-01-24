@@ -78,8 +78,8 @@ development_status:
   3-5-hide-newsletters: done  # Code review #2 complete - 8 total fixes (HIGH: 2, MEDIUM: 4, LOW: 2)
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-gmail-oauth-connection: backlog
+  epic-4: in-progress
+  4-1-gmail-oauth-connection: review
   4-2-newsletter-sender-scanning: backlog
   4-3-sender-review-approval: backlog
   4-4-historical-email-import: backlog

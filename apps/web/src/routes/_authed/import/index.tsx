@@ -7,7 +7,7 @@
  */
 
 import { createFileRoute } from "@tanstack/react-router"
-import { ErrorBoundary } from "react-error-boundary"
+import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
 import { GmailConnect } from "./GmailConnect"
 import { Button } from "~/components/ui/button"
 import {
@@ -27,7 +27,12 @@ export const Route = createFileRoute("/_authed/import/")({
  * Error fallback for GmailConnect component failures
  * Per project-context.md: "Use feature-level error boundaries"
  */
-function GmailConnectError({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+function GmailConnectError({ error, resetErrorBoundary }: FallbackProps) {
+  // react-error-boundary v6 types error as unknown, safely extract message
+  const errorMessage = error instanceof Error
+    ? error.message
+    : "An unexpected error occurred. Please try again."
+
   return (
     <Card>
       <CardHeader>
@@ -41,7 +46,7 @@ function GmailConnectError({ error, resetErrorBoundary }: { error: Error; resetE
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          {error.message || "An unexpected error occurred. Please try again."}
+          {errorMessage}
         </p>
         <Button onClick={resetErrorBoundary} variant="outline">
           <RefreshCw className="mr-2 h-4 w-4" />

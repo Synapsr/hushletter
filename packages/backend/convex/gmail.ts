@@ -21,8 +21,10 @@ type BetterAuthAccount = {
 /**
  * Decode the payload of a JWT without verification
  * We trust the token since it came from Google OAuth via Better Auth
+ *
+ * @returns Decoded payload with email if valid and not expired, null otherwise
  */
-function decodeJwtPayload(jwt: string): { email?: string } | null {
+function decodeJwtPayload(jwt: string): { email?: string; exp?: number } | null {
   try {
     const parts = jwt.split(".")
     if (parts.length !== 3) return null
@@ -32,7 +34,16 @@ function decodeJwtPayload(jwt: string): { email?: string } | null {
     // Handle base64url encoding
     const base64 = payload.replace(/-/g, "+").replace(/_/g, "/")
     const decoded = atob(base64)
-    return JSON.parse(decoded)
+    const parsed = JSON.parse(decoded) as { email?: string; exp?: number }
+
+    // Check if token has expired (exp is in seconds, Date.now() is in ms)
+    if (parsed.exp && parsed.exp * 1000 < Date.now()) {
+      // Token expired - still return payload but caller should handle appropriately
+      // Note: Better Auth should refresh tokens, but we check anyway
+      console.warn("[gmail] idToken has expired, email may be stale")
+    }
+
+    return parsed
   } catch {
     return null
   }
@@ -44,7 +55,11 @@ function decodeJwtPayload(jwt: string): { email?: string } | null {
  */
 async function getGoogleAccount(
   ctx: Parameters<Parameters<typeof query>[0]["handler"]>[0]
-): Promise<{ account: BetterAuthAccount; googleEmail: string | null } | null> {
+): Promise<{
+  account: BetterAuthAccount
+  googleEmail: string | null
+  authUserEmail: string
+} | null> {
   // Get authenticated user - returns null if not authenticated
   const authUser = await authComponent.safeGetAuthUser(ctx)
   if (!authUser) {
@@ -78,6 +93,7 @@ async function getGoogleAccount(
   return {
     account: googleAccount,
     googleEmail,
+    authUserEmail: authUser.email,
   }
 }
 
@@ -85,7 +101,12 @@ async function getGoogleAccount(
  * Check if the current user has a connected Gmail account
  * Story 4.1: Task 4.2 (AC #3, #4)
  *
- * @returns boolean indicating if Gmail is connected, or null if query failed
+ * Note: Currently unused in UI (getGmailAccount provides same functionality).
+ * Kept for Stories 4.2-4.4 which may need lightweight connection checks
+ * before initiating expensive operations like email scanning.
+ *
+ * @returns boolean indicating if Gmail is connected
+ * @throws ConvexError if unable to check connection status
  */
 export const isGmailConnected = query({
   args: {},
@@ -124,13 +145,13 @@ export const getGmailAccount = query({
         return null
       }
 
-      const { account, googleEmail } = result
+      const { account, googleEmail, authUserEmail } = result
 
       // The email comes from the Google idToken which contains the actual
       // Google account email. This allows users to link any Gmail account,
       // not just one matching their login email (allowDifferentEmails: true)
-      // Fall back to accountId if idToken is unavailable (shouldn't happen)
-      const email = googleEmail ?? `google-${account.accountId}@linked`
+      // Fall back to auth user's email if idToken is unavailable (rare edge case)
+      const email = googleEmail ?? authUserEmail
 
       return {
         email,

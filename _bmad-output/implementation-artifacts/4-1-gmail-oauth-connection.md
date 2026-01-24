@@ -1,6 +1,6 @@
 # Story 4.1: Gmail OAuth Connection
 
-Status: done
+Status: done (Code Review #2 Passed)
 
 ## Story
 
@@ -299,8 +299,25 @@ None - implementation was straightforward with no significant issues.
 - `packages/backend/convex/auth.ts` - Added Google OAuth provider with gmail.readonly scope
 - `apps/web/src/routes/_authed.tsx` - Added Import link to header navigation
 
+### Code Review #2 Findings (Fixed 2026-01-24)
+
+**Issues identified and resolved:**
+
+1. **[HIGH] TypeScript compile error fixed in GmailConnect.tsx** - Added proper type assertion for `gmailAccount` data from `useQuery`. TypeScript couldn't narrow the type when checking `isConnected`.
+
+2. **[HIGH] TypeScript compile error fixed in index.tsx** - Updated `GmailConnectError` to use `FallbackProps` type from react-error-boundary v6 where `error` is typed as `unknown` not `Error`.
+
+3. **[MEDIUM] Documented isGmailConnected query** - Added JSDoc comment explaining the query is kept for future Stories 4.2-4.4 despite being unused in current UI.
+
+4. **[MEDIUM] JWT expiry validation added** - `decodeJwtPayload` now checks the `exp` claim and logs a warning if token is expired.
+
+5. **[MEDIUM] Improved fallback email** - Changed from confusing `google-${accountId}@linked` placeholder to using the auth user's email as fallback when idToken email unavailable.
+
+6. **[MEDIUM] Documented disabled buttons** - Added comments explaining disabled "Scan for Newsletters" and "Disconnect Gmail" buttons are placeholders for future stories.
+
 ## Change Log
 
 - 2026-01-24: Story 4.1 implementation complete - Gmail OAuth connection with Better Auth integration
-- 2026-01-24: Code review completed - 8 issues fixed (3 HIGH, 4 MEDIUM, 1 LOW), tests expanded to 16
+- 2026-01-24: Code review #1 completed - 8 issues fixed (3 HIGH, 4 MEDIUM, 1 LOW), tests expanded to 16
+- 2026-01-24: Code review #2 completed - 6 issues fixed (2 HIGH, 4 MEDIUM), TypeScript now compiles clean
 

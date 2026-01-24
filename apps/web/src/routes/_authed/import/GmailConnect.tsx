@@ -56,7 +56,9 @@ function ConnectedState({ email }: { email: string }) {
         </ul>
       </div>
 
-      {/* Placeholder buttons for future stories */}
+      {/* Future story buttons - disabled until implementation
+          Story 4.2: Scan for Newsletters
+          Story 4.5 (or later): Disconnect Gmail functionality */}
       <div className="flex gap-3 pt-2">
         <Button disabled variant="outline">
           Scan for Newsletters
@@ -182,12 +184,16 @@ export function GmailConnect() {
   const searchParams = useSearch({ strict: false }) as ImportSearchParams
   const navigate = useNavigate()
 
+  // Type for Gmail account data returned by the query
+  type GmailAccountData = { email: string; connectedAt: number } | null
+
   // Query Gmail connection status
-  const { data: gmailAccount, isPending, error: queryError } = useQuery(
+  const { data, isPending, error: queryError } = useQuery(
     convexQuery(api.gmail.getGmailAccount, {})
   )
+  const gmailAccount = data as GmailAccountData | undefined
 
-  // Determine connection state
+  // Determine connection state - must check for both null (not connected) and undefined (loading)
   const isConnected = gmailAccount !== null && gmailAccount !== undefined
 
   // Derive error from multiple sources: URL params, local state, or query error

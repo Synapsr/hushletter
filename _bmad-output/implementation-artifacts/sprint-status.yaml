@@ -1,5 +1,5 @@
 # generated: 2026-01-22
-# updated: 2026-01-24 (Story 2.5.2 code review complete)
+# updated: 2026-01-24 (Story 3.2 code review complete)
 # project: newsletter manager
 # project_key: newsletter-manager
 # tracking_system: file-system
@@ -54,12 +54,12 @@ development_status:
   1-5-account-settings: done
   epic-1-retrospective: optional
 
-  epic-2: in-progress
+  epic-2: done
   2-1-email-worker-setup-basic-reception: done
   2-2-email-parsing-content-storage: done
   # Stories 2.3 and 2.4 depend on Epic 2.5 (schema refactor)
-  2-3-automatic-sender-detection: backlog  # Updated for global senders model
-  2-4-real-time-newsletter-display: backlog  # Updated for userNewsletters table
+  2-3-automatic-sender-detection: done  # Code review complete with 5 fixes applied
+  2-4-real-time-newsletter-display: done  # Code review complete with 5 fixes applied
   epic-2-retrospective: optional
 
   # Epic 2.5: Content Sharing Architecture
@@ -70,9 +70,9 @@ development_status:
   2-5-2-content-deduplication-pipeline: done
   epic-2.5-retrospective: optional
 
-  epic-3: backlog
-  3-1-newsletter-list-organized-by-sender: backlog
-  3-2-clean-newsletter-reader: backlog
+  epic-3: in-progress
+  3-1-newsletter-list-organized-by-sender: done  # Code review complete with 6 fixes applied
+  3-2-clean-newsletter-reader: done  # Code review complete with 6 fixes applied
   3-3-folder-category-browsing: backlog
   3-4-reading-progress-mark-as-read: backlog
   3-5-hide-newsletters: backlog

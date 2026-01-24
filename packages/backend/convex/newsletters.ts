@@ -539,9 +539,58 @@ export const listUserNewsletters = query({
 
     if (!user) return []
 
+    // Use by_userId_receivedAt index for proper sorting by receivedAt (AC2)
+    // Convex index ordering: when using compound index, order applies to last indexed field
     return await ctx.db
       .query("userNewsletters")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .collect()
+  },
+})
+
+/**
+ * List user newsletters filtered by sender
+ * Story 3.1: Task 5 - Support sender-based filtering (AC2, AC3)
+ *
+ * If senderId is provided, returns only newsletters from that sender.
+ * If senderId is undefined/null, returns all newsletters (same as listUserNewsletters).
+ * Results are always sorted by receivedAt descending (newest first).
+ *
+ * Performance: Uses by_userId_senderId composite index for efficient filtering.
+ */
+export const listUserNewslettersBySender = query({
+  args: {
+    senderId: v.optional(v.id("senders")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return []
+
+    if (args.senderId) {
+      // Filter by sender using composite index
+      const newsletters = await ctx.db
+        .query("userNewsletters")
+        .withIndex("by_userId_senderId", (q) =>
+          q.eq("userId", user._id).eq("senderId", args.senderId)
+        )
+        .collect()
+
+      // Sort by receivedAt descending (newest first)
+      return newsletters.sort((a, b) => b.receivedAt - a.receivedAt)
+    }
+
+    // No filter - return all (existing behavior using proper index)
+    return await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
       .order("desc")
       .collect()
   },

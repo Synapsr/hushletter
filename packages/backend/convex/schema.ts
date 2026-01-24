@@ -53,6 +53,7 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_userId_receivedAt", ["userId", "receivedAt"])
+    .index("by_userId_senderId", ["userId", "senderId"]) // Story 2.3: Efficient per-user sender queries
     .index("by_senderId", ["senderId"])
     .index("by_contentId", ["contentId"]),
 

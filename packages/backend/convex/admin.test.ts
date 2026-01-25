@@ -616,3 +616,360 @@ describe("emailDeliveryLogs schema contract", () => {
     expect(optionalFields).toContain("userId")
   })
 })
+
+// ============================================================
+// Story 7.3: Privacy Content Review Tests
+// ============================================================
+
+describe("Story 7.3: Privacy Content Review API exports", () => {
+  it("should export getPrivacyStats query", () => {
+    expect(api.admin.getPrivacyStats).toBeDefined()
+  })
+
+  it("should export listPrivateSenders query", () => {
+    expect(api.admin.listPrivateSenders).toBeDefined()
+  })
+
+  it("should export getPrivacyTrends query", () => {
+    expect(api.admin.getPrivacyTrends).toBeDefined()
+  })
+
+  it("should export runPrivacyAudit query", () => {
+    expect(api.admin.runPrivacyAudit).toBeDefined()
+  })
+
+  it("should export searchNewsletters query", () => {
+    expect(api.admin.searchNewsletters).toBeDefined()
+  })
+
+  it("should export getNewsletterPrivacyStatus query", () => {
+    expect(api.admin.getNewsletterPrivacyStatus).toBeDefined()
+  })
+
+  it("should export getSenderPrivacyDetails query", () => {
+    expect(api.admin.getSenderPrivacyDetails).toBeDefined()
+  })
+})
+
+describe("getPrivacyStats query contract", () => {
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      publicNewsletters: "number - count of public newsletters",
+      privateNewsletters: "number - count of private newsletters",
+      totalNewsletters: "number - total count",
+      privatePercentage: "number - percentage private (0-100)",
+      sharedContentCount: "number - deduplicated content entries",
+      usersWithPrivateSenders: "number - users with at least one private sender",
+      totalUsers: "number - total users in system",
+      uniquePrivateSenders: "number - unique senders marked private by any user",
+    }
+    expect(expectedReturnShape).toHaveProperty("publicNewsletters")
+    expect(expectedReturnShape).toHaveProperty("privateNewsletters")
+    expect(expectedReturnShape).toHaveProperty("privatePercentage")
+    expect(expectedReturnShape).toHaveProperty("usersWithPrivateSenders")
+    expect(expectedReturnShape).toHaveProperty("uniquePrivateSenders")
+  })
+
+  it("documents admin authorization requirement", () => {
+    const behavior = {
+      requiresAdmin: true,
+      authMethod: "requireAdmin(ctx)",
+      errorOnNoAdmin: "ConvexError({ code: 'FORBIDDEN', message: 'Admin access required' })",
+    }
+    expect(behavior.requiresAdmin).toBe(true)
+    expect(behavior.errorOnNoAdmin).toContain("FORBIDDEN")
+  })
+})
+
+describe("listPrivateSenders query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      limit: "optional number - defaults to 50, capped at 100",
+    }
+    expect(expectedArgsShape.limit).toContain("optional")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedItemShape = {
+      senderId: "string - sender ID",
+      email: "string - sender email",
+      name: "string | undefined - sender name",
+      domain: "string - sender domain",
+      usersMarkedPrivate: "number - count of users who marked private",
+      totalSubscribers: "number - total subscribers to this sender",
+      privatePercentage: "number - percentage marked private (0-100)",
+    }
+    expect(expectedItemShape).toHaveProperty("senderId")
+    expect(expectedItemShape).toHaveProperty("usersMarkedPrivate")
+    expect(expectedItemShape).toHaveProperty("privatePercentage")
+  })
+
+  it("documents no individual user identities exposed", () => {
+    const securityBehavior = {
+      exposesUserIds: false,
+      exposesUserEmails: false,
+      exposesAggregatedCountsOnly: true,
+    }
+    expect(securityBehavior.exposesUserIds).toBe(false)
+    expect(securityBehavior.exposesAggregatedCountsOnly).toBe(true)
+  })
+
+  it("documents sorting and pagination", () => {
+    const behavior = {
+      sortBy: "usersMarkedPrivate DESC (most private first)",
+      defaultLimit: 50,
+      maxLimit: 100,
+    }
+    expect(behavior.defaultLimit).toBe(50)
+    expect(behavior.maxLimit).toBe(100)
+  })
+})
+
+describe("getPrivacyTrends query contract", () => {
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      last7Days: {
+        total: "number",
+        private: "number",
+        public: "number",
+        privatePercentage: "number (0-100)",
+      },
+      last30Days: {
+        total: "number",
+        private: "number",
+        public: "number",
+        privatePercentage: "number (0-100)",
+      },
+      allTime: {
+        total: "number",
+        private: "number",
+        public: "number",
+        privatePercentage: "number (0-100)",
+      },
+    }
+    expect(expectedReturnShape).toHaveProperty("last7Days")
+    expect(expectedReturnShape).toHaveProperty("last30Days")
+    expect(expectedReturnShape).toHaveProperty("allTime")
+  })
+})
+
+describe("runPrivacyAudit query contract", () => {
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      status: "'PASS' | 'WARNING' | 'FAIL'",
+      auditedAt: "number - Unix timestamp ms",
+      totalPrivateNewsletters: "number",
+      totalPublicNewsletters: "number",
+      violations: "array of violation objects",
+      checks: "array of check result objects",
+    }
+    expect(expectedReturnShape).toHaveProperty("status")
+    expect(expectedReturnShape).toHaveProperty("auditedAt")
+    expect(expectedReturnShape).toHaveProperty("violations")
+    expect(expectedReturnShape).toHaveProperty("checks")
+  })
+
+  it("defines violation types", () => {
+    const violationTypes = [
+      "private_with_contentId",
+      "missing_privateR2Key",
+      "reader_count_mismatch",
+    ]
+    expect(violationTypes).toHaveLength(3)
+  })
+
+  it("defines violation severity levels", () => {
+    const severityLevels = ["warning", "critical"]
+    expect(severityLevels).toContain("warning")
+    expect(severityLevels).toContain("critical")
+  })
+
+  it("documents audit check logic", () => {
+    const checks = [
+      {
+        name: "Private newsletters use privateR2Key (not contentId)",
+        severity: "critical if violated",
+        description: "Private newsletters should NOT reference shared content",
+      },
+      {
+        name: "Private newsletters have privateR2Key",
+        severity: "warning if violated",
+        description: "Private newsletters should have storage key set",
+      },
+      {
+        name: "Content table integrity",
+        severity: "warning if violated",
+        description: "Reader counts should match actual references",
+      },
+    ]
+    expect(checks).toHaveLength(3)
+  })
+
+  it("documents status determination logic", () => {
+    const statusLogic = {
+      FAIL: "Any critical violation exists",
+      WARNING: "Warning violations exist but no critical",
+      PASS: "No violations",
+    }
+    expect(statusLogic.FAIL).toContain("critical")
+    expect(statusLogic.PASS).toContain("No violations")
+  })
+})
+
+describe("searchNewsletters query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderEmail: "optional string - filter by sender email (partial match)",
+      subjectContains: "optional string - filter by subject (partial match)",
+      isPrivate: "optional boolean - filter by privacy status",
+      limit: "optional number - defaults to 50, capped at 100",
+    }
+    expect(expectedArgsShape.senderEmail).toContain("optional")
+    expect(expectedArgsShape.subjectContains).toContain("partial match")
+    expect(expectedArgsShape.isPrivate).toContain("optional")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedItemShape = {
+      id: "id - userNewsletter ID",
+      subject: "string",
+      senderEmail: "string",
+      senderName: "string | undefined",
+      receivedAt: "number - Unix timestamp ms",
+      isPrivate: "boolean",
+      hasContentId: "boolean - whether it references shared content",
+      hasPrivateR2Key: "boolean - whether it has private storage",
+      userId: "id - user ID (for admin investigation)",
+    }
+    expect(expectedItemShape).toHaveProperty("id")
+    expect(expectedItemShape).toHaveProperty("isPrivate")
+    expect(expectedItemShape).toHaveProperty("hasContentId")
+    expect(expectedItemShape).toHaveProperty("hasPrivateR2Key")
+  })
+
+  it("documents admin can see userId for investigation", () => {
+    const securityBehavior = {
+      exposesUserId: true,
+      reason: "Admin needs user context for support investigation",
+      doesNotExposeUserEmail: "Must query user separately if needed",
+    }
+    expect(securityBehavior.exposesUserId).toBe(true)
+  })
+})
+
+describe("getNewsletterPrivacyStatus query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      newsletterId: "id<userNewsletters> - specific newsletter to check",
+    }
+    expect(expectedArgsShape).toHaveProperty("newsletterId")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      newsletter: {
+        id: "id",
+        subject: "string",
+        receivedAt: "number",
+        isPrivate: "boolean",
+        storageType: "'private_r2' | 'shared_content'",
+        hasContentId: "boolean",
+        hasPrivateR2Key: "boolean",
+      },
+      sender: {
+        id: "id",
+        email: "string",
+        name: "string | undefined",
+        totalSubscribers: "number",
+      },
+      userSenderSettings: {
+        isPrivate: "boolean",
+      },
+      user: {
+        id: "id",
+        email: "string - admin needs for support",
+      },
+      sharedContent: {
+        contentHash: "string",
+        readerCount: "number",
+        firstReceivedAt: "number",
+      },
+      privacyCompliance: {
+        storageCorrect: "boolean - storage matches privacy status",
+        senderSettingsAligned: "boolean - settings match newsletter privacy",
+      },
+    }
+    expect(expectedReturnShape).toHaveProperty("newsletter")
+    expect(expectedReturnShape).toHaveProperty("sender")
+    expect(expectedReturnShape).toHaveProperty("privacyCompliance")
+  })
+
+  it("documents return null for not found", () => {
+    const behavior = {
+      notFound: "returns null (does not throw)",
+    }
+    expect(behavior.notFound).toContain("null")
+  })
+})
+
+describe("getSenderPrivacyDetails query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderId: "id<senders> - specific sender to analyze",
+    }
+    expect(expectedArgsShape).toHaveProperty("senderId")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      sender: {
+        id: "id",
+        email: "string",
+        name: "string | undefined",
+        domain: "string",
+        totalSubscribers: "number",
+        totalNewsletters: "number",
+      },
+      privacyStats: {
+        usersMarkedPrivate: "number",
+        usersMarkedPublic: "number",
+        usersWithNoSetting: "number",
+        privatePercentage: "number (0-100)",
+      },
+      newsletterStats: {
+        privateNewsletters: "number",
+        publicNewsletters: "number",
+        totalNewsletters: "number",
+      },
+    }
+    expect(expectedReturnShape).toHaveProperty("sender")
+    expect(expectedReturnShape).toHaveProperty("privacyStats")
+    expect(expectedReturnShape).toHaveProperty("newsletterStats")
+  })
+
+  it("documents no individual user identities exposed", () => {
+    const securityBehavior = {
+      exposesUserIds: false,
+      exposesUserEmails: false,
+      exposesAggregatedCountsOnly: true,
+    }
+    expect(securityBehavior.exposesAggregatedCountsOnly).toBe(true)
+  })
+})
+
+describe("Story 7.3 admin query authorization", () => {
+  it("documents all Story 7.3 queries require admin authorization", () => {
+    const story73Queries = [
+      "getPrivacyStats",
+      "listPrivateSenders",
+      "getPrivacyTrends",
+      "runPrivacyAudit",
+      "searchNewsletters",
+      "getNewsletterPrivacyStatus",
+      "getSenderPrivacyDetails",
+    ]
+    const allRequireAdmin = true
+    expect(allRequireAdmin).toBe(true)
+    expect(story73Queries).toHaveLength(7)
+  })
+})

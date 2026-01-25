@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
@@ -10,7 +10,8 @@ import { TrendChart } from "~/components/admin/TrendChart"
 import { Skeleton } from "~/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
-import { Users, Mail, Building2, FileStack } from "lucide-react"
+import { Badge } from "~/components/ui/badge"
+import { Users, Mail, Building2, FileStack, Shield, CheckCircle, AlertTriangle, XCircle } from "lucide-react"
 
 /** Date range options for trend chart - Story 7.1 Task 4.5 */
 type DateRange = 7 | 30 | 90
@@ -55,6 +56,11 @@ function AdminDashboard() {
     convexQuery(api.admin.getMetricsHistory, { days: dateRange })
   )
 
+  // Story 7.3: Fetch privacy audit status for summary badge
+  const { data: privacyAudit, isPending: privacyLoading } = useQuery(
+    convexQuery(api.admin.runPrivacyAudit, {})
+  )
+
   return (
     <div className="space-y-6">
       {/* Service Status Row */}
@@ -77,6 +83,34 @@ function AdminDashboard() {
                 status={serviceStatus.emailWorker}
               />
             </>
+          ) : null}
+
+          {/* Story 7.3: Privacy Compliance Badge */}
+          {privacyLoading ? (
+            <Skeleton className="h-8 w-40" />
+          ) : privacyAudit ? (
+            <Link to="/admin/privacy" className="flex items-center gap-2 px-3 py-1 rounded-full border hover:bg-accent transition-colors">
+              <Shield className="h-4 w-4" aria-hidden="true" />
+              <span className="text-sm font-medium">Privacy:</span>
+              {privacyAudit.status === "PASS" && (
+                <Badge variant="default" className="bg-green-600 hover:bg-green-700 flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" aria-hidden="true" />
+                  PASS
+                </Badge>
+              )}
+              {privacyAudit.status === "WARNING" && (
+                <Badge variant="default" className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                  WARNING
+                </Badge>
+              )}
+              {privacyAudit.status === "FAIL" && (
+                <Badge variant="destructive" className="flex items-center gap-1">
+                  <XCircle className="h-3 w-3" aria-hidden="true" />
+                  FAIL
+                </Badge>
+              )}
+            </Link>
           ) : null}
         </div>
       </section>

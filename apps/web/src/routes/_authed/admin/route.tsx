@@ -111,6 +111,13 @@ function AdminLayout() {
             >
               Email Delivery
             </Link>
+            <Link
+              to="/admin/privacy"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              activeProps={{ className: "text-foreground font-medium" }}
+            >
+              Privacy Review
+            </Link>
           </nav>
         </div>
       </header>

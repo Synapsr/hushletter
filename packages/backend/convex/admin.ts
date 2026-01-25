@@ -1,4 +1,5 @@
 import { query, mutation, internalMutation } from "./_generated/server"
+import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { requireAdmin } from "./_internal/auth"
 import { authComponent } from "./auth"
@@ -628,5 +629,512 @@ export const acknowledgeFailedDelivery = mutation({
     await ctx.db.patch(args.logId, {
       isAcknowledged: true,
     })
+  },
+})
+
+// ============================================================
+// Story 7.3: Privacy Content Review
+// ============================================================
+
+/**
+ * Get privacy statistics
+ * Story 7.3 Task 1.1
+ *
+ * Returns counts of public/private newsletters, users with private senders,
+ * and shared content statistics.
+ *
+ * ⚠️ PERFORMANCE NOTE: Full table scans. At scale, consider caching.
+ */
+export const getPrivacyStats = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx)
+
+    // Count newsletters by privacy status
+    const allUserNewsletters = await ctx.db.query("userNewsletters").collect()
+    const publicNewsletters = allUserNewsletters.filter((n) => !n.isPrivate).length
+    const privateNewsletters = allUserNewsletters.filter((n) => n.isPrivate).length
+
+    // Count shared content entries
+    const sharedContent = await ctx.db.query("newsletterContent").collect()
+
+    // Count users with at least one private sender
+    const allSenderSettings = await ctx.db.query("userSenderSettings").collect()
+    const usersWithPrivateSenders = new Set(
+      allSenderSettings.filter((s) => s.isPrivate).map((s) => s.userId)
+    ).size
+
+    // Count total users
+    const totalUsers = (await ctx.db.query("users").collect()).length
+
+    // Count unique senders marked private
+    const privateSenderIds = new Set(
+      allSenderSettings.filter((s) => s.isPrivate).map((s) => s.senderId)
+    )
+
+    const totalNewsletters = publicNewsletters + privateNewsletters
+
+    return {
+      publicNewsletters,
+      privateNewsletters,
+      totalNewsletters,
+      privatePercentage: totalNewsletters > 0
+        ? Math.round((privateNewsletters / totalNewsletters) * 100)
+        : 0,
+      sharedContentCount: sharedContent.length,
+      usersWithPrivateSenders,
+      totalUsers,
+      uniquePrivateSenders: privateSenderIds.size,
+    }
+  },
+})
+
+/**
+ * List senders that have been marked private by at least one user
+ * Story 7.3 Task 1.2
+ *
+ * Returns senders with aggregate privacy counts (no individual user identities).
+ */
+export const listPrivateSenders = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const limit = Math.min(args.limit ?? 50, 100)
+
+    // Get all sender settings where isPrivate is true
+    const privateSenderSettings = await ctx.db
+      .query("userSenderSettings")
+      .filter((q) => q.eq(q.field("isPrivate"), true))
+      .collect()
+
+    // Aggregate by sender
+    const senderCounts = new Map<string, number>()
+    for (const setting of privateSenderSettings) {
+      const current = senderCounts.get(setting.senderId) || 0
+      senderCounts.set(setting.senderId, current + 1)
+    }
+
+    // Get sender details
+    const senderIds = Array.from(senderCounts.keys())
+    const senders = await Promise.all(
+      senderIds.map((id) => ctx.db.get(id as Id<"senders">))
+    )
+
+    // Build result with user counts (no individual identities)
+    const result = senders
+      .filter((s): s is SenderDoc => s !== null)
+      .map((sender) => ({
+        senderId: sender._id,
+        email: sender.email,
+        name: sender.name,
+        domain: sender.domain,
+        usersMarkedPrivate: senderCounts.get(sender._id) || 0,
+        totalSubscribers: sender.subscriberCount,
+        privatePercentage:
+          sender.subscriberCount > 0
+            ? Math.round(
+                ((senderCounts.get(sender._id) || 0) / sender.subscriberCount) * 100
+              )
+            : 0,
+      }))
+      .sort((a, b) => b.usersMarkedPrivate - a.usersMarkedPrivate)
+      .slice(0, limit)
+
+    return result
+  },
+})
+
+/**
+ * Get privacy trends over time
+ * Story 7.3 Task 1.3
+ *
+ * Returns privacy adoption metrics for 7d and 30d periods.
+ * Note: This is a simplified implementation using current data.
+ * For true historical trends, would need a separate metrics table.
+ */
+export const getPrivacyTrends = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx)
+
+    const now = Date.now()
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000
+
+    // Get newsletters by period
+    const allNewsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_receivedAt")
+      .collect()
+
+    const last7d = allNewsletters.filter((n) => n.receivedAt >= sevenDaysAgo)
+    const last30d = allNewsletters.filter((n) => n.receivedAt >= thirtyDaysAgo)
+
+    const calculateStats = (newsletters: typeof allNewsletters) => {
+      const total = newsletters.length
+      const privateCount = newsletters.filter((n) => n.isPrivate).length
+      return {
+        total,
+        private: privateCount,
+        public: total - privateCount,
+        privatePercentage: total > 0 ? Math.round((privateCount / total) * 100) : 0,
+      }
+    }
+
+    return {
+      last7Days: calculateStats(last7d),
+      last30Days: calculateStats(last30d),
+      allTime: calculateStats(allNewsletters),
+    }
+  },
+})
+
+/** Violation type for privacy audit */
+interface PrivacyViolation {
+  type: "private_with_contentId" | "missing_privateR2Key" | "reader_count_mismatch"
+  severity: "warning" | "critical"
+  message: string
+  details: Record<string, unknown>
+}
+
+/**
+ * Run comprehensive privacy audit
+ * Story 7.3 Task 2.1
+ *
+ * Checks for privacy boundary violations and returns compliance status.
+ */
+export const runPrivacyAudit = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx)
+
+    const violations: PrivacyViolation[] = []
+
+    // Check 1: Private newsletters should NOT have contentId (they should use privateR2Key)
+    const privateWithContentId = await ctx.db
+      .query("userNewsletters")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("isPrivate"), true),
+          q.neq(q.field("contentId"), undefined)
+        )
+      )
+      .collect()
+
+    if (privateWithContentId.length > 0) {
+      violations.push({
+        type: "private_with_contentId",
+        severity: "critical",
+        message: `${privateWithContentId.length} private newsletter(s) incorrectly reference shared content`,
+        details: {
+          count: privateWithContentId.length,
+          sampleIds: privateWithContentId.slice(0, 5).map((n) => n._id),
+        },
+      })
+    }
+
+    // Check 2: Private newsletters should have privateR2Key
+    const privateMissingR2Key = await ctx.db
+      .query("userNewsletters")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("isPrivate"), true),
+          q.eq(q.field("privateR2Key"), undefined)
+        )
+      )
+      .collect()
+
+    if (privateMissingR2Key.length > 0) {
+      violations.push({
+        type: "missing_privateR2Key",
+        severity: "warning",
+        message: `${privateMissingR2Key.length} private newsletter(s) missing privateR2Key`,
+        details: {
+          count: privateMissingR2Key.length,
+          sampleIds: privateMissingR2Key.slice(0, 5).map((n) => n._id),
+        },
+      })
+    }
+
+    // Check 3: Verify newsletterContent table integrity
+    // Compare readerCount with actual references
+    const allContent = await ctx.db.query("newsletterContent").collect()
+    const allPublicNewsletters = await ctx.db
+      .query("userNewsletters")
+      .filter((q) => q.eq(q.field("isPrivate"), false))
+      .collect()
+
+    // Build reference counts from userNewsletters
+    const actualReaderCounts = new Map<string, number>()
+    for (const newsletter of allPublicNewsletters) {
+      if (newsletter.contentId) {
+        const current = actualReaderCounts.get(newsletter.contentId) || 0
+        actualReaderCounts.set(newsletter.contentId, current + 1)
+      }
+    }
+
+    // Check for mismatched reader counts
+    const mismatchedCounts = allContent.filter(
+      (content) =>
+        (actualReaderCounts.get(content._id) || 0) !== content.readerCount
+    )
+
+    if (mismatchedCounts.length > 0) {
+      violations.push({
+        type: "reader_count_mismatch",
+        severity: "warning",
+        message: `${mismatchedCounts.length} content entries have mismatched reader counts`,
+        details: {
+          count: mismatchedCounts.length,
+          note: "May indicate data integrity issue, not necessarily privacy violation",
+        },
+      })
+    }
+
+    // Count totals
+    const totalPrivate = await ctx.db
+      .query("userNewsletters")
+      .filter((q) => q.eq(q.field("isPrivate"), true))
+      .collect()
+
+    // Determine overall compliance status
+    const hasCritical = violations.some((v) => v.severity === "critical")
+    const hasWarning = violations.some((v) => v.severity === "warning")
+
+    const status = hasCritical ? "FAIL" : hasWarning ? "WARNING" : "PASS"
+
+    return {
+      status,
+      auditedAt: Date.now(),
+      totalPrivateNewsletters: totalPrivate.length,
+      totalPublicNewsletters: allPublicNewsletters.length,
+      violations,
+      checks: [
+        {
+          name: "Private newsletters use privateR2Key (not contentId)",
+          passed: privateWithContentId.length === 0,
+        },
+        {
+          name: "Private newsletters have privateR2Key",
+          passed: privateMissingR2Key.length === 0,
+        },
+        {
+          name: "Content table integrity (reader counts)",
+          passed: mismatchedCounts.length === 0,
+        },
+      ],
+    }
+  },
+})
+
+/**
+ * Search newsletters for admin investigation
+ * Story 7.3 Task 3.1
+ *
+ * Allows searching by sender email, subject, and privacy status.
+ */
+export const searchNewsletters = query({
+  args: {
+    senderEmail: v.optional(v.string()),
+    subjectContains: v.optional(v.string()),
+    isPrivate: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const limit = Math.min(args.limit ?? 50, 100)
+
+    // Start with base query
+    let newsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_receivedAt")
+      .order("desc")
+      .take(limit * 3) // Get more for client-side filtering
+
+    // Apply filters
+    if (args.isPrivate !== undefined) {
+      newsletters = newsletters.filter((n) => n.isPrivate === args.isPrivate)
+    }
+
+    if (args.senderEmail) {
+      const searchEmail = args.senderEmail.toLowerCase()
+      newsletters = newsletters.filter((n) =>
+        n.senderEmail.toLowerCase().includes(searchEmail)
+      )
+    }
+
+    if (args.subjectContains) {
+      const search = args.subjectContains.toLowerCase()
+      newsletters = newsletters.filter((n) =>
+        n.subject.toLowerCase().includes(search)
+      )
+    }
+
+    // Return limited results with privacy-relevant fields
+    return newsletters.slice(0, limit).map((n) => ({
+      id: n._id,
+      subject: n.subject,
+      senderEmail: n.senderEmail,
+      senderName: n.senderName,
+      receivedAt: n.receivedAt,
+      isPrivate: n.isPrivate,
+      hasContentId: !!n.contentId,
+      hasPrivateR2Key: !!n.privateR2Key,
+      userId: n.userId, // Admin can see user ID for investigation
+    }))
+  },
+})
+
+/**
+ * Get detailed privacy status for a specific newsletter
+ * Story 7.3 Task 3.2
+ *
+ * Returns comprehensive privacy info for admin investigation.
+ */
+export const getNewsletterPrivacyStatus = query({
+  args: {
+    newsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const newsletter = await ctx.db.get(args.newsletterId)
+    if (!newsletter) {
+      return null
+    }
+
+    // Get sender
+    const sender = await ctx.db.get(newsletter.senderId)
+
+    // Get user's sender settings
+    const senderSettings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_userId_senderId", (q) =>
+        q.eq("userId", newsletter.userId).eq("senderId", newsletter.senderId)
+      )
+      .first()
+
+    // Get user (for investigation, not exposure)
+    const user = await ctx.db.get(newsletter.userId)
+
+    // If public, get content info
+    let contentInfo = null
+    if (newsletter.contentId) {
+      const content = await ctx.db.get(newsletter.contentId)
+      if (content) {
+        contentInfo = {
+          contentHash: content.contentHash,
+          readerCount: content.readerCount,
+          firstReceivedAt: content.firstReceivedAt,
+        }
+      }
+    }
+
+    return {
+      newsletter: {
+        id: newsletter._id,
+        subject: newsletter.subject,
+        receivedAt: newsletter.receivedAt,
+        isPrivate: newsletter.isPrivate,
+        storageType: newsletter.privateR2Key ? "private_r2" : "shared_content",
+        hasContentId: !!newsletter.contentId,
+        hasPrivateR2Key: !!newsletter.privateR2Key,
+      },
+      sender: sender
+        ? {
+            id: sender._id,
+            email: sender.email,
+            name: sender.name,
+            totalSubscribers: sender.subscriberCount,
+          }
+        : null,
+      userSenderSettings: senderSettings
+        ? {
+            isPrivate: senderSettings.isPrivate,
+          }
+        : null,
+      user: user
+        ? {
+            id: user._id,
+            email: user.email, // Admin needs this for support investigation
+          }
+        : null,
+      sharedContent: contentInfo,
+      privacyCompliance: {
+        storageCorrect: newsletter.isPrivate
+          ? !!newsletter.privateR2Key && !newsletter.contentId
+          : !!newsletter.contentId || !!newsletter.privateR2Key, // Public can have either
+        senderSettingsAligned: senderSettings
+          ? senderSettings.isPrivate === newsletter.isPrivate
+          : true, // No settings means default (public)
+      },
+    }
+  },
+})
+
+/**
+ * Get privacy details for a sender across all users
+ * Story 7.3 Task 3.3
+ *
+ * Returns aggregate privacy statistics without individual user identities.
+ */
+export const getSenderPrivacyDetails = query({
+  args: {
+    senderId: v.id("senders"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const sender = await ctx.db.get(args.senderId)
+    if (!sender) {
+      return null
+    }
+
+    // Get all user settings for this sender
+    const allSettings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_senderId", (q) => q.eq("senderId", args.senderId))
+      .collect()
+
+    const privateCount = allSettings.filter((s) => s.isPrivate).length
+    const publicCount = allSettings.length - privateCount
+
+    // Get newsletter counts
+    const allNewsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_senderId", (q) => q.eq("senderId", args.senderId))
+      .collect()
+
+    const privateNewsletters = allNewsletters.filter((n) => n.isPrivate).length
+    const publicNewsletters = allNewsletters.length - privateNewsletters
+
+    return {
+      sender: {
+        id: sender._id,
+        email: sender.email,
+        name: sender.name,
+        domain: sender.domain,
+        totalSubscribers: sender.subscriberCount,
+        totalNewsletters: sender.newsletterCount,
+      },
+      privacyStats: {
+        usersMarkedPrivate: privateCount,
+        usersMarkedPublic: publicCount,
+        usersWithNoSetting: sender.subscriberCount - allSettings.length,
+        privatePercentage:
+          privateCount + publicCount > 0
+            ? Math.round((privateCount / (privateCount + publicCount)) * 100)
+            : 0,
+      },
+      newsletterStats: {
+        privateNewsletters,
+        publicNewsletters,
+        totalNewsletters: allNewsletters.length,
+      },
+    }
   },
 })

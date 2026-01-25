@@ -93,7 +93,8 @@ export default defineSchema({
     folderId: v.optional(v.id("folders")),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_senderId", ["userId", "senderId"]),
+    .index("by_userId_senderId", ["userId", "senderId"])
+    .index("by_senderId", ["senderId"]), // Story 7.3: Privacy admin queries
 
   // Folders for organizing senders (created now for Epic 3)
   // Story 2.5.1: Task 1 - folders table

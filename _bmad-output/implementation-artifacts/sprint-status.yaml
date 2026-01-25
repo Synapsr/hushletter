@@ -83,7 +83,7 @@ development_status:
   4-2-newsletter-sender-scanning: done  # Code review complete - 7 fixes (4 HIGH, 3 MEDIUM)
   4-3-sender-review-approval: done  # Code review complete - 9 fixes (Base UI migration, optimistic updates, accessibility)
   4-4-historical-email-import: done  # Code review complete - 93 tests added, rate limit retry, fixes applied
-  4-5-gmail-disconnect: review  # Token revocation, confirmation dialog, settings page integration
+  4-5-gmail-disconnect: done  # Token revocation, confirmation dialog, settings page integration
   epic-4-retrospective: optional
 
   epic-5: in-progress

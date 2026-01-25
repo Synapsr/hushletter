@@ -1510,6 +1510,7 @@ export const processAndStoreImportedEmail = internalAction({
 
     // Step 5: Store content using the existing storeNewsletterContent action
     // This properly handles R2 upload, deduplication, and record creation
+    // Story 8.4: storeNewsletterContent now performs duplicate detection
     const result = await ctx.runAction(internal.newsletters.storeNewsletterContent, {
       userId: args.userId,
       senderId: sender._id,
@@ -1520,7 +1521,14 @@ export const processAndStoreImportedEmail = internalAction({
       htmlContent: htmlContent || undefined,
       textContent: !htmlContent ? `<p>${headers.subject}</p>` : undefined,
       isPrivate: userSettings.isPrivate,
+      // Note: Gmail import doesn't have messageId - duplicate detection uses content hash
     })
+
+    // Story 8.4: Handle duplicate detection (Phase 2 content-hash check)
+    if (result.skipped) {
+      // Phase 2 duplicate detected - return existing ID
+      return { skipped: true, userNewsletterId: result.existingId }
+    }
 
     // Step 6: Mark imported newsletter as read (they're historical)
     await ctx.runMutation(internal.gmail.markImportedAsRead, {

@@ -197,11 +197,13 @@ export const logRejection = httpAction(async (ctx, request) => {
 /**
  * HTTP action to receive forwarded email imports
  * Story 8.3: Task 4 - Import ingestion endpoint (AC #5)
+ * Story 8.4: Task 5.1, 5.2 - Duplicate detection support
  *
  * Similar to receiveEmail but:
  * - Takes userId directly (already verified by email worker)
  * - Uses original sender/date from forwarded email extraction
  * - Reuses existing sender matching and content storage
+ * - Story 8.4: Handles duplicate detection via messageId (silent skip, no error)
  */
 export const receiveImportEmail = httpAction(async (ctx, request) => {
   const authResult = validateApiKey(request)
@@ -234,6 +236,7 @@ export const receiveImportEmail = httpAction(async (ctx, request) => {
     originalDate,
     htmlContent,
     textContent,
+    messageId, // Story 8.4: For duplicate detection
   } = body
 
   // Validate required fields
@@ -305,6 +308,9 @@ export const receiveImportEmail = httpAction(async (ctx, request) => {
     typeof htmlContent === "string" ? htmlContent : undefined
   const validatedTextContent =
     typeof textContent === "string" ? textContent : undefined
+  // Story 8.4: Extract messageId for duplicate detection (optional)
+  const validatedMessageId =
+    typeof messageId === "string" && messageId.length > 0 ? messageId : undefined
 
   // Verify user exists
   const user = await ctx.runQuery(internal._internal.users.findById, {
@@ -344,6 +350,7 @@ export const receiveImportEmail = httpAction(async (ctx, request) => {
     const isPrivate = userSenderSettings.isPrivate
 
     // Store content in R2 and create userNewsletter record (reuse existing logic - AC #5)
+    // Story 8.4: Pass messageId for duplicate detection
     const result = await ctx.runAction(internal.newsletters.storeNewsletterContent, {
       userId: user._id,
       senderId: sender._id,
@@ -354,7 +361,32 @@ export const receiveImportEmail = httpAction(async (ctx, request) => {
       htmlContent: validatedHtmlContent,
       textContent: validatedTextContent,
       isPrivate,
+      messageId: validatedMessageId, // Story 8.4: For duplicate detection
     })
+
+    // Story 8.4: Handle duplicate detection (AC #1, #2 - silent skip, no error)
+    // FR33: "Duplicate emails are not imported (no error shown to user)"
+    if (result.skipped) {
+      console.log(
+        `[importIngestion] Duplicate detected (${result.duplicateReason}): ` +
+          `existingId=${result.existingId}, messageId=${validatedMessageId ?? "none"}`
+      )
+      return new Response(
+        JSON.stringify({
+          success: true, // Silent success for duplicate (FR33 - no error shown)
+          skipped: true,
+          reason: "duplicate",
+          duplicateReason: result.duplicateReason,
+          existingId: result.existingId,
+          senderId: sender._id,
+          isPrivate,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    }
 
     console.log(
       `[importIngestion] Import successful: userNewsletterId=${result.userNewsletterId}, ` +

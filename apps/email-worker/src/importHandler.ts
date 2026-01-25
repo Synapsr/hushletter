@@ -28,6 +28,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
  * Extracted newsletter data from a forwarded email
+ * Story 8.4: Added messageId for duplicate detection
  */
 interface ExtractedNewsletter {
   originalFrom: string
@@ -36,6 +37,7 @@ interface ExtractedNewsletter {
   originalDate: Date
   htmlContent?: string
   textContent?: string
+  messageId?: string // Story 8.4: Original email's Message-ID for duplicate detection
 }
 
 /**
@@ -109,6 +111,7 @@ export async function handleImportEmail(
     )
 
     // Step 5: Send to Convex for storage (AC #5)
+    // Story 8.4: Include messageId for duplicate detection
     const result = await callConvexImport(convexConfig, {
       userId: userResult.userId,
       forwardingUserEmail,
@@ -118,12 +121,22 @@ export async function handleImportEmail(
       originalDate: newsletter.originalDate.getTime(),
       htmlContent: newsletter.htmlContent,
       textContent: newsletter.textContent,
+      messageId: newsletter.messageId, // Story 8.4: For duplicate detection
     })
 
     // Step 6: Increment rate limit counter on success
+    // Story 8.4: Don't increment for duplicates (they don't consume storage)
     if (result.success) {
-      await incrementRateLimit(env, userResult.userId)
-      console.log(`[Import] Success: userNewsletterId=${result.userNewsletterId}`)
+      if (result.skipped) {
+        // Story 8.4: Duplicate detected - log silently (FR33 - no error)
+        console.log(
+          `[Import] Duplicate detected: reason=${result.duplicateReason}, ` +
+            `existingId=${result.existingId}`
+        )
+      } else {
+        await incrementRateLimit(env, userResult.userId)
+        console.log(`[Import] Success: userNewsletterId=${result.userNewsletterId}`)
+      }
     } else {
       console.log(`[Import] Convex returned error: ${result.error}`)
     }
@@ -328,7 +341,43 @@ async function incrementRateLimit(env: Env, userId: string): Promise<void> {
 
 // ============================================================
 // Forwarded Email Extraction (AC #4)
+// Story 8.4: Added messageId extraction for duplicate detection
 // ============================================================
+
+/**
+ * Extract Message-ID from parsed email
+ * Story 8.4: Used for duplicate detection
+ *
+ * @param parsed - Parsed email from postal-mime
+ * @returns Message-ID without angle brackets, or undefined if not present
+ */
+function extractMessageIdFromParsed(parsed: PostalMime.Email): string | undefined {
+  // postal-mime stores messageId directly on the parsed result
+  const rawMessageId = parsed.messageId
+  if (!rawMessageId) return undefined
+
+  // Remove angle brackets if present (e.g., "<abc123@mail.example.com>" -> "abc123@mail.example.com")
+  return rawMessageId.replace(/^<|>$/g, "").trim() || undefined
+}
+
+/**
+ * Extract Message-ID from inline forwarded message body
+ * Story 8.4: Fallback extraction from quoted headers
+ *
+ * @param body - Email body text that may contain forwarded headers
+ * @returns Message-ID without angle brackets, or null if not found
+ */
+function extractMessageIdFromBody(body: string): string | null {
+  // Pattern: "Message-ID: <abc123@mail.example.com>" or "Message-Id: ..."
+  // Also handle quoted style like "> Message-ID: ..."
+  const pattern = /^>?\s*Message-I[dD]:\s*(.+)$/im
+  const match = body.match(pattern)
+
+  if (!match) return null
+
+  // Remove angle brackets if present
+  return match[1].trim().replace(/^<|>$/g, "").trim() || null
+}
 
 /**
  * Extract the original newsletter from a forwarded email
@@ -349,6 +398,10 @@ async function extractForwardedNewsletter(
       new Uint8Array(attachedOriginal.content as ArrayBuffer)
     )
 
+    // Story 8.4: Extract messageId from the original email's Message-ID header
+    // Note: postal-mime stores the Message-ID in original.messageId
+    const messageId = extractMessageIdFromParsed(original)
+
     return {
       originalFrom: original.from?.address ?? "",
       originalFromName: original.from?.name,
@@ -356,6 +409,7 @@ async function extractForwardedNewsletter(
       originalDate: original.date ? new Date(original.date) : new Date(),
       htmlContent: original.html ? sanitizeHtml(original.html) : undefined,
       textContent: original.text,
+      messageId, // Story 8.4: For duplicate detection
     }
   }
 
@@ -401,6 +455,9 @@ function extractInlineForward(
       return null
     }
 
+    // Story 8.4: Try to extract messageId from body headers or use outer email's
+    const messageId = extractMessageIdFromBody(body) ?? extractMessageIdFromParsed(parsed)
+
     return {
       originalFrom: extractHeaderFromBody(body, "From") ?? parsed.from?.address ?? "",
       originalFromName: undefined,
@@ -408,6 +465,7 @@ function extractInlineForward(
       originalDate: extractDateFromBody(body) ?? (parsed.date ? new Date(parsed.date) : new Date()),
       htmlContent: parsed.html ? sanitizeHtml(parsed.html) : undefined,
       textContent: parsed.text,
+      messageId, // Story 8.4: For duplicate detection
     }
   }
 
@@ -417,6 +475,8 @@ function extractInlineForward(
   const extractedFrom = extractHeaderFromBody(forwardedSection, "From")
   const extractedSubject = extractHeaderFromBody(forwardedSection, "Subject")
   const extractedDate = extractDateFromBody(forwardedSection)
+  // Story 8.4: Extract messageId from forwarded headers
+  const messageId = extractMessageIdFromBody(forwardedSection) ?? extractMessageIdFromParsed(parsed)
 
   // Get content after the header block
   const contentHtml = extractContentAfterHeaders(parsed.html)
@@ -429,6 +489,7 @@ function extractInlineForward(
     originalDate: extractedDate ?? (parsed.date ? new Date(parsed.date) : new Date()),
     htmlContent: contentHtml ? sanitizeHtml(contentHtml) : undefined,
     textContent: contentText,
+    messageId, // Story 8.4: For duplicate detection
   }
 }
 
@@ -529,6 +590,7 @@ export const _testing = {
   extractHeaderFromBody,
   extractDateFromBody,
   extractContentAfterHeaders,
+  extractMessageIdFromBody, // Story 8.4: For testing duplicate detection
   EMAIL_REGEX,
   MAX_EMAIL_SIZE_BYTES,
   RATE_LIMIT_PER_HOUR,

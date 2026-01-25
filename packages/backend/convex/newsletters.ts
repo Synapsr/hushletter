@@ -25,6 +25,13 @@ export type ContentStatus = "available" | "missing" | "error"
  *
  * Story 2.5.1: Updated for new schema with public/private content paths
  * Story 2.5.2: Added content deduplication via normalization + SHA-256 hashing
+ * Story 8.4: Added duplicate detection via messageId and content hash
+ *
+ * DUPLICATE DETECTION (Story 8.4):
+ * Before any storage, checks if this is a duplicate:
+ * 1. Check by messageId (most reliable - globally unique per RFC 5322)
+ * 2. Check by content hash (fallback when no messageId)
+ * If duplicate found, returns { skipped: true } without storage.
  *
  * PUBLIC PATH (isPrivate=false):
  * 1. Normalize content (strip tracking, personalization)
@@ -49,20 +56,56 @@ export const storeNewsletterContent = internalAction({
     htmlContent: v.optional(v.string()),
     textContent: v.optional(v.string()),
     isPrivate: v.boolean(),
+    // Story 8.4: Email Message-ID header for duplicate detection
+    messageId: v.optional(v.string()),
   },
   handler: async (
     ctx,
     args
-  ): Promise<{
-    userNewsletterId: Id<"userNewsletters">
-    r2Key: string
-    deduplicated?: boolean
-  }> => {
+  ): Promise<
+    | {
+        userNewsletterId: Id<"userNewsletters">
+        r2Key: string
+        deduplicated?: boolean
+        skipped?: false
+      }
+    | {
+        skipped: true
+        reason: "duplicate"
+        duplicateReason: "message_id" | "content_hash"
+        existingId: Id<"userNewsletters">
+      }
+  > => {
     console.log(
       `[newsletters] storeNewsletterContent called: user=${args.userId}, sender=${args.senderId}, ` +
         `subject="${args.subject.substring(0, 50)}...", isPrivate=${args.isPrivate}, ` +
-        `htmlLen=${args.htmlContent?.length || 0}, textLen=${args.textContent?.length || 0}`
+        `htmlLen=${args.htmlContent?.length || 0}, textLen=${args.textContent?.length || 0}, ` +
+        `messageId=${args.messageId || "none"}`
     )
+
+    // ========================================
+    // DUPLICATE DETECTION (Story 8.4)
+    // Check BEFORE any expensive R2 operations
+    // ========================================
+
+    // Step 1: Check by messageId (most reliable)
+    if (args.messageId) {
+      const existingByMessageId = await ctx.runQuery(
+        internal._internal.duplicateDetection.checkDuplicateByMessageId,
+        { userId: args.userId, messageId: args.messageId }
+      )
+      if (existingByMessageId) {
+        console.log(
+          `[newsletters] Duplicate detected by messageId: ${args.messageId}, existing=${existingByMessageId}`
+        )
+        return {
+          skipped: true,
+          reason: "duplicate",
+          duplicateReason: "message_id",
+          existingId: existingByMessageId,
+        }
+      }
+    }
 
     const content = args.htmlContent || args.textContent || ""
 
@@ -75,6 +118,31 @@ export const storeNewsletterContent = internalAction({
       console.log(
         `[newsletters] Empty content detected, using subject as fallback: "${args.subject}"`
       )
+    }
+
+    // Pre-compute content hash for duplicate detection (used in both paths)
+    const normalized = normalizeForHash(effectiveContent)
+    const contentHash = await computeContentHash(normalized)
+
+    // Step 2: Check by content hash (fallback for public newsletters)
+    // Runs even if messageId was provided but didn't match - same content could have
+    // different Message-IDs (e.g., forwarded copies, resent emails)
+    if (!args.isPrivate) {
+      const existingByHash = await ctx.runQuery(
+        internal._internal.duplicateDetection.checkDuplicateByContentHash,
+        { userId: args.userId, contentHash, isPrivate: false }
+      )
+      if (existingByHash) {
+        console.log(
+          `[newsletters] Duplicate detected by contentHash: ${contentHash.substring(0, 8)}..., existing=${existingByHash}`
+        )
+        return {
+          skipped: true,
+          reason: "duplicate",
+          duplicateReason: "content_hash",
+          existingId: existingByHash,
+        }
+      }
     }
 
     const contentType = args.htmlContent ? "text/html" : "text/plain"
@@ -122,6 +190,7 @@ export const storeNewsletterContent = internalAction({
           receivedAt: args.receivedAt,
           isPrivate: true,
           privateR2Key: r2Key,
+          messageId: args.messageId, // Story 8.4: Pass messageId for duplicate detection
         }
       )
 
@@ -138,13 +207,7 @@ export const storeNewsletterContent = internalAction({
       // PUBLIC PATH - with deduplication
       // ========================================
 
-      // Step 1: Normalize content for consistent hashing
-      // Use effectiveContent to ensure unique hash even for empty emails
-      const normalized = normalizeForHash(effectiveContent)
-
-      // Step 2: Compute SHA-256 hash of normalized content
-      const contentHash = await computeContentHash(normalized)
-
+      // Content hash already computed above for duplicate detection
       // Step 3: Check for existing content with this hash
       const existingContent = await ctx.runQuery(
         internal.newsletters.findByContentHash,
@@ -227,6 +290,7 @@ export const storeNewsletterContent = internalAction({
           receivedAt: args.receivedAt,
           isPrivate: false,
           contentId,
+          messageId: args.messageId, // Story 8.4: Pass messageId for duplicate detection
         }
       )
 
@@ -331,6 +395,7 @@ export const incrementReaderCount = internalMutation({
 /**
  * Create a new userNewsletter entry
  * Story 2.5.1: Updated for new schema
+ * Story 8.4: Added messageId field for duplicate detection
  */
 export const createUserNewsletter = internalMutation({
   args: {
@@ -343,6 +408,8 @@ export const createUserNewsletter = internalMutation({
     isPrivate: v.boolean(),
     contentId: v.optional(v.id("newsletterContent")),
     privateR2Key: v.optional(v.string()),
+    // Story 8.4: Email Message-ID header for duplicate detection
+    messageId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userNewsletterId = await ctx.db.insert("userNewsletters", {
@@ -357,6 +424,7 @@ export const createUserNewsletter = internalMutation({
       isRead: false,
       isHidden: false,
       isPrivate: args.isPrivate,
+      messageId: args.messageId, // Story 8.4: Store for duplicate detection
     })
 
     return userNewsletterId

@@ -10,6 +10,7 @@
 
 import type * as _internal_auth from "../_internal/auth.js";
 import type * as _internal_contentNormalization from "../_internal/contentNormalization.js";
+import type * as _internal_duplicateDetection from "../_internal/duplicateDetection.js";
 import type * as _internal_emailGeneration from "../_internal/emailGeneration.js";
 import type * as _internal_newsletterDetection from "../_internal/newsletterDetection.js";
 import type * as _internal_users from "../_internal/users.js";
@@ -40,6 +41,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "_internal/auth": typeof _internal_auth;
   "_internal/contentNormalization": typeof _internal_contentNormalization;
+  "_internal/duplicateDetection": typeof _internal_duplicateDetection;
   "_internal/emailGeneration": typeof _internal_emailGeneration;
   "_internal/newsletterDetection": typeof _internal_newsletterDetection;
   "_internal/users": typeof _internal_users;

@@ -44,6 +44,7 @@ export interface ConvexEmailResponse {
 /**
  * Import-specific payload for Convex
  * Used when forwarding emails to import@hushletter.com
+ * Story 8.4: Added messageId for duplicate detection
  */
 export interface ImportEmailPayload {
   userId: string
@@ -54,14 +55,20 @@ export interface ImportEmailPayload {
   originalDate: number
   htmlContent?: string
   textContent?: string
+  messageId?: string // Story 8.4: For duplicate detection
 }
 
 /**
  * Response from Convex import endpoint
+ * Story 8.4: Added skipped/duplicate fields
  */
 export interface ConvexImportResponse {
   success: boolean
   userNewsletterId?: string
   senderId?: string
   error?: string
+  // Story 8.4: Duplicate detection fields
+  skipped?: boolean
+  duplicateReason?: "message_id" | "content_hash"
+  existingId?: string
 }

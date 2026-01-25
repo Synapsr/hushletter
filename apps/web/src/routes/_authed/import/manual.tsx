@@ -138,6 +138,16 @@ function ManualImportPage() {
         messageId: state.parsed.messageId ?? undefined,
       })
 
+      // Story 8.4: Handle duplicate detection - navigate to existing newsletter
+      if (result.skipped) {
+        // Navigate to the existing newsletter (FR33 - no error shown)
+        navigate({
+          to: "/newsletters/$id",
+          params: { id: result.existingId },
+        })
+        return
+      }
+
       // Navigate to the imported newsletter
       navigate({
         to: "/newsletters/$id",

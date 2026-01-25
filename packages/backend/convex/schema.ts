@@ -52,6 +52,7 @@ export default defineSchema({
   // User's relationship to newsletters (per-user, references shared content or private)
   // Story 2.5.1: Task 1 - userNewsletters table
   // Story 5.1: Task 1.2 - Added summary fields for personal/private summaries
+  // Story 8.4: Task 1 - Added messageId for duplicate detection
   userNewsletters: defineTable({
     userId: v.id("users"),
     senderId: v.id("senders"),
@@ -68,13 +69,16 @@ export default defineSchema({
     // Story 5.1: AI Summary (personal for private newsletters, or user-regenerated summaries)
     summary: v.optional(v.string()),
     summaryGeneratedAt: v.optional(v.number()), // Unix timestamp ms
+    // Story 8.4: Email Message-ID header for duplicate detection (without angle brackets)
+    messageId: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_receivedAt", ["userId", "receivedAt"])
     .index("by_userId_senderId", ["userId", "senderId"]) // Story 2.3: Efficient per-user sender queries
     .index("by_senderId", ["senderId"])
     .index("by_contentId", ["contentId"])
-    .index("by_receivedAt", ["receivedAt"]), // Story 7.1: Admin recent activity queries
+    .index("by_receivedAt", ["receivedAt"]) // Story 7.1: Admin recent activity queries
+    .index("by_userId_messageId", ["userId", "messageId"]), // Story 8.4: Duplicate detection
 
   // Global sender registry (not user-scoped)
   // Story 2.5.1: Task 1 - Refactored senders table

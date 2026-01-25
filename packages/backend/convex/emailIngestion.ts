@@ -248,6 +248,7 @@ export const receiveEmail = httpAction(async (ctx, request) => {
     const isPrivate = userSenderSettings.isPrivate
 
     // Store content in R2 and create userNewsletter record
+    // Story 8.4: storeNewsletterContent now performs duplicate detection
     const result = await ctx.runAction(internal.newsletters.storeNewsletterContent, {
       userId: user._id,
       senderId: sender._id,
@@ -258,7 +259,31 @@ export const receiveEmail = httpAction(async (ctx, request) => {
       htmlContent: validatedHtmlContent,
       textContent: validatedTextContent,
       isPrivate,
+      // Note: emailIngestion doesn't have messageId - duplicate detection uses content hash
     })
+
+    // Story 8.4: Handle duplicate detection (silent success, no error)
+    if (result.skipped) {
+      console.log(
+        `[emailIngestion] Duplicate detected (${result.duplicateReason}): existingId=${result.existingId}`
+      )
+      // Return success without updating delivery log (email was processed, just a duplicate)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          userId: user._id,
+          userNewsletterId: result.existingId, // Return existing ID
+          senderId: sender._id,
+          isPrivate,
+          skipped: true,
+          reason: "duplicate",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    }
 
     console.log(
       `[emailIngestion] Newsletter created: ${result.userNewsletterId}, R2 key: ${result.r2Key}, isPrivate: ${isPrivate}`

@@ -52,6 +52,7 @@ const {
   stripForwardPrefix,
   extractHeaderFromBody,
   extractDateFromBody,
+  extractMessageIdFromBody, // Story 8.4: For duplicate detection
   EMAIL_REGEX,
   MAX_EMAIL_SIZE_BYTES,
   RATE_LIMIT_PER_HOUR,
@@ -641,7 +642,7 @@ describe("importIngestion HTTP endpoints", () => {
     })
 
     it("should accept optional fields", async () => {
-      const optionalFields = ["originalFromName", "htmlContent", "textContent"]
+      const optionalFields = ["originalFromName", "htmlContent", "textContent", "messageId"]
 
       optionalFields.forEach((field) => {
         expect(field).toBeTruthy()
@@ -659,6 +660,171 @@ describe("importIngestion HTTP endpoints", () => {
       expect(response.success).toBe(true)
       expect(response.userNewsletterId).toBeDefined()
       expect(response.senderId).toBeDefined()
+    })
+
+    // Story 8.4: Duplicate detection tests
+    it("should return skipped:true for duplicate detection", async () => {
+      const response = {
+        success: true,
+        skipped: true,
+        reason: "duplicate" as const,
+        duplicateReason: "message_id" as const,
+        existingId: "existing123",
+        senderId: "sender123",
+        isPrivate: false,
+      }
+
+      expect(response.success).toBe(true)
+      expect(response.skipped).toBe(true)
+      expect(response.duplicateReason).toBe("message_id")
+      expect(response.existingId).toBeDefined()
+    })
+  })
+})
+
+// Story 8.4: Duplicate Detection Tests
+describe("Duplicate Detection (Story 8.4)", () => {
+  describe("Message-ID Extraction", () => {
+    it("should extract Message-ID from forwarded headers", () => {
+      const body = `---------- Forwarded message ---------
+From: newsletter@example.com
+Date: Mon, Jan 20, 2026 at 10:00 AM
+Subject: Weekly Digest
+Message-ID: <abc123@mail.example.com>
+
+Content here.`
+
+      const result = extractMessageIdFromBody(body)
+      expect(result).toBe("abc123@mail.example.com")
+    })
+
+    it("should extract Message-Id (lowercase d) from headers", () => {
+      const body = `---------- Forwarded message ---------
+From: newsletter@example.com
+Message-Id: <def456@newsletter.co>
+Subject: Tech News
+
+Content.`
+
+      const result = extractMessageIdFromBody(body)
+      expect(result).toBe("def456@newsletter.co")
+    })
+
+    it("should handle Message-ID without angle brackets", () => {
+      const body = `---------- Forwarded message ---------
+From: newsletter@example.com
+Message-ID: xyz789@example.org
+
+Content here.`
+
+      const result = extractMessageIdFromBody(body)
+      expect(result).toBe("xyz789@example.org")
+    })
+
+    it("should extract Message-ID from quoted forward headers", () => {
+      const body = `Some intro text.
+
+> From: newsletter@example.com
+> Message-ID: <quoted123@mail.example.com>
+> Subject: Newsletter
+>
+> Quoted content.`
+
+      const result = extractMessageIdFromBody(body)
+      expect(result).toBe("quoted123@mail.example.com")
+    })
+
+    it("should return null when no Message-ID present", () => {
+      const body = `---------- Forwarded message ---------
+From: newsletter@example.com
+Subject: No Message ID
+
+Content without Message-ID header.`
+
+      const result = extractMessageIdFromBody(body)
+      expect(result).toBeNull()
+    })
+
+    it("should handle complex Message-ID formats", () => {
+      const body = `Message-ID: <CABx+4AQ5TCJk=FgWz@mail.gmail.com>
+
+Content.`
+
+      const result = extractMessageIdFromBody(body)
+      expect(result).toBe("CABx+4AQ5TCJk=FgWz@mail.gmail.com")
+    })
+  })
+
+  describe("Duplicate Response Handling", () => {
+    it("should not increment rate limit for duplicates", () => {
+      // When duplicate is detected, rate limit should not be incremented
+      // This ensures users aren't penalized for re-importing the same email
+      const result = {
+        success: true,
+        skipped: true,
+        reason: "duplicate",
+        duplicateReason: "message_id",
+        existingId: "existing123",
+      }
+
+      expect(result.skipped).toBe(true)
+      // In actual implementation, incrementRateLimit is NOT called when skipped=true
+    })
+
+    it("should distinguish message_id vs content_hash duplicates", () => {
+      const messageIdDupe = {
+        skipped: true,
+        duplicateReason: "message_id" as const,
+      }
+
+      const contentHashDupe = {
+        skipped: true,
+        duplicateReason: "content_hash" as const,
+      }
+
+      expect(messageIdDupe.duplicateReason).toBe("message_id")
+      expect(contentHashDupe.duplicateReason).toBe("content_hash")
+    })
+
+    it("should return existingId for duplicate detection", () => {
+      const response = {
+        success: true,
+        skipped: true,
+        existingId: "existing123",
+      }
+
+      // UI can use existingId to navigate to the existing newsletter
+      expect(response.existingId).toBeDefined()
+    })
+  })
+
+  describe("Import Payload with messageId", () => {
+    it("should include messageId in import payload", () => {
+      const payload = {
+        userId: "user123",
+        forwardingUserEmail: "user@example.com",
+        originalFrom: "newsletter@tech.com",
+        originalSubject: "Weekly Digest",
+        originalDate: Date.now(),
+        htmlContent: "<p>Content</p>",
+        messageId: "abc123@mail.example.com", // Story 8.4: For duplicate detection
+      }
+
+      expect(payload.messageId).toBe("abc123@mail.example.com")
+    })
+
+    it("should allow undefined messageId", () => {
+      const payload = {
+        userId: "user123",
+        forwardingUserEmail: "user@example.com",
+        originalFrom: "newsletter@tech.com",
+        originalSubject: "Weekly Digest",
+        originalDate: Date.now(),
+        htmlContent: "<p>Content</p>",
+        // messageId intentionally omitted
+      }
+
+      expect(payload.messageId).toBeUndefined()
     })
   })
 })

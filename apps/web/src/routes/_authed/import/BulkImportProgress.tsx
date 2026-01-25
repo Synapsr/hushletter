@@ -1,13 +1,14 @@
 /**
  * BulkImportProgress Component
  * Story 8.2: Task 4 (AC #4, #5)
+ * Story 8.4: Task 4 (AC #6) - Duplicate tracking
  *
  * Processes multiple .eml files with concurrency control and progress tracking.
  * Features:
  * - Parallel processing with concurrency limit (3 concurrent)
  * - Real-time progress tracking
  * - Individual file status display
- * - Summary with imported/skipped/failed counts
+ * - Summary with imported/duplicates/failed counts (AC #6)
  * - Expandable failure details
  */
 
@@ -50,9 +51,11 @@ interface BulkImportProgressProps {
 /** Result of processing a single file */
 interface FileImportResult {
   filename: string
-  status: "importing" | "success" | "skipped" | "error"
+  status: "importing" | "success" | "duplicate" | "skipped" | "error"
   error?: string
   userNewsletterId?: string
+  /** Story 8.4: Duplicate detection reason (when status is "duplicate") */
+  duplicateReason?: "message_id" | "content_hash"
 }
 
 /** Concurrency limit for parallel processing */
@@ -60,6 +63,7 @@ const CONCURRENCY_LIMIT = 3
 
 /**
  * Individual file status row
+ * Story 8.4: Added duplicate status display
  */
 function FileStatusRow({ result }: { result: FileImportResult }) {
   return (
@@ -70,13 +74,19 @@ function FileStatusRow({ result }: { result: FileImportResult }) {
       {result.status === "success" && (
         <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
       )}
-      {result.status === "skipped" && (
+      {result.status === "duplicate" && (
         <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+      )}
+      {result.status === "skipped" && (
+        <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
       )}
       {result.status === "error" && (
         <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
       )}
       <span className="text-sm truncate flex-1">{result.filename}</span>
+      {result.status === "duplicate" && (
+        <span className="text-xs text-yellow-600 dark:text-yellow-400">Duplicate</span>
+      )}
     </div>
   )
 }
@@ -101,10 +111,12 @@ export function BulkImportProgress({
   const importAction = useAction(api.manualImport.importEmlNewsletter)
 
   // Calculate counts
+  // Story 8.4: Add duplicate count, separate from skipped (parse errors)
   const imported = results.filter((r) => r.status === "success").length
+  const duplicates = results.filter((r) => r.status === "duplicate").length
   const skipped = results.filter((r) => r.status === "skipped").length
   const failed = results.filter((r) => r.status === "error").length
-  const processed = imported + skipped + failed
+  const processed = imported + duplicates + skipped + failed
   const percentage = Math.round((processed / files.length) * 100)
 
   // Process files with concurrency limit
@@ -165,7 +177,24 @@ export function BulkImportProgress({
 
             if (cancelledRef.current) return
 
-            // 3. Mark as success
+            // 3. Story 8.4: Handle duplicate detection (AC #6)
+            if (result.skipped) {
+              setResults((prev) =>
+                prev.map((r, i) =>
+                  i === fileIndex
+                    ? {
+                        ...r,
+                        status: "duplicate",
+                        duplicateReason: result.duplicateReason,
+                        userNewsletterId: result.existingId,
+                      }
+                    : r
+                )
+              )
+              continue
+            }
+
+            // 4. Mark as success
             setResults((prev) =>
               prev.map((r, i) =>
                 i === fileIndex
@@ -242,7 +271,7 @@ export function BulkImportProgress({
         <div className="sr-only" aria-live="polite" aria-atomic="true">
           {isProcessing
             ? `Processing ${processed} of ${files.length} files`
-            : `Import complete. ${imported} imported, ${skipped} skipped, ${failed} failed.`}
+            : `Import complete. ${imported} imported, ${duplicates} duplicates skipped, ${failed} failed.`}
         </div>
 
         {/* Progress bar */}
@@ -256,7 +285,7 @@ export function BulkImportProgress({
           </div>
         )}
 
-        {/* Status summary */}
+        {/* Status summary - Story 8.4: Show duplicates count (AC #6) */}
         <div className="grid grid-cols-3 gap-4 text-center">
           <div className="p-3 bg-muted rounded-lg">
             <div className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400">
@@ -268,9 +297,9 @@ export function BulkImportProgress({
           <div className="p-3 bg-muted rounded-lg">
             <div className="flex items-center justify-center gap-1 text-yellow-600 dark:text-yellow-400">
               <AlertCircle className="h-4 w-4" />
-              <span className="text-xl font-bold">{skipped}</span>
+              <span className="text-xl font-bold">{duplicates}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Skipped</p>
+            <p className="text-xs text-muted-foreground mt-1">Duplicates</p>
           </div>
           <div className="p-3 bg-muted rounded-lg">
             <div className="flex items-center justify-center gap-1 text-red-600 dark:text-red-400">

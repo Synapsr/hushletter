@@ -1,6 +1,7 @@
 /**
  * Sender Detail View for Community
  * Story 6.3: Task 2.3-2.5
+ * Story 6.4: Task 2.1-2.4 - Added follow button, subscriber badge, subscribe info
  *
  * Shows all newsletters from a specific sender in the community database.
  * Displays sender info with subscriber count badge.
@@ -20,6 +21,8 @@ import {
   CommunityNewsletterCard,
   type CommunityNewsletterData,
 } from "~/components/CommunityNewsletterCard"
+import { FollowButton } from "~/components/FollowButton"
+import { SubscribeInfo } from "~/components/SubscribeInfo"
 import { ArrowLeft, Users, Mail, Loader2 } from "lucide-react"
 
 export const Route = createFileRoute("/_authed/community/sender/$senderEmail")({
@@ -146,17 +149,17 @@ function SenderDetailPage() {
       const result = await convex.query(api.community.listCommunityNewslettersBySender, {
         senderEmail: decodedEmail,
         sortBy: "recent",
-        cursor: pageParam,
+        cursor: pageParam as Id<"newsletterContent"> | undefined,
         limit: 20,
       })
       return result as NewslettersResponse
     },
-    initialPageParam: undefined as Id<"newsletterContent"> | undefined,
+    initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   })
 
   const senderData = sender as SenderData | null | undefined
-  const newsletters = newslettersData?.pages.flatMap((page) => page.items) ?? []
+  const newsletters = newslettersData?.pages.flatMap((page: NewslettersResponse) => page.items) ?? []
 
   const isLoading = isSenderPending || isNewslettersPending
 
@@ -267,29 +270,47 @@ function SenderDetailPage() {
         </Link>
       </div>
 
-      {/* Sender header - Story 6.3 Task 2.4, 2.5 */}
+      {/* Sender header - Story 6.3 Task 2.4, 2.5, Story 6.4 Task 2.1-2.4 */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">
-          {senderData.displayName}
-        </h1>
-        {senderData.name && (
-          <p className="text-muted-foreground mt-1">{senderData.email}</p>
-        )}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              {senderData.displayName}
+            </h1>
+            {senderData.name && (
+              <p className="text-muted-foreground mt-1">{senderData.email}</p>
+            )}
+          </div>
+          {/* Story 6.4 Task 1.5, 2.4: Follow button */}
+          <FollowButton
+            senderEmail={senderData.email}
+            senderName={senderData.displayName}
+          />
+        </div>
         <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-          {/* Subscriber count badge - Story 6.3 Task 2.5 */}
+          {/* Story 6.4 Task 2.1: Subscriber count badge - "X users subscribe to this" */}
           <div className="flex items-center gap-1.5">
             <Users className="h-4 w-4" />
             <span>
               {senderData.subscriberCount}{" "}
-              {senderData.subscriberCount === 1 ? "subscriber" : "subscribers"}
+              {senderData.subscriberCount === 1 ? "user subscribes" : "users subscribe"} to this
             </span>
           </div>
           <span>|</span>
           <span>
-            {newsletters.length}{" "}
-            {newsletters.length === 1 ? "newsletter" : "newsletters"}
+            {senderData.newsletterCount}{" "}
+            {senderData.newsletterCount === 1 ? "newsletter" : "newsletters"}
           </span>
         </div>
+      </div>
+
+      {/* Story 6.4 Task 2.2: Subscribe info section */}
+      <div className="mb-6">
+        <SubscribeInfo
+          senderEmail={senderData.email}
+          senderName={senderData.displayName}
+          domain={senderData.domain}
+        />
       </div>
 
       {/* Newsletter list with infinite scroll */}

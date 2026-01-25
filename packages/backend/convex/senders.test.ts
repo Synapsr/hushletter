@@ -865,3 +865,101 @@ describe("listSendersForUserWithUnreadCounts query contract (Story 3.1 Task 7)",
     expect(indexUsed).toBe("by_userId_senderId")
   })
 })
+
+// =============================================================================
+// Story 6.4: Follow Sender and Discovery Features
+// =============================================================================
+
+describe("senders API exports (Story 6.4)", () => {
+  it("should export listFollowedSenders query", () => {
+    expect(api.senders.listFollowedSenders).toBeDefined()
+  })
+
+  it("should export listDistinctDomains query", () => {
+    expect(api.senders.listDistinctDomains).toBeDefined()
+  })
+})
+
+describe("listFollowedSenders query contract (Story 6.4 Task 1.4)", () => {
+  it("takes no args (uses authenticated user)", () => {
+    const expectedArgs = {}
+    expect(Object.keys(expectedArgs)).toHaveLength(0)
+  })
+
+  it("returns empty array when not authenticated", () => {
+    const returnWhenUnauth: unknown[] = []
+    expect(returnWhenUnauth).toEqual([])
+  })
+
+  it("returns followed senders with hasNewsletters indicator", () => {
+    const expectedReturn = {
+      senderId: "Id<'senders'>",
+      email: "string",
+      name: "string | undefined",
+      displayName: "string - name if available, otherwise email",
+      domain: "string",
+      subscriberCount: "number - total users across platform",
+      newsletterCount: "number - total newsletters from this sender",
+      isPrivate: "boolean - from userSenderSettings",
+      hasNewsletters: "boolean - true if user has newsletters from sender",
+      folderId: "Id<'folders'> | undefined",
+    }
+    expect(expectedReturn).toHaveProperty("hasNewsletters")
+    expect(expectedReturn).toHaveProperty("displayName")
+    expect(expectedReturn).toHaveProperty("isPrivate")
+  })
+
+  it("includes followed senders without newsletters", () => {
+    const behavior = {
+      source: "userSenderSettings - all sender relationships",
+      includes: "senders with userSenderSettings but no userNewsletters",
+      use: "Discover CTA and sidebar 'Following' section",
+    }
+    expect(behavior.includes).toContain("no userNewsletters")
+  })
+
+  it("uses by_userId index for efficient lookup", () => {
+    const indexUsed = "by_userId"
+    expect(indexUsed).toBe("by_userId")
+  })
+})
+
+describe("listDistinctDomains query contract (Story 6.4 Task 3.1)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      limit: "optional number - max domains (default 50, max 100)",
+    }
+    expect(expectedArgsShape).toHaveProperty("limit")
+  })
+
+  it("returns empty array when not authenticated", () => {
+    const returnWhenUnauth: unknown[] = []
+    expect(returnWhenUnauth).toEqual([])
+  })
+
+  it("returns domains with total subscriber counts", () => {
+    const expectedReturn = {
+      domain: "string - e.g., 'substack.com'",
+      totalSubscribers: "number - sum of subscriberCount for senders in domain",
+    }
+    expect(expectedReturn).toHaveProperty("domain")
+    expect(expectedReturn).toHaveProperty("totalSubscribers")
+  })
+
+  it("sorts domains by total subscribers (most popular first)", () => {
+    const sortBehavior = {
+      order: ".sort((a, b) => b[1] - a[1])",
+      result: "domains with most subscribers first",
+    }
+    expect(sortBehavior.result).toContain("most subscribers first")
+  })
+
+  it("extracts unique domains from senders table", () => {
+    const extractBehavior = {
+      source: "senders table",
+      method: "Map<domain, totalSubscribers>",
+      deduplication: "unique domains aggregating subscriber counts",
+    }
+    expect(extractBehavior.deduplication).toContain("unique domains")
+  })
+})

@@ -1,9 +1,10 @@
 import { useMemo } from "react"
+import { Link } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
 import { cn } from "~/lib/utils"
-import { FolderIcon, EyeOff } from "lucide-react"
+import { FolderIcon, EyeOff, UserCheck } from "lucide-react"
 
 /**
  * Sender data from listSendersForUserWithUnreadCounts query
@@ -17,6 +18,23 @@ export interface SenderData {
   userNewsletterCount: number
   unreadCount: number
   isPrivate: boolean
+  folderId?: string
+}
+
+/**
+ * Followed sender data from listFollowedSenders query
+ * Story 6.4 Task 5.1: Senders the user follows (may have no newsletters)
+ */
+export interface FollowedSenderData {
+  senderId: string
+  email: string
+  name?: string
+  displayName: string
+  domain: string
+  subscriberCount: number
+  newsletterCount: number
+  isPrivate: boolean
+  hasNewsletters: boolean
   folderId?: string
 }
 
@@ -72,14 +90,16 @@ export function SenderSidebarSkeleton() {
  * Story 3.1: Task 1-3 (AC1, AC2, AC3, AC4)
  * Story 3.3: Task 1 (AC4, AC5) - Added folder section
  * Story 3.5: Task 6 (AC3) - Added Hidden section
+ * Story 6.4: Task 5.1-5.3 - Include followed senders without newsletters
  *
  * Features:
  * - "All Newsletters" item at top with total count
  * - Folder section with unread indicators (Story 3.3)
  * - "Uncategorized" virtual folder (Story 3.3 AC5)
  * - "Hidden" section to view hidden newsletters (Story 3.5)
- * - Alphabetically sorted sender list
+ * - Alphabetically sorted sender list (includes followed senders)
  * - Newsletter count badges per sender
+ * - "Following" indicator for senders without newsletters (Story 6.4)
  * - Subtle unread indicators (UX compliant - not anxiety-inducing)
  * - Visual highlighting for selected item
  */
@@ -97,6 +117,11 @@ export function SenderSidebar({
   // Real-time subscription to senders with unread counts
   const { data: senders, isPending: sendersPending } = useQuery(
     convexQuery(api.senders.listSendersForUserWithUnreadCounts, {})
+  )
+
+  // Story 6.4 Task 5.1: Fetch followed senders (includes those without newsletters)
+  const { data: followedSenders, isPending: followedPending } = useQuery(
+    convexQuery(api.senders.listFollowedSenders, {})
   )
 
   // Real-time subscription to folders with unread counts
@@ -120,10 +145,18 @@ export function SenderSidebar({
     )
   }, [senders])
 
-  if (sendersPending || foldersPending) return <SenderSidebarSkeleton />
+  if (sendersPending || foldersPending || followedPending) return <SenderSidebarSkeleton />
 
   const senderList = (senders ?? []) as SenderData[]
   const folderList = (folders ?? []) as FolderData[]
+  const followedList = (followedSenders ?? []) as FollowedSenderData[]
+
+  // Story 6.4 Task 5.1-5.2: Find followed senders without newsletters
+  // These are senders the user followed from community but hasn't received newsletters from
+  const senderIds = new Set(senderList.map((s) => s._id))
+  const followedWithoutNewsletters = followedList.filter(
+    (f) => !f.hasNewsletters && !senderIds.has(f.senderId)
+  )
 
   // Check if nothing is selected (show "All Newsletters" as active)
   const isAllSelected = !selectedSenderId && !selectedFolderId && !selectedFilter
@@ -278,10 +311,39 @@ export function SenderSidebar({
       ))}
 
       {/* Empty state when no senders */}
-      {senderList.length === 0 && (
+      {senderList.length === 0 && followedWithoutNewsletters.length === 0 && (
         <p className="text-muted-foreground text-sm text-center py-4">
           No senders yet
         </p>
+      )}
+
+      {/* Story 6.4 Task 5.1-5.3: Followed senders without newsletters */}
+      {followedWithoutNewsletters.length > 0 && (
+        <>
+          <div className="h-px bg-border my-2" />
+          <p className="px-3 py-1 text-xs text-muted-foreground font-medium uppercase tracking-wider">
+            Following
+          </p>
+          {followedWithoutNewsletters.map((sender) => (
+            <Link
+              key={sender.senderId}
+              to="/community/sender/$senderEmail"
+              params={{ senderEmail: sender.email }}
+              className={cn(
+                "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
+                "hover:bg-accent transition-colors text-left"
+              )}
+            >
+              <span className="truncate flex-1 mr-2">{sender.displayName}</span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Story 6.4 Task 5.2: "Following" indicator */}
+                <UserCheck className="h-3.5 w-3.5 text-primary/70" aria-label="Following" />
+                {/* Story 6.4 Task 5.3: "View Back-Catalog" - link goes to community sender page */}
+                <span className="text-xs text-muted-foreground">View</span>
+              </div>
+            </Link>
+          ))}
+        </>
       )}
 
       {/* Story 3.5: Hidden section (AC3) */}

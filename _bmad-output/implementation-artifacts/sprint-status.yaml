@@ -97,7 +97,7 @@ development_status:
   6-1-default-public-sharing: done  # Code review complete - 6 fixes (2 HIGH, 4 MEDIUM)
   6-2-privacy-controls-for-senders: done  # Code review complete - 5 fixes (2 HIGH, 3 MEDIUM)
   6-3-community-back-catalog-access: done  # Code review complete - 7 fixes (1 HIGH, 6 MEDIUM), pagination, error handling, accessibility
-  6-4-browse-newsletters-not-personally-received: backlog  # Uses readerCount, subscriberCount from 2.5
+  6-4-browse-newsletters-not-personally-received: done  # Code review complete - 7 fixes (1 HIGH, 1 MEDIUM, 5 LOW)
   epic-6-retrospective: optional
 
   epic-7: backlog

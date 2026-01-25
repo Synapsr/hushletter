@@ -626,3 +626,105 @@ export const incrementNewsletterCount = internalMutation({
     })
   },
 })
+
+// ============================================================
+// Story 6.4: Follow Sender & Domain Filter Features
+// ============================================================
+
+/**
+ * List senders the user follows (including those without newsletters)
+ * Story 6.4 Task 1.4
+ *
+ * Returns all senders where the user has a userSenderSettings record,
+ * along with information about whether they have newsletters from that sender.
+ * This allows the senders page to show "followed" senders even if the user
+ * hasn't received any newsletters from them yet.
+ */
+export const listFollowedSenders = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return []
+
+    // Get all user's sender settings (follows + active subscriptions)
+    const allSettings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+
+    // For each setting, check if user has newsletters from that sender
+    const results = await Promise.all(
+      allSettings.map(async (settings) => {
+        const sender = await ctx.db.get(settings.senderId)
+        if (!sender) return null
+
+        const hasNewsletters = await ctx.db
+          .query("userNewsletters")
+          .withIndex("by_userId_senderId", (q) =>
+            q.eq("userId", user._id).eq("senderId", settings.senderId)
+          )
+          .first()
+
+        return {
+          senderId: sender._id,
+          email: sender.email,
+          name: sender.name,
+          displayName: sender.name || sender.email,
+          domain: sender.domain,
+          subscriberCount: sender.subscriberCount,
+          newsletterCount: sender.newsletterCount,
+          isPrivate: settings.isPrivate,
+          hasNewsletters: hasNewsletters !== null,
+          folderId: settings.folderId,
+        }
+      })
+    )
+
+    return results.filter((r): r is NonNullable<typeof r> => r !== null)
+  },
+})
+
+/**
+ * List distinct domains from senders table for filter dropdown
+ * Story 6.4 Task 3.1
+ *
+ * Returns unique domains sorted by total subscribers (most popular first).
+ * Used for the domain filter dropdown in community browse.
+ */
+export const listDistinctDomains = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const limit = Math.min(args.limit ?? 50, 100)
+
+    // Get senders sorted by subscriberCount (most popular domains first)
+    const senders = await ctx.db
+      .query("senders")
+      .withIndex("by_subscriberCount")
+      .order("desc")
+      .take(500) // Scan for unique domains
+
+    // Extract unique domains with counts
+    const domainMap = new Map<string, number>()
+    for (const sender of senders) {
+      const current = domainMap.get(sender.domain) ?? 0
+      domainMap.set(sender.domain, current + sender.subscriberCount)
+    }
+
+    // Sort by total subscribers and limit
+    const domains = [...domainMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([domain, totalSubscribers]) => ({ domain, totalSubscribers }))
+
+    return domains
+  },
+})

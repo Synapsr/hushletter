@@ -51,10 +51,12 @@ type TopCommunitySenderData = {
  * Search params for community browse page
  * Story 6.1: Task 2.3-2.4
  * Story 6.3: Added tab for browse modes
+ * Story 6.4: Added domain filter
  */
 type CommunitySearchParams = {
   sort?: "popular" | "recent"
   sender?: string
+  domain?: string  // Story 6.4: Domain filter
   tab?: "newsletters" | "senders"
 }
 
@@ -63,8 +65,9 @@ export const Route = createFileRoute("/_authed/community/")({
   validateSearch: (search: Record<string, unknown>): CommunitySearchParams => {
     const sort = search.sort === "recent" ? "recent" : undefined // Default is popular
     const sender = typeof search.sender === "string" ? search.sender : undefined
+    const domain = typeof search.domain === "string" ? search.domain : undefined // Story 6.4
     const tab = search.tab === "senders" ? "senders" : undefined // Default is newsletters
-    return { sort, sender, tab }
+    return { sort, sender, domain, tab }
   },
 })
 
@@ -214,7 +217,7 @@ function SenderCard({ sender }: { sender: TopCommunitySenderData }) {
  * Uses useDeferredValue for search debouncing (per Story 6.2 pattern).
  */
 function CommunityBrowsePage() {
-  const { sort, sender, tab } = Route.useSearch()
+  const { sort, sender, domain, tab } = Route.useSearch()
   const navigate = Route.useNavigate()
   const convex = useConvex()
 
@@ -235,11 +238,12 @@ function CommunityBrowsePage() {
     isFetchingNextPage,
     isPending,
   } = useInfiniteQuery({
-    queryKey: ["community-newsletters", sort, sender],
+    queryKey: ["community-newsletters", sort, sender, domain], // Story 6.4: Include domain in query key
     queryFn: async ({ pageParam }) => {
       const result = await convex.query(api.community.listCommunityNewsletters, {
         sortBy: sort || "popular",
         senderEmail: sender,
+        domain, // Story 6.4: Domain filter
         cursorValue: pageParam?.cursorValue,
         cursorId: pageParam?.cursorId,
         limit: 20,
@@ -253,6 +257,12 @@ function CommunityBrowsePage() {
     },
     enabled: !deferredSearchQuery && tab !== "senders", // Disable when searching or on senders tab
   })
+
+  // Story 6.4 Task 3.1: Fetch distinct domains for filter dropdown
+  const { data: domainsData } = useQuery(
+    convexQuery(api.senders.listDistinctDomains, { limit: 50 })
+  )
+  const domains = (domainsData ?? []) as { domain: string; totalSubscribers: number }[]
 
   // Search query - Story 6.3 Task 1.2
   const { data: searchResults, isPending: isSearchPending, error: searchError, refetch: refetchSearch } = useQuery({
@@ -335,6 +345,16 @@ function CommunityBrowsePage() {
       search: (prev) => ({
         ...prev,
         sender: value === "all" ? undefined : value,
+      }),
+    })
+  }
+
+  // Story 6.4 Task 3.2: Handle domain filter change
+  const handleDomainChange = (value: string) => {
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        domain: value === "all" ? undefined : value,
       }),
     })
   }
@@ -508,7 +528,7 @@ function CommunityBrowsePage() {
             )}
           </div>
 
-          {/* Controls: Sort + Sender filter - only show when not searching */}
+          {/* Controls: Sort + Sender filter + Domain filter - only show when not searching */}
           {!deferredSearchQuery && (
             <div className="flex flex-wrap gap-3 mb-6">
               {/* Sort control */}
@@ -532,6 +552,21 @@ function CommunityBrowsePage() {
                   {senders.map((s) => (
                     <SelectItem key={s.email} value={s.email}>
                       {s.name || s.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Story 6.4 Task 3.2: Domain filter */}
+              <Select value={domain || "all"} onValueChange={handleDomainChange}>
+                <SelectTrigger className="w-[180px]" aria-label="Filter by domain">
+                  <SelectValue placeholder="All domains" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All domains</SelectItem>
+                  {domains.map((d) => (
+                    <SelectItem key={d.domain} value={d.domain}>
+                      {d.domain}
                     </SelectItem>
                   ))}
                 </SelectContent>

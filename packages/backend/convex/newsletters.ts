@@ -1052,3 +1052,35 @@ export const listHiddenNewsletters = query({
     return enrichedNewsletters
   },
 })
+
+// ============================================================
+// Story 6.4: Empty State Detection
+// ============================================================
+
+/**
+ * Check if user has any newsletters
+ * Story 6.4 Task 4.1 - For empty state detection
+ *
+ * Returns true if user has at least one newsletter in userNewsletters.
+ * Used to determine if we should show "Discover" CTA for new users.
+ */
+export const hasAnyNewsletters = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return false
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return false
+
+    const firstNewsletter = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first()
+
+    return firstNewsletter !== null
+  },
+})

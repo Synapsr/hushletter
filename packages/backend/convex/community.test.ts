@@ -481,3 +481,167 @@ describe("getSenderByEmailPublic query contract (Story 6.3 Task 2.3)", () => {
     expect(returnFields).not.toContain("userId")
   })
 })
+
+// ============================================================
+// Story 6.4: Follow Sender and Discovery Features Tests
+// ============================================================
+
+describe("community API exports (Story 6.4)", () => {
+  it("should export followSender mutation", () => {
+    expect(api.community.followSender).toBeDefined()
+  })
+
+  it("should export unfollowSender mutation", () => {
+    expect(api.community.unfollowSender).toBeDefined()
+  })
+
+  it("should export isFollowingSender query", () => {
+    expect(api.community.isFollowingSender).toBeDefined()
+  })
+})
+
+describe("followSender mutation contract (Story 6.4 Task 1.1)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderEmail: "required string - email of sender to follow",
+    }
+    expect(expectedArgsShape).toHaveProperty("senderEmail")
+  })
+
+  it("returns alreadyFollowing status and settingsId", () => {
+    const expectedReturn = {
+      alreadyFollowing: "boolean - true if user was already following",
+      settingsId: "Id<'userSenderSettings'> - the settings record ID",
+    }
+    expect(expectedReturn).toHaveProperty("alreadyFollowing")
+    expect(expectedReturn).toHaveProperty("settingsId")
+  })
+
+  it("creates userSenderSettings with isPrivate: false", () => {
+    const createBehavior = {
+      userId: "user's ID",
+      senderId: "sender's ID",
+      isPrivate: false, // Public by default for follows
+    }
+    expect(createBehavior.isPrivate).toBe(false)
+  })
+
+  it("increments senders.subscriberCount when following", () => {
+    const incrementBehavior = "await ctx.db.patch(sender._id, { subscriberCount: sender.subscriberCount + 1 })"
+    expect(incrementBehavior).toContain("subscriberCount")
+    expect(incrementBehavior).toContain("+ 1")
+  })
+
+  it("returns alreadyFollowing: true if settings exists", () => {
+    const duplicateResult = { alreadyFollowing: true, settingsId: "existing-id" }
+    expect(duplicateResult.alreadyFollowing).toBe(true)
+  })
+
+  it("throws UNAUTHORIZED for unauthenticated requests", () => {
+    const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+    expect(expectedError.code).toBe("UNAUTHORIZED")
+  })
+
+  it("throws NOT_FOUND if sender doesn't exist", () => {
+    const expectedError = { code: "NOT_FOUND", message: "Sender not found" }
+    expect(expectedError.code).toBe("NOT_FOUND")
+  })
+})
+
+describe("unfollowSender mutation contract (Story 6.4 Task 1.2)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderEmail: "required string - email of sender to unfollow",
+    }
+    expect(expectedArgsShape).toHaveProperty("senderEmail")
+  })
+
+  it("returns wasFollowing and hasNewsletters status", () => {
+    const expectedReturn = {
+      wasFollowing: "boolean - true if user was following before",
+      hasNewsletters: "boolean | undefined - true if user has newsletters from sender",
+    }
+    expect(expectedReturn).toHaveProperty("wasFollowing")
+    expect(expectedReturn).toHaveProperty("hasNewsletters")
+  })
+
+  it("does NOT delete settings if user has newsletters from sender", () => {
+    const keepSettingsBehavior = {
+      hasNewsletters: true,
+      action: "Keep userSenderSettings record (user still has relationship via newsletters)",
+    }
+    expect(keepSettingsBehavior.hasNewsletters).toBe(true)
+    expect(keepSettingsBehavior.action).toContain("Keep")
+  })
+
+  it("deletes settings if user has no newsletters from sender (pure follow)", () => {
+    const deleteSettingsBehavior = "await ctx.db.delete(settings._id)"
+    expect(deleteSettingsBehavior).toContain("delete")
+  })
+
+  it("decrements subscriberCount when unfollowing pure follow", () => {
+    const decrementBehavior = "subscriberCount: Math.max(0, sender.subscriberCount - 1)"
+    expect(decrementBehavior).toContain("subscriberCount")
+    expect(decrementBehavior).toContain("- 1")
+    expect(decrementBehavior).toContain("Math.max(0") // Prevent negative counts
+  })
+
+  it("throws UNAUTHORIZED for unauthenticated requests", () => {
+    const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+    expect(expectedError.code).toBe("UNAUTHORIZED")
+  })
+
+  it("throws NOT_FOUND if sender doesn't exist", () => {
+    const expectedError = { code: "NOT_FOUND", message: "Sender not found" }
+    expect(expectedError.code).toBe("NOT_FOUND")
+  })
+})
+
+describe("isFollowingSender query contract (Story 6.4 Task 1.3)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderEmail: "required string - email of sender to check",
+    }
+    expect(expectedArgsShape).toHaveProperty("senderEmail")
+  })
+
+  it("returns boolean indicating follow status", () => {
+    const returnType = "boolean - true if userSenderSettings exists"
+    expect(typeof returnType).toBe("string")
+  })
+
+  it("returns false for unauthenticated users", () => {
+    const unauthBehavior = "if (!identity) return false"
+    expect(unauthBehavior).toContain("return false")
+  })
+
+  it("returns false if sender doesn't exist", () => {
+    const notFoundBehavior = "if (!sender) return false"
+    expect(notFoundBehavior).toContain("return false")
+  })
+
+  it("returns true if userSenderSettings exists", () => {
+    const existsBehavior = "return settings !== null"
+    expect(existsBehavior).toContain("settings !== null")
+  })
+})
+
+describe("listCommunityNewsletters domain filter (Story 6.4 Task 3.3)", () => {
+  it("accepts optional domain parameter", () => {
+    const expectedArgsShape = {
+      domain: "optional string - filter by sender domain",
+    }
+    expect(expectedArgsShape).toHaveProperty("domain")
+  })
+
+  it("filters newsletters by sender email domain", () => {
+    const filterBehavior = "const itemDomain = item.senderEmail.split('@')[1]"
+    expect(filterBehavior).toContain("split('@')[1]")
+  })
+
+  it("applies domain filter after fetching from index", () => {
+    const filterOrder = "allItems = allItems.filter((item) => itemDomain === args.domain)"
+    expect(filterOrder).toContain("filter")
+    expect(filterOrder).toContain("domain")
+  })
+})

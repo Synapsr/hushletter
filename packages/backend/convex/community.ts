@@ -130,10 +130,12 @@ export const listTopCommunitySenders = query({
 /**
  * List community newsletters - paginated list from newsletterContent
  * Story 6.1 Task 1.2
+ * Story 6.4 Task 3.3: Added domain filter parameter
  *
  * Query parameters:
  * - sortBy: "popular" (readerCount desc) or "recent" (firstReceivedAt desc)
  * - senderEmail: optional filter by sender
+ * - domain: optional filter by sender domain (Story 6.4)
  * - cursorValue: pagination cursor (last item's sort value - readerCount or firstReceivedAt)
  * - cursorId: pagination cursor (last item's _id for tie-breaking)
  * - limit: max items to return (default 20, max 100)
@@ -144,6 +146,7 @@ export const listCommunityNewsletters = query({
   args: {
     sortBy: v.optional(v.union(v.literal("popular"), v.literal("recent"))),
     senderEmail: v.optional(v.string()),
+    domain: v.optional(v.string()), // Story 6.4: Domain filter
     cursor: v.optional(v.id("newsletterContent")), // Kept for backward compatibility
     cursorValue: v.optional(v.number()), // Sort field value for efficient pagination
     cursorId: v.optional(v.id("newsletterContent")), // For tie-breaking
@@ -171,7 +174,15 @@ export const listCommunityNewsletters = query({
     }
 
     // Fetch all matching items (with reasonable limit for safety)
-    const allItems = await contentQuery.order("desc").take(1000)
+    let allItems = await contentQuery.order("desc").take(1000)
+
+    // Story 6.4 Task 3.3: Apply domain filter if provided
+    if (args.domain) {
+      allItems = allItems.filter((item) => {
+        const itemDomain = item.senderEmail.split("@")[1]
+        return itemDomain === args.domain
+      })
+    }
 
     // Sort by desired field
     const sortedItems = [...allItems]
@@ -590,5 +601,179 @@ export const dismissSharingOnboarding = mutation({
     }
 
     await ctx.db.patch(user._id, { hasSeenSharingOnboarding: true })
+  },
+})
+
+// ============================================================
+// Story 6.4: Follow Sender Feature
+// ============================================================
+
+/**
+ * Follow a sender from the community
+ * Creates userSenderSettings record without requiring newsletters
+ * Story 6.4 Task 1.1
+ *
+ * This allows users to "follow" a sender they discovered in the community,
+ * creating a relationship even if they haven't received any newsletters yet.
+ * The followed sender will then appear in their personal senders list.
+ */
+export const followSender = mutation({
+  args: { senderEmail: v.string() },
+  handler: async (ctx, args) => {
+    // 1. Auth check
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    // 2. Get user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    // 3. Get sender by email
+    const sender = await ctx.db
+      .query("senders")
+      .withIndex("by_email", (q) => q.eq("email", args.senderEmail))
+      .first()
+    if (!sender) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Sender not found" })
+    }
+
+    // 4. Check if already following (userSenderSettings exists)
+    const existingSettings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_userId_senderId", (q) =>
+        q.eq("userId", user._id).eq("senderId", sender._id)
+      )
+      .first()
+
+    if (existingSettings) {
+      return { alreadyFollowing: true, settingsId: existingSettings._id }
+    }
+
+    // 5. Create userSenderSettings (follow relationship)
+    const settingsId = await ctx.db.insert("userSenderSettings", {
+      userId: user._id,
+      senderId: sender._id,
+      isPrivate: false, // Public by default for follows
+    })
+
+    // 6. Increment subscriberCount
+    await ctx.db.patch(sender._id, {
+      subscriberCount: sender.subscriberCount + 1,
+    })
+
+    return { alreadyFollowing: false, settingsId }
+  },
+})
+
+/**
+ * Unfollow a sender
+ * Story 6.4 Task 1.2
+ *
+ * If the user has newsletters from this sender, the userSenderSettings
+ * record is kept (they still have a relationship via newsletters).
+ * If the user has no newsletters, the settings record is deleted.
+ */
+export const unfollowSender = mutation({
+  args: { senderEmail: v.string() },
+  handler: async (ctx, args) => {
+    // Auth + get user
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    // Get sender
+    const sender = await ctx.db
+      .query("senders")
+      .withIndex("by_email", (q) => q.eq("email", args.senderEmail))
+      .first()
+    if (!sender) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Sender not found" })
+    }
+
+    // Find userSenderSettings
+    const settings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_userId_senderId", (q) =>
+        q.eq("userId", user._id).eq("senderId", sender._id)
+      )
+      .first()
+
+    if (!settings) {
+      return { wasFollowing: false }
+    }
+
+    // Check if user has newsletters from this sender
+    const hasNewsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_senderId", (q) =>
+        q.eq("userId", user._id).eq("senderId", sender._id)
+      )
+      .first()
+
+    if (hasNewsletters) {
+      // User has newsletters - keep settings (relationship via newsletters)
+      // Just indicate they can't fully unfollow while they have newsletters
+      return { wasFollowing: true, hasNewsletters: true }
+    }
+
+    // Delete settings (pure follow with no newsletters)
+    await ctx.db.delete(settings._id)
+
+    // Decrement subscriberCount
+    await ctx.db.patch(sender._id, {
+      subscriberCount: Math.max(0, sender.subscriberCount - 1),
+    })
+
+    return { wasFollowing: true, hasNewsletters: false }
+  },
+})
+
+/**
+ * Check if user is following a sender
+ * Story 6.4 Task 1.3
+ *
+ * Returns true if userSenderSettings exists for this user-sender pair.
+ */
+export const isFollowingSender = query({
+  args: { senderEmail: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return false
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return false
+
+    const sender = await ctx.db
+      .query("senders")
+      .withIndex("by_email", (q) => q.eq("email", args.senderEmail))
+      .first()
+    if (!sender) return false
+
+    const settings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_userId_senderId", (q) =>
+        q.eq("userId", user._id).eq("senderId", sender._id)
+      )
+      .first()
+
+    return settings !== null
   },
 })

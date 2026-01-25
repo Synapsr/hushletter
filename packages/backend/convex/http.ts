@@ -2,6 +2,11 @@ import { httpRouter } from "convex/server"
 import { httpAction } from "./_generated/server"
 import { authComponent, createAuth } from "./auth"
 import { receiveEmail } from "./emailIngestion"
+import {
+  receiveImportEmail,
+  verifyUser,
+  logRejection,
+} from "./importIngestion"
 
 const http = httpRouter()
 
@@ -22,6 +27,31 @@ http.route({
   path: "/api/email/ingest",
   method: "POST",
   handler: receiveEmail,
+})
+
+// ============================================================
+// Story 8.3: Forward-to-Import endpoints
+// ============================================================
+
+// Import ingestion endpoint - receives extracted newsletters from forwarded emails
+http.route({
+  path: "/api/email/import",
+  method: "POST",
+  handler: receiveImportEmail,
+})
+
+// User verification endpoint - checks if forwarding user is registered
+http.route({
+  path: "/api/email/import/verify-user",
+  method: "POST",
+  handler: verifyUser,
+})
+
+// Rejection logging endpoint - logs failed import attempts for admin monitoring
+http.route({
+  path: "/api/email/import/log-rejection",
+  method: "POST",
+  handler: logRejection,
 })
 
 // Register Better Auth routes with CORS enabled for client-side framework compatibility

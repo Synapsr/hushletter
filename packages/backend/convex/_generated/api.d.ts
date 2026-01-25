@@ -23,6 +23,7 @@ import type * as folders from "../folders.js";
 import type * as gmail from "../gmail.js";
 import type * as gmailApi from "../gmailApi.js";
 import type * as http from "../http.js";
+import type * as importIngestion from "../importIngestion.js";
 import type * as lib_openrouter from "../lib/openrouter.js";
 import type * as manualImport from "../manualImport.js";
 import type * as newsletters from "../newsletters.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   gmail: typeof gmail;
   gmailApi: typeof gmailApi;
   http: typeof http;
+  importIngestion: typeof importIngestion;
   "lib/openrouter": typeof lib_openrouter;
   manualImport: typeof manualImport;
   newsletters: typeof newsletters;

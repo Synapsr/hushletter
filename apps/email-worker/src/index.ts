@@ -1,6 +1,7 @@
 import type { Env } from "./types"
 import { callConvex, extractSenderName, type ConvexConfig } from "./convexClient"
 import { parseEmail, getStorableContent } from "./emailParser"
+import { handleImportEmail } from "./importHandler"
 
 /**
  * Determines if email should be routed to dev environment
@@ -34,17 +35,36 @@ function getConvexConfig(toAddress: string, env: Env): ConvexConfig | null {
   }
 }
 
+/**
+ * Checks if this is an import email (to import@hushletter.com)
+ * Story 8.3: Forward-to-import endpoint routing
+ */
+function isImportEmail(toAddress: string): boolean {
+  const localPart = toAddress.split("@")[0]
+  return localPart?.toLowerCase() === "import"
+}
+
 export default {
   /**
    * Handles incoming emails from Cloudflare Email Routing
    * Parses the email content and sends it to Convex for storage
-   * Routes to dev or prod based on email address pattern (*-dev@ = dev)
+   * Routes based on email address:
+   * - import@ → Import handler (Story 8.3)
+   * - *-dev@ → Dev environment
+   * - other → Prod environment (dedicated address)
    */
   async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
     const toAddress = message.to
     const fromAddress = message.from
-    const isDev = isDevEmail(toAddress)
 
+    // Story 8.3: Route import@ emails to dedicated handler (AC #1, #7)
+    if (isImportEmail(toAddress)) {
+      console.log(`[Email Worker] Import email from: ${fromAddress}`)
+      await handleImportEmail(message, env)
+      return
+    }
+
+    const isDev = isDevEmail(toAddress)
     console.log(`[Email Worker] Received email to: ${toAddress} from: ${fromAddress} (env: ${isDev ? "dev" : "prod"})`)
 
     try {

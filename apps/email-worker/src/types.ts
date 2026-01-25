@@ -8,6 +8,8 @@ export interface Env {
   // Development (optional - for -dev@ addresses)
   CONVEX_URL_DEV?: string
   INTERNAL_API_KEY_DEV?: string
+  // Rate limiting for import (optional - Story 8.3)
+  IMPORT_RATE_LIMIT?: KVNamespace
 }
 
 /**
@@ -32,5 +34,34 @@ export interface ConvexEmailResponse {
   success: boolean
   userId?: string
   newsletterId?: string
+  error?: string
+}
+
+// ============================================================
+// Story 8.3: Import-specific types
+// ============================================================
+
+/**
+ * Import-specific payload for Convex
+ * Used when forwarding emails to import@hushletter.com
+ */
+export interface ImportEmailPayload {
+  userId: string
+  forwardingUserEmail: string
+  originalFrom: string
+  originalFromName?: string
+  originalSubject: string
+  originalDate: number
+  htmlContent?: string
+  textContent?: string
+}
+
+/**
+ * Response from Convex import endpoint
+ */
+export interface ConvexImportResponse {
+  success: boolean
+  userNewsletterId?: string
+  senderId?: string
   error?: string
 }

@@ -118,6 +118,13 @@ function AdminLayout() {
             >
               Privacy Review
             </Link>
+            <Link
+              to="/admin/community"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              activeProps={{ className: "text-foreground font-medium" }}
+            >
+              Community Content
+            </Link>
           </nav>
         </div>
       </header>

@@ -38,11 +38,16 @@ export default defineSchema({
     // Story 5.1: AI Summary (shared for public newsletters - first user to generate shares with all)
     summary: v.optional(v.string()),
     summaryGeneratedAt: v.optional(v.number()), // Unix timestamp ms
+    // Story 7.4: Community moderation fields (soft delete for community visibility)
+    isHiddenFromCommunity: v.optional(v.boolean()), // defaults to false/undefined
+    hiddenAt: v.optional(v.number()), // Unix timestamp ms when hidden
+    hiddenBy: v.optional(v.id("users")), // Admin who hid the content
   })
     .index("by_contentHash", ["contentHash"])
     .index("by_senderEmail", ["senderEmail"])
     .index("by_readerCount", ["readerCount"])
-    .index("by_firstReceivedAt", ["firstReceivedAt"]), // Story 6.1: For "Recent" sort in community browse
+    .index("by_firstReceivedAt", ["firstReceivedAt"]) // Story 6.1: For "Recent" sort in community browse
+    .index("by_isHiddenFromCommunity", ["isHiddenFromCommunity"]), // Story 7.4: Efficient moderation queries
 
   // User's relationship to newsletters (per-user, references shared content or private)
   // Story 2.5.1: Task 1 - userNewsletters table
@@ -251,4 +256,88 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_messageId", ["messageId"]) // For deduplication
     .index("by_status_receivedAt", ["status", "receivedAt"]), // For filtered queries
+
+  // ============================================================
+  // Story 7.4: Community Content Management (Moderation)
+  // ============================================================
+
+  /**
+   * Moderation log - tracks all admin moderation actions
+   * Story 7.4: Task 1.1
+   *
+   * Every moderation action (hide/restore content, block/unblock sender,
+   * resolve/dismiss report) is logged here for audit purposes.
+   */
+  moderationLog: defineTable({
+    adminId: v.id("users"),
+    actionType: v.union(
+      v.literal("hide_content"),
+      v.literal("restore_content"),
+      v.literal("block_sender"),
+      v.literal("unblock_sender"),
+      v.literal("resolve_report"),
+      v.literal("dismiss_report")
+    ),
+    targetType: v.union(
+      v.literal("content"),
+      v.literal("sender"),
+      v.literal("report")
+    ),
+    targetId: v.string(), // ID of content, sender, or report
+    reason: v.optional(v.string()),
+    details: v.optional(v.string()), // JSON stringified additional details
+    createdAt: v.number(), // Unix timestamp ms
+  })
+    .index("by_adminId", ["adminId"])
+    .index("by_targetType", ["targetType"])
+    .index("by_createdAt", ["createdAt"])
+    .index("by_actionType", ["actionType"]),
+
+  /**
+   * Blocked senders - senders blocked from community visibility
+   * Story 7.4: Task 1.2
+   *
+   * When a sender is blocked, all their content is hidden from community.
+   * Users' personal copies remain unaffected.
+   */
+  blockedSenders: defineTable({
+    senderId: v.id("senders"),
+    blockedBy: v.id("users"), // Admin who blocked
+    reason: v.string(),
+    blockedAt: v.number(), // Unix timestamp ms
+  })
+    .index("by_senderId", ["senderId"])
+    .index("by_blockedAt", ["blockedAt"]),
+
+  /**
+   * Content reports - user-submitted reports for moderation review
+   * Story 7.4: Task 1.3
+   *
+   * Users can report community content; admins review the queue.
+   */
+  contentReports: defineTable({
+    contentId: v.id("newsletterContent"),
+    reporterId: v.id("users"),
+    reason: v.union(
+      v.literal("spam"),
+      v.literal("inappropriate"),
+      v.literal("copyright"),
+      v.literal("misleading"),
+      v.literal("other")
+    ),
+    description: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("resolved"),
+      v.literal("dismissed")
+    ),
+    resolvedBy: v.optional(v.id("users")),
+    resolvedAt: v.optional(v.number()), // Unix timestamp ms
+    resolutionNote: v.optional(v.string()),
+    createdAt: v.number(), // Unix timestamp ms
+  })
+    .index("by_contentId", ["contentId"])
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"])
+    .index("by_reporterId", ["reporterId"]),
 })

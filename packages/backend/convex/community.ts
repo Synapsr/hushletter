@@ -1,6 +1,7 @@
 /**
  * Community Newsletter Queries and Mutations
  * Story 6.1: Default Public Sharing - Community Browse & Discovery
+ * Story 7.4: Community Content Management - Moderation filters
  *
  * CRITICAL PRIVACY RULES:
  * - Community queries ONLY access newsletterContent (inherently public content)
@@ -8,15 +9,60 @@
  * - Only expose: subject, senderEmail, senderName, firstReceivedAt, readerCount, hasSummary
  * - NEVER expose userId or any user-specific data
  *
+ * MODERATION RULES (Story 7.4):
+ * - Community queries MUST exclude hidden content (isHiddenFromCommunity: true)
+ * - Community queries MUST exclude content from blocked senders
+ *
  * The newsletterContent table IS the community database - content that exists
  * here is inherently public (private newsletters bypass this table entirely).
  */
 
 import { query, mutation, action, internalQuery } from "./_generated/server"
+import type { QueryCtx } from "./_generated/server"
+import type { Doc } from "./_generated/dataModel"
 import { internal } from "./_generated/api"
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
 import { r2 } from "./r2"
+
+// ============================================================
+// Story 7.4: Moderation Helpers
+// ============================================================
+
+/**
+ * Get set of blocked sender emails for filtering
+ * Story 7.4 Task 12.1-12.2
+ */
+async function getBlockedSenderEmails(ctx: QueryCtx): Promise<Set<string>> {
+  const blockedSenders = await ctx.db.query("blockedSenders").collect()
+  const emails = new Set<string>()
+
+  for (const block of blockedSenders) {
+    const sender = await ctx.db.get(block.senderId)
+    if (sender) {
+      emails.add(sender.email)
+    }
+  }
+
+  return emails
+}
+
+/**
+ * Filter content to exclude hidden and blocked sender content
+ * Story 7.4 Task 12.1-12.3
+ */
+function filterModeratedContent(
+  content: Doc<"newsletterContent">[],
+  blockedSenderEmails: Set<string>
+): Doc<"newsletterContent">[] {
+  return content.filter((c) => {
+    // Exclude hidden content
+    if (c.isHiddenFromCommunity === true) return false
+    // Exclude blocked sender content
+    if (blockedSenderEmails.has(c.senderEmail)) return false
+    return true
+  })
+}
 
 // ============================================================
 // Story 6.3: Search Community Newsletters
@@ -25,6 +71,7 @@ import { r2 } from "./r2"
 /**
  * Search community newsletters by subject and sender name
  * Story 6.3 Task 1.2
+ * Story 7.4 Task 12.1-12.2: Exclude moderated content
  *
  * Implements in-memory search on newsletterContent (Convex lacks full-text search).
  * For MVP, scanning 500 items is acceptable. Consider Algolia for scale.
@@ -33,6 +80,7 @@ import { r2 } from "./r2"
  *
  * PRIVACY: Queries newsletterContent directly which is inherently public.
  * Private newsletters never enter this table (Epic 2.5 design).
+ * MODERATION: Excludes hidden content and blocked sender content.
  */
 export const searchCommunityNewsletters = query({
   args: {
@@ -50,6 +98,9 @@ export const searchCommunityNewsletters = query({
     const limit = Math.min(args.limit ?? 20, 100)
     const searchLower = searchQuery.toLowerCase()
 
+    // Story 7.4: Get blocked senders for filtering
+    const blockedSenderEmails = await getBlockedSenderEmails(ctx)
+
     // Fetch and filter in-memory (Convex doesn't have full-text search)
     // For MVP this is acceptable; consider external search (Algolia) for scale
     const allContent = await ctx.db
@@ -58,7 +109,10 @@ export const searchCommunityNewsletters = query({
       .order("desc")
       .take(500) // Reasonable limit for in-memory search
 
-    const matches = allContent
+    // Story 7.4: Filter out moderated content
+    const visibleContent = filterModeratedContent(allContent, blockedSenderEmails)
+
+    const matches = visibleContent
       .filter(
         (c) =>
           c.subject.toLowerCase().includes(searchLower) ||
@@ -87,11 +141,13 @@ export const searchCommunityNewsletters = query({
 /**
  * List top community senders by subscriber count
  * Story 6.3 Task 2.2
+ * Story 7.4 Task 12.2: Exclude blocked senders
  *
  * Returns senders with highest subscriberCount for "Browse by Sender" section.
  * Uses the global senders table which has pre-computed subscriber counts.
  *
  * Returns ONLY public sender info - no user data.
+ * MODERATION: Excludes blocked senders.
  */
 export const listTopCommunitySenders = query({
   args: {
@@ -104,15 +160,23 @@ export const listTopCommunitySenders = query({
 
     const limit = Math.min(args.limit ?? 20, 100)
 
+    // Story 7.4: Get blocked sender IDs for filtering
+    const blockedSenders = await ctx.db.query("blockedSenders").collect()
+    const blockedSenderIds = new Set(blockedSenders.map((b) => b.senderId))
+
     // Use the global senders table sorted by subscriberCount
+    // Fetch more to account for blocked senders being filtered out
     const senders = await ctx.db
       .query("senders")
       .withIndex("by_subscriberCount")
       .order("desc")
-      .take(limit)
+      .take(limit * 2)
+
+    // Story 7.4: Filter out blocked senders
+    const visibleSenders = senders.filter((s) => !blockedSenderIds.has(s._id))
 
     // Return public sender info only
-    return senders.map((sender) => ({
+    return visibleSenders.slice(0, limit).map((sender) => ({
       email: sender.email,
       name: sender.name,
       displayName: sender.name || sender.email,
@@ -131,6 +195,7 @@ export const listTopCommunitySenders = query({
  * List community newsletters - paginated list from newsletterContent
  * Story 6.1 Task 1.2
  * Story 6.4 Task 3.3: Added domain filter parameter
+ * Story 7.4 Task 12.1-12.2: Exclude moderated content
  *
  * Query parameters:
  * - sortBy: "popular" (readerCount desc) or "recent" (firstReceivedAt desc)
@@ -141,6 +206,7 @@ export const listTopCommunitySenders = query({
  * - limit: max items to return (default 20, max 100)
  *
  * Returns ONLY public fields from newsletterContent - no user data
+ * MODERATION: Excludes hidden content and blocked sender content.
  */
 export const listCommunityNewsletters = query({
   args: {
@@ -160,6 +226,9 @@ export const listCommunityNewsletters = query({
     const sortBy = args.sortBy ?? "popular"
     const limit = Math.min(args.limit ?? 20, 100) // Cap at 100
 
+    // Story 7.4: Get blocked senders for filtering
+    const blockedSenderEmails = await getBlockedSenderEmails(ctx)
+
     let contentQuery
 
     if (args.senderEmail) {
@@ -175,6 +244,9 @@ export const listCommunityNewsletters = query({
 
     // Fetch all matching items (with reasonable limit for safety)
     let allItems = await contentQuery.order("desc").take(1000)
+
+    // Story 7.4 Task 12.1-12.2: Filter out moderated content
+    allItems = filterModeratedContent(allItems, blockedSenderEmails)
 
     // Story 6.4 Task 3.3: Apply domain filter if provided
     if (args.domain) {
@@ -250,8 +322,10 @@ export const listCommunityNewsletters = query({
 /**
  * List community newsletters by sender
  * Story 6.1 Task 1.3
+ * Story 7.4 Task 12.1-12.2: Exclude moderated content
  *
  * Convenience wrapper for listCommunityNewsletters with senderEmail filter
+ * MODERATION: Excludes hidden content and blocked sender content.
  */
 export const listCommunityNewslettersBySender = query({
   args: {
@@ -268,13 +342,24 @@ export const listCommunityNewslettersBySender = query({
     const sortBy = args.sortBy ?? "recent" // Default to recent for sender view
     const limit = Math.min(args.limit ?? 20, 100)
 
+    // Story 7.4: Get blocked senders for filtering
+    const blockedSenderEmails = await getBlockedSenderEmails(ctx)
+
+    // If sender is blocked, return empty (their content shouldn't be visible)
+    if (blockedSenderEmails.has(args.senderEmail)) {
+      return { items: [], nextCursor: null }
+    }
+
     // Query ALL newsletters from this sender (up to reasonable max)
     // We need all items to sort correctly before pagination
     // Most senders have <500 newsletters, so this is acceptable
-    const allItems = await ctx.db
+    const rawItems = await ctx.db
       .query("newsletterContent")
       .withIndex("by_senderEmail", (q) => q.eq("senderEmail", args.senderEmail))
       .collect()
+
+    // Story 7.4 Task 12.1: Filter out hidden content
+    const allItems = rawItems.filter((c) => c.isHiddenFromCommunity !== true)
 
     // Sort by desired field
     const sortedItems = [...allItems]
@@ -322,10 +407,12 @@ export const listCommunityNewslettersBySender = query({
 /**
  * Get distinct senders from community content
  * Story 6.1 Task 2.4 - for sender filter dropdown
+ * Story 7.4 Task 12.2: Exclude blocked senders
  *
  * Returns unique sender emails with their names and newsletter counts.
  * Uses the global senders table with subscriberCount for efficient lookup
  * instead of scanning all newsletterContent records.
+ * MODERATION: Excludes blocked senders.
  */
 export const listCommunitySenders = query({
   args: {
@@ -338,17 +425,25 @@ export const listCommunitySenders = query({
 
     const limit = Math.min(args.limit ?? 50, 100)
 
+    // Story 7.4: Get blocked sender IDs for filtering
+    const blockedSenders = await ctx.db.query("blockedSenders").collect()
+    const blockedSenderIds = new Set(blockedSenders.map((b) => b.senderId))
+
     // Use the global senders table which already has subscriberCount
     // This is much more efficient than scanning all newsletterContent
+    // Fetch extra to account for blocked senders
     const senders = await ctx.db
       .query("senders")
       .withIndex("by_subscriberCount")
       .order("desc")
-      .take(limit)
+      .take(limit * 2)
+
+    // Story 7.4: Filter out blocked senders
+    const visibleSenders = senders.filter((s) => !blockedSenderIds.has(s._id))
 
     // Return sender info for the dropdown
     // subscriberCount indicates popularity (how many users receive from this sender)
-    return senders.map((sender) => ({
+    return visibleSenders.slice(0, limit).map((sender) => ({
       email: sender.email,
       name: sender.name,
       newsletterCount: sender.newsletterCount,
@@ -378,8 +473,10 @@ export type CommunityContentResult = {
 /**
  * Get community newsletter content with signed R2 URL
  * Story 6.1 Task 1.4
+ * Story 7.4 Task 12.3: Check moderation status before returning content
  *
  * This is an action because r2.getUrl() makes external API calls
+ * MODERATION: Returns NOT_FOUND for hidden content or blocked sender content.
  */
 export const getCommunityNewsletterContent = action({
   args: { contentId: v.id("newsletterContent") },
@@ -390,14 +487,16 @@ export const getCommunityNewsletterContent = action({
       throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
     }
 
-    // Get the newsletter content
-    const content = await ctx.runQuery(internal.community.getNewsletterContentInternal, {
+    // Get the newsletter content with moderation check
+    const result = await ctx.runQuery(internal.community.getNewsletterContentWithModerationCheck, {
       contentId: args.contentId,
     })
 
-    if (!content) {
+    if (!result || result.isHidden) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
     }
+
+    const content = result.content
 
     // Generate signed URL for R2 content (valid for 1 hour)
     let contentUrl: string | null = null
@@ -437,6 +536,44 @@ export const getNewsletterContentInternal = internalQuery({
   args: { contentId: v.id("newsletterContent") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.contentId)
+  },
+})
+
+/**
+ * Internal query to get newsletterContent with moderation check
+ * Story 7.4 Task 12.3
+ *
+ * Checks if content is hidden or from blocked sender before returning.
+ */
+export const getNewsletterContentWithModerationCheck = internalQuery({
+  args: { contentId: v.id("newsletterContent") },
+  handler: async (ctx, args) => {
+    const content = await ctx.db.get(args.contentId)
+    if (!content) return null
+
+    // Check if content is hidden
+    if (content.isHiddenFromCommunity === true) {
+      return { content, isHidden: true }
+    }
+
+    // Check if sender is blocked
+    const sender = await ctx.db
+      .query("senders")
+      .withIndex("by_email", (q) => q.eq("email", content.senderEmail))
+      .first()
+
+    if (sender) {
+      const blocked = await ctx.db
+        .query("blockedSenders")
+        .withIndex("by_senderId", (q) => q.eq("senderId", sender._id))
+        .first()
+
+      if (blocked) {
+        return { content, isHidden: true }
+      }
+    }
+
+    return { content, isHidden: false }
   },
 })
 

@@ -26,6 +26,7 @@ import { Route as AuthedCommunityContentIdRouteImport } from './routes/_authed/c
 import { Route as AuthedAdminPrivacyRouteImport } from './routes/_authed/admin/privacy'
 import { Route as AuthedAdminHealthRouteImport } from './routes/_authed/admin/health'
 import { Route as AuthedAdminDeliveryRouteImport } from './routes/_authed/admin/delivery'
+import { Route as AuthedAdminCommunityRouteImport } from './routes/_authed/admin/community'
 import { Route as AuthedCommunitySenderSenderEmailRouteImport } from './routes/_authed/community/sender/$senderEmail'
 
 const SignupRoute = SignupRouteImport.update({
@@ -113,6 +114,11 @@ const AuthedAdminDeliveryRoute = AuthedAdminDeliveryRouteImport.update({
   path: '/delivery',
   getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
+const AuthedAdminCommunityRoute = AuthedAdminCommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
+  getParentRoute: () => AuthedAdminRouteRoute,
+} as any)
 const AuthedCommunitySenderSenderEmailRoute =
   AuthedCommunitySenderSenderEmailRouteImport.update({
     id: '/community/sender/$senderEmail',
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/admin/community': typeof AuthedAdminCommunityRoute
   '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
   '/admin/privacy': typeof AuthedAdminPrivacyRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/admin/community': typeof AuthedAdminCommunityRoute
   '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
   '/admin/privacy': typeof AuthedAdminPrivacyRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/_authed/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/_authed/admin/community': typeof AuthedAdminCommunityRoute
   '/_authed/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/_authed/admin/health': typeof AuthedAdminHealthRoute
   '/_authed/admin/privacy': typeof AuthedAdminPrivacyRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/admin'
+    | '/admin/community'
     | '/admin/delivery'
     | '/admin/health'
     | '/admin/privacy'
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/admin/community'
     | '/admin/delivery'
     | '/admin/health'
     | '/admin/privacy'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/_authed/admin'
+    | '/_authed/admin/community'
     | '/_authed/admin/delivery'
     | '/_authed/admin/health'
     | '/_authed/admin/privacy'
@@ -367,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminDeliveryRouteImport
       parentRoute: typeof AuthedAdminRouteRoute
     }
+    '/_authed/admin/community': {
+      id: '/_authed/admin/community'
+      path: '/community'
+      fullPath: '/admin/community'
+      preLoaderRoute: typeof AuthedAdminCommunityRouteImport
+      parentRoute: typeof AuthedAdminRouteRoute
+    }
     '/_authed/community/sender/$senderEmail': {
       id: '/_authed/community/sender/$senderEmail'
       path: '/community/sender/$senderEmail'
@@ -378,6 +397,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedAdminRouteRouteChildren {
+  AuthedAdminCommunityRoute: typeof AuthedAdminCommunityRoute
   AuthedAdminDeliveryRoute: typeof AuthedAdminDeliveryRoute
   AuthedAdminHealthRoute: typeof AuthedAdminHealthRoute
   AuthedAdminPrivacyRoute: typeof AuthedAdminPrivacyRoute
@@ -385,6 +405,7 @@ interface AuthedAdminRouteRouteChildren {
 }
 
 const AuthedAdminRouteRouteChildren: AuthedAdminRouteRouteChildren = {
+  AuthedAdminCommunityRoute: AuthedAdminCommunityRoute,
   AuthedAdminDeliveryRoute: AuthedAdminDeliveryRoute,
   AuthedAdminHealthRoute: AuthedAdminHealthRoute,
   AuthedAdminPrivacyRoute: AuthedAdminPrivacyRoute,

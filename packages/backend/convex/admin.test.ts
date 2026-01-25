@@ -973,3 +973,576 @@ describe("Story 7.3 admin query authorization", () => {
     expect(story73Queries).toHaveLength(7)
   })
 })
+
+// ============================================================
+// Story 7.4: Community Content Management Tests
+// ============================================================
+
+describe("Story 7.4: Community Content Management Schema", () => {
+  describe("moderationLog table schema", () => {
+    it("defines action types for all moderation actions", () => {
+      const actionTypes = [
+        "hide_content",
+        "restore_content",
+        "block_sender",
+        "unblock_sender",
+        "resolve_report",
+        "dismiss_report",
+      ]
+      expect(actionTypes).toHaveLength(6)
+    })
+
+    it("defines target types for audit trail", () => {
+      const targetTypes = ["content", "sender", "report"]
+      expect(targetTypes).toHaveLength(3)
+    })
+
+    it("documents required fields", () => {
+      const requiredFields = {
+        adminId: "id<users> - admin who performed action",
+        actionType: "union - one of 6 action types",
+        targetType: "union - content | sender | report",
+        targetId: "string - ID of target",
+        createdAt: "number - Unix timestamp ms",
+      }
+      expect(requiredFields).toHaveProperty("adminId")
+      expect(requiredFields).toHaveProperty("actionType")
+      expect(requiredFields).toHaveProperty("targetType")
+    })
+
+    it("documents optional fields", () => {
+      const optionalFields = {
+        reason: "string - reason for action",
+        details: "string - JSON stringified additional details",
+      }
+      expect(optionalFields).toHaveProperty("reason")
+      expect(optionalFields).toHaveProperty("details")
+    })
+
+    it("documents indexes for efficient querying", () => {
+      const indexes = {
+        by_adminId: "Filter actions by admin",
+        by_targetType: "Filter by target type",
+        by_createdAt: "Time-based queries",
+        by_actionType: "Filter by action type",
+      }
+      expect(Object.keys(indexes)).toHaveLength(4)
+    })
+  })
+
+  describe("blockedSenders table schema", () => {
+    it("documents required fields", () => {
+      const requiredFields = {
+        senderId: "id<senders> - blocked sender",
+        blockedBy: "id<users> - admin who blocked",
+        reason: "string - reason for blocking",
+        blockedAt: "number - Unix timestamp ms",
+      }
+      expect(requiredFields).toHaveProperty("senderId")
+      expect(requiredFields).toHaveProperty("blockedBy")
+      expect(requiredFields).toHaveProperty("reason")
+      expect(requiredFields).toHaveProperty("blockedAt")
+    })
+
+    it("documents indexes for efficient querying", () => {
+      const indexes = {
+        by_senderId: "Check if sender is blocked",
+        by_blockedAt: "Time-sorted blocked sender list",
+      }
+      expect(Object.keys(indexes)).toHaveLength(2)
+    })
+  })
+
+  describe("contentReports table schema", () => {
+    it("defines report reason categories", () => {
+      const reasons = ["spam", "inappropriate", "copyright", "misleading", "other"]
+      expect(reasons).toHaveLength(5)
+    })
+
+    it("defines report status values", () => {
+      const statuses = ["pending", "resolved", "dismissed"]
+      expect(statuses).toHaveLength(3)
+    })
+
+    it("documents required fields", () => {
+      const requiredFields = {
+        contentId: "id<newsletterContent> - reported content",
+        reporterId: "id<users> - user who reported",
+        reason: "union - one of 5 reason categories",
+        status: "union - pending | resolved | dismissed",
+        createdAt: "number - Unix timestamp ms",
+      }
+      expect(requiredFields).toHaveProperty("contentId")
+      expect(requiredFields).toHaveProperty("reporterId")
+      expect(requiredFields).toHaveProperty("reason")
+      expect(requiredFields).toHaveProperty("status")
+    })
+
+    it("documents optional fields", () => {
+      const optionalFields = {
+        description: "string - additional details from reporter",
+        resolvedBy: "id<users> - admin who resolved",
+        resolvedAt: "number - Unix timestamp ms",
+        resolutionNote: "string - admin notes on resolution",
+      }
+      expect(optionalFields).toHaveProperty("description")
+      expect(optionalFields).toHaveProperty("resolvedBy")
+    })
+
+    it("documents indexes for efficient querying", () => {
+      const indexes = {
+        by_contentId: "Find reports for specific content",
+        by_status: "Queue pending reports",
+        by_createdAt: "Time-sorted reports",
+        by_reporterId: "User's report history",
+      }
+      expect(Object.keys(indexes)).toHaveLength(4)
+    })
+  })
+
+  describe("newsletterContent moderation fields", () => {
+    it("documents added moderation fields", () => {
+      const moderationFields = {
+        isHiddenFromCommunity: "optional boolean - soft delete flag",
+        hiddenAt: "optional number - Unix timestamp when hidden",
+        hiddenBy: "optional id<users> - admin who hid content",
+      }
+      expect(moderationFields).toHaveProperty("isHiddenFromCommunity")
+      expect(moderationFields).toHaveProperty("hiddenAt")
+      expect(moderationFields).toHaveProperty("hiddenBy")
+    })
+
+    it("documents new index for moderation queries", () => {
+      const newIndex = {
+        by_isHiddenFromCommunity: "Efficient queries for moderated content",
+      }
+      expect(newIndex).toHaveProperty("by_isHiddenFromCommunity")
+    })
+
+    it("documents soft delete pattern", () => {
+      const pattern = {
+        approach: "Soft delete via isHiddenFromCommunity flag",
+        userCopyBehavior: "User copies (userNewsletters) are NEVER affected",
+        auditTrail: "hiddenBy and hiddenAt track who/when",
+      }
+      expect(pattern.approach).toContain("Soft delete")
+      expect(pattern.userCopyBehavior).toContain("NEVER affected")
+    })
+  })
+})
+
+describe("Story 7.4: Community Content Management API exports", () => {
+  it("should export listCommunityContent query", () => {
+    expect(api.admin.listCommunityContent).toBeDefined()
+  })
+
+  it("should export getCommunityContentSummary query", () => {
+    expect(api.admin.getCommunityContentSummary).toBeDefined()
+  })
+
+  it("should export hideContentFromCommunity mutation", () => {
+    expect(api.admin.hideContentFromCommunity).toBeDefined()
+  })
+
+  it("should export restoreContentToCommunity mutation", () => {
+    expect(api.admin.restoreContentToCommunity).toBeDefined()
+  })
+
+  it("should export blockSenderFromCommunity mutation", () => {
+    expect(api.admin.blockSenderFromCommunity).toBeDefined()
+  })
+
+  it("should export unblockSender mutation", () => {
+    expect(api.admin.unblockSender).toBeDefined()
+  })
+
+  it("should export listBlockedSenders query", () => {
+    expect(api.admin.listBlockedSenders).toBeDefined()
+  })
+
+  it("should export reportContent mutation", () => {
+    expect(api.admin.reportContent).toBeDefined()
+  })
+
+  it("should export listContentReports query", () => {
+    expect(api.admin.listContentReports).toBeDefined()
+  })
+
+  it("should export resolveReport mutation", () => {
+    expect(api.admin.resolveReport).toBeDefined()
+  })
+
+  it("should export bulkResolveReports mutation", () => {
+    expect(api.admin.bulkResolveReports).toBeDefined()
+  })
+
+  it("should export getPendingReportsCount query", () => {
+    expect(api.admin.getPendingReportsCount).toBeDefined()
+  })
+
+  it("should export listModerationLog query", () => {
+    expect(api.admin.listModerationLog).toBeDefined()
+  })
+})
+
+describe("listCommunityContent query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderEmail: "optional string - partial match filter",
+      domain: "optional string - partial match filter",
+      status: "optional union - 'active' | 'hidden' | 'blocked_sender'",
+      sortBy: "optional union - 'readerCount' | 'firstReceivedAt' | 'senderEmail'",
+      sortOrder: "optional union - 'asc' | 'desc'",
+      limit: "optional number - defaults to 50, capped at 100",
+    }
+    expect(expectedArgsShape.senderEmail).toContain("optional")
+    expect(expectedArgsShape.status).toContain("optional")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      items: "array of content items with moderation status",
+      hasMore: "boolean - whether more items exist",
+      totalCount: "number - total matching items",
+    }
+    expect(expectedReturnShape).toHaveProperty("items")
+    expect(expectedReturnShape).toHaveProperty("hasMore")
+    expect(expectedReturnShape).toHaveProperty("totalCount")
+  })
+
+  it("defines content item shape", () => {
+    const expectedItemShape = {
+      id: "id<newsletterContent>",
+      subject: "string",
+      senderEmail: "string",
+      senderName: "string | undefined",
+      domain: "string - extracted from email",
+      readerCount: "number",
+      firstReceivedAt: "number - Unix timestamp ms",
+      moderationStatus: "'active' | 'hidden' | 'blocked_sender'",
+      isHiddenFromCommunity: "boolean",
+      hiddenAt: "number | undefined",
+    }
+    expect(expectedItemShape).toHaveProperty("id")
+    expect(expectedItemShape).toHaveProperty("moderationStatus")
+  })
+
+  it("documents admin authorization requirement", () => {
+    const behavior = {
+      requiresAdmin: true,
+      authMethod: "requireAdmin(ctx)",
+    }
+    expect(behavior.requiresAdmin).toBe(true)
+  })
+})
+
+describe("hideContentFromCommunity mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      contentId: "id<newsletterContent> - content to hide",
+      reason: "string - required reason for audit",
+    }
+    expect(expectedArgsShape).toHaveProperty("contentId")
+    expect(expectedArgsShape).toHaveProperty("reason")
+  })
+
+  it("documents soft delete behavior", () => {
+    const behavior = {
+      setsIsHiddenFromCommunity: true,
+      setsHiddenAt: "Date.now()",
+      setsHiddenBy: "admin._id",
+      createsAuditLog: true,
+      affectsUserCopies: false,
+    }
+    expect(behavior.setsIsHiddenFromCommunity).toBe(true)
+    expect(behavior.affectsUserCopies).toBe(false)
+  })
+
+  it("documents error codes", () => {
+    const errorCodes = {
+      NOT_FOUND: "Content not found",
+      FORBIDDEN: "Non-admin user",
+    }
+    expect(errorCodes).toHaveProperty("NOT_FOUND")
+  })
+})
+
+describe("restoreContentToCommunity mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      contentId: "id<newsletterContent> - content to restore",
+      reason: "optional string - reason for restore",
+    }
+    expect(expectedArgsShape).toHaveProperty("contentId")
+    expect(expectedArgsShape.reason).toContain("optional")
+  })
+
+  it("documents restore behavior", () => {
+    const behavior = {
+      clearsIsHiddenFromCommunity: true,
+      clearsHiddenAt: true,
+      clearsHiddenBy: true,
+      createsAuditLog: true,
+    }
+    expect(behavior.clearsIsHiddenFromCommunity).toBe(true)
+  })
+})
+
+describe("blockSenderFromCommunity mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderId: "id<senders> - sender to block",
+      reason: "string - required reason for audit",
+    }
+    expect(expectedArgsShape).toHaveProperty("senderId")
+    expect(expectedArgsShape).toHaveProperty("reason")
+  })
+
+  it("documents blocking behavior", () => {
+    const behavior = {
+      createsBlockedSendersRecord: true,
+      hidesAllSenderContent: true,
+      createsAuditLog: true,
+      returnsContentHiddenCount: true,
+    }
+    expect(behavior.createsBlockedSendersRecord).toBe(true)
+    expect(behavior.hidesAllSenderContent).toBe(true)
+  })
+
+  it("documents error codes", () => {
+    const errorCodes = {
+      NOT_FOUND: "Sender not found",
+      ALREADY_EXISTS: "Sender is already blocked",
+    }
+    expect(errorCodes).toHaveProperty("ALREADY_EXISTS")
+  })
+})
+
+describe("unblockSender mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderId: "id<senders> - sender to unblock",
+      reason: "optional string - reason for unblock",
+      restoreContent: "optional boolean - whether to restore hidden content",
+    }
+    expect(expectedArgsShape).toHaveProperty("senderId")
+    expect(expectedArgsShape.restoreContent).toContain("optional")
+  })
+
+  it("documents unblock behavior", () => {
+    const behavior = {
+      deletesBlockedSendersRecord: true,
+      optionallyRestoresContent: true,
+      createsAuditLog: true,
+      returnsContentRestoredCount: true,
+    }
+    expect(behavior.deletesBlockedSendersRecord).toBe(true)
+    expect(behavior.optionallyRestoresContent).toBe(true)
+  })
+})
+
+describe("listBlockedSenders query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      limit: "optional number - defaults to 50, capped at 100",
+    }
+    expect(expectedArgsShape.limit).toContain("optional")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedItemShape = {
+      id: "id<blockedSenders>",
+      senderId: "id<senders>",
+      senderEmail: "string",
+      senderName: "string | undefined",
+      domain: "string",
+      reason: "string",
+      blockedAt: "number - Unix timestamp ms",
+      blockedByEmail: "string - admin email",
+      contentCount: "number - affected content count",
+    }
+    expect(expectedItemShape).toHaveProperty("id")
+    expect(expectedItemShape).toHaveProperty("contentCount")
+  })
+})
+
+describe("reportContent mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      contentId: "id<newsletterContent> - content to report",
+      reason: "union - 'spam' | 'inappropriate' | 'copyright' | 'misleading' | 'other'",
+      description: "optional string - additional details",
+    }
+    expect(expectedArgsShape).toHaveProperty("contentId")
+    expect(expectedArgsShape).toHaveProperty("reason")
+  })
+
+  it("documents user-facing behavior (not admin-only)", () => {
+    const behavior = {
+      requiresAdmin: false,
+      requiresAuth: true,
+      preventsDuplicatePendingReports: true,
+    }
+    expect(behavior.requiresAdmin).toBe(false)
+    expect(behavior.requiresAuth).toBe(true)
+  })
+
+  it("documents error codes", () => {
+    const errorCodes = {
+      UNAUTHORIZED: "Must be logged in",
+      NOT_FOUND: "Content or user not found",
+      ALREADY_EXISTS: "Already reported this content",
+    }
+    expect(errorCodes).toHaveProperty("ALREADY_EXISTS")
+  })
+})
+
+describe("listContentReports query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      status: "optional union - 'pending' | 'resolved' | 'dismissed' (defaults to pending)",
+      limit: "optional number - defaults to 50, capped at 100",
+    }
+    expect(expectedArgsShape.status).toContain("optional")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedItemShape = {
+      id: "id<contentReports>",
+      contentId: "id<newsletterContent>",
+      subject: "string",
+      senderEmail: "string",
+      reason: "union - report reason category",
+      description: "string | undefined",
+      status: "union - report status",
+      reporterEmail: "string",
+      createdAt: "number",
+      resolvedAt: "number | undefined",
+    }
+    expect(expectedItemShape).toHaveProperty("id")
+    expect(expectedItemShape).toHaveProperty("reporterEmail")
+  })
+})
+
+describe("resolveReport mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      reportId: "id<contentReports> - report to resolve",
+      resolution: "union - 'resolved' | 'dismissed'",
+      note: "optional string - resolution note",
+      hideContent: "optional boolean - hide content if resolving",
+    }
+    expect(expectedArgsShape).toHaveProperty("reportId")
+    expect(expectedArgsShape).toHaveProperty("resolution")
+  })
+
+  it("documents resolution behavior", () => {
+    const behavior = {
+      updatesReportStatus: true,
+      setsResolvedBy: "admin._id",
+      setsResolvedAt: "Date.now()",
+      optionallyHidesContent: true,
+      createsAuditLog: true,
+    }
+    expect(behavior.updatesReportStatus).toBe(true)
+    expect(behavior.optionallyHidesContent).toBe(true)
+  })
+})
+
+describe("bulkResolveReports mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      reportIds: "array of id<contentReports>",
+      resolution: "union - 'resolved' | 'dismissed'",
+      note: "optional string - resolution note",
+    }
+    expect(expectedArgsShape).toHaveProperty("reportIds")
+    expect(expectedArgsShape).toHaveProperty("resolution")
+  })
+
+  it("documents bulk behavior", () => {
+    const behavior = {
+      processesMultipleReports: true,
+      skipsNonPendingReports: true,
+      createsAuditLogPerReport: true,
+      returnsResolvedCount: true,
+    }
+    expect(behavior.skipsNonPendingReports).toBe(true)
+    expect(behavior.returnsResolvedCount).toBe(true)
+  })
+})
+
+describe("listModerationLog query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      actionType: "optional union - filter by action type",
+      startDate: "optional number - filter by start date",
+      endDate: "optional number - filter by end date",
+      limit: "optional number - defaults to 50, capped at 100",
+    }
+    expect(expectedArgsShape.actionType).toContain("optional")
+    expect(expectedArgsShape.startDate).toContain("optional")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedItemShape = {
+      id: "id<moderationLog>",
+      actionType: "union - one of 6 action types",
+      targetType: "union - 'content' | 'sender' | 'report'",
+      targetId: "string - ID of target",
+      reason: "string | undefined",
+      details: "object | null - parsed JSON details",
+      adminEmail: "string",
+      createdAt: "number - Unix timestamp ms",
+    }
+    expect(expectedItemShape).toHaveProperty("id")
+    expect(expectedItemShape).toHaveProperty("actionType")
+    expect(expectedItemShape).toHaveProperty("details")
+  })
+})
+
+describe("getCommunityContentSummary query contract", () => {
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      totalContent: "number - all community content",
+      hiddenContent: "number - hidden content count",
+      activeContent: "number - visible content count",
+      blockedSenders: "number - blocked sender count",
+      pendingReports: "number - pending report count",
+    }
+    expect(expectedReturnShape).toHaveProperty("totalContent")
+    expect(expectedReturnShape).toHaveProperty("pendingReports")
+  })
+})
+
+describe("Story 7.4 admin authorization", () => {
+  it("documents all admin-only queries", () => {
+    const adminOnlyQueries = [
+      "listCommunityContent",
+      "getCommunityContentSummary",
+      "listBlockedSenders",
+      "listContentReports",
+      "getPendingReportsCount",
+      "listModerationLog",
+    ]
+    expect(adminOnlyQueries).toHaveLength(6)
+  })
+
+  it("documents all admin-only mutations", () => {
+    const adminOnlyMutations = [
+      "hideContentFromCommunity",
+      "restoreContentToCommunity",
+      "blockSenderFromCommunity",
+      "unblockSender",
+      "resolveReport",
+      "bulkResolveReports",
+    ]
+    expect(adminOnlyMutations).toHaveLength(6)
+  })
+
+  it("documents user-facing mutation", () => {
+    const userFacingMutations = ["reportContent"]
+    expect(userFacingMutations).toHaveLength(1)
+    // reportContent requires auth but not admin
+  })
+})

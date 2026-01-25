@@ -19,7 +19,11 @@ describe("Admin Route Layout Contract", () => {
       path: "/_authed/admin",
       component: "AdminLayout",
       guards: ["checkIsAdmin query"],
-      childRoutes: ["index.tsx (dashboard)", "health.tsx (health details)"],
+      childRoutes: [
+        "index.tsx (dashboard)",
+        "health.tsx (health details)",
+        "delivery.tsx (email delivery monitoring)", // Story 7.2
+      ],
     }
 
     expect(routeConfig.path).toBe("/_authed/admin")
@@ -68,7 +72,11 @@ describe("Admin Route Layout Contract", () => {
       structure: {
         header: {
           title: "Admin Dashboard",
-          navigation: ["Overview (/admin)", "Health Details (/admin/health)"],
+          navigation: [
+            "Overview (/admin)",
+            "Health Details (/admin/health)",
+            "Email Delivery (/admin/delivery)", // Story 7.2
+          ],
         },
         main: "Outlet for child routes",
       },
@@ -79,7 +87,7 @@ describe("Admin Route Layout Contract", () => {
     }
 
     expect(adminLayout.structure.header.title).toBe("Admin Dashboard")
-    expect(adminLayout.structure.header.navigation).toHaveLength(2)
+    expect(adminLayout.structure.header.navigation).toHaveLength(3)
   })
 
   it("documents navigation link behavior", () => {
@@ -94,10 +102,16 @@ describe("Admin Route Layout Contract", () => {
         to: "/admin/health",
         activeOptions: { exact: false },
       },
+      {
+        label: "Email Delivery", // Story 7.2
+        to: "/admin/delivery",
+        activeOptions: { exact: false },
+      },
     ]
 
     expect(navLinks[0].activeOptions.exact).toBe(true)
     expect(navLinks[1].to).toBe("/admin/health")
+    expect(navLinks[2].to).toBe("/admin/delivery")
   })
 })
 

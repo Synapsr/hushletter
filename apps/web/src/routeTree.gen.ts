@@ -24,6 +24,7 @@ import { Route as AuthedSettingsPrivacyRouteImport } from './routes/_authed/sett
 import { Route as AuthedNewslettersIdRouteImport } from './routes/_authed/newsletters/$id'
 import { Route as AuthedCommunityContentIdRouteImport } from './routes/_authed/community/$contentId'
 import { Route as AuthedAdminHealthRouteImport } from './routes/_authed/admin/health'
+import { Route as AuthedAdminDeliveryRouteImport } from './routes/_authed/admin/delivery'
 import { Route as AuthedCommunitySenderSenderEmailRouteImport } from './routes/_authed/community/sender/$senderEmail'
 
 const SignupRoute = SignupRouteImport.update({
@@ -101,6 +102,11 @@ const AuthedAdminHealthRoute = AuthedAdminHealthRouteImport.update({
   path: '/health',
   getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
+const AuthedAdminDeliveryRoute = AuthedAdminDeliveryRouteImport.update({
+  id: '/delivery',
+  path: '/delivery',
+  getParentRoute: () => AuthedAdminRouteRoute,
+} as any)
 const AuthedCommunitySenderSenderEmailRoute =
   AuthedCommunitySenderSenderEmailRouteImport.update({
     id: '/community/sender/$senderEmail',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
   '/community/$contentId': typeof AuthedCommunityContentIdRoute
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
   '/community/$contentId': typeof AuthedCommunityContentIdRoute
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
@@ -148,6 +156,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/_authed/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/_authed/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/_authed/admin/health': typeof AuthedAdminHealthRoute
   '/_authed/community/$contentId': typeof AuthedCommunityContentIdRoute
   '/_authed/newsletters/$id': typeof AuthedNewslettersIdRoute
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/admin'
+    | '/admin/delivery'
     | '/admin/health'
     | '/community/$contentId'
     | '/newsletters/$id'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/admin/delivery'
     | '/admin/health'
     | '/community/$contentId'
     | '/newsletters/$id'
@@ -201,6 +212,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/_authed/admin'
+    | '/_authed/admin/delivery'
     | '/_authed/admin/health'
     | '/_authed/community/$contentId'
     | '/_authed/newsletters/$id'
@@ -329,6 +341,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminHealthRouteImport
       parentRoute: typeof AuthedAdminRouteRoute
     }
+    '/_authed/admin/delivery': {
+      id: '/_authed/admin/delivery'
+      path: '/delivery'
+      fullPath: '/admin/delivery'
+      preLoaderRoute: typeof AuthedAdminDeliveryRouteImport
+      parentRoute: typeof AuthedAdminRouteRoute
+    }
     '/_authed/community/sender/$senderEmail': {
       id: '/_authed/community/sender/$senderEmail'
       path: '/community/sender/$senderEmail'
@@ -340,11 +359,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedAdminRouteRouteChildren {
+  AuthedAdminDeliveryRoute: typeof AuthedAdminDeliveryRoute
   AuthedAdminHealthRoute: typeof AuthedAdminHealthRoute
   AuthedAdminIndexRoute: typeof AuthedAdminIndexRoute
 }
 
 const AuthedAdminRouteRouteChildren: AuthedAdminRouteRouteChildren = {
+  AuthedAdminDeliveryRoute: AuthedAdminDeliveryRoute,
   AuthedAdminHealthRoute: AuthedAdminHealthRoute,
   AuthedAdminIndexRoute: AuthedAdminIndexRoute,
 }

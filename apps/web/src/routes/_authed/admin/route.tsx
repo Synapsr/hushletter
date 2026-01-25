@@ -104,6 +104,13 @@ function AdminLayout() {
             >
               Health Details
             </Link>
+            <Link
+              to="/admin/delivery"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              activeProps={{ className: "text-foreground font-medium" }}
+            >
+              Email Delivery
+            </Link>
           </nav>
         </div>
       </header>

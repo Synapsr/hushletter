@@ -1,5 +1,6 @@
 import { httpAction } from "./_generated/server"
 import { internal } from "./_generated/api"
+import type { Id } from "./_generated/dataModel"
 
 /** Maximum allowed length for email subject (prevent DoS via oversized payloads) */
 const MAX_SUBJECT_LENGTH = 1000
@@ -163,6 +164,24 @@ export const receiveEmail = httpAction(async (ctx, request) => {
   const validatedHtmlContent = typeof htmlContent === "string" ? htmlContent : undefined
   const validatedTextContent = typeof textContent === "string" ? textContent : undefined
 
+  // Story 7.2: Create delivery log entry for monitoring
+  // Generate a unique messageId if not provided (using timestamp + random for uniqueness)
+  const messageId = `${validatedReceivedAt}-${validatedFrom}-${Math.random().toString(36).slice(2)}`
+  let deliveryLogId: Id<"emailDeliveryLogs"> | null = null
+
+  try {
+    deliveryLogId = await ctx.runMutation(internal.admin.logEmailDelivery, {
+      recipientEmail: validatedTo,
+      senderEmail: validatedFrom,
+      senderName: validatedSenderName,
+      subject: validatedSubject,
+      messageId,
+    })
+  } catch (error) {
+    // Non-fatal: log but continue with email processing
+    console.error("[emailIngestion] Failed to create delivery log:", error)
+  }
+
   // Lookup user by dedicated email address
   const user = await ctx.runQuery(internal._internal.users.findByDedicatedEmail, {
     dedicatedEmail: validatedTo,
@@ -170,6 +189,19 @@ export const receiveEmail = httpAction(async (ctx, request) => {
 
   if (!user) {
     console.log(`[emailIngestion] No user found for address: ${validatedTo}`)
+    // Story 7.2: Update delivery log with failure
+    if (deliveryLogId) {
+      try {
+        await ctx.runMutation(internal.admin.updateDeliveryStatus, {
+          logId: deliveryLogId,
+          status: "failed",
+          errorMessage: `No user found for address: ${validatedTo}`,
+          errorCode: "USER_NOT_FOUND",
+        })
+      } catch (logError) {
+        console.error("[emailIngestion] Failed to update delivery log:", logError)
+      }
+    }
     return new Response(JSON.stringify({ error: "Unknown recipient" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
@@ -179,6 +211,22 @@ export const receiveEmail = httpAction(async (ctx, request) => {
   console.log(
     `[emailIngestion] Processing email for user ${user._id}: "${validatedSubject}" from ${validatedFrom}${validatedSenderName ? ` (${validatedSenderName})` : ""}`
   )
+
+  // Story 7.2: Update delivery log to processing status
+  if (deliveryLogId) {
+    try {
+      await ctx.runMutation(internal.admin.updateDeliveryStatus, {
+        logId: deliveryLogId,
+        status: "processing",
+        userId: user._id,
+        hasHtmlContent: !!validatedHtmlContent,
+        hasPlainTextContent: !!validatedTextContent,
+        contentSizeBytes: (validatedHtmlContent?.length ?? 0) + (validatedTextContent?.length ?? 0),
+      })
+    } catch (logError) {
+      console.error("[emailIngestion] Failed to update delivery log to processing:", logError)
+    }
+  }
 
   try {
     // Story 2.5.1: Get or create global sender
@@ -216,6 +264,18 @@ export const receiveEmail = httpAction(async (ctx, request) => {
       `[emailIngestion] Newsletter created: ${result.userNewsletterId}, R2 key: ${result.r2Key}, isPrivate: ${isPrivate}`
     )
 
+    // Story 7.2: Update delivery log to stored status
+    if (deliveryLogId) {
+      try {
+        await ctx.runMutation(internal.admin.updateDeliveryStatus, {
+          logId: deliveryLogId,
+          status: "stored",
+        })
+      } catch (logError) {
+        console.error("[emailIngestion] Failed to update delivery log to stored:", logError)
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -237,6 +297,21 @@ export const receiveEmail = httpAction(async (ctx, request) => {
       `[emailIngestion] Failed to store newsletter: code=${errorCode}, message=${errorMessage}`,
       error
     )
+
+    // Story 7.2: Update delivery log with failure
+    if (deliveryLogId) {
+      try {
+        await ctx.runMutation(internal.admin.updateDeliveryStatus, {
+          logId: deliveryLogId,
+          status: "failed",
+          errorMessage,
+          errorCode,
+        })
+      } catch (logError) {
+        console.error("[emailIngestion] Failed to update delivery log to failed:", logError)
+      }
+    }
+
     return new Response(
       JSON.stringify({
         error: "Failed to store newsletter content",

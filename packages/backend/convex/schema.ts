@@ -191,4 +191,63 @@ export default defineSchema({
   })
     .index("by_date", ["date"])
     .index("by_recordedAt", ["recordedAt"]),
+
+  // ============================================================
+  // Story 7.2: Email Delivery Monitoring
+  // ============================================================
+
+  /**
+   * Email Delivery Logs - tracks email processing pipeline
+   * Story 7.2: Task 1 - Email Delivery Tracking Schema
+   *
+   * Captures each email's journey through the system:
+   * 1. received - Email worker received the email
+   * 2. processing - Parsing and content extraction started
+   * 3. stored - Successfully stored in userNewsletters/R2
+   * 4. failed - Processing failed with error
+   */
+  emailDeliveryLogs: defineTable({
+    // Email metadata (captured at receipt)
+    recipientEmail: v.string(), // User's dedicated email address
+    senderEmail: v.string(),
+    senderName: v.optional(v.string()),
+    subject: v.string(),
+    messageId: v.string(), // Email message ID for deduplication
+
+    // User linkage (resolved during processing)
+    userId: v.optional(v.id("users")),
+
+    // Delivery status tracking
+    // Task 1.2: Define delivery status enum
+    status: v.union(
+      v.literal("received"),
+      v.literal("processing"),
+      v.literal("stored"),
+      v.literal("failed")
+    ),
+
+    // Timestamps (all Unix milliseconds)
+    receivedAt: v.number(), // When email worker received
+    processingStartedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+
+    // Error information (only for failed status)
+    errorMessage: v.optional(v.string()),
+    errorCode: v.optional(v.string()), // e.g., "PARSE_ERROR", "USER_NOT_FOUND", "R2_UPLOAD_FAILED"
+
+    // Processing metadata
+    contentSizeBytes: v.optional(v.number()),
+    hasHtmlContent: v.optional(v.boolean()),
+    hasPlainTextContent: v.optional(v.boolean()),
+
+    // Retry tracking
+    retryCount: v.number(), // Starts at 0
+    isAcknowledged: v.boolean(), // Admin has reviewed failed delivery
+  })
+    // Task 1.4: Add indexes for efficient querying
+    .index("by_status", ["status"])
+    .index("by_receivedAt", ["receivedAt"])
+    .index("by_userId", ["userId"])
+    .index("by_messageId", ["messageId"]) // For deduplication
+    .index("by_status_receivedAt", ["status", "receivedAt"]), // For filtered queries
 })

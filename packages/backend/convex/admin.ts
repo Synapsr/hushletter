@@ -1,4 +1,4 @@
-import { query, internalMutation } from "./_generated/server"
+import { query, mutation, internalMutation } from "./_generated/server"
 import { v } from "convex/values"
 import { requireAdmin } from "./_internal/auth"
 import { authComponent } from "./auth"
@@ -6,6 +6,7 @@ import { authComponent } from "./auth"
 /**
  * Admin queries and mutations for system health dashboard.
  * Story 7.1: Admin Dashboard & System Health
+ * Story 7.2: Email Delivery Monitoring
  *
  * CRITICAL: Every function in this file MUST call requireAdmin() first.
  */
@@ -255,5 +256,377 @@ export const checkIsAdmin = query({
       .first()
 
     return { isAdmin: user?.isAdmin ?? false }
+  },
+})
+
+// ============================================================
+// Story 7.2: Email Delivery Monitoring
+// ============================================================
+
+/** Delivery status type for reuse */
+type DeliveryStatus = "received" | "processing" | "stored" | "failed"
+
+/**
+ * Get delivery statistics for a time period
+ * Story 7.2 Task 3.1
+ *
+ * Returns counts by status and success rate for the specified time window.
+ */
+export const getDeliveryStats = query({
+  args: {
+    hoursAgo: v.optional(v.number()), // defaults to 24
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const hoursAgo = args.hoursAgo ?? 24
+    const cutoff = Date.now() - hoursAgo * 60 * 60 * 1000
+
+    const logs = await ctx.db
+      .query("emailDeliveryLogs")
+      .withIndex("by_receivedAt", (q) => q.gte("receivedAt", cutoff))
+      .collect()
+
+    // Count by status
+    const stats: Record<DeliveryStatus, number> = {
+      received: 0,
+      processing: 0,
+      stored: 0,
+      failed: 0,
+    }
+
+    for (const log of logs) {
+      // Status is guaranteed to be a valid DeliveryStatus by the schema
+      stats[log.status]++
+    }
+
+    const total = logs.length
+    const successRate = total > 0 ? Math.round((stats.stored / total) * 100) : 100
+
+    return {
+      ...stats,
+      total,
+      successRate,
+      periodHours: hoursAgo,
+    }
+  },
+})
+
+/**
+ * List delivery logs with pagination and filtering
+ * Story 7.2 Task 3.2
+ *
+ * Returns paginated delivery logs, optionally filtered by status.
+ */
+export const listDeliveryLogs = query({
+  args: {
+    status: v.optional(
+      v.union(
+        v.literal("received"),
+        v.literal("processing"),
+        v.literal("stored"),
+        v.literal("failed")
+      )
+    ),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const limit = Math.min(args.limit ?? 50, 100) // Cap at 100
+
+    let logs
+
+    if (args.status) {
+      const statusFilter = args.status // Assign to const for TypeScript narrowing
+      logs = await ctx.db
+        .query("emailDeliveryLogs")
+        .withIndex("by_status_receivedAt", (q) => q.eq("status", statusFilter))
+        .order("desc")
+        .take(limit + 1) // +1 to detect if more pages exist
+    } else {
+      logs = await ctx.db
+        .query("emailDeliveryLogs")
+        .withIndex("by_receivedAt")
+        .order("desc")
+        .take(limit + 1)
+    }
+
+    const hasMore = logs.length > limit
+    const items = hasMore ? logs.slice(0, limit) : logs
+
+    return {
+      items,
+      hasMore,
+      nextCursor: hasMore && items.length > 0 ? items[items.length - 1]._id : null,
+    }
+  },
+})
+
+/**
+ * Get failed deliveries that need attention
+ * Story 7.2 Task 3.3
+ *
+ * Returns failed delivery logs, optionally including acknowledged ones.
+ */
+export const getFailedDeliveries = query({
+  args: {
+    includeAcknowledged: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const failed = await ctx.db
+      .query("emailDeliveryLogs")
+      .withIndex("by_status", (q) => q.eq("status", "failed"))
+      .collect()
+
+    // Filter acknowledged if needed
+    const filtered = args.includeAcknowledged
+      ? failed
+      : failed.filter((log) => !log.isAcknowledged)
+
+    // Sort by receivedAt desc (most recent first)
+    filtered.sort((a, b) => b.receivedAt - a.receivedAt)
+
+    return filtered
+  },
+})
+
+/**
+ * Get delivery rate statistics over multiple time periods
+ * Story 7.2 Task 3.4
+ *
+ * Returns success rates for 1h, 24h, and 7d periods.
+ */
+export const getDeliveryRateStats = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx)
+
+    const now = Date.now()
+    const periods = [
+      { label: "1h", cutoff: now - 1 * 60 * 60 * 1000 },
+      { label: "24h", cutoff: now - 24 * 60 * 60 * 1000 },
+      { label: "7d", cutoff: now - 7 * 24 * 60 * 60 * 1000 },
+    ]
+
+    const results = []
+
+    for (const period of periods) {
+      const logs = await ctx.db
+        .query("emailDeliveryLogs")
+        .withIndex("by_receivedAt", (q) => q.gte("receivedAt", period.cutoff))
+        .collect()
+
+      const total = logs.length
+      const stored = logs.filter((l) => l.status === "stored").length
+      const failed = logs.filter((l) => l.status === "failed").length
+
+      results.push({
+        period: period.label,
+        total,
+        stored,
+        failed,
+        successRate: total > 0 ? Math.round((stored / total) * 100) : 100,
+      })
+    }
+
+    return results
+  },
+})
+
+/** Anomaly type definition for type safety */
+interface DeliveryAnomaly {
+  type: "high_failure_rate" | "no_deliveries" | "volume_spike"
+  severity: "warning" | "critical"
+  message: string
+  details: Record<string, unknown>
+}
+
+/**
+ * Detect delivery anomalies
+ * Story 7.2 Task 6.1
+ *
+ * Detects anomalies like high failure rate, no deliveries, or volume spikes.
+ */
+export const getDeliveryAnomalies = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx)
+
+    const anomalies: DeliveryAnomaly[] = []
+
+    const now = Date.now()
+    const last24h = now - 24 * 60 * 60 * 1000
+    const last1h = now - 1 * 60 * 60 * 1000
+
+    // Get last 24h logs
+    const logs24h = await ctx.db
+      .query("emailDeliveryLogs")
+      .withIndex("by_receivedAt", (q) => q.gte("receivedAt", last24h))
+      .collect()
+
+    // Check for high failure rate (>5%)
+    const failed = logs24h.filter((l) => l.status === "failed").length
+    const total = logs24h.length
+    const failureRate = total > 0 ? failed / total : 0
+
+    if (total > 10 && failureRate > 0.05) {
+      anomalies.push({
+        type: "high_failure_rate",
+        severity: failureRate > 0.2 ? "critical" : "warning",
+        message: `High failure rate: ${Math.round(failureRate * 100)}% of emails failed in last 24h`,
+        details: { failed, total, rate: failureRate },
+      })
+    }
+
+    // Check for no deliveries in 24h (if system should be receiving)
+    // Only flag if there's historical data (not a new system)
+    const allLogs = await ctx.db.query("emailDeliveryLogs").take(1)
+    if (allLogs.length > 0 && logs24h.length === 0) {
+      anomalies.push({
+        type: "no_deliveries",
+        severity: "warning",
+        message: "No email deliveries in the last 24 hours",
+        details: {},
+      })
+    }
+
+    // Check for volume spike (>3x average)
+    // Compare last 1h to average hourly rate over 24h
+    const logs1h = logs24h.filter((l) => l.receivedAt >= last1h)
+    const avgHourlyRate = total / 24
+
+    if (avgHourlyRate > 5 && logs1h.length > avgHourlyRate * 3) {
+      anomalies.push({
+        type: "volume_spike",
+        severity: "warning",
+        message: `Unusual volume spike: ${logs1h.length} emails in last hour (avg: ${Math.round(avgHourlyRate)}/hour)`,
+        details: { lastHour: logs1h.length, avgHourly: avgHourlyRate },
+      })
+    }
+
+    return anomalies
+  },
+})
+
+// ============================================================
+// Story 7.2: Internal Mutations for Email Worker
+// ============================================================
+
+/**
+ * Log initial email delivery receipt
+ * Called by emailIngestion HTTP action at email receipt
+ * Story 7.2 Task 2.5
+ *
+ * This is idempotent - returns existing logId if messageId already exists.
+ */
+export const logEmailDelivery = internalMutation({
+  args: {
+    recipientEmail: v.string(),
+    senderEmail: v.string(),
+    senderName: v.optional(v.string()),
+    subject: v.string(),
+    messageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check for duplicate messageId (idempotency)
+    const existing = await ctx.db
+      .query("emailDeliveryLogs")
+      .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
+      .first()
+
+    if (existing) {
+      return existing._id // Return existing log ID
+    }
+
+    // Create delivery log
+    const logId = await ctx.db.insert("emailDeliveryLogs", {
+      recipientEmail: args.recipientEmail,
+      senderEmail: args.senderEmail,
+      senderName: args.senderName,
+      subject: args.subject,
+      messageId: args.messageId,
+      status: "received",
+      receivedAt: Date.now(),
+      retryCount: 0,
+      isAcknowledged: false,
+    })
+
+    return logId
+  },
+})
+
+/**
+ * Update delivery status
+ * Called by emailIngestion HTTP action during processing
+ * Story 7.2 Task 2.6
+ */
+export const updateDeliveryStatus = internalMutation({
+  args: {
+    logId: v.id("emailDeliveryLogs"),
+    status: v.union(v.literal("processing"), v.literal("stored"), v.literal("failed")),
+    userId: v.optional(v.id("users")),
+    errorMessage: v.optional(v.string()),
+    errorCode: v.optional(v.string()),
+    contentSizeBytes: v.optional(v.number()),
+    hasHtmlContent: v.optional(v.boolean()),
+    hasPlainTextContent: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const update: Record<string, unknown> = {
+      status: args.status,
+    }
+
+    if (args.status === "processing") {
+      update.processingStartedAt = Date.now()
+      if (args.userId) update.userId = args.userId
+    }
+
+    if (args.status === "stored" || args.status === "failed") {
+      update.completedAt = Date.now()
+    }
+
+    if (args.status === "failed") {
+      update.errorMessage = args.errorMessage
+      update.errorCode = args.errorCode
+    }
+
+    if (args.contentSizeBytes !== undefined) {
+      update.contentSizeBytes = args.contentSizeBytes
+    }
+    if (args.hasHtmlContent !== undefined) {
+      update.hasHtmlContent = args.hasHtmlContent
+    }
+    if (args.hasPlainTextContent !== undefined) {
+      update.hasPlainTextContent = args.hasPlainTextContent
+    }
+
+    await ctx.db.patch(args.logId, update)
+  },
+})
+
+// ============================================================
+// Story 7.2: Admin Mutations
+// ============================================================
+
+/**
+ * Acknowledge a failed delivery (admin action)
+ * Story 7.2 Task 5.6
+ *
+ * Marks a failed delivery as acknowledged so it no longer appears
+ * in the unacknowledged failures list.
+ */
+export const acknowledgeFailedDelivery = mutation({
+  args: {
+    logId: v.id("emailDeliveryLogs"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    await ctx.db.patch(args.logId, {
+      isAcknowledged: true,
+    })
   },
 })

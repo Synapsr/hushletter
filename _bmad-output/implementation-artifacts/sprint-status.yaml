@@ -114,5 +114,5 @@ development_status:
   8-1-eml-parser-service: done  # Code review complete - 9 issues found, 7 fixed, 59 tests pass
   8-2-drag-and-drop-import-ui: done  # Code review complete - 7 issues fixed (2 critical, 3 medium, 2 low)
   8-3-forward-to-import-endpoint: done  # Code review complete - 5 MEDIUM issues fixed, 79 tests pass
-  8-4-duplicate-detection: backlog
+  8-4-duplicate-detection: review
   epic-8-retrospective: optional

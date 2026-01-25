@@ -51,11 +51,14 @@ export async function generateCompletion(
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://newsletter-manager.app", // Required by OpenRouter
-        "X-Title": "Newsletter Manager", // Optional but recommended
+        "HTTP-Referer": "https://hushletter.com", // Required by OpenRouter
+        "X-Title": "Hushletter", // Optional but recommended
       },
       body: JSON.stringify({
         model: config.model,
+        provider: {
+          "sort": "latency"
+        },
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

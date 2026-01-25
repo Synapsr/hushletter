@@ -13,16 +13,24 @@ interface Violation {
   details: Record<string, unknown>
 }
 
+/** Valid audit status values */
+type AuditStatus = "PASS" | "WARNING" | "FAIL"
+
 /**
  * Audit result from runPrivacyAudit query
  */
 interface AuditResult {
-  status: "PASS" | "WARNING" | "FAIL"
+  status: string // Convex returns string, we validate below
   auditedAt: number
   totalPrivateNewsletters: number
   totalPublicNewsletters: number
   violations: Violation[]
   checks: Array<{ name: string; passed: boolean }>
+}
+
+/** Type guard to validate audit status */
+function isValidAuditStatus(status: string): status is AuditStatus {
+  return status === "PASS" || status === "WARNING" || status === "FAIL"
 }
 
 interface PrivacyAuditPanelProps {
@@ -64,7 +72,9 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
     },
   }
 
-  const config = statusConfig[audit.status]
+  // Validate and get status, defaulting to FAIL for unknown values
+  const status: AuditStatus = isValidAuditStatus(audit.status) ? audit.status : "FAIL"
+  const config = statusConfig[status]
   const Icon = config.icon
 
   return (
@@ -73,7 +83,7 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
       <AlertTitle className={config.color}>{config.title}</AlertTitle>
       <AlertDescription>
         <div className="flex items-center gap-4 mt-2">
-          <Badge variant={config.variant}>{audit.status}</Badge>
+          <Badge variant={config.variant}>{status}</Badge>
           <span className="text-sm text-muted-foreground flex items-center gap-1">
             <Clock className="h-3 w-3" aria-hidden="true" />
             <span>
@@ -107,7 +117,7 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
           </div>
         )}
 
-        {audit.status === "PASS" && (
+        {status === "PASS" && (
           <p className="mt-2 text-green-700 dark:text-green-300">
             All privacy checks passed. Private content is properly isolated from
             community database.

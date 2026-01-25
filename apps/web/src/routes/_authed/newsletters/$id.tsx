@@ -277,7 +277,7 @@ function NewsletterContent({
   initialProgress,
   onReadingComplete,
 }: {
-  newsletterId: string
+  newsletterId: Id<"userNewsletters">
   initialProgress?: number
   onReadingComplete?: () => void
 }) {
@@ -323,10 +323,14 @@ function NewsletterDetailPage() {
     return <PageError message="Invalid newsletter ID" />
   }
 
+  // Type assertion: Route params come as strings, but Convex expects Id<"userNewsletters">
+  // This is safe because: 1) we validated id is a non-empty string above
+  // 2) Convex validates the ID format server-side and returns null/error for invalid IDs
+  const userNewsletterId = id as Id<"userNewsletters">
+
   // Get newsletter metadata with real-time subscription
-  // Type assertion is safe here because we validated id above and Convex validates the ID format server-side
   const { data, isPending, error } = useQuery(
-    convexQuery(api.newsletters.getUserNewsletter, { userNewsletterId: id })
+    convexQuery(api.newsletters.getUserNewsletter, { userNewsletterId })
   )
   const newsletter = data as NewsletterMetadata | null | undefined
 
@@ -363,11 +367,11 @@ function NewsletterDetailPage() {
 
   // Story 3.4: Handlers for mark read/unread (AC4)
   const handleMarkRead = () => {
-    markRead({ userNewsletterId: id, readProgress: 100 })
+    markRead({ userNewsletterId, readProgress: 100 })
   }
 
   const handleMarkUnread = () => {
-    markUnread({ userNewsletterId: id })
+    markUnread({ userNewsletterId })
   }
 
   // Story 3.4: Handler for resume button (AC2)
@@ -379,7 +383,7 @@ function NewsletterDetailPage() {
   // Code review fix (HIGH-1): Added confirmation feedback per AC1 requirement
   const handleHide = async () => {
     try {
-      await hideNewsletter({ userNewsletterId: id })
+      await hideNewsletter({ userNewsletterId })
       // Show confirmation briefly before navigating (AC1: "confirmation is briefly shown")
       setHideConfirmation("Newsletter hidden")
       // Brief delay to show confirmation, then navigate
@@ -395,7 +399,7 @@ function NewsletterDetailPage() {
 
   const handleUnhide = async () => {
     try {
-      await unhideNewsletter({ userNewsletterId: id })
+      await unhideNewsletter({ userNewsletterId })
       // Show confirmation (AC1)
       setHideConfirmation("Newsletter restored")
       setTimeout(() => setHideConfirmation(null), 2000)
@@ -449,12 +453,12 @@ function NewsletterDetailPage() {
           Wrapped in error boundary per NFR11 - AI failure should not block reading
           Code review fix (MEDIUM-2): Uses FallbackComponent with retry capability */}
       <ErrorBoundary FallbackComponent={SummaryErrorFallback}>
-        <SummaryPanel userNewsletterId={id as Id<"userNewsletters">} />
+        <SummaryPanel userNewsletterId={userNewsletterId} />
       </ErrorBoundary>
 
       {/* Newsletter content with error boundary and scroll tracking (Story 3.4) */}
       <NewsletterContent
-        newsletterId={id}
+        newsletterId={userNewsletterId}
         initialProgress={shouldResume ? newsletter.readProgress : undefined}
       />
     </div>

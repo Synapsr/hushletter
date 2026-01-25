@@ -29,7 +29,8 @@ function Checkbox({
   return (
     <BaseCheckbox.Root
       data-slot="checkbox"
-      checked={indeterminate ? "indeterminate" : checked}
+      checked={checked}
+      indeterminate={indeterminate}
       onCheckedChange={(checked) => onCheckedChange?.(checked === true)}
       disabled={disabled}
       aria-label={ariaLabel}

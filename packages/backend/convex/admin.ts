@@ -1178,10 +1178,6 @@ export const listCommunityContent = query({
 
     const limit = Math.min(args.limit ?? 50, 100)
 
-    // Get blocked senders for status determination
-    const blockedSenders = await ctx.db.query("blockedSenders").collect()
-    const blockedSenderIds = new Set(blockedSenders.map((b) => b.senderId))
-
     // Get all content
     let content = await ctx.db.query("newsletterContent").collect()
 
@@ -1204,18 +1200,9 @@ export const listCommunityContent = query({
 
     // Add moderation status to each item
     const contentWithStatus = content.map((c) => {
-      // Check if sender is blocked (need to find sender by email)
       const isHidden = c.isHiddenFromCommunity === true
-      // Note: To check if sender is blocked, we'd need senderId on content
-      // Since we don't have it, we check via senderEmail match
-      let isBlockedSender = false
-      for (const block of blockedSenders) {
-        // We need to get the sender email from the blocked sender
-        // This is a limitation - we'll mark as blocked_sender if content is hidden
-        // and the hiding was likely from a sender block
-        isBlockedSender = false // Will be refined when we have senderId
-      }
-
+      // Note: blocked_sender status would require senderId on content table
+      // For now, we only track hidden vs active
       const moderationStatus: ModerationStatus = isHidden ? "hidden" : "active"
 
       return {

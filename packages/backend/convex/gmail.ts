@@ -8,7 +8,7 @@
  * Tokens are NEVER exposed to the client - only connection status and email are returned.
  */
 
-import { query, mutation, internalMutation, internalQuery, action, internalAction } from "./_generated/server"
+import { query, mutation, internalMutation, internalQuery, action, internalAction, type QueryCtx } from "./_generated/server"
 import { v, ConvexError } from "convex/values"
 import { internal, api } from "./_generated/api"
 import { authComponent, createAuth } from "./auth"
@@ -20,7 +20,7 @@ import {
   NEWSLETTER_THRESHOLD,
   type EmailHeaders,
 } from "./_internal/newsletterDetection"
-import type { GmailMessageDetail, GmailMessageHeader } from "./gmailApi"
+import type { GmailMessageDetail } from "./gmailApi"
 import type { Id } from "./_generated/dataModel"
 
 // Type for Better Auth account from listUserAccounts
@@ -75,7 +75,7 @@ function decodeJwtPayload(jwt: string): { email?: string; exp?: number } | null 
  * Centralizes the account fetching logic to avoid duplication
  */
 async function getGoogleAccount(
-  ctx: Parameters<Parameters<typeof query>[0]["handler"]>[0]
+  ctx: QueryCtx
 ): Promise<{
   account: BetterAuthAccount
   googleEmail: string | null

@@ -36,7 +36,7 @@ export function normalizeForHash(html: string): string {
       .replace(/href=["'][^"']*unsubscribe[^"']*["']/gi, 'href="UNSUBSCRIBE"')
       // Normalize personalized greetings (Hi John, Hi JOHN, Hi jean-pierre, → Hi USER,)
       // Case-insensitive for names, supports hyphenated names
-      .replace(/\b(Hi|Hello|Dear|Hey)\s+[A-Za-z][A-Za-z-]*\s*,/gi, (match, greeting) => `${greeting} USER,`)
+      .replace(/\b(Hi|Hello|Dear|Hey)\s+[A-Za-z][A-Za-z-]*\s*,/gi, (_match, greeting) => `${greeting} USER,`)
       // Strip long hex strings (32+ chars) - tracking codes, email-specific IDs
       .replace(new RegExp(`[a-f0-9]{${MIN_TRACKING_HEX_LENGTH},}`, "gi"), "HASH")
       // Normalize whitespace (collapse multiple spaces/newlines, trim)

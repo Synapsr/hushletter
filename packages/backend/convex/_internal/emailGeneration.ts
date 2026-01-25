@@ -1,5 +1,3 @@
-import type { Id } from "../_generated/dataModel"
-
 // Email domain for dedicated newsletter addresses
 // MUST be configured via EMAIL_DOMAIN environment variable in production
 const EMAIL_DOMAIN = process.env.EMAIL_DOMAIN || "newsletters.example.com"
@@ -14,13 +12,13 @@ if (!process.env.EMAIL_DOMAIN) {
 
 /**
  * Generates a unique dedicated email address for a user
- * Uses the first 8 characters of the Convex user ID as prefix
- * Convex IDs are globally unique, ensuring no collisions
+ * Uses the last 8 characters of the user ID as prefix
+ * IDs are globally unique, ensuring no collisions
  *
- * @param userId - The Convex user ID
+ * @param userId - The user ID (Better Auth ID string)
  * @returns The generated email address in format: {prefix}@{EMAIL_DOMAIN}
  */
-export function generateDedicatedEmail(userId: Id<"users">): string {
+export function generateDedicatedEmail(userId: string): string {
   // Extract first 8 chars of user ID for a unique, deterministic prefix
   // Convex IDs start with a type prefix, so we skip that to get the unique part
   const idString = userId.toString()

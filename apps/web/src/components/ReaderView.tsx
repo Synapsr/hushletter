@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react"
 import { useAction, useMutation } from "convex/react"
 import { api } from "@newsletter-manager/backend"
+import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
 import DOMPurify from "dompurify"
 import { useScrollProgress } from "~/hooks/useScrollProgress"
 
 interface ReaderViewProps {
   /** userNewsletter document ID */
-  userNewsletterId: string
+  userNewsletterId: Id<"userNewsletters">
   /** Initial reading progress percentage (0-100) for resume feature */
   initialProgress?: number
   /** Callback when reading is complete (100% scrolled) */

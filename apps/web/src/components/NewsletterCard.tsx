@@ -12,7 +12,7 @@ import { SummaryPreview } from "./SummaryPreview"
 
 /** Newsletter data from listUserNewsletters query */
 export interface NewsletterData {
-  _id: string
+  _id: Id<"userNewsletters">
   subject: string
   senderEmail: string
   senderName?: string

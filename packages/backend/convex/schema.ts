@@ -11,6 +11,8 @@ export default defineSchema({
     authId: v.optional(v.string()),
     // Dedicated email address for receiving newsletters (Story 1.4)
     dedicatedEmail: v.optional(v.string()),
+    // Story 6.1: Track if user has seen the community sharing onboarding
+    hasSeenSharingOnboarding: v.optional(v.boolean()),
   })
     .index("by_email", ["email"])
     .index("by_authId", ["authId"])
@@ -37,7 +39,8 @@ export default defineSchema({
   })
     .index("by_contentHash", ["contentHash"])
     .index("by_senderEmail", ["senderEmail"])
-    .index("by_readerCount", ["readerCount"]),
+    .index("by_readerCount", ["readerCount"])
+    .index("by_firstReceivedAt", ["firstReceivedAt"]), // Story 6.1: For "Recent" sort in community browse
 
   // User's relationship to newsletters (per-user, references shared content or private)
   // Story 2.5.1: Task 1 - userNewsletters table

@@ -14,6 +14,7 @@ import type * as _internal_newsletterDetection from "../_internal/newsletterDete
 import type * as _internal_users from "../_internal/users.js";
 import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
+import type * as community from "../community.js";
 import type * as emailIngestion from "../emailIngestion.js";
 import type * as folders from "../folders.js";
 import type * as gmail from "../gmail.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   "_internal/users": typeof _internal_users;
   ai: typeof ai;
   auth: typeof auth;
+  community: typeof community;
   emailIngestion: typeof emailIngestion;
   folders: typeof folders;
   gmail: typeof gmail;

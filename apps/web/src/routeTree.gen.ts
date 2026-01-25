@@ -16,8 +16,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedNewslettersIndexRouteImport } from './routes/_authed/newsletters/index'
 import { Route as AuthedImportIndexRouteImport } from './routes/_authed/import/index'
+import { Route as AuthedCommunityIndexRouteImport } from './routes/_authed/community/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedNewslettersIdRouteImport } from './routes/_authed/newsletters/$id'
+import { Route as AuthedCommunityContentIdRouteImport } from './routes/_authed/community/$contentId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -53,6 +55,11 @@ const AuthedImportIndexRoute = AuthedImportIndexRouteImport.update({
   path: '/import/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedCommunityIndexRoute = AuthedCommunityIndexRouteImport.update({
+  id: '/community/',
+  path: '/community/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -63,13 +70,21 @@ const AuthedNewslettersIdRoute = AuthedNewslettersIdRouteImport.update({
   path: '/newsletters/$id',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedCommunityContentIdRoute =
+  AuthedCommunityContentIdRouteImport.update({
+    id: '/community/$contentId',
+    path: '/community/$contentId',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/community/$contentId': typeof AuthedCommunityContentIdRoute
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/community/': typeof AuthedCommunityIndexRoute
   '/import/': typeof AuthedImportIndexRoute
   '/newsletters/': typeof AuthedNewslettersIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
@@ -78,8 +93,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/community/$contentId': typeof AuthedCommunityContentIdRoute
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/community': typeof AuthedCommunityIndexRoute
   '/import': typeof AuthedImportIndexRoute
   '/newsletters': typeof AuthedNewslettersIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
@@ -90,8 +107,10 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/_authed/community/$contentId': typeof AuthedCommunityContentIdRoute
   '/_authed/newsletters/$id': typeof AuthedNewslettersIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/_authed/community/': typeof AuthedCommunityIndexRoute
   '/_authed/import/': typeof AuthedImportIndexRoute
   '/_authed/newsletters/': typeof AuthedNewslettersIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
@@ -102,8 +121,10 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/community/$contentId'
     | '/newsletters/$id'
     | '/api/auth/$'
+    | '/community/'
     | '/import/'
     | '/newsletters/'
     | '/settings/'
@@ -112,8 +133,10 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/community/$contentId'
     | '/newsletters/$id'
     | '/api/auth/$'
+    | '/community'
     | '/import'
     | '/newsletters'
     | '/settings'
@@ -123,8 +146,10 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/login'
     | '/signup'
+    | '/_authed/community/$contentId'
     | '/_authed/newsletters/$id'
     | '/api/auth/$'
+    | '/_authed/community/'
     | '/_authed/import/'
     | '/_authed/newsletters/'
     | '/_authed/settings/'
@@ -189,6 +214,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedImportIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/community/': {
+      id: '/_authed/community/'
+      path: '/community'
+      fullPath: '/community/'
+      preLoaderRoute: typeof AuthedCommunityIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -203,18 +235,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedNewslettersIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/community/$contentId': {
+      id: '/_authed/community/$contentId'
+      path: '/community/$contentId'
+      fullPath: '/community/$contentId'
+      preLoaderRoute: typeof AuthedCommunityContentIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
+  AuthedCommunityContentIdRoute: typeof AuthedCommunityContentIdRoute
   AuthedNewslettersIdRoute: typeof AuthedNewslettersIdRoute
+  AuthedCommunityIndexRoute: typeof AuthedCommunityIndexRoute
   AuthedImportIndexRoute: typeof AuthedImportIndexRoute
   AuthedNewslettersIndexRoute: typeof AuthedNewslettersIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedCommunityContentIdRoute: AuthedCommunityContentIdRoute,
   AuthedNewslettersIdRoute: AuthedNewslettersIdRoute,
+  AuthedCommunityIndexRoute: AuthedCommunityIndexRoute,
   AuthedImportIndexRoute: AuthedImportIndexRoute,
   AuthedNewslettersIndexRoute: AuthedNewslettersIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,

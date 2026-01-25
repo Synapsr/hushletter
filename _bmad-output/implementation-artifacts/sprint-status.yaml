@@ -1,5 +1,5 @@
 # generated: 2026-01-22
-# updated: 2026-01-25 (Story 8.1 code review complete - 9 issues found, 7 fixed)
+# updated: 2026-01-25 (Story 8.2 ready-for-dev - Drag-and-drop import UI)
 # project: newsletter manager
 # project_key: newsletter-manager
 # tracking_system: file-system
@@ -112,7 +112,7 @@ development_status:
   # FRs covered: FR29-FR36
   epic-8: in-progress
   8-1-eml-parser-service: done  # Code review complete - 9 issues found, 7 fixed, 59 tests pass
-  8-2-drag-and-drop-import-ui: backlog
+  8-2-drag-and-drop-import-ui: done  # Code review complete - 7 issues fixed (2 critical, 3 medium, 2 low)
   8-3-forward-to-import-endpoint: backlog
   8-4-duplicate-detection: backlog
   epic-8-retrospective: optional

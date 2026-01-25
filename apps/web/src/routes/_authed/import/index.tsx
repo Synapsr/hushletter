@@ -7,7 +7,7 @@
  * This page serves as the hub for all import-related functionality.
  */
 
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
 import { useQuery } from "convex/react"
 import { api } from "@newsletter-manager/backend"
@@ -21,7 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card"
-import { AlertCircle, RefreshCw } from "lucide-react"
+import { AlertCircle, RefreshCw, Upload, ArrowRight } from "lucide-react"
 
 export const Route = createFileRoute("/_authed/import/")({
   component: ImportPage,
@@ -116,6 +116,31 @@ function ImportPage() {
             <SenderScanner />
           </ErrorBoundary>
         )}
+
+        {/* Manual Import Section - Story 8.2 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Manual Import
+            </CardTitle>
+            <CardDescription>
+              Import newsletters from .eml files exported from your email client
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              If you have newsletters saved as .eml files, you can drag and drop
+              them to import them into Hushletter.
+            </p>
+            <Button asChild>
+              <Link to="/import/manual">
+                Import .eml Files
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

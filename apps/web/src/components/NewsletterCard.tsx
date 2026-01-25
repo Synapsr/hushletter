@@ -6,7 +6,8 @@ import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel
 import { Card, CardContent } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
-import { EyeOff, Eye, Sparkles } from "lucide-react"
+import { EyeOff, Eye, Sparkles, Lock } from "lucide-react"
+import { Tooltip } from "~/components/ui/tooltip"
 import { SummaryPreview } from "./SummaryPreview"
 
 /** Newsletter data from listUserNewsletters query */
@@ -171,8 +172,17 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
             {/* Date, summary indicator, progress indicator, feedback, and hide action */}
             <div className="flex items-start gap-2 flex-shrink-0">
               <div className="flex flex-col items-end gap-1">
-                {/* Date and summary indicator row */}
+                {/* Date, privacy indicator, and summary indicator row */}
                 <div className="flex items-center gap-1.5">
+                  {/* Story 6.2: Privacy indicator - lock icon for private newsletters */}
+                  {newsletter.isPrivate && (
+                    <Tooltip content="This newsletter is private and not shared with the community">
+                      <Lock
+                        className="h-3.5 w-3.5 text-muted-foreground"
+                        aria-label="Private newsletter"
+                      />
+                    </Tooltip>
+                  )}
                   {/* Story 5.2: Summary indicator - clickable to toggle preview */}
                   {newsletter.hasSummary && (
                     <button

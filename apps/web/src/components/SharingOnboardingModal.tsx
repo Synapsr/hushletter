@@ -106,7 +106,8 @@ export function SharingOnboardingModal() {
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Link to="/settings" onClick={handleDismiss}>
+          {/* Story 6.2: Link directly to privacy settings page */}
+          <Link to="/settings/privacy" onClick={handleDismiss}>
             <Button variant="outline" size="sm">
               Privacy Settings
             </Button>

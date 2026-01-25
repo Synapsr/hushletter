@@ -10,6 +10,7 @@ import { cn } from "~/lib/utils"
 
 interface CheckboxProps {
   checked?: boolean
+  indeterminate?: boolean
   onCheckedChange?: (checked: boolean) => void
   disabled?: boolean
   className?: string
@@ -19,6 +20,7 @@ interface CheckboxProps {
 function Checkbox({
   className,
   checked,
+  indeterminate,
   onCheckedChange,
   disabled,
   "aria-label": ariaLabel,
@@ -27,14 +29,15 @@ function Checkbox({
   return (
     <BaseCheckbox.Root
       data-slot="checkbox"
-      checked={checked}
-      onCheckedChange={(checked) => onCheckedChange?.(checked)}
+      checked={indeterminate ? "indeterminate" : checked}
+      onCheckedChange={(checked) => onCheckedChange?.(checked === true)}
       disabled={disabled}
       aria-label={ariaLabel}
       className={cn(
         "peer inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] border shadow-xs transition-all outline-none",
         "border-input bg-background",
         "data-[checked]:bg-primary data-[checked]:text-primary-foreground data-[checked]:border-primary",
+        "data-[indeterminate]:bg-primary/70 data-[indeterminate]:text-primary-foreground data-[indeterminate]:border-primary/70",
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "hover:border-primary/50",
@@ -43,7 +46,11 @@ function Checkbox({
       {...props}
     >
       <BaseCheckbox.Indicator className="flex items-center justify-center text-current">
-        <CheckIcon className="size-3" strokeWidth={3} />
+        {indeterminate ? (
+          <div className="size-2 bg-current rounded-sm" />
+        ) : (
+          <CheckIcon className="size-3" strokeWidth={3} />
+        )}
       </BaseCheckbox.Indicator>
     </BaseCheckbox.Root>
   )

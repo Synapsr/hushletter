@@ -16,7 +16,7 @@ import {
 } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
-import { Pencil, X, Check, Mail, AlertCircle } from "lucide-react"
+import { Pencil, X, Check, Mail, AlertCircle, Shield, ChevronRight } from "lucide-react"
 import { DisconnectConfirmDialog } from "~/routes/_authed/import/DisconnectConfirmDialog"
 
 export const Route = createFileRoute("/_authed/settings/")({
@@ -319,6 +319,33 @@ function SettingsPage() {
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
         Settings
       </h1>
+
+      {/* Privacy Settings Section - Story 6.2: Task 5 */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Privacy Settings
+          </CardTitle>
+          <CardDescription>
+            Control which senders' newsletters are shared with the community
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            to="/settings/privacy"
+            className="flex items-center justify-between p-3 -mx-3 rounded-lg hover:bg-muted/50 transition-colors group"
+          >
+            <div>
+              <p className="font-medium">Manage Sender Privacy</p>
+              <p className="text-sm text-muted-foreground">
+                Choose which senders' newsletters are private
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          </Link>
+        </CardContent>
+      </Card>
 
       {/* Gmail Integration Section - Story 4.5: Task 4 */}
       <GmailSettingsSection />

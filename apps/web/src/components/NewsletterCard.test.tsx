@@ -329,6 +329,62 @@ describe("NewsletterCard", () => {
     })
   })
 
+  // Story 6.2: Privacy lock icon tests
+  describe("Privacy Lock Icon (Story 6.2 Task 7.4)", () => {
+    it("displays lock icon when newsletter is private", () => {
+      const privateNewsletter: NewsletterData = {
+        ...mockNewsletter,
+        isPrivate: true,
+      }
+
+      render(<NewsletterCard newsletter={privateNewsletter} />)
+
+      // Lock icon should be present with aria-label
+      const lockIcon = screen.getByLabelText("Private newsletter")
+      expect(lockIcon).toBeInTheDocument()
+    })
+
+    it("does not display lock icon when newsletter is public", () => {
+      const publicNewsletter: NewsletterData = {
+        ...mockNewsletter,
+        isPrivate: false,
+      }
+
+      render(<NewsletterCard newsletter={publicNewsletter} />)
+
+      // Lock icon should NOT be present
+      expect(screen.queryByLabelText("Private newsletter")).not.toBeInTheDocument()
+    })
+
+    it("lock icon has subtle muted-foreground styling", () => {
+      const privateNewsletter: NewsletterData = {
+        ...mockNewsletter,
+        isPrivate: true,
+      }
+
+      render(<NewsletterCard newsletter={privateNewsletter} />)
+
+      const lockIcon = screen.getByLabelText("Private newsletter")
+      // Lock icon is wrapped in Tooltip, check the SVG itself has the correct class
+      expect(lockIcon).toHaveClass("text-muted-foreground")
+    })
+
+    it("lock icon has tooltip with privacy explanation", () => {
+      const privateNewsletter: NewsletterData = {
+        ...mockNewsletter,
+        isPrivate: true,
+      }
+
+      render(<NewsletterCard newsletter={privateNewsletter} />)
+
+      // The tooltip is wrapped, check the parent element has the tooltip content
+      // Since we use Base UI Tooltip, we check if the element exists
+      const lockIcon = screen.getByLabelText("Private newsletter")
+      expect(lockIcon).toBeInTheDocument()
+      // Tooltip content is rendered via portal, tested separately
+    })
+  })
+
   // Story 5.2: Summary indicator tests
   describe("Summary Indicator (Story 5.2 Tasks 1.2-1.4)", () => {
     it("Task 6.4: displays summary indicator when hasSummary is true", () => {

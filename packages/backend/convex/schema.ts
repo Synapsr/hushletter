@@ -13,6 +13,8 @@ export default defineSchema({
     dedicatedEmail: v.optional(v.string()),
     // Story 6.1: Track if user has seen the community sharing onboarding
     hasSeenSharingOnboarding: v.optional(v.boolean()),
+    // Story 7.1: Admin role flag - only set via direct DB edit or migration
+    isAdmin: v.optional(v.boolean()),
   })
     .index("by_email", ["email"])
     .index("by_authId", ["authId"])
@@ -66,7 +68,8 @@ export default defineSchema({
     .index("by_userId_receivedAt", ["userId", "receivedAt"])
     .index("by_userId_senderId", ["userId", "senderId"]) // Story 2.3: Efficient per-user sender queries
     .index("by_senderId", ["senderId"])
-    .index("by_contentId", ["contentId"]),
+    .index("by_contentId", ["contentId"])
+    .index("by_receivedAt", ["receivedAt"]), // Story 7.1: Admin recent activity queries
 
   // Global sender registry (not user-scoped)
   // Story 2.5.1: Task 1 - Refactored senders table
@@ -170,4 +173,22 @@ export default defineSchema({
     completedAt: v.optional(v.number()), // Unix timestamp ms
     error: v.optional(v.string()),
   }).index("by_userId", ["userId"]),
+
+  // ============================================================
+  // Story 7.1: Admin Dashboard System Health
+  // ============================================================
+
+  // Historical metrics snapshots for trend display
+  // Story 7.1: Task 4.1 - systemMetricsHistory table
+  systemMetricsHistory: defineTable({
+    date: v.string(), // "2026-01-25" format for deduplication
+    totalUsers: v.number(),
+    totalNewsletters: v.number(),
+    totalSenders: v.number(),
+    totalUserNewsletters: v.number(),
+    storageUsedBytes: v.number(),
+    recordedAt: v.number(), // Unix timestamp ms
+  })
+    .index("by_date", ["date"])
+    .index("by_recordedAt", ["recordedAt"]),
 })

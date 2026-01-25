@@ -8,13 +8,16 @@
  * @module
  */
 
+import type * as _internal_auth from "../_internal/auth.js";
 import type * as _internal_contentNormalization from "../_internal/contentNormalization.js";
 import type * as _internal_emailGeneration from "../_internal/emailGeneration.js";
 import type * as _internal_newsletterDetection from "../_internal/newsletterDetection.js";
 import type * as _internal_users from "../_internal/users.js";
+import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as community from "../community.js";
+import type * as crons from "../crons.js";
 import type * as emailIngestion from "../emailIngestion.js";
 import type * as folders from "../folders.js";
 import type * as gmail from "../gmail.js";
@@ -33,13 +36,16 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "_internal/auth": typeof _internal_auth;
   "_internal/contentNormalization": typeof _internal_contentNormalization;
   "_internal/emailGeneration": typeof _internal_emailGeneration;
   "_internal/newsletterDetection": typeof _internal_newsletterDetection;
   "_internal/users": typeof _internal_users;
+  admin: typeof admin;
   ai: typeof ai;
   auth: typeof auth;
   community: typeof community;
+  crons: typeof crons;
   emailIngestion: typeof emailIngestion;
   folders: typeof folders;
   gmail: typeof gmail;

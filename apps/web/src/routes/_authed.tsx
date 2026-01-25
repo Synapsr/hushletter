@@ -1,8 +1,11 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
+import { convexQuery } from "@convex-dev/react-query"
+import { api } from "@newsletter-manager/backend"
 import type { RouterContext } from "~/router"
 import { signOut } from "~/lib/auth-client"
 import { Button } from "~/components/ui/button"
-import { Settings, Download, Globe } from "lucide-react"
+import { Settings, Download, Globe, Shield } from "lucide-react"
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ context }) => {
@@ -17,6 +20,12 @@ export const Route = createFileRoute("/_authed")({
 
 function AuthedLayout() {
   const navigate = useNavigate()
+
+  // Story 7.1 Task 1.4: Check if user is admin for conditional nav link
+  const { data: adminCheck } = useQuery(
+    convexQuery(api.admin.checkIsAdmin, {})
+  )
+  const isAdmin = adminCheck?.isAdmin ?? false
 
   const handleLogout = async () => {
     try {
@@ -38,6 +47,17 @@ function AuthedLayout() {
             Newsletter Manager
           </div>
           <nav className="flex items-center gap-2">
+            {/* Story 7.1 Task 1.4: Admin navigation link (only visible to admins) */}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                activeProps={{ className: "text-foreground bg-gray-100 dark:bg-gray-800" }}
+                aria-label="Admin Dashboard"
+              >
+                <Shield className="h-5 w-5" />
+              </Link>
+            )}
             {/* Story 6.1 Task 6: Community navigation link */}
             <Link
               to="/community"

@@ -19,6 +19,111 @@ import { ConvexError } from "convex/values"
 import { r2 } from "./r2"
 
 // ============================================================
+// Story 6.3: Search Community Newsletters
+// ============================================================
+
+/**
+ * Search community newsletters by subject and sender name
+ * Story 6.3 Task 1.2
+ *
+ * Implements in-memory search on newsletterContent (Convex lacks full-text search).
+ * For MVP, scanning 500 items is acceptable. Consider Algolia for scale.
+ *
+ * Returns ONLY public fields - NEVER exposes user data.
+ *
+ * PRIVACY: Queries newsletterContent directly which is inherently public.
+ * Private newsletters never enter this table (Epic 2.5 design).
+ */
+export const searchCommunityNewsletters = query({
+  args: {
+    searchQuery: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Auth check - must be logged in to search community
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const searchQuery = args.searchQuery.trim()
+    if (searchQuery.length === 0) return []
+
+    const limit = Math.min(args.limit ?? 20, 100)
+    const searchLower = searchQuery.toLowerCase()
+
+    // Fetch and filter in-memory (Convex doesn't have full-text search)
+    // For MVP this is acceptable; consider external search (Algolia) for scale
+    const allContent = await ctx.db
+      .query("newsletterContent")
+      .withIndex("by_readerCount")
+      .order("desc")
+      .take(500) // Reasonable limit for in-memory search
+
+    const matches = allContent
+      .filter(
+        (c) =>
+          c.subject.toLowerCase().includes(searchLower) ||
+          (c.senderName?.toLowerCase().includes(searchLower) ?? false) ||
+          c.senderEmail.toLowerCase().includes(searchLower)
+      )
+      .slice(0, limit)
+
+    // Return ONLY public fields - NEVER expose user data
+    return matches.map((c) => ({
+      _id: c._id,
+      subject: c.subject,
+      senderEmail: c.senderEmail,
+      senderName: c.senderName,
+      firstReceivedAt: c.firstReceivedAt,
+      readerCount: c.readerCount,
+      hasSummary: Boolean(c.summary),
+    }))
+  },
+})
+
+// ============================================================
+// Story 6.3 Task 2.2: Top Community Senders
+// ============================================================
+
+/**
+ * List top community senders by subscriber count
+ * Story 6.3 Task 2.2
+ *
+ * Returns senders with highest subscriberCount for "Browse by Sender" section.
+ * Uses the global senders table which has pre-computed subscriber counts.
+ *
+ * Returns ONLY public sender info - no user data.
+ */
+export const listTopCommunitySenders = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Auth check - must be logged in to browse community
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const limit = Math.min(args.limit ?? 20, 100)
+
+    // Use the global senders table sorted by subscriberCount
+    const senders = await ctx.db
+      .query("senders")
+      .withIndex("by_subscriberCount")
+      .order("desc")
+      .take(limit)
+
+    // Return public sender info only
+    return senders.map((sender) => ({
+      email: sender.email,
+      name: sender.name,
+      displayName: sender.name || sender.email,
+      domain: sender.domain,
+      subscriberCount: sender.subscriberCount,
+      newsletterCount: sender.newsletterCount,
+    }))
+  },
+})
+
+// ============================================================
 // Task 1: Community Newsletter Queries
 // ============================================================
 
@@ -152,32 +257,40 @@ export const listCommunityNewslettersBySender = query({
     const sortBy = args.sortBy ?? "recent" // Default to recent for sender view
     const limit = Math.min(args.limit ?? 20, 100)
 
-    // Query by sender email using index
-    const items = await ctx.db
+    // Query ALL newsletters from this sender (up to reasonable max)
+    // We need all items to sort correctly before pagination
+    // Most senders have <500 newsletters, so this is acceptable
+    const allItems = await ctx.db
       .query("newsletterContent")
       .withIndex("by_senderEmail", (q) => q.eq("senderEmail", args.senderEmail))
-      .order("desc")
-      .take(limit + 1)
+      .collect()
 
     // Sort by desired field
-    const sortedItems = [...items]
+    const sortedItems = [...allItems]
     if (sortBy === "recent") {
-      sortedItems.sort((a, b) => b.firstReceivedAt - a.firstReceivedAt)
+      sortedItems.sort((a, b) => {
+        const diff = b.firstReceivedAt - a.firstReceivedAt
+        return diff !== 0 ? diff : a._id.localeCompare(b._id) // Tie-break by _id
+      })
     } else {
-      sortedItems.sort((a, b) => b.readerCount - a.readerCount)
+      sortedItems.sort((a, b) => {
+        const diff = b.readerCount - a.readerCount
+        return diff !== 0 ? diff : a._id.localeCompare(b._id) // Tie-break by _id
+      })
     }
 
     // Handle cursor-based pagination
-    let filteredItems = sortedItems
+    let startIndex = 0
     if (args.cursor) {
       const cursorIndex = sortedItems.findIndex((item) => item._id === args.cursor)
       if (cursorIndex !== -1) {
-        filteredItems = sortedItems.slice(cursorIndex + 1)
+        startIndex = cursorIndex + 1
       }
     }
 
-    const resultItems = filteredItems.slice(0, limit)
-    const hasMore = filteredItems.length > limit
+    const pageItems = sortedItems.slice(startIndex, startIndex + limit + 1)
+    const hasMore = pageItems.length > limit
+    const resultItems = pageItems.slice(0, limit)
     const nextCursor = hasMore ? resultItems[resultItems.length - 1]?._id : null
 
     return {

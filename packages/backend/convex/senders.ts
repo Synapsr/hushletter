@@ -240,7 +240,7 @@ export const updateUserSenderSettings = internalMutation({
 })
 
 /**
- * Get sender by email
+ * Get sender by email (internal)
  * Story 2.5.1: Task 4 - Lookup sender for global registry
  */
 export const getSenderByEmail = internalQuery({
@@ -252,6 +252,44 @@ export const getSenderByEmail = internalQuery({
       .query("senders")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first()
+  },
+})
+
+/**
+ * Get sender by email (public query with auth)
+ * Story 6.3: Task 2.3 - Sender detail view needs sender info
+ *
+ * Returns sender details for the sender detail page.
+ * Only exposes public sender info: email, name, domain, subscriberCount, newsletterCount.
+ *
+ * SECURITY NOTE: Requires authentication but sender data is public.
+ * Senders are a global registry for community discovery features (Epic 6).
+ */
+export const getSenderByEmailPublic = query({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Auth check - must be logged in to view sender details
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    const sender = await ctx.db
+      .query("senders")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first()
+
+    if (!sender) return null
+
+    return {
+      _id: sender._id,
+      email: sender.email,
+      name: sender.name,
+      displayName: sender.name || sender.email,
+      domain: sender.domain,
+      subscriberCount: sender.subscriberCount,
+      newsletterCount: sender.newsletterCount,
+    }
   },
 })
 

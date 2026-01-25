@@ -21,6 +21,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedSettingsPrivacyRouteImport } from './routes/_authed/settings/privacy'
 import { Route as AuthedNewslettersIdRouteImport } from './routes/_authed/newsletters/$id'
 import { Route as AuthedCommunityContentIdRouteImport } from './routes/_authed/community/$contentId'
+import { Route as AuthedCommunitySenderSenderEmailRouteImport } from './routes/_authed/community/sender/$senderEmail'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -82,6 +83,12 @@ const AuthedCommunityContentIdRoute =
     path: '/community/$contentId',
     getParentRoute: () => AuthedRoute,
   } as any)
+const AuthedCommunitySenderSenderEmailRoute =
+  AuthedCommunitySenderSenderEmailRouteImport.update({
+    id: '/community/sender/$senderEmail',
+    path: '/community/sender/$senderEmail',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/import/': typeof AuthedImportIndexRoute
   '/newsletters/': typeof AuthedNewslettersIndexRoute
   '/settings/': typeof AuthedSettingsIndexRoute
+  '/community/sender/$senderEmail': typeof AuthedCommunitySenderSenderEmailRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -108,6 +116,7 @@ export interface FileRoutesByTo {
   '/import': typeof AuthedImportIndexRoute
   '/newsletters': typeof AuthedNewslettersIndexRoute
   '/settings': typeof AuthedSettingsIndexRoute
+  '/community/sender/$senderEmail': typeof AuthedCommunitySenderSenderEmailRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -123,6 +132,7 @@ export interface FileRoutesById {
   '/_authed/import/': typeof AuthedImportIndexRoute
   '/_authed/newsletters/': typeof AuthedNewslettersIndexRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
+  '/_authed/community/sender/$senderEmail': typeof AuthedCommunitySenderSenderEmailRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/import/'
     | '/newsletters/'
     | '/settings/'
+    | '/community/sender/$senderEmail'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/import'
     | '/newsletters'
     | '/settings'
+    | '/community/sender/$senderEmail'
   id:
     | '__root__'
     | '/'
@@ -165,6 +177,7 @@ export interface FileRouteTypes {
     | '/_authed/import/'
     | '/_authed/newsletters/'
     | '/_authed/settings/'
+    | '/_authed/community/sender/$senderEmail'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedCommunityContentIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/community/sender/$senderEmail': {
+      id: '/_authed/community/sender/$senderEmail'
+      path: '/community/sender/$senderEmail'
+      fullPath: '/community/sender/$senderEmail'
+      preLoaderRoute: typeof AuthedCommunitySenderSenderEmailRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
@@ -272,6 +292,7 @@ interface AuthedRouteChildren {
   AuthedImportIndexRoute: typeof AuthedImportIndexRoute
   AuthedNewslettersIndexRoute: typeof AuthedNewslettersIndexRoute
   AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
+  AuthedCommunitySenderSenderEmailRoute: typeof AuthedCommunitySenderSenderEmailRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
@@ -282,6 +303,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedImportIndexRoute: AuthedImportIndexRoute,
   AuthedNewslettersIndexRoute: AuthedNewslettersIndexRoute,
   AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
+  AuthedCommunitySenderSenderEmailRoute: AuthedCommunitySenderSenderEmailRoute,
 }
 
 const AuthedRouteWithChildren =

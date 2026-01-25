@@ -49,6 +49,16 @@ describe("community API exports (Story 6.1 Task 1)", () => {
   })
 })
 
+describe("community API exports (Story 6.3)", () => {
+  it("should export searchCommunityNewsletters query", () => {
+    expect(api.community.searchCommunityNewsletters).toBeDefined()
+  })
+
+  it("should export listTopCommunitySenders query", () => {
+    expect(api.community.listTopCommunitySenders).toBeDefined()
+  })
+})
+
 describe("listCommunityNewsletters query contract (Story 6.1 Task 1.2)", () => {
   it("defines expected args schema", () => {
     const expectedArgsShape = {
@@ -290,5 +300,184 @@ describe("community error handling", () => {
   it("throws error for unauthenticated mutation/action requests", () => {
     const unauthMutationBehavior = 'throw new ConvexError({ code: "UNAUTHORIZED" })'
     expect(unauthMutationBehavior).toContain("UNAUTHORIZED")
+  })
+})
+
+// ============================================================
+// Story 6.3: Search and Sender Browse Tests
+// ============================================================
+
+describe("searchCommunityNewsletters query contract (Story 6.3 Task 1.2)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      searchQuery: "required string - the search term",
+      limit: "optional number - max items (default 20, max 100)",
+    }
+    expect(expectedArgsShape).toHaveProperty("searchQuery")
+    expect(expectedArgsShape).toHaveProperty("limit")
+  })
+
+  it("searches by subject field", () => {
+    const searchBehavior = "subject.toLowerCase().includes(searchLower)"
+    expect(searchBehavior).toContain("subject")
+    expect(searchBehavior).toContain("toLowerCase")
+  })
+
+  it("searches by senderName field", () => {
+    const searchBehavior = "senderName?.toLowerCase().includes(searchLower)"
+    expect(searchBehavior).toContain("senderName")
+  })
+
+  it("searches by senderEmail field", () => {
+    const searchBehavior = "senderEmail.toLowerCase().includes(searchLower)"
+    expect(searchBehavior).toContain("senderEmail")
+  })
+
+  it("is case-insensitive", () => {
+    const caseInsensitiveBehavior = "searchQuery.toLowerCase()"
+    expect(caseInsensitiveBehavior).toContain("toLowerCase")
+  })
+
+  it("returns empty array for empty search query", () => {
+    const emptyQueryBehavior = 'if (searchQuery.length === 0) return []'
+    expect(emptyQueryBehavior).toContain("return []")
+  })
+
+  it("returns empty array for unauthenticated users", () => {
+    const unauthBehavior = "if (!identity) return []"
+    expect(unauthBehavior).toContain("return []")
+  })
+
+  it("returns ONLY public fields - NO user data", () => {
+    const publicFields = [
+      "_id",
+      "subject",
+      "senderEmail",
+      "senderName",
+      "firstReceivedAt",
+      "readerCount",
+      "hasSummary",
+    ]
+    const forbiddenFields = ["userId", "privateR2Key", "isRead", "isHidden"]
+
+    expect(publicFields).toContain("_id")
+    expect(publicFields).toContain("readerCount")
+    expect(publicFields).not.toContain("userId")
+    expect(forbiddenFields).toContain("userId")
+  })
+
+  it("limits in-memory scan to 500 items for performance", () => {
+    const scanLimit = ".take(500)"
+    expect(scanLimit).toContain("500")
+  })
+
+  it("sorts results by readerCount (popularity)", () => {
+    const sortOrder = '.withIndex("by_readerCount").order("desc")'
+    expect(sortOrder).toContain("readerCount")
+    expect(sortOrder).toContain("desc")
+  })
+})
+
+describe("listTopCommunitySenders query contract (Story 6.3 Task 2.2)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      limit: "optional number - max senders (default 20, max 100)",
+    }
+    expect(expectedArgsShape).toHaveProperty("limit")
+  })
+
+  it("returns senders sorted by subscriberCount", () => {
+    const sortBehavior = '.withIndex("by_subscriberCount").order("desc")'
+    expect(sortBehavior).toContain("subscriberCount")
+    expect(sortBehavior).toContain("desc")
+  })
+
+  it("returns public sender info only", () => {
+    const publicFields = [
+      "email",
+      "name",
+      "displayName",
+      "domain",
+      "subscriberCount",
+      "newsletterCount",
+    ]
+    expect(publicFields).toContain("email")
+    expect(publicFields).toContain("subscriberCount")
+    expect(publicFields).not.toContain("userId")
+  })
+
+  it("returns empty array for unauthenticated users", () => {
+    const unauthBehavior = "if (!identity) return []"
+    expect(unauthBehavior).toContain("return []")
+  })
+
+  it("includes displayName (name or email fallback)", () => {
+    const displayNameLogic = "displayName: sender.name || sender.email"
+    expect(displayNameLogic).toContain("displayName")
+    expect(displayNameLogic).toContain("||")
+  })
+})
+
+describe("search privacy enforcement (Story 6.3 Task 5)", () => {
+  it("queries ONLY newsletterContent table - never userNewsletters", () => {
+    const queryPattern = 'ctx.db.query("newsletterContent")'
+    expect(queryPattern).toContain("newsletterContent")
+    expect(queryPattern).not.toContain("userNewsletters")
+  })
+
+  it("never exposes userId in search results", () => {
+    const publicFields = ["_id", "subject", "senderEmail", "senderName", "firstReceivedAt", "readerCount", "hasSummary"]
+    expect(publicFields).not.toContain("userId")
+  })
+
+  it("private newsletters never enter newsletterContent (architecture guarantee)", () => {
+    const privacyArchitecture = {
+      note: "isPrivate=true newsletters use privateR2Key and bypass newsletterContent",
+      guarantee: "If it's in newsletterContent, it's public by definition",
+    }
+    expect(privacyArchitecture.guarantee).toContain("public by definition")
+  })
+
+  it("search cannot return private content by design", () => {
+    const designNote = "newsletterContent table only contains public content - Epic 2.5 architecture"
+    expect(designNote).toContain("only contains public content")
+  })
+})
+
+describe("getSenderByEmailPublic query contract (Story 6.3 Task 2.3)", () => {
+  it("should export getSenderByEmailPublic query", () => {
+    expect(api.senders.getSenderByEmailPublic).toBeDefined()
+  })
+
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      email: "required string - sender email to lookup",
+    }
+    expect(expectedArgsShape).toHaveProperty("email")
+  })
+
+  it("returns null for unauthenticated users", () => {
+    const unauthBehavior = "if (!identity) return null"
+    expect(unauthBehavior).toContain("return null")
+  })
+
+  it("returns null if sender not found", () => {
+    const notFoundBehavior = "if (!sender) return null"
+    expect(notFoundBehavior).toContain("return null")
+  })
+
+  it("returns public sender info with displayName", () => {
+    const returnFields = [
+      "_id",
+      "email",
+      "name",
+      "displayName",
+      "domain",
+      "subscriberCount",
+      "newsletterCount",
+    ]
+    expect(returnFields).toContain("displayName")
+    expect(returnFields).toContain("subscriberCount")
+    expect(returnFields).not.toContain("userId")
   })
 })

@@ -1,0 +1,17 @@
+From: Newsletter <news@example.com>
+To: reader@example.com
+Subject: Weekly Newsletter #42
+Date: Tue, 15 Jan 2026 10:30:00 -0500
+Message-ID: <abc123@example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<head><title>Newsletter</title></head>
+<body>
+<h1>Hello World</h1>
+<p>Newsletter content here.</p>
+<a href="https://example.com">Read more</a>
+</body>
+</html>

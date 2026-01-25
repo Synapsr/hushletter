@@ -1,0 +1,27 @@
+From: Documents <docs@example.com>
+To: reader@example.com
+Subject: Newsletter with PDF Attachment
+Date: Sat, 19 Jan 2026 09:00:00 +0000
+Message-ID: <attachment202@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mixed-boundary"
+
+--mixed-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+<h1>Newsletter with Attachment</h1>
+<p>Please find the report attached.</p>
+</body>
+</html>
+
+--mixed-boundary
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="report.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2Jq
+
+--mixed-boundary--

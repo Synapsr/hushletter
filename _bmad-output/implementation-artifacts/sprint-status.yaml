@@ -1,5 +1,5 @@
 # generated: 2026-01-22
-# updated: 2026-01-25 (Story 7.4 done - community content management)
+# updated: 2026-01-25 (Story 8.1 code review complete - 9 issues found, 7 fixed)
 # project: newsletter manager
 # project_key: newsletter-manager
 # tracking_system: file-system
@@ -100,9 +100,19 @@ development_status:
   6-4-browse-newsletters-not-personally-received: done  # Code review complete - 7 fixes (1 HIGH, 1 MEDIUM, 5 LOW)
   epic-6-retrospective: optional
 
-  epic-7: in-progress
+  epic-7: done
   7-1-admin-dashboard-system-health: done  # Code review complete - 7 fixes (3 HIGH, 4 MEDIUM), 94 tests, performance docs added
   7-2-email-delivery-monitoring: done  # Code review complete - 4 fixes (hooks violation, type duplication, non-functional button, index keys)
   7-3-privacy-content-review: done  # Code review complete - 4 fixes (2 HIGH, 2 MEDIUM), tabs accessibility, error handling, type safety
   7-4-community-content-management: done  # Code review complete - 6 fixes (2 HIGH, 3 MEDIUM, 1 LOW)
   epic-7-retrospective: optional
+
+  # Epic 8: Manual Newsletter Import
+  # Users can import newsletters from any email provider via drag-and-drop .eml files or email forwarding
+  # FRs covered: FR29-FR36
+  epic-8: in-progress
+  8-1-eml-parser-service: done  # Code review complete - 9 issues found, 7 fixed, 59 tests pass
+  8-2-drag-and-drop-import-ui: backlog
+  8-3-forward-to-import-endpoint: backlog
+  8-4-duplicate-detection: backlog
+  epic-8-retrospective: optional

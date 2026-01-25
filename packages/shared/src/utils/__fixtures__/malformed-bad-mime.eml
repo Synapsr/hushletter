@@ -1,0 +1,14 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Bad MIME Structure
+Date: Mon, 20 Jan 2026 10:00:00 +0000
+Message-ID: <badmime@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="broken-boundary"
+
+--wrong-boundary
+Content-Type: text/plain
+
+This uses wrong boundary marker.
+
+--another-wrong-boundary--

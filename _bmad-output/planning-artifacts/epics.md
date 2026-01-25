@@ -7,12 +7,13 @@ stepsCompleted:
 inputDocuments:
   - prd.md
   - architecture.md
+  - feature-spec-manual-newsletter-import.md
 workflowType: 'epics-and-stories'
 project_name: 'newsletter manager'
 user_name: 'Teogoulois'
-date: '2026-01-22'
+date: '2026-01-25'
 status: complete
-completedAt: '2026-01-22'
+completedAt: '2026-01-25'
 ---
 
 # Newsletter Manager - Epic Breakdown
@@ -66,6 +67,16 @@ This document provides the complete epic and story breakdown for Newsletter Mana
 - FR26: Admin can monitor email delivery status
 - FR27: Admin can review content flagged as private
 - FR28: Admin can manage community database content
+
+**Manual Newsletter Import**
+- FR29: Users can drag-and-drop single `.eml` file and see it imported
+- FR30: Users can drag-and-drop multiple `.eml` files (bulk import)
+- FR31: Users can forward email to `import@hushletter.com` and see it imported
+- FR32: Imported newsletters display identically to Gmail-imported ones
+- FR33: Duplicate emails are not imported (no error shown to user)
+- FR34: New newsletter sources are auto-created when sender is unknown
+- FR35: Existing newsletter sources receive imported emails correctly
+- FR36: Forward-to-import only works from user's registered email address(es)
 
 ### NonFunctional Requirements
 
@@ -163,6 +174,14 @@ This document provides the complete epic and story breakdown for Newsletter Mana
 | FR26 | Epic 7 | Admin can monitor email delivery status |
 | FR27 | Epic 7 | Admin can review content flagged as private |
 | FR28 | Epic 7 | Admin can manage community database content |
+| FR29 | Epic 8 | Users can drag-and-drop single `.eml` file and see it imported |
+| FR30 | Epic 8 | Users can drag-and-drop multiple `.eml` files (bulk import) |
+| FR31 | Epic 8 | Users can forward email to `import@hushletter.com` and see it imported |
+| FR32 | Epic 8 | Imported newsletters display identically to Gmail-imported ones |
+| FR33 | Epic 8 | Duplicate emails are not imported (no error shown to user) |
+| FR34 | Epic 8 | New newsletter sources are auto-created when sender is unknown |
+| FR35 | Epic 8 | Existing newsletter sources receive imported emails correctly |
+| FR36 | Epic 8 | Forward-to-import only works from user's registered email address(es) |
 
 ## Epic List
 
@@ -273,6 +292,20 @@ Administrators can monitor system health and manage the platform.
 - Email delivery monitoring
 - Privacy flag review tools
 - Community content moderation
+
+---
+
+### Epic 8: Manual Newsletter Import
+Users can import newsletters from any email provider via drag-and-drop `.eml` files or email forwarding.
+
+**FRs covered:** FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36
+
+**Implementation Notes:**
+- Drag-and-drop `.eml` file import (single and bulk)
+- Forward-to-import via `import@hushletter.com`
+- Reuse existing email worker infrastructure and sender matching logic
+- Duplicate detection via message ID or content hash
+- Rate limiting on forward-to-import endpoint
 
 ---
 
@@ -1436,3 +1469,208 @@ Administrators can monitor system health and manage the platform.
 **When** the action is completed
 **Then** an audit log entry is created
 **And** the action can be reviewed later if needed
+
+---
+
+## Epic 8: Manual Newsletter Import
+
+Users can import newsletters from any email provider via drag-and-drop `.eml` files or email forwarding to `import@hushletter.com`.
+
+### Story 8.1: EML Parser Service
+
+**As a** developer,
+**I want** a service that parses `.eml` files and extracts newsletter data,
+**So that** users can import newsletters from any email client.
+
+**Acceptance Criteria:**
+
+**Given** a valid `.eml` file is provided
+**When** the parser processes the file
+**Then** it extracts sender name, sender email, subject line, and received date
+**And** it extracts HTML body content (with plain text fallback)
+**And** it extracts inline images and attachments
+
+**Given** an `.eml` file with only plain text content
+**When** the parser processes the file
+**Then** the plain text is extracted successfully
+**And** HTML body is null or empty
+
+**Given** an `.eml` file with embedded images (Content-ID references)
+**When** the parser processes the file
+**Then** inline images are extracted and preserved
+**And** Content-ID references are resolved correctly
+
+**Given** a malformed or invalid `.eml` file
+**When** the parser attempts to process it
+**Then** a structured error is returned (not a crash)
+**And** the error indicates what was wrong (e.g., "Invalid MIME format")
+
+**Given** the parser extracts a date
+**When** storing the newsletter
+**Then** the original received date is used (not the current import time)
+**And** the date is stored as Unix timestamp (per Architecture patterns)
+
+**Implementation Notes:**
+- Create `packages/shared/src/utils/emlParser.ts` for shared parsing logic
+- Use existing email parsing patterns from `apps/email-worker/src/emailHandler.ts`
+- Parser should be usable both client-side (drag-drop) and server-side (forward-to-import)
+
+---
+
+### Story 8.2: Drag-and-Drop Import UI
+
+**As a** user with newsletters in another email client,
+**I want** to drag-and-drop `.eml` files into Hushletter,
+**So that** I can import newsletters without email forwarding.
+
+**Acceptance Criteria:**
+
+**Given** I am logged in and on the import page
+**When** I view the import options
+**Then** I see a drag-and-drop zone for `.eml` files
+**And** the zone has clear visual instructions ("Drag .eml files here")
+
+**Given** I drag a single `.eml` file onto the drop zone
+**When** I release the file
+**Then** the file is parsed using the EML parser
+**And** I see a preview of the extracted newsletter (subject, sender, date)
+**And** I can confirm or cancel the import
+
+**Given** I confirm a single file import
+**When** the import is processed
+**Then** the newsletter content is uploaded to R2
+**And** a `userNewsletter` record is created
+**And** sender matching/creation follows existing logic (Story 2.3)
+**And** I see a success message with the imported newsletter
+
+**Given** I drag multiple `.eml` files onto the drop zone (FR30)
+**When** I release the files
+**Then** all files are queued for processing
+**And** I see a progress indicator showing "X of Y processed"
+**And** processing happens in parallel (up to reasonable concurrency limit)
+
+**Given** bulk import completes
+**When** viewing the results
+**Then** I see a summary: "Imported X newsletters, Y duplicates skipped, Z failed"
+**And** I can see details of any failures
+**And** successfully imported newsletters appear in my list
+
+**Given** I drag a non-`.eml` file onto the drop zone
+**When** I release the file
+**Then** the file is rejected with a clear message ("Only .eml files are supported")
+**And** the drop zone returns to its ready state
+
+**Given** I am on the import page
+**When** I prefer to use a file picker instead of drag-drop
+**Then** I can click a "Browse files" button to open a file picker
+**And** the file picker filters to `.eml` files by default
+
+**Implementation Notes:**
+- Add route at `app/routes/_authed/import/manual.tsx`
+- Use HTML5 Drag and Drop API with proper MIME type checking
+- Client-side parsing for preview, server-side processing for storage
+- Reuse `ImportProgress.tsx` component from Gmail import (Epic 4)
+
+---
+
+### Story 8.3: Forward-to-Import Endpoint
+
+**As a** user with newsletters in any email provider,
+**I want** to forward emails to `import@hushletter.com`,
+**So that** I can import newsletters without exporting files.
+
+**Acceptance Criteria:**
+
+**Given** the forward-to-import endpoint is deployed
+**When** an email is forwarded to `import@hushletter.com`
+**Then** the email worker receives and processes the forwarded message
+**And** the original newsletter is extracted from the forwarded email
+
+**Given** a forwarded email arrives
+**When** the system identifies the forwarding user
+**Then** it checks if the "From" address matches a registered user's email
+**And** if matched, the import proceeds for that user
+**And** if not matched, the email is rejected (FR36 - security)
+
+**Given** a forwarded email is from an unregistered address
+**When** the email worker processes it
+**Then** the email is rejected silently (no bounce to prevent information leakage)
+**And** an admin log entry is created for monitoring
+
+**Given** a valid forwarded email is processed
+**When** extracting the original newsletter
+**Then** the system unwraps the forwarded message structure
+**And** extracts the original sender (not the forwarding user)
+**And** extracts the original date (not the forward date)
+**And** extracts the original subject (without "Fwd:" prefix)
+
+**Given** the original newsletter is extracted
+**When** storing the newsletter
+**Then** it follows the same flow as drag-drop import
+**And** sender matching/creation uses existing logic (Story 2.3)
+**And** the newsletter appears in the user's list in real-time
+
+**Given** rate limiting is enabled
+**When** a user forwards more than 50 emails per hour
+**Then** subsequent emails are queued or rate-limited
+**And** the user is not notified of rate limiting (silent queue)
+
+**Given** the email worker is deployed
+**When** reviewing the configuration
+**Then** `import@hushletter.com` routes to the email worker
+**And** the worker has a dedicated handler for import emails (separate from dedicated address flow)
+
+**Implementation Notes:**
+- Add handler in `apps/email-worker/src/importHandler.ts`
+- Cloudflare Email Routing rule: `import@hushletter.com` → import handler
+- Use `convex/users.ts` to lookup user by email address
+- Rate limiting via Cloudflare Workers KV or Durable Objects
+
+---
+
+### Story 8.4: Duplicate Detection
+
+**As a** user importing newsletters,
+**I want** duplicate emails to be automatically skipped,
+**So that** I don't have duplicate newsletters in my library.
+
+**Acceptance Criteria:**
+
+**Given** I import a newsletter via drag-drop or forward
+**When** the system checks for duplicates
+**Then** it checks by Message-ID header first (most reliable)
+**And** if no Message-ID, it checks by content hash (fallback)
+
+**Given** a newsletter with the same Message-ID already exists for me
+**When** I attempt to import it
+**Then** the import is skipped silently (FR33 - no error shown)
+**And** the existing newsletter is unchanged
+**And** bulk import counts this as "duplicate skipped"
+
+**Given** a newsletter with the same content hash exists for me
+**When** I attempt to import it (and no Message-ID match)
+**Then** the import is skipped as a duplicate
+**And** content hash uses the same normalization as Epic 2.5 (Story 2.5.2)
+
+**Given** the same newsletter content exists in the community database
+**When** I import a newsletter that matches `newsletterContent.contentHash`
+**Then** my `userNewsletter` references the existing `contentId` (deduplication)
+**And** no new `newsletterContent` record is created
+**And** `readerCount` is incremented
+
+**Given** I have marked a sender as private
+**When** I import a newsletter from that sender
+**Then** duplicate detection uses my private content (not community)
+**And** the imported newsletter is stored with `privateR2Key`
+
+**Given** bulk import processes multiple files
+**When** some files are duplicates
+**Then** duplicates are detected and skipped
+**And** the progress indicator shows "X imported, Y duplicates"
+**And** non-duplicate files continue processing
+
+**Implementation Notes:**
+- Add `messageId` field to `userNewsletters` schema for deduplication
+- Index: `.index("by_userId_messageId", ["userId", "messageId"])`
+- Content hash fallback uses `normalizeForHash()` from Story 2.5.2
+- Duplicate check happens before R2 upload (avoid unnecessary storage)

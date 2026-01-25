@@ -1,0 +1,12 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Plain Text Newsletter
+Date: Wed, 16 Jan 2026 14:00:00 +0000
+Message-ID: <plaintext456@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+This is a plain text newsletter.
+No HTML formatting here.
+
+Thanks for reading!

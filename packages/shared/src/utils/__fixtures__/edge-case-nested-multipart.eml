@@ -1,0 +1,51 @@
+From: Complex Newsletter <complex@example.com>
+To: reader@example.com
+Subject: Deeply Nested Newsletter
+Date: Sun, 21 Jan 2026 15:00:00 +0000
+Message-ID: <nested303@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="outer-boundary"
+
+--outer-boundary
+Content-Type: multipart/alternative; boundary="alt-boundary"
+
+--alt-boundary
+Content-Type: text/plain; charset=utf-8
+
+Plain text version of nested newsletter.
+
+--alt-boundary
+Content-Type: multipart/related; boundary="related-boundary"
+
+--related-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+<h1>Nested Newsletter</h1>
+<img src="cid:nested-image@example.com" alt="Nested Image">
+<p>HTML content with inline image.</p>
+</body>
+</html>
+
+--related-boundary
+Content-Type: image/png
+Content-ID: <nested-image@example.com>
+Content-Transfer-Encoding: base64
+Content-Disposition: inline; filename="nested.png"
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==
+
+--related-boundary--
+
+--alt-boundary--
+
+--outer-boundary
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="document.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwo+PgplbmRvYmoK
+
+--outer-boundary--

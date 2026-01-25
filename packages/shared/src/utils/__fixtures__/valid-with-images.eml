@@ -1,0 +1,29 @@
+From: Visual Newsletter <visual@example.com>
+To: reader@example.com
+Subject: Newsletter with Images
+Date: Fri, 18 Jan 2026 12:00:00 +0000
+Message-ID: <images101@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="related-boundary"
+
+--related-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+<h1>Newsletter with Image</h1>
+<img src="cid:logo@example.com" alt="Logo">
+<p>Content below the image.</p>
+</body>
+</html>
+
+--related-boundary
+Content-Type: image/png
+Content-ID: <logo@example.com>
+Content-Transfer-Encoding: base64
+Content-Disposition: inline; filename="logo.png"
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+
+--related-boundary--

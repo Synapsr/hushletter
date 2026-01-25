@@ -18,6 +18,7 @@
     "wrangler": "^4.60.0"
   },
   "dependencies": {
+    "@newsletter-manager/shared": "workspace:*",
     "postal-mime": "^2.7.3"
   }
 }

@@ -11,9 +11,16 @@
     "./utils": "./src/utils/index.ts"
   },
   "scripts": {
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "postal-mime": "^2.7.3"
   }
 }

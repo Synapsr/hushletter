@@ -1,4 +1,6 @@
 import PostalMime from "postal-mime"
+// Import sanitizeHtml from shared package to avoid duplication
+import { sanitizeHtml } from "@newsletter-manager/shared/utils"
 
 /**
  * Parsed email data structure
@@ -64,40 +66,8 @@ export async function parseEmail(
   }
 }
 
-/**
- * Sanitize HTML content to prevent XSS attacks
- * Removes dangerous tags, event handlers, and malicious URLs
- */
-export function sanitizeHtml(html: string): string {
-  return (
-    html
-      // Remove script tags and their content
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-      // Remove iframe tags (can embed malicious content)
-      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
-      // Remove object/embed tags (plugin exploits)
-      .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "")
-      .replace(/<embed\b[^>]*\/?>/gi, "")
-      // Remove form tags (phishing prevention)
-      .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, "")
-      // Remove meta refresh tags (redirect attacks)
-      .replace(/<meta\b[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, "")
-      // Remove base tags (hijacks relative URLs)
-      .replace(/<base\b[^>]*>/gi, "")
-      // Remove svg tags with potential script content
-      .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, "<!-- svg removed -->")
-      // Remove event handler attributes (onclick, onload, etc.)
-      .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, "")
-      .replace(/\bon\w+\s*=\s*[^\s>]*/gi, "")
-      // Remove javascript: URLs
-      .replace(/javascript:/gi, "blocked:")
-      // Remove vbscript: URLs (IE legacy)
-      .replace(/vbscript:/gi, "blocked:")
-      // Remove data: URLs in src/href (can be used for XSS)
-      .replace(/data:\s*text\/html/gi, "blocked:")
-      .replace(/data:\s*image\/svg\+xml/gi, "blocked:")
-  )
-}
+// Re-export sanitizeHtml for backwards compatibility
+export { sanitizeHtml }
 
 /**
  * Get storable content from parsed email

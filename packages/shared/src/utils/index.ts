@@ -1,2 +1,6 @@
-// Utility functions - placeholder for future utilities
-export {}
+export {
+  parseEmlFile,
+  extractMessageId,
+  resolveInlineImages,
+  sanitizeHtml,
+} from "./emlParser"

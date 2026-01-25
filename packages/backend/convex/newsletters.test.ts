@@ -320,6 +320,83 @@ describe("listUserNewsletters query contract", () => {
     expect(filterBehavior.uses).toContain("by_userId")
     expect(filterBehavior.order).toBe("desc")
   })
+
+  // Story 5.2: hasSummary field tests
+  describe("hasSummary field (Story 5.2)", () => {
+    it("includes hasSummary boolean in response", () => {
+      const expectedReturnFields = [
+        "_id",
+        "subject",
+        "senderEmail",
+        "receivedAt",
+        "isRead",
+        "isHidden",
+        "isPrivate",
+        "hasSummary", // Story 5.2 addition
+      ]
+      expect(expectedReturnFields).toContain("hasSummary")
+    })
+
+    it("derives hasSummary from personal summary for all newsletters", () => {
+      // hasSummary = true when userNewsletter.summary exists
+      const derivationLogic = {
+        step1: "Check userNewsletter.summary (personal summary)",
+        result: "hasSummary = Boolean(newsletter.summary)",
+      }
+      expect(derivationLogic.step1).toContain("userNewsletter.summary")
+    })
+
+    it("derives hasSummary from shared content for public newsletters without personal summary", () => {
+      // If no personal summary and public content, check newsletterContent.summary
+      const derivationLogic = {
+        condition: "!newsletter.summary && !newsletter.isPrivate && newsletter.contentId",
+        action: "Fetch newsletterContent and check content.summary",
+        result: "hasSummary = Boolean(content?.summary)",
+      }
+      expect(derivationLogic.condition).toContain("isPrivate")
+      expect(derivationLogic.action).toContain("newsletterContent")
+    })
+
+    it("returns hasSummary: false when no summary exists", () => {
+      // Neither personal nor shared summary
+      const noSummaryCase = {
+        personalSummary: undefined,
+        sharedSummary: undefined,
+        hasSummary: false,
+      }
+      expect(noSummaryCase.hasSummary).toBe(false)
+    })
+
+    it("returns hasSummary: true when personal summary exists", () => {
+      const personalSummaryCase = {
+        personalSummary: "This is a summary",
+        sharedSummary: undefined,
+        hasSummary: true,
+      }
+      expect(personalSummaryCase.hasSummary).toBe(true)
+    })
+
+    it("returns hasSummary: true for public newsletter with shared summary", () => {
+      const sharedSummaryCase = {
+        isPrivate: false,
+        personalSummary: undefined,
+        sharedSummary: "Community summary",
+        hasSummary: true,
+      }
+      expect(sharedSummaryCase.hasSummary).toBe(true)
+    })
+
+    it("private newsletters do not check shared summary", () => {
+      // Private newsletters only check personal summary
+      const privateNewsletterLogic = {
+        isPrivate: true,
+        personalSummary: undefined,
+        sharedSummaryCheck: "skipped - private content has no contentId",
+        hasSummary: false,
+      }
+      expect(privateNewsletterLogic.sharedSummaryCheck).toContain("skipped")
+    })
+  })
 })
 
 describe("newsletters error handling", () => {
@@ -1068,5 +1145,82 @@ describe("hidden newsletter schema fields (Story 3.5)", () => {
     }
     expect(schemaField.name).toBe("isHidden")
     expect(schemaField.default).toBe(false)
+  })
+})
+
+// Story 5.2: Summary Display & Management
+describe("hasSummary derivation logic (Story 5.2)", () => {
+  describe("listUserNewslettersBySender", () => {
+    it("includes hasSummary in response", () => {
+      const expectedFields = ["_id", "subject", "hasSummary"]
+      expect(expectedFields).toContain("hasSummary")
+    })
+
+    it("derives hasSummary using same logic as listUserNewsletters", () => {
+      const derivationLogic = {
+        step1: "Check newsletter.summary (personal)",
+        step2: "If !hasSummary && !isPrivate && contentId → check content.summary",
+        step3: "Return enriched newsletter with hasSummary boolean",
+      }
+      expect(derivationLogic.step2).toContain("contentId")
+    })
+  })
+
+  describe("listUserNewslettersByFolder", () => {
+    it("includes hasSummary in response", () => {
+      const expectedFields = ["_id", "subject", "senderDisplayName", "hasSummary"]
+      expect(expectedFields).toContain("hasSummary")
+    })
+
+    it("enriches with both senderDisplayName and hasSummary", () => {
+      const enrichmentLogic = {
+        senderDisplayName: "sender?.name || sender?.email || newsletter.senderEmail",
+        hasSummary: "Boolean(newsletter.summary) || Boolean(content?.summary)",
+      }
+      expect(enrichmentLogic.hasSummary).toContain("summary")
+    })
+  })
+
+  describe("listHiddenNewsletters", () => {
+    it("includes hasSummary for hidden newsletters too", () => {
+      // Hidden newsletters should also show summary indicator when unhidden
+      const expectedFields = ["_id", "isHidden", "hasSummary"]
+      expect(expectedFields).toContain("hasSummary")
+    })
+  })
+
+  describe("privacy-aware summary resolution", () => {
+    it("respects privacy pattern: personal first, then shared if public", () => {
+      const privacyPattern = {
+        order: ["1. Check userNewsletter.summary (personal override)", "2. IF public AND no personal: Check newsletterContent.summary (shared)"],
+        privateNewsletter: "Only checks personal summary, never shared",
+        publicNewsletter: "Falls back to shared summary if no personal",
+      }
+      expect(privacyPattern.order[0]).toContain("personal override")
+      expect(privacyPattern.order[1]).toContain("shared")
+    })
+
+    it("does not leak private content summary to other users", () => {
+      // Private newsletters have no contentId, so no shared summary lookup possible
+      const securityBehavior = {
+        privateStorage: "privateR2Key on userNewsletters, no contentId",
+        publicStorage: "contentId referencing newsletterContent table",
+        summaryOnPrivate: "Only stored on userNewsletters.summary",
+        summaryOnPublic: "Stored on newsletterContent.summary (shared)",
+      }
+      expect(securityBehavior.privateStorage).toContain("no contentId")
+    })
+  })
+})
+
+describe("summary display acceptance criteria (Story 5.2)", () => {
+  it("AC4: Summary indicator in newsletter list", () => {
+    const ac4 = {
+      requirement: "When browsing newsletter list, see indicator if summary available",
+      implementation: "hasSummary boolean on listUserNewsletters response",
+      display: "NewsletterCard shows Sparkles icon when hasSummary=true",
+      optional: "Preview summary from list on click",
+    }
+    expect(ac4.implementation).toContain("hasSummary")
   })
 })

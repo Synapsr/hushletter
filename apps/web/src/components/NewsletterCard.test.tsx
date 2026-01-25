@@ -11,6 +11,11 @@ vi.mock("@tanstack/react-router", () => ({
   ),
 }))
 
+// Mock SummaryPreview component
+vi.mock("./SummaryPreview", () => ({
+  SummaryPreview: () => <div data-testid="summary-preview">Mock Preview</div>,
+}))
+
 // Mock the api export
 vi.mock("@newsletter-manager/backend", () => ({
   api: {
@@ -321,6 +326,113 @@ describe("NewsletterCard", () => {
       render(<NewsletterCard newsletter={fullyRead} />)
 
       expect(screen.queryByText(/% read/)).not.toBeInTheDocument()
+    })
+  })
+
+  // Story 5.2: Summary indicator tests
+  describe("Summary Indicator (Story 5.2 Tasks 1.2-1.4)", () => {
+    it("Task 6.4: displays summary indicator when hasSummary is true", () => {
+      const newsletterWithSummary: NewsletterData = {
+        ...mockNewsletter,
+        hasSummary: true,
+      }
+
+      render(<NewsletterCard newsletter={newsletterWithSummary} />)
+
+      // Should have sparkles button with accessible label
+      const indicator = screen.getByLabelText(/show summary preview/i)
+      expect(indicator).toBeInTheDocument()
+    })
+
+    it("Task 6.5: hides indicator when hasSummary is false", () => {
+      const newsletterWithoutSummary: NewsletterData = {
+        ...mockNewsletter,
+        hasSummary: false,
+      }
+
+      render(<NewsletterCard newsletter={newsletterWithoutSummary} />)
+
+      // Should NOT have sparkles indicator
+      const indicator = screen.queryByLabelText(/show summary preview/i)
+      expect(indicator).not.toBeInTheDocument()
+    })
+
+    it("hides indicator when hasSummary is undefined", () => {
+      // mockNewsletter doesn't have hasSummary set
+      render(<NewsletterCard newsletter={mockNewsletter} />)
+
+      const indicator = screen.queryByLabelText(/show summary preview/i)
+      expect(indicator).not.toBeInTheDocument()
+    })
+
+    it("indicator has tooltip with preview instruction", () => {
+      const newsletterWithSummary: NewsletterData = {
+        ...mockNewsletter,
+        hasSummary: true,
+      }
+
+      render(<NewsletterCard newsletter={newsletterWithSummary} />)
+
+      // Check for title attribute (native tooltip)
+      const indicator = screen.getByLabelText(/show summary preview/i)
+      expect(indicator).toHaveAttribute("title", "Click to preview AI summary")
+    })
+
+    it("indicator uses amber color matching SummaryPanel", () => {
+      const newsletterWithSummary: NewsletterData = {
+        ...mockNewsletter,
+        hasSummary: true,
+      }
+
+      render(<NewsletterCard newsletter={newsletterWithSummary} />)
+
+      const indicator = screen.getByLabelText(/show summary preview/i)
+      // Check for amber color class
+      expect(indicator.className).toContain("text-amber")
+    })
+
+    it("clicking indicator toggles summary preview", async () => {
+      const newsletterWithSummary: NewsletterData = {
+        ...mockNewsletter,
+        hasSummary: true,
+      }
+
+      render(<NewsletterCard newsletter={newsletterWithSummary} />)
+
+      // Initially shows "Show summary preview"
+      const showIndicator = screen.getByLabelText(/show summary preview/i)
+      expect(screen.queryByTestId("summary-preview")).not.toBeInTheDocument()
+
+      // Click to show preview
+      await fireEvent.click(showIndicator)
+      expect(screen.getByTestId("summary-preview")).toBeInTheDocument()
+
+      // Label should change to "Hide summary preview"
+      const hideIndicator = screen.getByLabelText(/hide summary preview/i)
+
+      // Click again to hide
+      await fireEvent.click(hideIndicator)
+      expect(screen.queryByTestId("summary-preview")).not.toBeInTheDocument()
+    })
+
+    it("clicking indicator does not navigate to newsletter", async () => {
+      const newsletterWithSummary: NewsletterData = {
+        ...mockNewsletter,
+        hasSummary: true,
+      }
+
+      const navigationHandler = vi.fn()
+      render(
+        <div onClick={navigationHandler}>
+          <NewsletterCard newsletter={newsletterWithSummary} />
+        </div>
+      )
+
+      const indicator = screen.getByLabelText(/show summary preview/i)
+      await fireEvent.click(indicator)
+
+      // Navigation should not have occurred
+      expect(navigationHandler).not.toHaveBeenCalled()
     })
   })
 })

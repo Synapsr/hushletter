@@ -527,6 +527,7 @@ export const getNewsletterContentInternal = internalQuery({
  * List userNewsletters for current user
  * Story 2.5.1: Updated to use userNewsletters table
  * Story 3.5: AC2 - Exclude hidden newsletters from main list
+ * Story 5.2: Task 1.1 - Added hasSummary field for summary indicator
  */
 export const listUserNewsletters = query({
   args: {},
@@ -550,7 +551,35 @@ export const listUserNewsletters = query({
       .collect()
 
     // Story 3.5 AC2: Exclude hidden newsletters from main list
-    return newsletters.filter((n) => !n.isHidden)
+    const visibleNewsletters = newsletters.filter((n) => !n.isHidden)
+
+    // Story 5.2: Derive hasSummary for each newsletter
+    // Code review fix: Batch-fetch contentIds to avoid N+1 queries
+    const contentIds = visibleNewsletters
+      .filter((n) => !n.isPrivate && n.contentId && !n.summary)
+      .map((n) => n.contentId!)
+
+    const uniqueContentIds = [...new Set(contentIds)]
+    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const contentMap = new Map(
+      contents
+        .filter((c): c is NonNullable<typeof c> => c !== null)
+        .map((c) => [c._id, c])
+    )
+
+    // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
+    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
+      let hasSummary = Boolean(newsletter.summary)
+
+      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+        const content = contentMap.get(newsletter.contentId)
+        hasSummary = Boolean(content?.summary)
+      }
+
+      return { ...newsletter, hasSummary }
+    })
+
+    return enrichedNewsletters
   },
 })
 
@@ -558,6 +587,7 @@ export const listUserNewsletters = query({
  * List user newsletters filtered by sender
  * Story 3.1: Task 5 - Support sender-based filtering (AC2, AC3)
  * Story 3.5: AC2 - Exclude hidden newsletters from main list
+ * Story 5.2: Task 1.1 - Added hasSummary field for summary indicator
  *
  * If senderId is provided, returns only newsletters from that sender.
  * If senderId is undefined/null, returns all newsletters (same as listUserNewsletters).
@@ -580,6 +610,8 @@ export const listUserNewslettersBySender = query({
 
     if (!user) return []
 
+    let visibleNewsletters
+
     if (args.senderId) {
       // Filter by sender using composite index
       const newsletters = await ctx.db
@@ -590,20 +622,48 @@ export const listUserNewslettersBySender = query({
         .collect()
 
       // Story 3.5 AC2: Exclude hidden newsletters, then sort by receivedAt descending
-      return newsletters
+      visibleNewsletters = newsletters
         .filter((n) => !n.isHidden)
         .sort((a, b) => b.receivedAt - a.receivedAt)
+    } else {
+      // No filter - return all non-hidden (existing behavior using proper index)
+      const newsletters = await ctx.db
+        .query("userNewsletters")
+        .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
+        .order("desc")
+        .collect()
+
+      // Story 3.5 AC2: Exclude hidden newsletters
+      visibleNewsletters = newsletters.filter((n) => !n.isHidden)
     }
 
-    // No filter - return all non-hidden (existing behavior using proper index)
-    const newsletters = await ctx.db
-      .query("userNewsletters")
-      .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
-      .order("desc")
-      .collect()
+    // Story 5.2: Derive hasSummary for each newsletter
+    // Code review fix: Batch-fetch contentIds to avoid N+1 queries
+    const contentIds = visibleNewsletters
+      .filter((n) => !n.isPrivate && n.contentId && !n.summary)
+      .map((n) => n.contentId!)
 
-    // Story 3.5 AC2: Exclude hidden newsletters
-    return newsletters.filter((n) => !n.isHidden)
+    const uniqueContentIds = [...new Set(contentIds)]
+    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const contentMap = new Map(
+      contents
+        .filter((c): c is NonNullable<typeof c> => c !== null)
+        .map((c) => [c._id, c])
+    )
+
+    // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
+    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
+      let hasSummary = Boolean(newsletter.summary)
+
+      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+        const content = contentMap.get(newsletter.contentId)
+        hasSummary = Boolean(content?.summary)
+      }
+
+      return { ...newsletter, hasSummary }
+    })
+
+    return enrichedNewsletters
   },
 })
 
@@ -611,6 +671,7 @@ export const listUserNewslettersBySender = query({
  * List newsletters filtered by folder (all senders in that folder)
  * Story 3.3: AC3 - Browse newsletters by folder
  * Story 3.5: AC2 - Exclude hidden newsletters from main list
+ * Story 5.2: Task 1.1 - Added hasSummary field for summary indicator
  *
  * - If folderId is null, returns newsletters from "uncategorized" senders
  *   (senders with no folder assignment)
@@ -672,14 +733,37 @@ export const listUserNewslettersByFolder = query({
         .map((s) => [s._id, s])
     )
 
-    // Enrich with sender info for display (O(1) lookup from map)
-    return filteredNewsletters.map((newsletter) => {
+    // Story 5.2: Batch-fetch contentIds to avoid N+1 queries (code review fix)
+    const contentIds = filteredNewsletters
+      .filter((n) => !n.isPrivate && n.contentId && !n.summary)
+      .map((n) => n.contentId!)
+
+    const uniqueContentIds = [...new Set(contentIds)]
+    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const contentMap = new Map(
+      contents
+        .filter((c): c is NonNullable<typeof c> => c !== null)
+        .map((c) => [c._id, c])
+    )
+
+    // Derive hasSummary for each newsletter and enrich with sender info (O(1) lookups)
+    const enrichedNewsletters = filteredNewsletters.map((newsletter) => {
       const sender = senderMap.get(newsletter.senderId)
+
+      let hasSummary = Boolean(newsletter.summary)
+      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+        const content = contentMap.get(newsletter.contentId)
+        hasSummary = Boolean(content?.summary)
+      }
+
       return {
         ...newsletter,
         senderDisplayName: sender?.name || sender?.email || newsletter.senderEmail,
+        hasSummary,
       }
     })
+
+    return enrichedNewsletters
   },
 })
 
@@ -915,6 +999,7 @@ export const unhideNewsletter = mutation({
 /**
  * List hidden newsletters for current user
  * Story 3.5: AC3 - View hidden newsletters
+ * Story 5.2: Task 1.1 - Added hasSummary field for summary indicator
  */
 export const listHiddenNewsletters = query({
   args: {},
@@ -936,6 +1021,34 @@ export const listHiddenNewsletters = query({
       .collect()
 
     // Return ONLY hidden newsletters
-    return newsletters.filter((n) => n.isHidden)
+    const hiddenNewsletters = newsletters.filter((n) => n.isHidden)
+
+    // Story 5.2: Derive hasSummary for each newsletter
+    // Code review fix: Batch-fetch contentIds to avoid N+1 queries
+    const contentIds = hiddenNewsletters
+      .filter((n) => !n.isPrivate && n.contentId && !n.summary)
+      .map((n) => n.contentId!)
+
+    const uniqueContentIds = [...new Set(contentIds)]
+    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const contentMap = new Map(
+      contents
+        .filter((c): c is NonNullable<typeof c> => c !== null)
+        .map((c) => [c._id, c])
+    )
+
+    // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
+    const enrichedNewsletters = hiddenNewsletters.map((newsletter) => {
+      let hasSummary = Boolean(newsletter.summary)
+
+      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+        const content = contentMap.get(newsletter.contentId)
+        hasSummary = Boolean(content?.summary)
+      }
+
+      return { ...newsletter, hasSummary }
+    })
+
+    return enrichedNewsletters
   },
 })

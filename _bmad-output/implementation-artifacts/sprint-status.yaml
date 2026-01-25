@@ -88,7 +88,7 @@ development_status:
 
   epic-5: in-progress
   5-1-ai-summary-generation: done  # Code review complete - 6 fixes (3 HIGH, 3 MEDIUM)
-  5-2-summary-display-management: backlog
+  5-2-summary-display-management: done  # Code review complete - N+1 fix, type cleanup, hydration-safe hook
   epic-5-retrospective: optional
 
   # Epic 6: Community features - depends on Epic 2.5 architecture

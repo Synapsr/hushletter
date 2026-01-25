@@ -2,10 +2,12 @@ import { useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { api } from "@newsletter-manager/backend"
+import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
 import { Card, CardContent } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
-import { EyeOff, Eye } from "lucide-react"
+import { EyeOff, Eye, Sparkles } from "lucide-react"
+import { SummaryPreview } from "./SummaryPreview"
 
 /** Newsletter data from listUserNewsletters query */
 export interface NewsletterData {
@@ -18,6 +20,8 @@ export interface NewsletterData {
   isHidden: boolean
   isPrivate: boolean
   readProgress?: number
+  /** Story 5.2: Indicates if AI summary is available */
+  hasSummary?: boolean
 }
 
 interface NewsletterCardProps {
@@ -68,12 +72,15 @@ function getSenderDisplay(newsletter: NewsletterData): string {
  * NewsletterCard - Displays a newsletter list item with sender, subject, and date
  * Story 3.4: Shows read/unread status with visual distinction and progress indicator (AC5)
  * Story 3.5: AC1 - Hide action on hover, AC4 - Unhide action for hidden newsletters
+ * Story 5.2: Task 1-3 - Summary indicator and preview
  */
 export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCardProps) {
   const senderDisplay = getSenderDisplay(newsletter)
 
   // Code review fix (HIGH-1): Track feedback state for AC1 confirmation
   const [feedback, setFeedback] = useState<string | null>(null)
+  // Story 5.2: Track summary preview expansion state
+  const [showSummaryPreview, setShowSummaryPreview] = useState(false)
 
   // Story 3.5: Hide/unhide mutations
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter)
@@ -161,22 +168,42 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
                 </p>
               </div>
             </div>
-            {/* Date, progress indicator, feedback, and hide action */}
+            {/* Date, summary indicator, progress indicator, feedback, and hide action */}
             <div className="flex items-start gap-2 flex-shrink-0">
               <div className="flex flex-col items-end gap-1">
-                {/* Code review fix (HIGH-1): Show feedback when action in progress */}
-                {feedback ? (
-                  <span className="text-xs text-muted-foreground animate-pulse" role="status">
-                    {feedback}
-                  </span>
-                ) : (
-                  <time
-                    dateTime={new Date(newsletter.receivedAt).toISOString()}
-                    className="text-xs text-muted-foreground whitespace-nowrap"
-                  >
-                    {formatDate(newsletter.receivedAt)}
-                  </time>
-                )}
+                {/* Date and summary indicator row */}
+                <div className="flex items-center gap-1.5">
+                  {/* Story 5.2: Summary indicator - clickable to toggle preview */}
+                  {newsletter.hasSummary && (
+                    <button
+                      type="button"
+                      className="flex items-center text-amber-500 hover:text-amber-400 transition-colors"
+                      title="Click to preview AI summary"
+                      aria-label={showSummaryPreview ? "Hide summary preview" : "Show summary preview"}
+                      aria-expanded={showSummaryPreview}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setShowSummaryPreview(!showSummaryPreview)
+                      }}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  )}
+                  {/* Code review fix (HIGH-1): Show feedback when action in progress */}
+                  {feedback ? (
+                    <span className="text-xs text-muted-foreground animate-pulse" role="status">
+                      {feedback}
+                    </span>
+                  ) : (
+                    <time
+                      dateTime={new Date(newsletter.receivedAt).toISOString()}
+                      className="text-xs text-muted-foreground whitespace-nowrap"
+                    >
+                      {formatDate(newsletter.receivedAt)}
+                    </time>
+                  )}
+                </div>
                 {/* Story 3.4 AC5: Progress indicator for partially read */}
                 {isPartiallyRead && !feedback && (
                   <span className="text-xs text-muted-foreground">
@@ -210,6 +237,12 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
               )}
             </div>
           </div>
+          {/* Story 5.2: Summary preview - shown when user clicks indicator */}
+          {showSummaryPreview && newsletter.hasSummary && (
+            <SummaryPreview
+              userNewsletterId={newsletter._id as Id<"userNewsletters">}
+            />
+          )}
         </CardContent>
       </Card>
     </Link>

@@ -8,6 +8,7 @@ import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { Sparkles, RefreshCw, ChevronDown, ChevronUp, Users } from "lucide-react"
 import { ConvexError } from "convex/values"
+import { useSummaryPreferences } from "~/hooks/useSummaryPreferences"
 
 interface SummaryPanelProps {
   /** userNewsletter document ID - typed for Convex safety */
@@ -24,9 +25,10 @@ interface SummaryData {
 /**
  * SummaryPanel - Displays AI-generated summary for a newsletter
  * Story 5.1: Task 5 - Summary display component
+ * Story 5.2: Task 2 - Collapse preference persistence
  *
  * Features:
- * - Collapsible summary view
+ * - Collapsible summary view with persistent preference
  * - Generate/Regenerate buttons
  * - Loading state with skeleton
  * - Error state with retry
@@ -37,7 +39,8 @@ interface SummaryData {
  * state management is required here. See ReaderView.tsx for same pattern.
  */
 export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  // Story 5.2: Use persisted preference for collapse state
+  const { isCollapsed, toggleCollapsed } = useSummaryPreferences()
   // Exception: useAction doesn't provide isPending, manual state required
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,11 +50,8 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
   const { data } = useQuery(
     convexQuery(api.ai.getNewsletterSummary, { userNewsletterId })
   )
-  // Type guard to safely narrow the data type
-  const summaryData: SummaryData | undefined =
-    data && typeof data === "object" && "summary" in data
-      ? (data as SummaryData)
-      : undefined
+  // Code review fix: Trust the query return type, avoid manual type guards
+  const summaryData = data as SummaryData | undefined
 
   const generateSummaryAction = useAction(api.ai.generateSummary)
 
@@ -92,7 +92,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setIsCollapsed(!isCollapsed)}
+                onClick={toggleCollapsed}
                 aria-label={isCollapsed ? "Expand summary" : "Collapse summary"}
                 aria-expanded={!isCollapsed}
               >
@@ -109,13 +109,14 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
 
       {!isCollapsed && (
         <CardContent>
-          {/* Error state */}
+          {/* Error state - Story 5.2 Task 5.2: Informative error message */}
           {error && (
             <div
               className="text-sm text-destructive mb-4 p-3 bg-destructive/10 rounded-lg"
               role="alert"
             >
-              {error}
+              <p className="font-medium">Summary generation encountered an issue</p>
+              <p className="text-xs mt-1 opacity-80">{error}</p>
             </div>
           )}
 
@@ -128,9 +129,9 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
             </div>
           )}
 
-          {/* Summary content */}
+          {/* Summary content - Story 5.2 Task 4.3: fade-in animation */}
           {!isGenerating && hasSummary && summaryData?.summary && (
-            <div className="space-y-2">
+            <div className="space-y-2 animate-in fade-in duration-300">
               {/* Shared summary indicator (community summary) */}
               {isSharedSummary && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -143,6 +144,16 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
                   {summaryData.summary}
                 </p>
               </div>
+              {/* Story 5.2 Task 4.4: Generated date metadata */}
+              {summaryData.generatedAt && (
+                <p className="text-xs text-muted-foreground/70 pt-2">
+                  Generated on {new Date(summaryData.generatedAt).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
+              )}
             </div>
           )}
 

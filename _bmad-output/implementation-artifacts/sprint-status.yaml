@@ -1,5 +1,5 @@
 # generated: 2026-01-22
-# updated: 2026-01-25 (Story 8.3 done - Forward-to-import endpoint code review complete)
+# updated: 2026-01-26 (Epic 8 complete - All manual import stories done including duplicate detection)
 # project: newsletter manager
 # project_key: newsletter-manager
 # tracking_system: file-system
@@ -70,7 +70,7 @@ development_status:
   2-5-2-content-deduplication-pipeline: done
   epic-2.5-retrospective: optional
 
-  epic-3: in-progress
+  epic-3: done
   3-1-newsletter-list-organized-by-sender: done  # Code review complete with 6 fixes applied
   3-2-clean-newsletter-reader: done  # Code review complete with 6 fixes applied
   3-3-folder-category-browsing: done  # Code review complete with N+1 query fix
@@ -78,7 +78,7 @@ development_status:
   3-5-hide-newsletters: done  # Code review #2 complete - 8 total fixes (HIGH: 2, MEDIUM: 4, LOW: 2)
   epic-3-retrospective: optional
 
-  epic-4: in-progress
+  epic-4: done
   4-1-gmail-oauth-connection: done  # Code review #2 complete - 6 fixes (2 HIGH, 4 MEDIUM)
   4-2-newsletter-sender-scanning: done  # Code review complete - 7 fixes (4 HIGH, 3 MEDIUM)
   4-3-sender-review-approval: done  # Code review complete - 9 fixes (Base UI migration, optimistic updates, accessibility)
@@ -86,14 +86,14 @@ development_status:
   4-5-gmail-disconnect: done  # Token revocation, confirmation dialog, settings page integration
   epic-4-retrospective: optional
 
-  epic-5: in-progress
+  epic-5: done
   5-1-ai-summary-generation: done  # Code review complete - 6 fixes (3 HIGH, 3 MEDIUM)
   5-2-summary-display-management: done  # Code review complete - N+1 fix, type cleanup, hydration-safe hook
   epic-5-retrospective: optional
 
   # Epic 6: Community features - depends on Epic 2.5 architecture
   # Stories simplified because shared content model provides foundation
-  epic-6: in-progress
+  epic-6: done
   6-1-default-public-sharing: done  # Code review complete - 6 fixes (2 HIGH, 4 MEDIUM)
   6-2-privacy-controls-for-senders: done  # Code review complete - 5 fixes (2 HIGH, 3 MEDIUM)
   6-3-community-back-catalog-access: done  # Code review complete - 7 fixes (1 HIGH, 6 MEDIUM), pagination, error handling, accessibility
@@ -110,9 +110,9 @@ development_status:
   # Epic 8: Manual Newsletter Import
   # Users can import newsletters from any email provider via drag-and-drop .eml files or email forwarding
   # FRs covered: FR29-FR36
-  epic-8: in-progress
+  epic-8: done
   8-1-eml-parser-service: done  # Code review complete - 9 issues found, 7 fixed, 59 tests pass
   8-2-drag-and-drop-import-ui: done  # Code review complete - 7 issues fixed (2 critical, 3 medium, 2 low)
   8-3-forward-to-import-endpoint: done  # Code review complete - 5 MEDIUM issues fixed, 79 tests pass
-  8-4-duplicate-detection: review
+  8-4-duplicate-detection: done  # Code review complete - 3 issues fixed (2 MEDIUM, 1 LOW), 808 tests pass
   epic-8-retrospective: optional

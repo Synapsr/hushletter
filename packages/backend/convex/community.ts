@@ -40,6 +40,9 @@ const MAX_COMMUNITY_CONTENT_SCAN = 1000
 /** Maximum contentIds to check in a single ownership query (Story 9.8 performance) */
 const MAX_OWNERSHIP_CHECK_BATCH = 100
 
+/** Maximum newsletters to bulk import at once (Story 9.9) */
+const MAX_BULK_IMPORT_BATCH = 50
+
 // ============================================================
 // Story 7.4: Moderation Helpers
 // ============================================================
@@ -951,10 +954,10 @@ export const bulkImportFromCommunity = mutation({
     }
 
     // Limit batch size to prevent timeout
-    if (args.contentIds.length > 50) {
+    if (args.contentIds.length > MAX_BULK_IMPORT_BATCH) {
       throw new ConvexError({
         code: "VALIDATION_ERROR",
-        message: "Maximum 50 newsletters can be imported at once",
+        message: `Maximum ${MAX_BULK_IMPORT_BATCH} newsletters can be imported at once`,
       })
     }
 
@@ -981,7 +984,6 @@ export const bulkImportFromCommunity = mutation({
       .collect()
     const foldersByName = new Map(existingFolders.map((f) => [f.name, f]))
 
-    // Track created folders in this batch to avoid duplicates
     // Track created folders in this batch to avoid duplicates
     const createdFoldersThisBatch = new Map<string, Id<"folders">>()
 

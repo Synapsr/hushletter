@@ -131,6 +131,6 @@ development_status:
   9-6-admin-moderation-queue: done  # Code review complete - 4 fixes (2 HIGH, 1 MEDIUM, 1 TS fix), 1052 backend + 42 Story 9.6 tests pass
   9-7-admin-publish-flow: done  # Code review complete - 6 fixes (2 HIGH, 2 MEDIUM, 2 LOW)
   9-8-community-browse: done  # Code review complete - 4 fixes (2 MEDIUM, 3 LOW), constants extracted, batch limiting
-  9-9-community-import: in-progress
-  9-10-unified-folder-view: ready-for-dev  # Story file created - unified display of private + community newsletters
+  9-9-community-import: done  # Code review complete - 4 HIGH, 2 MEDIUM fixed (fake progress removed, tests added, batch constant)
+  9-10-unified-folder-view: done  # Code review complete - 3 fixes (1 MEDIUM, 2 LOW), IIFE extraction, destructive button styling
   epic-9-retrospective: optional

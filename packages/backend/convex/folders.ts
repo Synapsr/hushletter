@@ -40,11 +40,14 @@ export const createFolder = mutation({
       })
     }
 
+    const now = Date.now()
     const folderId = await ctx.db.insert("folders", {
       userId: user._id,
       name: args.name,
       color: args.color,
-      createdAt: Date.now(),
+      isHidden: false, // Story 9.1: New folders are visible by default
+      createdAt: now,
+      updatedAt: now, // Story 9.1: Track folder modification time
     })
 
     return folderId
@@ -84,6 +87,7 @@ export const updateFolder = mutation({
     folderId: v.id("folders"),
     name: v.optional(v.string()),
     color: v.optional(v.string()),
+    isHidden: v.optional(v.boolean()), // Story 9.1: Allow toggling folder visibility
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -129,6 +133,8 @@ export const updateFolder = mutation({
     await ctx.db.patch(args.folderId, {
       ...(args.name !== undefined ? { name: args.name } : {}),
       ...(args.color !== undefined ? { color: args.color } : {}),
+      ...(args.isHidden !== undefined ? { isHidden: args.isHidden } : {}),
+      updatedAt: Date.now(), // Story 9.1: Track folder modification time
     })
 
     return await ctx.db.get(args.folderId)
@@ -255,15 +261,26 @@ export const deleteFolder = mutation({
       throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
     }
 
-    // Remove folder reference from any userSenderSettings
+    // Remove folder reference from any userSenderSettings (Story 9.1: use by_folderId index)
     const settingsWithFolder = await ctx.db
       .query("userSenderSettings")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .filter((q) => q.eq(q.field("folderId"), args.folderId))
+      .withIndex("by_folderId", (q) => q.eq("folderId", args.folderId))
       .collect()
 
     for (const setting of settingsWithFolder) {
       await ctx.db.patch(setting._id, { folderId: undefined })
+    }
+
+    // Story 9.1: Also remove folder reference from userNewsletters
+    const newslettersWithFolder = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_folderId", (q) =>
+        q.eq("userId", user._id).eq("folderId", args.folderId)
+      )
+      .collect()
+
+    for (const newsletter of newslettersWithFolder) {
+      await ctx.db.patch(newsletter._id, { folderId: undefined })
     }
 
     await ctx.db.delete(args.folderId)

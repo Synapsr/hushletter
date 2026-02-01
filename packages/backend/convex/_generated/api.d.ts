@@ -27,6 +27,7 @@ import type * as http from "../http.js";
 import type * as importIngestion from "../importIngestion.js";
 import type * as lib_openrouter from "../lib/openrouter.js";
 import type * as manualImport from "../manualImport.js";
+import type * as migrations_epic9SchemaMigration from "../migrations/epic9SchemaMigration.js";
 import type * as newsletters from "../newsletters.js";
 import type * as r2 from "../r2.js";
 import type * as senders from "../senders.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   importIngestion: typeof importIngestion;
   "lib/openrouter": typeof lib_openrouter;
   manualImport: typeof manualImport;
+  "migrations/epic9SchemaMigration": typeof migrations_epic9SchemaMigration;
   newsletters: typeof newsletters;
   r2: typeof r2;
   senders: typeof senders;

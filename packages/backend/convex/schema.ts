@@ -27,6 +27,7 @@ export default defineSchema({
   // Shared newsletter content (deduplicated) - only for public newsletters
   // Story 2.5.1: Task 1 - newsletterContent table
   // Story 5.1: Task 1.1 - Added summary fields for shared AI summaries
+  // Story 9.1: Task 1.5 - Added admin curation fields for Epic 9 privacy-first model
   newsletterContent: defineTable({
     contentHash: v.string(), // SHA-256 of normalized HTML
     r2Key: v.string(),
@@ -42,6 +43,10 @@ export default defineSchema({
     isHiddenFromCommunity: v.optional(v.boolean()), // defaults to false/undefined
     hiddenAt: v.optional(v.number()), // Unix timestamp ms when hidden
     hiddenBy: v.optional(v.id("users")), // Admin who hid the content
+    // Story 9.1: Task 1.5 - Admin curation fields for privacy-first community model
+    communityApprovedAt: v.optional(v.number()), // Unix timestamp ms when admin approved
+    communityApprovedBy: v.optional(v.id("users")), // Admin who approved for community
+    importCount: v.optional(v.number()), // How many users imported from community
   })
     .index("by_contentHash", ["contentHash"])
     .index("by_senderEmail", ["senderEmail"])
@@ -53,9 +58,11 @@ export default defineSchema({
   // Story 2.5.1: Task 1 - userNewsletters table
   // Story 5.1: Task 1.2 - Added summary fields for personal/private summaries
   // Story 8.4: Task 1 - Added messageId for duplicate detection
+  // Story 9.1: Task 1.3, 1.4, 1.6 - Added folderId (required at app-level), source, and index
   userNewsletters: defineTable({
     userId: v.id("users"),
     senderId: v.id("senders"),
+    folderId: v.optional(v.id("folders")), // Story 9.1: Required at app-level after migration
     contentId: v.optional(v.id("newsletterContent")), // If public
     privateR2Key: v.optional(v.string()), // If private
     subject: v.string(),
@@ -71,6 +78,15 @@ export default defineSchema({
     summaryGeneratedAt: v.optional(v.number()), // Unix timestamp ms
     // Story 8.4: Email Message-ID header for duplicate detection (without angle brackets)
     messageId: v.optional(v.string()),
+    // Story 9.1: Task 1.4 - Track newsletter origin
+    source: v.optional(
+      v.union(
+        v.literal("email"),
+        v.literal("gmail"),
+        v.literal("manual"),
+        v.literal("community")
+      )
+    ),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_receivedAt", ["userId", "receivedAt"])
@@ -78,7 +94,8 @@ export default defineSchema({
     .index("by_senderId", ["senderId"])
     .index("by_contentId", ["contentId"])
     .index("by_receivedAt", ["receivedAt"]) // Story 7.1: Admin recent activity queries
-    .index("by_userId_messageId", ["userId", "messageId"]), // Story 8.4: Duplicate detection
+    .index("by_userId_messageId", ["userId", "messageId"]) // Story 8.4: Duplicate detection
+    .index("by_userId_folderId", ["userId", "folderId"]), // Story 9.1: Task 1.6 - For folder queries
 
   // Global sender registry (not user-scoped)
   // Story 2.5.1: Task 1 - Refactored senders table
@@ -95,23 +112,29 @@ export default defineSchema({
 
   // User's sender-specific settings (per-user preferences)
   // Story 2.5.1: Task 1 - userSenderSettings table
+  // Story 9.1: Task 1.2, 1.7 - folderId remains optional in schema (Convex constraint)
+  //   but is required at app-level after migration. Added by_folderId index.
   userSenderSettings: defineTable({
     userId: v.id("users"),
     senderId: v.id("senders"),
     isPrivate: v.boolean(), // Does this user want this sender's newsletters private?
-    folderId: v.optional(v.id("folders")),
+    folderId: v.optional(v.id("folders")), // Required at app-level after Epic 9 migration
   })
     .index("by_userId", ["userId"])
     .index("by_userId_senderId", ["userId", "senderId"])
-    .index("by_senderId", ["senderId"]), // Story 7.3: Privacy admin queries
+    .index("by_senderId", ["senderId"]) // Story 7.3: Privacy admin queries
+    .index("by_folderId", ["folderId"]), // Story 9.1: Task 1.7 - For folder membership queries
 
   // Folders for organizing senders (created now for Epic 3)
   // Story 2.5.1: Task 1 - folders table
+  // Story 9.1: Task 1.1 - Added isHidden and updatedAt for folder management
   folders: defineTable({
     userId: v.id("users"),
     name: v.string(),
     color: v.optional(v.string()), // Optional color for UI
+    isHidden: v.boolean(), // Story 9.1: For folder hiding feature
     createdAt: v.number(), // Unix timestamp ms
+    updatedAt: v.number(), // Story 9.1: For folder modification tracking
   }).index("by_userId", ["userId"]),
 
   // ============================================================

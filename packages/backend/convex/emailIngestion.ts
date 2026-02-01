@@ -88,6 +88,10 @@ export function validateContent(content: unknown, fieldName: string): string | u
  * and creates the newsletter record
  *
  * Story 2.5.1: Updated for new schema with global senders and user sender settings
+ * Story 9.2: Updated for private-by-default architecture
+ *   - Always passes source: "email"
+ *   - Resolves/creates folder for sender
+ *   - No longer uses isPrivate from userSenderSettings for storage decisions
  */
 export const receiveEmail = httpAction(async (ctx, request) => {
   // Validate internal API key
@@ -235,30 +239,29 @@ export const receiveEmail = httpAction(async (ctx, request) => {
       name: validatedSenderName,
     })
 
-    // Story 2.5.1: Get user sender settings to determine privacy
-    const userSenderSettings = await ctx.runMutation(
-      internal.senders.getOrCreateUserSenderSettings,
+    // Story 9.2: Get or create folder for this sender (folder-centric architecture)
+    const folderId = await ctx.runMutation(
+      internal.senders.getOrCreateFolderForSender,
       {
         userId: user._id,
         senderId: sender._id,
       }
     )
 
-    // Determine if this newsletter should be private based on user settings
-    const isPrivate = userSenderSettings.isPrivate
-
     // Store content in R2 and create userNewsletter record
     // Story 8.4: storeNewsletterContent now performs duplicate detection
+    // Story 9.2: Always private, pass source: "email" and folderId
     const result = await ctx.runAction(internal.newsletters.storeNewsletterContent, {
       userId: user._id,
       senderId: sender._id,
+      folderId, // Story 9.2: Required for folder-centric architecture
       subject: validatedSubject,
       senderEmail: validatedFrom,
       senderName: validatedSenderName,
       receivedAt: validatedReceivedAt,
       htmlContent: validatedHtmlContent,
       textContent: validatedTextContent,
-      isPrivate,
+      source: "email", // Story 9.2: Track ingestion source
       // Note: emailIngestion doesn't have messageId - duplicate detection uses content hash
     })
 
@@ -274,7 +277,6 @@ export const receiveEmail = httpAction(async (ctx, request) => {
           userId: user._id,
           userNewsletterId: result.existingId, // Return existing ID
           senderId: sender._id,
-          isPrivate,
           skipped: true,
           reason: "duplicate",
         }),
@@ -286,7 +288,7 @@ export const receiveEmail = httpAction(async (ctx, request) => {
     }
 
     console.log(
-      `[emailIngestion] Newsletter created: ${result.userNewsletterId}, R2 key: ${result.r2Key}, isPrivate: ${isPrivate}`
+      `[emailIngestion] Newsletter created: ${result.userNewsletterId}, R2 key: ${result.r2Key}, source=email`
     )
 
     // Story 7.2: Update delivery log to stored status
@@ -307,7 +309,8 @@ export const receiveEmail = httpAction(async (ctx, request) => {
         userId: user._id,
         userNewsletterId: result.userNewsletterId,
         senderId: sender._id,
-        isPrivate,
+        folderId, // Story 9.2: Return folderId
+        source: "email", // Story 9.2: Confirm source
       }),
       {
         status: 200,

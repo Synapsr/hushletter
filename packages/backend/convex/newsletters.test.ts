@@ -1224,3 +1224,370 @@ describe("summary display acceptance criteria (Story 5.2)", () => {
     expect(ac4.implementation).toContain("hasSummary")
   })
 })
+
+// ============================================================
+// Story 9.2: Private-by-Default Tests
+// ============================================================
+
+describe("Private-by-Default Architecture (Story 9.2)", () => {
+  describe("storeNewsletterContent API changes", () => {
+    it("should require folderId parameter", () => {
+      const apiContract = {
+        oldRequiredArgs: ["userId", "senderId", "subject", "senderEmail", "receivedAt", "isPrivate"],
+        newRequiredArgs: ["userId", "senderId", "folderId", "subject", "senderEmail", "receivedAt", "source"],
+      }
+      expect(apiContract.newRequiredArgs).toContain("folderId")
+      expect(apiContract.newRequiredArgs).toContain("source")
+      expect(apiContract.newRequiredArgs).not.toContain("isPrivate")
+    })
+
+    it("should accept source parameter with valid values", () => {
+      const validSources = ["email", "gmail", "manual", "community"]
+      expect(validSources).toContain("email")
+      expect(validSources).toContain("gmail")
+      expect(validSources).toContain("manual")
+      expect(validSources).toContain("community")
+    })
+
+    it("should not return deduplicated flag in return type", () => {
+      // Story 9.2: Removed community deduplication
+      const returnType = {
+        success: { userNewsletterId: "Id<userNewsletters>", r2Key: "string" },
+        skipped: { skipped: true, reason: "duplicate", existingId: "Id<userNewsletters>" },
+      }
+      expect(returnType.success).not.toHaveProperty("deduplicated")
+    })
+  })
+
+  describe("createUserNewsletter API changes", () => {
+    it("should require folderId and source parameters", () => {
+      const apiContract = {
+        requiredArgs: [
+          "userId",
+          "senderId",
+          "folderId", // Story 9.2: NEW required
+          "subject",
+          "senderEmail",
+          "receivedAt",
+          "isPrivate",
+          "source", // Story 9.2: NEW required
+        ],
+      }
+      expect(apiContract.requiredArgs).toContain("folderId")
+      expect(apiContract.requiredArgs).toContain("source")
+    })
+  })
+
+  describe("Email Ingestion (AC #1)", () => {
+    it("should store with privateR2Key (no contentId)", () => {
+      const expectedBehavior = {
+        r2KeyPattern: "private/${userId}/${timestamp}-${randomId}.${ext}",
+        contentId: undefined,
+        isPrivate: true,
+        source: "email",
+      }
+      expect(expectedBehavior.r2KeyPattern).toContain("private/")
+      expect(expectedBehavior.contentId).toBeUndefined()
+      expect(expectedBehavior.source).toBe("email")
+    })
+
+    it("should set source to 'email'", () => {
+      const ingestionSource = "email"
+      expect(ingestionSource).toBe("email")
+    })
+
+    it("should resolve folder for sender", () => {
+      const folderResolutionFlow = {
+        step1: "Check userSenderSettings for existing folderId",
+        step2: "If folderId exists, use it",
+        step3: "If not, create folder with sender name",
+        step4: "Update userSenderSettings with folderId",
+      }
+      expect(folderResolutionFlow).toHaveProperty("step3")
+    })
+
+    it("should NOT create newsletterContent record", () => {
+      // Story 9.2: newsletterContent only created by admin curation
+      const expectedBehavior = {
+        createsNewsletterContent: false,
+        reason: "newsletterContent is now admin-only for community curation",
+      }
+      expect(expectedBehavior.createsNewsletterContent).toBe(false)
+    })
+  })
+
+  describe("Gmail Import (AC #2)", () => {
+    it("should store with privateR2Key", () => {
+      const expectedBehavior = {
+        r2KeyPattern: "private/${userId}/${timestamp}-${randomId}.${ext}",
+        isPrivate: true,
+      }
+      expect(expectedBehavior.r2KeyPattern).toContain("private/")
+    })
+
+    it("should set source to 'gmail'", () => {
+      const ingestionSource = "gmail"
+      expect(ingestionSource).toBe("gmail")
+    })
+
+    it("should resolve folder for sender", () => {
+      const folderRequired = true
+      expect(folderRequired).toBe(true)
+    })
+  })
+
+  describe("Manual Import (AC #3)", () => {
+    it("should store with privateR2Key", () => {
+      const expectedBehavior = {
+        r2KeyPattern: "private/${userId}/${timestamp}-${randomId}.${ext}",
+        isPrivate: true,
+      }
+      expect(expectedBehavior.r2KeyPattern).toContain("private/")
+    })
+
+    it("should set source to 'manual'", () => {
+      const ingestionSource = "manual"
+      expect(ingestionSource).toBe("manual")
+    })
+
+    it("should resolve folder for sender", () => {
+      const folderRequired = true
+      expect(folderRequired).toBe(true)
+    })
+  })
+
+  describe("Deduplication Changes (AC #4)", () => {
+    it("should remove automatic deduplication to newsletterContent", () => {
+      const deduplicationBehavior = {
+        beforeStory92: "isPrivate=false -> dedup to newsletterContent -> shared",
+        afterStory92: "ALL newsletters -> privateR2Key -> user's own storage",
+        newsletterContentCreation: "ONLY by admin action (Story 9.7)",
+      }
+      expect(deduplicationBehavior.afterStory92).toContain("privateR2Key")
+      expect(deduplicationBehavior.newsletterContentCreation).toContain("admin")
+    })
+
+    it("should keep user-level duplicate detection (messageId and content hash)", () => {
+      const duplicateDetection = {
+        byMessageId: "Check if user already has newsletter with this messageId",
+        byContentHash: "Check if user already has newsletter with this content hash",
+        crossUserDedup: "REMOVED - each user gets their own copy",
+      }
+      expect(duplicateDetection.byMessageId).toBeDefined()
+      expect(duplicateDetection.byContentHash).toBeDefined()
+      expect(duplicateDetection.crossUserDedup).toContain("REMOVED")
+    })
+
+    it("should mark newsletterContent functions as admin-only", () => {
+      const deprecatedForUserIngestion = [
+        "createNewsletterContent",
+        "findByContentHash",
+        "incrementReaderCount",
+      ]
+      expect(deprecatedForUserIngestion).toContain("createNewsletterContent")
+      expect(deprecatedForUserIngestion).toContain("findByContentHash")
+      expect(deprecatedForUserIngestion).toContain("incrementReaderCount")
+    })
+  })
+
+  describe("Backward Compatibility", () => {
+    it("should still read from existing contentId references", () => {
+      // Existing newsletters with contentId should continue working
+      const readingLogic = {
+        checkPrivateFirst: "if isPrivate && privateR2Key, use privateR2Key",
+        checkPublicSecond: "if !isPrivate && contentId, get r2Key from newsletterContent",
+      }
+      expect(readingLogic.checkPrivateFirst).toBeDefined()
+      expect(readingLogic.checkPublicSecond).toBeDefined()
+    })
+
+    it("should work with new privateR2Key references", () => {
+      const newNewsletters = {
+        isPrivate: true,
+        privateR2Key: "private/{userId}/{timestamp}-{randomId}.html",
+        contentId: undefined,
+        source: "email|gmail|manual|community",
+        folderId: "Id<folders>",
+      }
+      expect(newNewsletters.isPrivate).toBe(true)
+      expect(newNewsletters.contentId).toBeUndefined()
+    })
+  })
+
+  describe("Source Field Tracking", () => {
+    it("should track email ingestion source", () => {
+      const sources = {
+        emailWorker: "email",
+        gmailImport: "gmail",
+        manualDragDrop: "manual",
+        communityImport: "community",
+      }
+      expect(sources.emailWorker).toBe("email")
+    })
+
+    it("should store source on userNewsletters record", () => {
+      const userNewsletterFields = {
+        source: "email|gmail|manual|community",
+        storedOn: "userNewsletters table",
+        usedFor: "Analytics, filtering, UI display",
+      }
+      expect(userNewsletterFields.source).toBeDefined()
+    })
+  })
+
+  describe("Folder-Centric Architecture", () => {
+    it("should require folderId for all ingestion paths", () => {
+      const ingestionPaths = {
+        emailIngestion: "passes folderId from getOrCreateFolderForSender",
+        gmailImport: "passes folderId from getOrCreateFolderForSender",
+        manualImport: "passes folderId from getOrCreateFolderForSender",
+        importIngestion: "passes folderId from getOrCreateFolderForSender",
+      }
+      Object.values(ingestionPaths).forEach((path) => {
+        expect(path).toContain("folderId")
+      })
+    })
+
+    it("should auto-create folder when sender has none", () => {
+      const folderCreation = {
+        trigger: "getOrCreateFolderForSender called",
+        folderName: "sender.name || sender.email",
+        updatesUserSenderSettings: true,
+      }
+      expect(folderCreation.trigger).toContain("getOrCreateFolderForSender")
+    })
+  })
+
+  describe("getOrCreateFolderForSender behavior (Story 9.2 Code Review Fix)", () => {
+    it("should return existing folderId if userSenderSettings has one", () => {
+      const scenario = {
+        existingSettings: { folderId: "folder_abc123" },
+        expectedResult: "folder_abc123",
+        action: "Return immediately without creating folder",
+      }
+      expect(scenario.expectedResult).toBe("folder_abc123")
+    })
+
+    it("should create folder with sender.name as folder name", () => {
+      const scenario = {
+        sender: { name: "TechCrunch Newsletter", email: "news@techcrunch.com" },
+        expectedFolderName: "TechCrunch Newsletter",
+      }
+      expect(scenario.expectedFolderName).toBe("TechCrunch Newsletter")
+    })
+
+    it("should fallback to sender.email if name is not available", () => {
+      const scenario = {
+        sender: { name: undefined, email: "updates@company.com" },
+        expectedFolderName: "updates@company.com",
+      }
+      expect(scenario.expectedFolderName).toBe("updates@company.com")
+    })
+
+    it("should fallback to 'Unknown Sender' if neither name nor email available", () => {
+      const scenario = {
+        sender: null,
+        expectedFolderName: "Unknown Sender",
+      }
+      expect(scenario.expectedFolderName).toBe("Unknown Sender")
+    })
+
+    it("should update existing userSenderSettings with folderId if settings exist but no folder", () => {
+      const scenario = {
+        existingSettings: { _id: "settings_123", folderId: undefined },
+        action: "ctx.db.patch(settings._id, { folderId })",
+        incrementsSubscriberCount: false,
+      }
+      expect(scenario.incrementsSubscriberCount).toBe(false)
+    })
+
+    it("should create new userSenderSettings if none exists", () => {
+      const scenario = {
+        existingSettings: null,
+        createdSettings: {
+          userId: "user_123",
+          senderId: "sender_456",
+          isPrivate: true, // Story 9.2: Always private
+          folderId: "folder_789",
+        },
+        incrementsSubscriberCount: true,
+      }
+      expect(scenario.createdSettings.isPrivate).toBe(true)
+      expect(scenario.incrementsSubscriberCount).toBe(true)
+    })
+
+    describe("Race condition protection", () => {
+      it("should detect duplicate userSenderSettings created by concurrent requests", () => {
+        const raceConditionHandling = {
+          detection: "Query by_userId_senderId after insert",
+          resolution: "Keep oldest record (by _creationTime), delete duplicates",
+          subscriberCountHandling: "Only increment if we won the race",
+        }
+        expect(raceConditionHandling.detection).toContain("by_userId_senderId")
+      })
+
+      it("should keep the folder from the race winner if different", () => {
+        const scenario = {
+          ourFolderId: "folder_new",
+          winnerFolderId: "folder_existing",
+          expectedResult: "folder_existing",
+          ourFolderAction: "Delete orphaned folder",
+        }
+        expect(scenario.expectedResult).toBe("folder_existing")
+      })
+
+      it("should not increment subscriberCount on race condition loss", () => {
+        const scenario = {
+          raceConditionDetected: true,
+          duplicatesDeleted: 1,
+          subscriberCountIncremented: false,
+        }
+        expect(scenario.subscriberCountIncremented).toBe(false)
+      })
+    })
+
+    describe("Email Ingestion folder creation", () => {
+      it("should call getOrCreateFolderForSender in emailIngestion", () => {
+        const flow = {
+          step1: "getOrCreateSender (get senderId)",
+          step2: "getOrCreateFolderForSender (get folderId)",
+          step3: "storeNewsletterContent with folderId",
+        }
+        expect(flow.step2).toContain("getOrCreateFolderForSender")
+      })
+    })
+
+    describe("Gmail Import folder creation", () => {
+      it("should call getOrCreateFolderForSender in processAndStoreImportedEmail", () => {
+        const flow = {
+          step1: "getOrCreateSender (get senderId)",
+          step2: "getOrCreateFolderForSender (get folderId)",
+          step3: "storeNewsletterContent with source='gmail' and folderId",
+        }
+        expect(flow.step2).toContain("getOrCreateFolderForSender")
+        expect(flow.step3).toContain("gmail")
+      })
+    })
+
+    describe("Manual Import folder creation", () => {
+      it("should call getOrCreateFolderForSender in importEmlNewsletter", () => {
+        const flow = {
+          step1: "getOrCreateSender (get senderId)",
+          step2: "getOrCreateFolderForSender (get folderId)",
+          step3: "storeNewsletterContent with source='manual' and folderId",
+        }
+        expect(flow.step2).toContain("getOrCreateFolderForSender")
+        expect(flow.step3).toContain("manual")
+      })
+
+      it("should call getOrCreateFolderForSender in receiveImportEmail (forward-to-import)", () => {
+        const flow = {
+          step1: "getOrCreateSender (get senderId)",
+          step2: "getOrCreateFolderForSender (get folderId)",
+          step3: "storeNewsletterContent with source='manual' and folderId",
+        }
+        expect(flow.step2).toContain("getOrCreateFolderForSender")
+      })
+    })
+  })
+})

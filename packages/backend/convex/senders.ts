@@ -690,6 +690,139 @@ export const listFollowedSenders = query({
   },
 })
 
+// ============================================================
+// Story 9.2: Folder Auto-Creation for Senders
+// ============================================================
+
+/**
+ * Get or create a folder for a sender
+ * Story 9.2: Task 3.2, 4.3, 5.3 - Folder resolution for ingestion paths
+ *
+ * Every ingestion path needs to resolve a folder for the sender:
+ * 1. Check if userSenderSettings exists with folderId
+ * 2. If folderId exists, return it
+ * 3. If not, create a new folder with sender's name
+ * 4. Update userSenderSettings with the new folderId
+ *
+ * This ensures every newsletter has a folder assignment (folder-centric architecture).
+ *
+ * RACE CONDITION PROTECTION: If concurrent requests create duplicate settings,
+ * we detect and clean up duplicates, keeping the oldest record. subscriberCount
+ * is only incremented if we successfully created a new unique relationship.
+ * This mirrors the behavior of getOrCreateUserSenderSettings.
+ *
+ * NOTE: This function may create userSenderSettings if it doesn't exist.
+ * It uses the same race condition protection pattern as getOrCreateUserSenderSettings
+ * to ensure consistent behavior.
+ */
+export const getOrCreateFolderForSender = internalMutation({
+  args: {
+    userId: v.id("users"),
+    senderId: v.id("senders"),
+  },
+  handler: async (ctx, args) => {
+    // Check if userSenderSettings exists with folderId
+    const settings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_userId_senderId", (q) =>
+        q.eq("userId", args.userId).eq("senderId", args.senderId)
+      )
+      .first()
+
+    if (settings?.folderId) {
+      // Folder already assigned - return it
+      return settings.folderId
+    }
+
+    // Get sender info for folder name
+    const sender = await ctx.db.get(args.senderId)
+    const folderName = sender?.name || sender?.email || "Unknown Sender"
+
+    // Create folder for this sender
+    const now = Date.now()
+    const folderId = await ctx.db.insert("folders", {
+      userId: args.userId,
+      name: folderName,
+      isHidden: false,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    // Update or create userSenderSettings with folderId
+    if (settings) {
+      // Settings exists but no folderId - just update it
+      await ctx.db.patch(settings._id, { folderId })
+    } else {
+      // Create new settings with folder assignment
+      // Story 9.2: isPrivate is always true in private-by-default model
+      await ctx.db.insert("userSenderSettings", {
+        userId: args.userId,
+        senderId: args.senderId,
+        isPrivate: true, // Story 9.2: Always private in private-by-default model
+        folderId,
+      })
+
+      // Race condition check: verify we didn't create a duplicate
+      const allSettings = await ctx.db
+        .query("userSenderSettings")
+        .withIndex("by_userId_senderId", (q) =>
+          q.eq("userId", args.userId).eq("senderId", args.senderId)
+        )
+        .collect()
+
+      if (allSettings.length > 1) {
+        // Race condition detected - keep the oldest record (by creation time)
+        const sortedSettings = [...allSettings].sort(
+          (a, b) => a._creationTime - b._creationTime
+        )
+        const keepSettings = sortedSettings[0]
+
+        // Delete any duplicates (including ours if we lost the race)
+        for (const s of sortedSettings.slice(1)) {
+          await ctx.db.delete(s._id)
+        }
+
+        console.log(
+          `[senders] getOrCreateFolderForSender race condition resolved: ` +
+            `kept settings ${keepSettings._id}, deleted ${sortedSettings.length - 1} duplicate(s)`
+        )
+
+        // If the kept settings has a different folderId, use that instead
+        // (the winner of the race created the folder)
+        if (keepSettings.folderId && keepSettings.folderId !== folderId) {
+          // Delete our orphaned folder
+          await ctx.db.delete(folderId)
+          return keepSettings.folderId
+        }
+
+        // Update the kept settings with our folderId if it doesn't have one
+        if (!keepSettings.folderId) {
+          await ctx.db.patch(keepSettings._id, { folderId })
+        }
+
+        // Don't increment subscriberCount - we didn't create a new relationship
+        console.log(
+          `[senders] Created folder "${folderName}" (${folderId}) for sender ${args.senderId} (race resolved)`
+        )
+        return keepSettings.folderId ?? folderId
+      }
+
+      // We successfully created the only record - increment subscriber count
+      if (sender) {
+        await ctx.db.patch(args.senderId, {
+          subscriberCount: sender.subscriberCount + 1,
+        })
+      }
+    }
+
+    console.log(
+      `[senders] Created folder "${folderName}" (${folderId}) for sender ${args.senderId}`
+    )
+
+    return folderId
+  },
+})
+
 /**
  * List distinct domains from senders table for filter dropdown
  * Story 6.4 Task 3.1

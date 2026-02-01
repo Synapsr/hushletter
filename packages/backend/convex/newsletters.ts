@@ -26,36 +26,37 @@ export type ContentStatus = "available" | "missing" | "error"
  * Story 2.5.1: Updated for new schema with public/private content paths
  * Story 2.5.2: Added content deduplication via normalization + SHA-256 hashing
  * Story 8.4: Added duplicate detection via messageId and content hash
+ * Story 9.2: PRIVATE-BY-DEFAULT - All user newsletters are now stored privately.
+ *   - Removed isPrivate parameter (always private for user ingestion)
+ *   - Added source parameter to track ingestion origin
+ *   - Added folderId parameter (required for folder-centric architecture)
+ *   - Removed PUBLIC PATH deduplication to newsletterContent
+ *   - newsletterContent is now ONLY created by admin curation (Story 9.7)
  *
  * DUPLICATE DETECTION (Story 8.4):
  * Before any storage, checks if this is a duplicate:
  * 1. Check by messageId (most reliable - globally unique per RFC 5322)
- * 2. Check by content hash (fallback when no messageId)
+ * 2. Check by content hash for same user (user-level dedup only)
  * If duplicate found, returns { skipped: true } without storage.
- *
- * PUBLIC PATH (isPrivate=false):
- * 1. Normalize content (strip tracking, personalization)
- * 2. Compute SHA-256 hash of normalized content
- * 3. Check if newsletterContent exists with that hash
- * 4. If exists: reuse contentId, increment readerCount (skip R2 upload)
- * 5. If not: upload to R2 with hash-based key, create newsletterContent
- *
- * PRIVATE PATH (isPrivate=true):
- * - Bypass deduplication entirely
- * - Upload to user-specific R2 key
- * - Store privateR2Key on userNewsletter (no contentId)
  */
 export const storeNewsletterContent = internalAction({
   args: {
     userId: v.id("users"),
     senderId: v.id("senders"),
+    folderId: v.id("folders"), // Story 9.2: Required for folder-centric architecture
     subject: v.string(),
     senderEmail: v.string(),
     senderName: v.optional(v.string()),
     receivedAt: v.number(),
     htmlContent: v.optional(v.string()),
     textContent: v.optional(v.string()),
-    isPrivate: v.boolean(),
+    // Story 9.2: Track ingestion source (replaces isPrivate)
+    source: v.union(
+      v.literal("email"),
+      v.literal("gmail"),
+      v.literal("manual"),
+      v.literal("community")
+    ),
     // Story 8.4: Email Message-ID header for duplicate detection
     messageId: v.optional(v.string()),
   },
@@ -66,7 +67,6 @@ export const storeNewsletterContent = internalAction({
     | {
         userNewsletterId: Id<"userNewsletters">
         r2Key: string
-        deduplicated?: boolean
         skipped?: false
       }
     | {
@@ -78,9 +78,9 @@ export const storeNewsletterContent = internalAction({
   > => {
     console.log(
       `[newsletters] storeNewsletterContent called: user=${args.userId}, sender=${args.senderId}, ` +
-        `subject="${args.subject.substring(0, 50)}...", isPrivate=${args.isPrivate}, ` +
-        `htmlLen=${args.htmlContent?.length || 0}, textLen=${args.textContent?.length || 0}, ` +
-        `messageId=${args.messageId || "none"}`
+        `subject="${args.subject.substring(0, 50)}...", source=${args.source}, ` +
+        `folderId=${args.folderId}, htmlLen=${args.htmlContent?.length || 0}, ` +
+        `textLen=${args.textContent?.length || 0}, messageId=${args.messageId || "none"}`
     )
 
     // ========================================
@@ -120,187 +120,86 @@ export const storeNewsletterContent = internalAction({
       )
     }
 
-    // Pre-compute content hash for duplicate detection (used in both paths)
+    // Pre-compute content hash for user-level duplicate detection
     const normalized = normalizeForHash(effectiveContent)
     const contentHash = await computeContentHash(normalized)
 
-    // Step 2: Check by content hash (fallback for public newsletters)
-    // Runs even if messageId was provided but didn't match - same content could have
-    // different Message-IDs (e.g., forwarded copies, resent emails)
-    if (!args.isPrivate) {
-      const existingByHash = await ctx.runQuery(
-        internal._internal.duplicateDetection.checkDuplicateByContentHash,
-        { userId: args.userId, contentHash, isPrivate: false }
+    // Step 2: Check by content hash for THIS USER ONLY (user-level dedup)
+    // Story 9.2: All newsletters are private, so we only check user's own content
+    const existingByHash = await ctx.runQuery(
+      internal._internal.duplicateDetection.checkDuplicateByContentHash,
+      { userId: args.userId, contentHash, isPrivate: true }
+    )
+    if (existingByHash) {
+      console.log(
+        `[newsletters] Duplicate detected by contentHash for user: ${contentHash.substring(0, 8)}..., existing=${existingByHash}`
       )
-      if (existingByHash) {
-        console.log(
-          `[newsletters] Duplicate detected by contentHash: ${contentHash.substring(0, 8)}..., existing=${existingByHash}`
-        )
-        return {
-          skipped: true,
-          reason: "duplicate",
-          duplicateReason: "content_hash",
-          existingId: existingByHash,
-        }
+      return {
+        skipped: true,
+        reason: "duplicate",
+        duplicateReason: "content_hash",
+        existingId: existingByHash,
       }
     }
 
     const contentType = args.htmlContent ? "text/html" : "text/plain"
     const ext = args.htmlContent ? "html" : "txt"
 
-    let userNewsletterId: Id<"userNewsletters">
-    let r2Key: string
-    let deduplicated = false
+    // ========================================
+    // PRIVATE-BY-DEFAULT PATH (Story 9.2)
+    // All user newsletters stored with privateR2Key
+    // ========================================
+    const timestamp = Date.now()
+    const randomId = crypto.randomUUID()
+    const r2Key = `private/${args.userId}/${timestamp}-${randomId}.${ext}`
 
-    if (args.isPrivate) {
-      // ========================================
-      // PRIVATE PATH - bypass deduplication
-      // ========================================
-      const timestamp = Date.now()
-      const randomId = crypto.randomUUID()
-      r2Key = `private/${args.userId}/${timestamp}-${randomId}.${ext}`
-
-      // Upload to R2 (store original content, even if empty)
-      try {
-        console.log(`[newsletters] Uploading private content to R2: key=${r2Key}, size=${effectiveContent.length}`)
-        const blob = new Blob([effectiveContent], { type: `${contentType}; charset=utf-8` })
-        await r2.store(ctx, blob, { key: r2Key, type: contentType })
-        console.log(`[newsletters] R2 upload successful: ${r2Key}`)
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error)
-        console.error(
-          `[newsletters] R2 upload failed for private content: key=${r2Key}, error=${errorMsg}`,
-          error
-        )
-        throw new ConvexError({
-          code: "R2_UPLOAD_FAILED",
-          message: `Failed to store newsletter content in R2: ${errorMsg}`,
-        })
-      }
-
-      // Create userNewsletter with privateR2Key (no contentId)
-      userNewsletterId = await ctx.runMutation(
-        internal.newsletters.createUserNewsletter,
-        {
-          userId: args.userId,
-          senderId: args.senderId,
-          subject: args.subject,
-          senderEmail: args.senderEmail,
-          senderName: args.senderName,
-          receivedAt: args.receivedAt,
-          isPrivate: true,
-          privateR2Key: r2Key,
-          messageId: args.messageId, // Story 8.4: Pass messageId for duplicate detection
-        }
+    // Upload to R2 (store original content, even if empty)
+    try {
+      console.log(`[newsletters] Uploading private content to R2: key=${r2Key}, size=${effectiveContent.length}`)
+      const blob = new Blob([effectiveContent], { type: `${contentType}; charset=utf-8` })
+      await r2.store(ctx, blob, { key: r2Key, type: contentType })
+      console.log(`[newsletters] R2 upload successful: ${r2Key}`)
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.error(
+        `[newsletters] R2 upload failed for private content: key=${r2Key}, error=${errorMsg}`,
+        error
       )
-
-      // Increment sender.newsletterCount after successful storage
-      await ctx.runMutation(internal.senders.incrementNewsletterCount, {
-        senderId: args.senderId,
-      })
-
-      console.log(
-        `[newsletters] Private content stored (dedup bypassed): ${r2Key}, user=${args.userId}`
-      )
-    } else {
-      // ========================================
-      // PUBLIC PATH - with deduplication
-      // ========================================
-
-      // Content hash already computed above for duplicate detection
-      // Step 3: Check for existing content with this hash
-      const existingContent = await ctx.runQuery(
-        internal.newsletters.findByContentHash,
-        { contentHash }
-      )
-
-      let contentId: Id<"newsletterContent">
-
-      if (existingContent) {
-        // ========================================
-        // DEDUP HIT - reuse existing content
-        // ========================================
-        contentId = existingContent._id
-        r2Key = existingContent.r2Key
-        deduplicated = true
-
-        // Increment readerCount (atomic)
-        await ctx.runMutation(internal.newsletters.incrementReaderCount, {
-          contentId,
-        })
-
-        console.log(
-          `[newsletters] Dedup HIT: reusing content ${contentId}, hash=${contentHash.substring(0, 8)}...`
-        )
-      } else {
-        // ========================================
-        // DEDUP MISS - upload new content
-        // ========================================
-
-        // Use content-hash-based key for natural storage-level deduplication
-        r2Key = `content/${contentHash}.${ext}`
-
-        // Upload to R2 (use effectiveContent which has fallback for empty emails)
-        try {
-          console.log(`[newsletters] Uploading public content to R2: key=${r2Key}, size=${effectiveContent.length}`)
-          const blob = new Blob([effectiveContent], {
-            type: `${contentType}; charset=utf-8`,
-          })
-          await r2.store(ctx, blob, { key: r2Key, type: contentType })
-          console.log(`[newsletters] R2 upload successful: ${r2Key}`)
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error)
-          console.error(
-            `[newsletters] R2 upload failed for public content: key=${r2Key}, error=${errorMsg}`,
-            error
-          )
-          throw new ConvexError({
-            code: "R2_UPLOAD_FAILED",
-            message: `Failed to store newsletter content in R2: ${errorMsg}`,
-          })
-        }
-
-        // Create newsletterContent record with real hash
-        contentId = await ctx.runMutation(
-          internal.newsletters.createNewsletterContent,
-          {
-            contentHash,
-            r2Key,
-            subject: args.subject,
-            senderEmail: args.senderEmail,
-            senderName: args.senderName,
-            receivedAt: args.receivedAt,
-          }
-        )
-
-        console.log(
-          `[newsletters] Dedup MISS: created content ${contentId}, hash=${contentHash.substring(0, 8)}...`
-        )
-      }
-
-      // Create userNewsletter with contentId reference
-      userNewsletterId = await ctx.runMutation(
-        internal.newsletters.createUserNewsletter,
-        {
-          userId: args.userId,
-          senderId: args.senderId,
-          subject: args.subject,
-          senderEmail: args.senderEmail,
-          senderName: args.senderName,
-          receivedAt: args.receivedAt,
-          isPrivate: false,
-          contentId,
-          messageId: args.messageId, // Story 8.4: Pass messageId for duplicate detection
-        }
-      )
-
-      // Increment sender.newsletterCount after successful storage
-      await ctx.runMutation(internal.senders.incrementNewsletterCount, {
-        senderId: args.senderId,
+      throw new ConvexError({
+        code: "R2_UPLOAD_FAILED",
+        message: `Failed to store newsletter content in R2: ${errorMsg}`,
       })
     }
 
-    return { userNewsletterId, r2Key, deduplicated }
+    // Create userNewsletter with privateR2Key (no contentId - Story 9.2)
+    const userNewsletterId = await ctx.runMutation(
+      internal.newsletters.createUserNewsletter,
+      {
+        userId: args.userId,
+        senderId: args.senderId,
+        folderId: args.folderId, // Story 9.2: Required
+        subject: args.subject,
+        senderEmail: args.senderEmail,
+        senderName: args.senderName,
+        receivedAt: args.receivedAt,
+        isPrivate: true, // Story 9.2: Always true for user ingestion
+        privateR2Key: r2Key,
+        contentId: undefined, // Story 9.2: Never set for user ingestion
+        source: args.source, // Story 9.2: Track ingestion source
+        messageId: args.messageId, // Story 8.4: For duplicate detection
+      }
+    )
+
+    // Increment sender.newsletterCount after successful storage
+    await ctx.runMutation(internal.senders.incrementNewsletterCount, {
+      senderId: args.senderId,
+    })
+
+    console.log(
+      `[newsletters] Private content stored: ${r2Key}, user=${args.userId}, source=${args.source}`
+    )
+
+    return { userNewsletterId, r2Key }
   },
 })
 
@@ -308,10 +207,16 @@ export const storeNewsletterContent = internalAction({
  * Create a new newsletterContent entry for shared public content
  * Story 2.5.1: New function for shared content schema
  * Story 2.5.2: Now requires contentHash (SHA-256 of normalized content)
+ * Story 9.2: NOW ADMIN-ONLY - Used only for admin curation (Story 9.7)
+ *   User ingestion no longer creates newsletterContent records.
+ *   All user newsletters use privateR2Key instead.
  *
  * RACE CONDITION HANDLING: If another request created content with the same
  * hash between our lookup and this mutation, we detect it and return the
  * existing content instead of creating a duplicate.
+ *
+ * @deprecated For user ingestion - use storeNewsletterContent which always stores privately.
+ * This function is reserved for admin curation workflow (Story 9.7).
  */
 export const createNewsletterContent = internalMutation({
   args: {
@@ -358,6 +263,11 @@ export const createNewsletterContent = internalMutation({
 /**
  * Find newsletterContent by content hash (for deduplication lookup)
  * Story 2.5.2: Task 3 - Deduplication lookup via by_contentHash index
+ * Story 9.2: NOW ADMIN-ONLY - Used only for admin curation (Story 9.7)
+ *   User ingestion no longer uses cross-user content deduplication.
+ *
+ * @deprecated For user ingestion - storeNewsletterContent now uses user-level
+ * duplicate detection only. This function is reserved for admin curation workflow.
  */
 export const findByContentHash = internalQuery({
   args: { contentHash: v.string() },
@@ -372,9 +282,15 @@ export const findByContentHash = internalQuery({
 /**
  * Increment readerCount when content is reused (dedup hit)
  * Story 2.5.2: Task 3 - Atomic increment for deduplication metrics
+ * Story 9.2: NOW ADMIN-ONLY - Used only for admin curation (Story 9.7)
+ *   User ingestion no longer uses cross-user content deduplication.
  *
  * Note: Throws if content not found (consistent with incrementNewsletterCount
  * in senders.ts). A missing contentId indicates a bug in the calling code.
+ *
+ * @deprecated For user ingestion - storeNewsletterContent no longer uses
+ * shared content deduplication. This function is reserved for admin curation
+ * workflow when users import from community content.
  */
 export const incrementReaderCount = internalMutation({
   args: { contentId: v.id("newsletterContent") },
@@ -396,11 +312,13 @@ export const incrementReaderCount = internalMutation({
  * Create a new userNewsletter entry
  * Story 2.5.1: Updated for new schema
  * Story 8.4: Added messageId field for duplicate detection
+ * Story 9.2: Added source and folderId fields for private-by-default architecture
  */
 export const createUserNewsletter = internalMutation({
   args: {
     userId: v.id("users"),
     senderId: v.id("senders"),
+    folderId: v.id("folders"), // Story 9.2: Required for folder-centric architecture
     subject: v.string(),
     senderEmail: v.string(),
     senderName: v.optional(v.string()),
@@ -408,6 +326,13 @@ export const createUserNewsletter = internalMutation({
     isPrivate: v.boolean(),
     contentId: v.optional(v.id("newsletterContent")),
     privateR2Key: v.optional(v.string()),
+    // Story 9.2: Track ingestion source
+    source: v.union(
+      v.literal("email"),
+      v.literal("gmail"),
+      v.literal("manual"),
+      v.literal("community")
+    ),
     // Story 8.4: Email Message-ID header for duplicate detection
     messageId: v.optional(v.string()),
   },
@@ -415,6 +340,7 @@ export const createUserNewsletter = internalMutation({
     const userNewsletterId = await ctx.db.insert("userNewsletters", {
       userId: args.userId,
       senderId: args.senderId,
+      folderId: args.folderId, // Story 9.2: Required
       contentId: args.contentId,
       privateR2Key: args.privateR2Key,
       subject: args.subject,
@@ -424,6 +350,7 @@ export const createUserNewsletter = internalMutation({
       isRead: false,
       isHidden: false,
       isPrivate: args.isPrivate,
+      source: args.source, // Story 9.2: Track ingestion source
       messageId: args.messageId, // Story 8.4: Store for duplicate detection
     })
 

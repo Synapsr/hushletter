@@ -1455,6 +1455,10 @@ export const startHistoricalImport = action({
 /**
  * Process and store a single imported email (action)
  * Story 4.4: Task 3.1 (AC #2, #6)
+ * Story 9.2: Updated for private-by-default architecture
+ *   - Always passes source: "gmail"
+ *   - Resolves/creates folder for sender
+ *   - No longer uses isPrivate from userSenderSettings
  *
  * This is an ACTION (not mutation) because it needs to:
  * - Call R2 storage via the existing storeNewsletterContent action
@@ -1463,8 +1467,9 @@ export const startHistoricalImport = action({
  * Flow:
  * 1. Extract email content (subject, sender, date, HTML body)
  * 2. Check for duplicates (by date+subject and content hash)
- * 3. Get or create sender and userSenderSettings
- * 4. Store content via storeNewsletterContent action (handles R2 + dedup)
+ * 3. Get or create sender
+ * 4. Get or create folder for sender
+ * 5. Store content via storeNewsletterContent action (handles R2 + dedup)
  */
 export const processAndStoreImportedEmail = internalAction({
   args: {
@@ -1502,8 +1507,8 @@ export const processAndStoreImportedEmail = internalAction({
       name: args.senderName,
     })
 
-    // Step 4: Get or create userSenderSettings
-    const userSettings = await ctx.runMutation(internal.senders.getOrCreateUserSenderSettings, {
+    // Step 4: Story 9.2 - Get or create folder for this sender
+    const folderId = await ctx.runMutation(internal.senders.getOrCreateFolderForSender, {
       userId: args.userId,
       senderId: sender._id,
     })
@@ -1511,16 +1516,18 @@ export const processAndStoreImportedEmail = internalAction({
     // Step 5: Store content using the existing storeNewsletterContent action
     // This properly handles R2 upload, deduplication, and record creation
     // Story 8.4: storeNewsletterContent now performs duplicate detection
+    // Story 9.2: Pass source: "gmail" and folderId
     const result = await ctx.runAction(internal.newsletters.storeNewsletterContent, {
       userId: args.userId,
       senderId: sender._id,
+      folderId, // Story 9.2: Required for folder-centric architecture
       subject: headers.subject,
       senderEmail: args.senderEmail,
       senderName: args.senderName,
       receivedAt: headers.date,
       htmlContent: htmlContent || undefined,
       textContent: !htmlContent ? `<p>${headers.subject}</p>` : undefined,
-      isPrivate: userSettings.isPrivate,
+      source: "gmail", // Story 9.2: Track ingestion source
       // Note: Gmail import doesn't have messageId - duplicate detection uses content hash
     })
 

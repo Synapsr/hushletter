@@ -198,6 +198,10 @@ export const logRejection = httpAction(async (ctx, request) => {
  * HTTP action to receive forwarded email imports
  * Story 8.3: Task 4 - Import ingestion endpoint (AC #5)
  * Story 8.4: Task 5.1, 5.2 - Duplicate detection support
+ * Story 9.2: Updated for private-by-default architecture
+ *   - Always passes source: "manual"
+ *   - Resolves/creates folder for sender
+ *   - No longer uses isPrivate from userSenderSettings
  *
  * Similar to receiveEmail but:
  * - Takes userId directly (already verified by email worker)
@@ -337,30 +341,29 @@ export const receiveImportEmail = httpAction(async (ctx, request) => {
       name: validatedOriginalFromName,
     })
 
-    // Get user sender settings to determine privacy (reuse existing logic - AC #5)
-    const userSenderSettings = await ctx.runMutation(
-      internal.senders.getOrCreateUserSenderSettings,
+    // Story 9.2: Get or create folder for this sender (folder-centric architecture)
+    const folderId = await ctx.runMutation(
+      internal.senders.getOrCreateFolderForSender,
       {
         userId: user._id,
         senderId: sender._id,
       }
     )
 
-    // Determine if this newsletter should be private based on user settings
-    const isPrivate = userSenderSettings.isPrivate
-
     // Store content in R2 and create userNewsletter record (reuse existing logic - AC #5)
     // Story 8.4: Pass messageId for duplicate detection
+    // Story 9.2: Pass source: "manual" and folderId
     const result = await ctx.runAction(internal.newsletters.storeNewsletterContent, {
       userId: user._id,
       senderId: sender._id,
+      folderId, // Story 9.2: Required for folder-centric architecture
       subject: validatedOriginalSubject,
       senderEmail: validatedOriginalFrom,
       senderName: validatedOriginalFromName,
       receivedAt: validatedOriginalDate,
       htmlContent: validatedHtmlContent,
       textContent: validatedTextContent,
-      isPrivate,
+      source: "manual", // Story 9.2: Track ingestion source
       messageId: validatedMessageId, // Story 8.4: For duplicate detection
     })
 
@@ -379,7 +382,7 @@ export const receiveImportEmail = httpAction(async (ctx, request) => {
           duplicateReason: result.duplicateReason,
           existingId: result.existingId,
           senderId: sender._id,
-          isPrivate,
+          folderId, // Story 9.2: Return folderId
         }),
         {
           status: 200,
@@ -390,7 +393,7 @@ export const receiveImportEmail = httpAction(async (ctx, request) => {
 
     console.log(
       `[importIngestion] Import successful: userNewsletterId=${result.userNewsletterId}, ` +
-        `r2Key=${result.r2Key}, isPrivate=${isPrivate}, deduplicated=${result.deduplicated ?? false}`
+        `r2Key=${result.r2Key}, source=manual, folderId=${folderId}`
     )
 
     return new Response(
@@ -398,8 +401,8 @@ export const receiveImportEmail = httpAction(async (ctx, request) => {
         success: true,
         userNewsletterId: result.userNewsletterId,
         senderId: sender._id,
-        isPrivate,
-        deduplicated: result.deduplicated,
+        folderId, // Story 9.2: Return folderId
+        source: "manual", // Story 9.2: Confirm source
       }),
       {
         status: 200,

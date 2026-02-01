@@ -1,13 +1,16 @@
 import { useRef, useCallback, useMemo, useState, useDeferredValue } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
-import { useConvex } from "convex/react"
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useConvex, useMutation } from "convex/react"
 import { api } from "@newsletter-manager/backend"
 import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
 import {
   CommunityNewsletterCard,
   type CommunityNewsletterData,
+  type OwnershipStatus,
 } from "~/components/CommunityNewsletterCard"
+import { CommunityNewsletterPreviewModal } from "~/components/CommunityNewsletterPreviewModal"
+import { BulkImportBar } from "~/components/BulkImportBar"
 import { SharingOnboardingModal } from "~/components/SharingOnboardingModal"
 import {
   Select,
@@ -17,9 +20,11 @@ import {
   SelectValue,
 } from "~/components/ui/select"
 import { Input } from "~/components/ui/input"
+import { Button } from "~/components/ui/button"
 import { Card, CardContent } from "~/components/ui/card"
 import { convexQuery } from "@convex-dev/react-query"
-import { Loader2, Search, Users, ChevronRight } from "lucide-react"
+import { Loader2, Search, Users, ChevronRight, CheckSquare, Square, FolderOpen } from "lucide-react"
+import { toast } from "sonner"
 
 /** Response type from listCommunityNewsletters query */
 type CommunityNewslettersResponse = {
@@ -52,9 +57,10 @@ type TopCommunitySenderData = {
  * Story 6.1: Task 2.3-2.4
  * Story 6.3: Added tab for browse modes
  * Story 6.4: Added domain filter
+ * Story 9.8: Added "imports" sort option
  */
 type CommunitySearchParams = {
-  sort?: "popular" | "recent"
+  sort?: "popular" | "recent" | "imports" // Story 9.8: Added imports sort
   sender?: string
   domain?: string  // Story 6.4: Domain filter
   tab?: "newsletters" | "senders"
@@ -63,7 +69,13 @@ type CommunitySearchParams = {
 export const Route = createFileRoute("/_authed/community/")({
   component: CommunityBrowsePage,
   validateSearch: (search: Record<string, unknown>): CommunitySearchParams => {
-    const sort = search.sort === "recent" ? "recent" : undefined // Default is popular
+    // Story 9.8: Added "imports" sort option
+    const sort =
+      search.sort === "recent"
+        ? "recent"
+        : search.sort === "imports"
+          ? "imports"
+          : undefined // Default is popular
     const sender = typeof search.sender === "string" ? search.sender : undefined
     const domain = typeof search.domain === "string" ? search.domain : undefined // Story 6.4
     const tab = search.tab === "senders" ? "senders" : undefined // Default is newsletters
@@ -95,13 +107,14 @@ function CommunityListSkeleton() {
 
 /**
  * Empty state when no community newsletters found
+ * Story 9.8 Task 6.3: Updated to reflect admin-curated nature
  */
 function EmptyCommunityState({ senderFilter }: { senderFilter?: string }) {
   if (senderFilter) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">
-          No newsletters found from this sender in the community.
+          No curated newsletters found from this sender yet.
         </p>
       </div>
     )
@@ -109,10 +122,11 @@ function EmptyCommunityState({ senderFilter }: { senderFilter?: string }) {
 
   return (
     <div className="text-center py-12">
-      <p className="text-xl font-medium mb-2">No community newsletters yet</p>
+      <p className="text-xl font-medium mb-2">No curated newsletters yet</p>
       <p className="text-muted-foreground">
-        Newsletters shared by users will appear here. Subscribe to some
-        newsletters to help build the community library!
+        Our team is reviewing and curating quality newsletters for the community.
+        <br />
+        Check back soon for recommended content!
       </p>
     </div>
   )
@@ -201,15 +215,18 @@ function SenderCard({ sender }: { sender: TopCommunitySenderData }) {
  * CommunityBrowsePage - Browse public newsletter content
  * Story 6.1: Task 2.1-2.6
  * Story 6.3: Added search functionality and "Browse by Sender" tab
+ * Story 9.8: Admin-curated community, ownership badges, preview modal, import sort
  *
  * Features:
  * - Search newsletters by subject and sender name (Story 6.3)
  * - Browse by sender section with top senders (Story 6.3)
- * - List newsletters from newsletterContent (public/shared content only)
- * - Sort by popular (readerCount) or recent (firstReceivedAt)
+ * - List newsletters from newsletterContent (admin-approved only - Story 9.8)
+ * - Sort by popular (readerCount), recent (firstReceivedAt), or imports (importCount)
  * - Filter by sender
  * - Infinite scroll pagination using TanStack Query's useInfiniteQuery
- * - Reader count badges
+ * - Reader count and import count badges (Story 9.8)
+ * - Ownership badges for newsletters user already has (Story 9.8)
+ * - Preview modal before importing (Story 9.8)
  * - Navigate to community reader view
  *
  * Note: Uses useInfiniteQuery for proper infinite scroll state management,
@@ -225,6 +242,17 @@ function CommunityBrowsePage() {
   const [searchInput, setSearchInput] = useState("")
   const deferredSearchQuery = useDeferredValue(searchInput)
   const isSearching = searchInput !== deferredSearchQuery
+
+  // Story 9.8 Task 5.1: Preview modal state
+  const [previewNewsletter, setPreviewNewsletter] = useState<CommunityNewsletterData | null>(null)
+
+  // Story 9.9 Task 5.1-5.6: Selection mode state for bulk import
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<Id<"newsletterContent">>>(new Set())
+
+  // Story 9.9 Task 6.1: Quick import mutation
+  const addToCollection = useMutation(api.community.addToCollection)
+  const queryClient = useQueryClient()
 
   // Infinite scroll observer ref
   const loadMoreRef = useRef<HTMLDivElement>(null)
@@ -275,6 +303,32 @@ function CommunityBrowsePage() {
 
   // Check if search results may be incomplete (MEDIUM-6 fix)
   const searchResultsMayBeIncomplete = (searchResults as CommunityNewsletterData[] | undefined)?.length === 50
+
+  // Story 9.8 Task 3.1-3.2: Check user ownership of displayed newsletters
+  const displayNewslettersForOwnership = useMemo(() => {
+    if (deferredSearchQuery) {
+      return (searchResults as CommunityNewsletterData[] | undefined) ?? []
+    }
+    return data?.pages.flatMap((page) => page.items) ?? []
+  }, [deferredSearchQuery, searchResults, data])
+
+  const contentIdsForOwnershipCheck = useMemo(
+    () => displayNewslettersForOwnership.map((n) => n._id as Id<"newsletterContent">),
+    [displayNewslettersForOwnership]
+  )
+
+  const { data: ownershipData } = useQuery({
+    ...convexQuery(api.community.checkUserHasNewsletters, {
+      contentIds: contentIdsForOwnershipCheck,
+    }),
+    enabled: contentIdsForOwnershipCheck.length > 0 && tab !== "senders",
+  })
+
+  // Create ownership lookup map
+  const ownershipMap = useMemo((): Record<string, OwnershipStatus> => {
+    if (!ownershipData) return {}
+    return ownershipData as Record<string, OwnershipStatus>
+  }, [ownershipData])
 
   // Top senders for "Browse by Sender" tab - Story 6.3 Task 2.2
   const { data: topSenders, isPending: isSendersPending, error: sendersError, refetch: refetchSenders } = useQuery({
@@ -329,12 +383,12 @@ function CommunityBrowsePage() {
     [observerCallback]
   )
 
-  // Handle sort change
+  // Handle sort change - Story 9.8: Added "imports" option
   const handleSortChange = (value: string) => {
     navigate({
       search: (prev) => ({
         ...prev,
-        sort: value === "popular" ? undefined : (value as "recent"),
+        sort: value === "popular" ? undefined : (value as "recent" | "imports"),
       }),
     })
   }
@@ -362,12 +416,76 @@ function CommunityBrowsePage() {
   // Handle tab change - Story 6.3 Task 2.1
   const handleTabChange = (newTab: "newsletters" | "senders") => {
     setSearchInput("") // Clear search when switching tabs
+    setSelectionMode(false) // Story 9.9: Clear selection mode on tab change
+    setSelectedIds(new Set())
     navigate({
       search: (prev) => ({
         ...prev,
         tab: newTab === "newsletters" ? undefined : newTab,
       }),
     })
+  }
+
+  // Story 9.9 Task 5.1: Toggle selection mode
+  const handleToggleSelectionMode = () => {
+    setSelectionMode(!selectionMode)
+    if (selectionMode) {
+      setSelectedIds(new Set()) // Clear selection when exiting selection mode
+    }
+  }
+
+  // Story 9.9 Task 5.2: Handle individual newsletter selection
+  const handleSelectionChange = (contentId: Id<"newsletterContent">, selected: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (selected) {
+        next.add(contentId)
+      } else {
+        next.delete(contentId)
+      }
+      return next
+    })
+  }
+
+  // Story 9.9 Task 5.6: Select all visible (non-owned) newsletters
+  const handleSelectAllVisible = () => {
+    const nonOwnedIds = displayNewsletters
+      .filter((n) => !ownershipMap[n._id]?.hasPrivate && !ownershipMap[n._id]?.hasImported)
+      .map((n) => n._id as Id<"newsletterContent">)
+    setSelectedIds(new Set(nonOwnedIds))
+  }
+
+  // Story 9.9 Task 5.6: Clear all selections
+  const handleClearSelection = () => {
+    setSelectedIds(new Set())
+  }
+
+  // Story 9.9 Task 5.4-5.5: Handle import completion
+  const handleImportComplete = () => {
+    // Invalidate queries to refresh ownership data
+    queryClient.invalidateQueries({ queryKey: ["community-newsletters"] })
+  }
+
+  // Story 9.9 Task 6.1: Quick import single newsletter
+  const handleQuickImport = async (newsletter: CommunityNewsletterData) => {
+    try {
+      const result = await addToCollection({ contentId: newsletter._id as Id<"newsletterContent"> })
+      if (result.alreadyExists) {
+        toast.info("Newsletter already in your collection", {
+          description: result.folderName ? `In folder: ${result.folderName}` : undefined,
+        })
+      } else {
+        toast.success("Newsletter added to your collection", {
+          description: result.folderName ? `Added to folder: ${result.folderName}` : undefined,
+          icon: <FolderOpen className="h-4 w-4" />,
+        })
+        // Invalidate to refresh ownership status
+        queryClient.invalidateQueries({ queryKey: ["community-newsletters"] })
+      }
+    } catch (error) {
+      console.error("[quick-import] Failed:", error)
+      toast.error("Failed to import newsletter")
+    }
   }
 
   // Render newsletter list content
@@ -394,7 +512,19 @@ function CommunityBrowsePage() {
     return (
       <div className="space-y-3">
         {displayNewsletters.map((newsletter) => (
-          <CommunityNewsletterCard key={newsletter._id} newsletter={newsletter} />
+          <CommunityNewsletterCard
+            key={newsletter._id}
+            newsletter={newsletter}
+            ownershipStatus={ownershipMap[newsletter._id]}
+            onPreviewClick={() => setPreviewNewsletter(newsletter)}
+            // Story 9.9 Task 5.2, 6.1: Selection mode and quick import
+            selectionMode={selectionMode}
+            isSelected={selectedIds.has(newsletter._id as Id<"newsletterContent">)}
+            onSelectionChange={(selected) =>
+              handleSelectionChange(newsletter._id as Id<"newsletterContent">, selected)
+            }
+            onQuickImport={!selectionMode ? () => handleQuickImport(newsletter) : undefined}
+          />
         ))}
 
         {/* Search results limit warning (MEDIUM-6 fix) */}
@@ -470,11 +600,26 @@ function CommunityBrowsePage() {
       {/* Onboarding modal - shows once for new users */}
       <SharingOnboardingModal />
 
-      {/* Header */}
+      {/* Story 9.8 Task 5.1: Preview modal */}
+      {previewNewsletter && (
+        <CommunityNewsletterPreviewModal
+          contentId={previewNewsletter._id as Id<"newsletterContent">}
+          subject={previewNewsletter.subject}
+          senderName={previewNewsletter.senderName}
+          senderEmail={previewNewsletter.senderEmail}
+          onClose={() => setPreviewNewsletter(null)}
+          alreadyOwned={
+            ownershipMap[previewNewsletter._id]?.hasPrivate ||
+            ownershipMap[previewNewsletter._id]?.hasImported
+          }
+        />
+      )}
+
+      {/* Header - Story 9.8 Task 6.4: Updated description for admin-curated content */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground">Community</h1>
         <p className="text-muted-foreground mt-1">
-          Discover newsletters shared by the community
+          Discover curated newsletters recommended by our team
         </p>
       </div>
 
@@ -528,16 +673,66 @@ function CommunityBrowsePage() {
             )}
           </div>
 
-          {/* Controls: Sort + Sender filter + Domain filter - only show when not searching */}
+          {/* Controls: Sort + Sender filter + Domain filter + Selection mode - only show when not searching */}
           {!deferredSearchQuery && (
-            <div className="flex flex-wrap gap-3 mb-6">
-              {/* Sort control */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+              {/* Story 9.9 Task 5.1: Selection mode toggle */}
+              <Button
+                variant={selectionMode ? "secondary" : "outline"}
+                size="sm"
+                onClick={handleToggleSelectionMode}
+                className="gap-2"
+              >
+                {selectionMode ? (
+                  <>
+                    <CheckSquare className="h-4 w-4" aria-hidden="true" />
+                    Exit Selection
+                  </>
+                ) : (
+                  <>
+                    <Square className="h-4 w-4" aria-hidden="true" />
+                    Select Multiple
+                  </>
+                )}
+              </Button>
+
+              {/* Story 9.9 Task 5.6: Select All / Clear buttons when in selection mode */}
+              {selectionMode && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSelectAllVisible}
+                    disabled={selectedIds.size === displayNewsletters.filter(
+                      (n) => !ownershipMap[n._id]?.hasPrivate && !ownershipMap[n._id]?.hasImported
+                    ).length}
+                  >
+                    Select All Visible
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearSelection}
+                    disabled={selectedIds.size === 0}
+                  >
+                    Clear Selection
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedIds.size} selected
+                  </span>
+                </>
+              )}
+
+              {/* Separator when both selection mode controls and filters are shown */}
+              {selectionMode && <div className="h-6 border-l border-border" />}
+              {/* Sort control - Story 9.8 Task 6.1: Added Most Imported option */}
               <Select value={sort || "popular"} onValueChange={handleSortChange}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="popular">Popular</SelectItem>
+                  <SelectItem value="imports">Most Imported</SelectItem>
                   <SelectItem value="recent">Recent</SelectItem>
                 </SelectContent>
               </Select>
@@ -576,6 +771,13 @@ function CommunityBrowsePage() {
 
           {/* Newsletter list */}
           {renderNewsletterList()}
+
+          {/* Story 9.9 Task 5.3-5.5: Bulk import bar */}
+          <BulkImportBar
+            selectedIds={selectedIds}
+            onClearSelection={handleClearSelection}
+            onImportComplete={handleImportComplete}
+          />
         </div>
       )}
 

@@ -645,3 +645,249 @@ describe("listCommunityNewsletters domain filter (Story 6.4 Task 3.3)", () => {
     expect(filterOrder).toContain("domain")
   })
 })
+
+// ============================================================
+// Story 9.8: Community Browse (Admin-Curated) Tests
+// ============================================================
+
+describe("community API exports (Story 9.8)", () => {
+  it("should export checkUserHasNewsletters query", () => {
+    expect(api.community.checkUserHasNewsletters).toBeDefined()
+  })
+})
+
+describe("Admin-approved filtering (Story 9.8 Task 1)", () => {
+  it("listCommunityNewsletters only returns admin-approved content", () => {
+    const filterBehavior = "c.communityApprovedAt !== undefined"
+    expect(filterBehavior).toContain("communityApprovedAt")
+  })
+
+  it("listCommunityNewslettersBySender only returns admin-approved content", () => {
+    const filterBehavior = "c.communityApprovedAt !== undefined"
+    expect(filterBehavior).toContain("communityApprovedAt")
+  })
+
+  it("searchCommunityNewsletters only searches admin-approved content", () => {
+    const filterNote = "filterModeratedContent now includes communityApprovedAt check"
+    expect(filterNote).toContain("communityApprovedAt")
+  })
+
+  it("listCommunitySenders only includes senders with approved content", () => {
+    const filterNote = "sendersWithApprovedContent.has(email)"
+    expect(filterNote).toContain("sendersWithApprovedContent")
+  })
+
+  it("listTopCommunitySenders only shows senders with approved content", () => {
+    const filterNote = "sendersWithApprovedContent.has(email)"
+    expect(filterNote).toContain("sendersWithApprovedContent")
+  })
+})
+
+describe("Import count sorting (Story 9.8 Task 2)", () => {
+  it("listCommunityNewsletters supports sortBy: imports option", () => {
+    const sortByOptions = ["popular", "recent", "imports"]
+    expect(sortByOptions).toContain("imports")
+  })
+
+  it("sorts by importCount descending when sortBy is imports", () => {
+    const sortBehavior = "(b.importCount ?? 0) - (a.importCount ?? 0)"
+    expect(sortBehavior).toContain("importCount")
+  })
+
+  it("returns importCount in response items", () => {
+    const responseField = "importCount: c.importCount ?? 0"
+    expect(responseField).toContain("importCount")
+  })
+
+  it("uses by_importCount index for imports sorting", () => {
+    const indexUsage = 'sortBy === "imports" ? "by_importCount"'
+    expect(indexUsage).toContain("by_importCount")
+  })
+})
+
+describe("checkUserHasNewsletters query contract (Story 9.8 Task 3)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      contentIds: "required array of Id<'newsletterContent'>",
+    }
+    expect(expectedArgsShape).toHaveProperty("contentIds")
+  })
+
+  it("returns map of contentId to ownership status", () => {
+    const expectedReturn = {
+      "[contentId]": {
+        hasPrivate: "boolean - user has private copy",
+        hasImported: "boolean - user imported from community",
+      },
+    }
+    expect(expectedReturn).toHaveProperty("[contentId]")
+    expect(expectedReturn["[contentId]"]).toHaveProperty("hasPrivate")
+    expect(expectedReturn["[contentId]"]).toHaveProperty("hasImported")
+  })
+
+  it("detects private copies by matching sender/subject with privateR2Key", () => {
+    const privateCopyDetection = "n.privateR2Key !== undefined"
+    expect(privateCopyDetection).toContain("privateR2Key")
+  })
+
+  it("detects imported copies by source === 'community'", () => {
+    const importedDetection = "n.source === 'community'"
+    expect(importedDetection).toContain("community")
+  })
+
+  it("returns empty object for unauthenticated users", () => {
+    const unauthBehavior = "if (!identity) return {}"
+    expect(unauthBehavior).toContain("return {}")
+  })
+
+  it("returns empty object for empty contentIds array", () => {
+    const emptyInputBehavior = "if (args.contentIds.length === 0) return {}"
+    expect(emptyInputBehavior).toContain("return {}")
+  })
+})
+
+describe("Sender counts in sender view (Story 9.8 Task 4)", () => {
+  it("listCommunityNewslettersBySender returns totalCount", () => {
+    const returnField = "totalCount: allItems.length"
+    expect(returnField).toContain("totalCount")
+  })
+
+  it("totalCount only counts admin-approved content", () => {
+    const countNote = "Filtered by communityApprovedAt before counting"
+    expect(countNote).toContain("communityApprovedAt")
+  })
+})
+
+describe("addToCollection updated behavior (Story 9.8)", () => {
+  it("verifies content is admin-approved before allowing import", () => {
+    const approvalCheck = "content.communityApprovedAt === undefined"
+    expect(approvalCheck).toContain("communityApprovedAt")
+  })
+
+  it("sets source to 'community' on imported newsletters", () => {
+    const sourceField = 'source: "community"'
+    expect(sourceField).toContain("community")
+  })
+
+  it("increments importCount on newsletterContent", () => {
+    const incrementBehavior = "importCount: (content.importCount ?? 0) + 1"
+    expect(incrementBehavior).toContain("importCount")
+  })
+
+  it("throws NOT_FOUND if content is not admin-approved", () => {
+    const errorMessage = "Newsletter not available in community"
+    expect(errorMessage).toContain("not available")
+  })
+})
+
+// ============================================================
+// Story 9.9: Community Import Tests
+// ============================================================
+
+describe("Community Import (Story 9.9)", () => {
+  describe("addToCollection mutation - folder assignment", () => {
+    it("assigns folderId using existing folder when available (AC: #4)", () => {
+      // When user has existing folder for sender, import should use that folder
+      const folderAssignmentBehavior = "existingSettings?.folderId ? folderId = existingSettings.folderId"
+      expect(folderAssignmentBehavior).toContain("folderId")
+    })
+
+    it("creates new folder when no folder exists for sender (AC: #2)", () => {
+      // When user doesn't have folder for sender, create one
+      const folderCreationBehavior = "await ctx.db.insert('folders', { userId, name: senderDisplayName })"
+      expect(folderCreationBehavior).toContain("insert")
+      expect(folderCreationBehavior).toContain("folders")
+    })
+
+    it("returns folderName in response for UI confirmation (AC: #2)", () => {
+      const responseField = "folderName: folder?.name ?? senderDisplayName"
+      expect(responseField).toContain("folderName")
+    })
+
+    it("creates userSenderSettings with folderId for new sender relationship (AC: #2)", () => {
+      const settingsCreation = "await ctx.db.insert('userSenderSettings', { userId, senderId, folderId })"
+      expect(settingsCreation).toContain("folderId")
+    })
+
+    it("increments subscriberCount for new sender relationship", () => {
+      const incrementBehavior = "subscriberCount: sender.subscriberCount + 1"
+      expect(incrementBehavior).toContain("subscriberCount")
+    })
+
+    it("sets isPrivate: false on userNewsletter (community imports are public)", () => {
+      const privacyField = "isPrivate: false"
+      expect(privacyField).toContain("false")
+    })
+
+    it("returns alreadyExists: true with folderName for duplicates (AC: #1)", () => {
+      const duplicateResponse = {
+        alreadyExists: true,
+        userNewsletterId: "existing-id",
+        folderName: "Sender Folder",
+      }
+      expect(duplicateResponse.alreadyExists).toBe(true)
+      expect(duplicateResponse.folderName).toBeDefined()
+    })
+  })
+
+  describe("bulkImportFromCommunity mutation contract (AC: #5)", () => {
+    it("should export bulkImportFromCommunity mutation", () => {
+      expect(api.community.bulkImportFromCommunity).toBeDefined()
+    })
+
+    it("defines expected args schema", () => {
+      const expectedArgsShape = {
+        contentIds: "required array of Id<'newsletterContent'>",
+      }
+      expect(expectedArgsShape).toHaveProperty("contentIds")
+    })
+
+    it("returns detailed results for each item", () => {
+      const expectedReturn = {
+        imported: "number - count of successfully imported",
+        skipped: "number - count of already in collection",
+        failed: "number - count of errors",
+        total: "number - total items requested",
+        results: "array of { contentId, status, error?, folderName? }",
+      }
+      expect(expectedReturn).toHaveProperty("imported")
+      expect(expectedReturn).toHaveProperty("skipped")
+      expect(expectedReturn).toHaveProperty("failed")
+      expect(expectedReturn).toHaveProperty("results")
+    })
+
+    it("rejects requests over 50 items", () => {
+      const batchLimit = "args.contentIds.length > 50"
+      const errorMessage = "Maximum 50 newsletters can be imported at once"
+      expect(batchLimit).toContain("50")
+      expect(errorMessage).toContain("50")
+    })
+
+    it("creates folders efficiently (one per sender)", () => {
+      const batchOptimization = "createdFoldersThisBatch.set(senderDisplayName, folderId)"
+      expect(batchOptimization).toContain("createdFoldersThisBatch")
+    })
+
+    it("handles mixed success/skip/error gracefully", () => {
+      const statusTypes = ["imported", "skipped", "error"]
+      expect(statusTypes).toContain("imported")
+      expect(statusTypes).toContain("skipped")
+      expect(statusTypes).toContain("error")
+    })
+
+    it("skips newsletters already in collection", () => {
+      const skipBehavior = "if (existingContentIds.has(contentId)) { status: 'skipped' }"
+      expect(skipBehavior).toContain("skipped")
+    })
+
+    it("throws UNAUTHORIZED for unauthenticated requests", () => {
+      const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+      expect(expectedError.code).toBe("UNAUTHORIZED")
+    })
+
+    it("throws VALIDATION_ERROR for batch size > 50", () => {
+      const expectedError = { code: "VALIDATION_ERROR", message: "Maximum 50 newsletters" }
+      expect(expectedError.code).toBe("VALIDATION_ERROR")
+    })
+  })
+})

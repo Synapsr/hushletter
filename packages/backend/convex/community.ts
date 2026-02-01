@@ -2,16 +2,21 @@
  * Community Newsletter Queries and Mutations
  * Story 6.1: Default Public Sharing - Community Browse & Discovery
  * Story 7.4: Community Content Management - Moderation filters
+ * Story 9.8: Admin-Curated Community Browse - Only admin-approved content visible
  *
  * CRITICAL PRIVACY RULES:
  * - Community queries ONLY access newsletterContent (inherently public content)
  * - NEVER join to userNewsletters for community views (exposes user data)
- * - Only expose: subject, senderEmail, senderName, firstReceivedAt, readerCount, hasSummary
+ * - Only expose: subject, senderEmail, senderName, firstReceivedAt, readerCount, importCount, hasSummary
  * - NEVER expose userId or any user-specific data
  *
  * MODERATION RULES (Story 7.4):
  * - Community queries MUST exclude hidden content (isHiddenFromCommunity: true)
  * - Community queries MUST exclude content from blocked senders
+ *
+ * ADMIN CURATION RULES (Story 9.8 - Epic 9):
+ * - Community queries MUST only return content where communityApprovedAt is set
+ * - Only admin-approved content appears in community browse
  *
  * The newsletterContent table IS the community database - content that exists
  * here is inherently public (private newsletters bypass this table entirely).
@@ -19,11 +24,21 @@
 
 import { query, mutation, action, internalQuery } from "./_generated/server"
 import type { QueryCtx } from "./_generated/server"
-import type { Doc } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 import { internal } from "./_generated/api"
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
 import { r2 } from "./r2"
+
+// ============================================================
+// Constants
+// ============================================================
+
+/** Maximum items to scan for community content queries */
+const MAX_COMMUNITY_CONTENT_SCAN = 1000
+
+/** Maximum contentIds to check in a single ownership query (Story 9.8 performance) */
+const MAX_OWNERSHIP_CHECK_BATCH = 100
 
 // ============================================================
 // Story 7.4: Moderation Helpers
@@ -48,14 +63,17 @@ async function getBlockedSenderEmails(ctx: QueryCtx): Promise<Set<string>> {
 }
 
 /**
- * Filter content to exclude hidden and blocked sender content
+ * Filter content to exclude hidden, blocked sender, and non-approved content
  * Story 7.4 Task 12.1-12.3
+ * Story 9.8 Task 1.1-1.5: Filter for admin-approved content only
  */
 function filterModeratedContent(
   content: Doc<"newsletterContent">[],
   blockedSenderEmails: Set<string>
 ): Doc<"newsletterContent">[] {
   return content.filter((c) => {
+    // Story 9.8: CRITICAL - Only show admin-approved content
+    if (c.communityApprovedAt === undefined) return false
     // Exclude hidden content
     if (c.isHiddenFromCommunity === true) return false
     // Exclude blocked sender content
@@ -72,6 +90,7 @@ function filterModeratedContent(
  * Search community newsletters by subject and sender name
  * Story 6.3 Task 1.2
  * Story 7.4 Task 12.1-12.2: Exclude moderated content
+ * Story 9.8 Task 1.3: Only search admin-approved content
  *
  * Implements in-memory search on newsletterContent (Convex lacks full-text search).
  * For MVP, scanning 500 items is acceptable. Consider Algolia for scale.
@@ -81,6 +100,7 @@ function filterModeratedContent(
  * PRIVACY: Queries newsletterContent directly which is inherently public.
  * Private newsletters never enter this table (Epic 2.5 design).
  * MODERATION: Excludes hidden content and blocked sender content.
+ * CURATION: Only returns admin-approved content (Story 9.8).
  */
 export const searchCommunityNewsletters = query({
   args: {
@@ -122,6 +142,7 @@ export const searchCommunityNewsletters = query({
       .slice(0, limit)
 
     // Return ONLY public fields - NEVER expose user data
+    // Story 9.8: Include importCount in response
     return matches.map((c) => ({
       _id: c._id,
       subject: c.subject,
@@ -129,8 +150,84 @@ export const searchCommunityNewsletters = query({
       senderName: c.senderName,
       firstReceivedAt: c.firstReceivedAt,
       readerCount: c.readerCount,
+      importCount: c.importCount ?? 0, // Story 9.8: Add import count
       hasSummary: Boolean(c.summary),
     }))
+  },
+})
+
+// ============================================================
+// Story 9.8 Task 3.1-3.2: Check User Ownership of Community Content
+// ============================================================
+
+/**
+ * Check which community content items the user already has
+ * Story 9.8 Task 3.1-3.2
+ *
+ * Returns a map of contentId → ownership status
+ * Used to show "Already in collection" badges in community browse
+ *
+ * Ownership types:
+ * - hasPrivate: User has a private copy (received directly, not from community)
+ * - hasImported: User imported this from community (source === "community")
+ */
+export const checkUserHasNewsletters = query({
+  args: {
+    contentIds: v.array(v.id("newsletterContent")),
+  },
+  handler: async (ctx, args): Promise<Record<string, { hasPrivate: boolean; hasImported: boolean }>> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return {}
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return {}
+
+    if (args.contentIds.length === 0) return {}
+
+    // Limit batch size to prevent performance issues with large requests
+    const contentIdsToCheck = args.contentIds.slice(0, MAX_OWNERSHIP_CHECK_BATCH)
+
+    // Get user's newsletters (limited to what we need for matching)
+    const userNewsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+
+    // Load content records for matching by subject/sender
+    const contentRecords = await Promise.all(
+      contentIdsToCheck.map((id) => ctx.db.get(id))
+    )
+
+    // Build map of contentId → ownership
+    const result: Record<string, { hasPrivate: boolean; hasImported: boolean }> = {}
+
+    for (let i = 0; i < contentIdsToCheck.length; i++) {
+      const contentId = contentIdsToCheck[i]
+      const contentRecord = contentRecords[i]
+      if (!contentRecord) continue
+
+      // Check if user has this content via contentId reference
+      const matching = userNewsletters.filter((n) => n.contentId === contentId)
+
+      // Check for private copies (same sender/subject but with privateR2Key)
+      // This handles the case where user received same newsletter privately
+      const privateMatches = userNewsletters.filter(
+        (n) =>
+          n.senderEmail === contentRecord.senderEmail &&
+          n.subject === contentRecord.subject &&
+          n.privateR2Key !== undefined
+      )
+
+      result[contentId] = {
+        hasPrivate: privateMatches.length > 0,
+        hasImported: matching.some((n) => n.source === "community"),
+      }
+    }
+
+    return result
   },
 })
 
@@ -142,12 +239,14 @@ export const searchCommunityNewsletters = query({
  * List top community senders by subscriber count
  * Story 6.3 Task 2.2
  * Story 7.4 Task 12.2: Exclude blocked senders
+ * Story 9.8 Task 1.5: Only show senders with approved content
  *
  * Returns senders with highest subscriberCount for "Browse by Sender" section.
  * Uses the global senders table which has pre-computed subscriber counts.
  *
  * Returns ONLY public sender info - no user data.
  * MODERATION: Excludes blocked senders.
+ * CURATION: Only shows senders that have at least one admin-approved newsletter.
  */
 export const listTopCommunitySenders = query({
   args: {
@@ -164,16 +263,29 @@ export const listTopCommunitySenders = query({
     const blockedSenders = await ctx.db.query("blockedSenders").collect()
     const blockedSenderIds = new Set(blockedSenders.map((b) => b.senderId))
 
+    // Story 9.8: Get emails of senders with approved content
+    const allApprovedContent = await ctx.db
+      .query("newsletterContent")
+      .take(MAX_COMMUNITY_CONTENT_SCAN)
+    const sendersWithApprovedContent = new Set(
+      allApprovedContent
+        .filter((c) => c.communityApprovedAt !== undefined && c.isHiddenFromCommunity !== true)
+        .map((c) => c.senderEmail)
+    )
+
     // Use the global senders table sorted by subscriberCount
-    // Fetch more to account for blocked senders being filtered out
+    // Fetch more to account for filtering
     const senders = await ctx.db
       .query("senders")
       .withIndex("by_subscriberCount")
       .order("desc")
-      .take(limit * 2)
+      .take(limit * 3)
 
     // Story 7.4: Filter out blocked senders
-    const visibleSenders = senders.filter((s) => !blockedSenderIds.has(s._id))
+    // Story 9.8: Filter out senders without approved content
+    const visibleSenders = senders.filter(
+      (s) => !blockedSenderIds.has(s._id) && sendersWithApprovedContent.has(s.email)
+    )
 
     // Return public sender info only
     return visibleSenders.slice(0, limit).map((sender) => ({
@@ -196,21 +308,23 @@ export const listTopCommunitySenders = query({
  * Story 6.1 Task 1.2
  * Story 6.4 Task 3.3: Added domain filter parameter
  * Story 7.4 Task 12.1-12.2: Exclude moderated content
+ * Story 9.8 Task 1.1, 2.2: Only admin-approved content, added "imports" sort option
  *
  * Query parameters:
- * - sortBy: "popular" (readerCount desc) or "recent" (firstReceivedAt desc)
+ * - sortBy: "popular" (readerCount desc), "recent" (firstReceivedAt desc), or "imports" (importCount desc)
  * - senderEmail: optional filter by sender
  * - domain: optional filter by sender domain (Story 6.4)
- * - cursorValue: pagination cursor (last item's sort value - readerCount or firstReceivedAt)
+ * - cursorValue: pagination cursor (last item's sort value)
  * - cursorId: pagination cursor (last item's _id for tie-breaking)
  * - limit: max items to return (default 20, max 100)
  *
  * Returns ONLY public fields from newsletterContent - no user data
  * MODERATION: Excludes hidden content and blocked sender content.
+ * CURATION: Only returns admin-approved content (Story 9.8).
  */
 export const listCommunityNewsletters = query({
   args: {
-    sortBy: v.optional(v.union(v.literal("popular"), v.literal("recent"))),
+    sortBy: v.optional(v.union(v.literal("popular"), v.literal("recent"), v.literal("imports"))),
     senderEmail: v.optional(v.string()),
     domain: v.optional(v.string()), // Story 6.4: Domain filter
     cursor: v.optional(v.id("newsletterContent")), // Kept for backward compatibility
@@ -238,14 +352,21 @@ export const listCommunityNewsletters = query({
         .withIndex("by_senderEmail", (q) => q.eq("senderEmail", args.senderEmail!))
     } else {
       // Use appropriate index based on sort
-      const indexName = sortBy === "popular" ? "by_readerCount" : "by_firstReceivedAt"
+      // Story 9.8: Added by_importCount for "imports" sort
+      const indexName =
+        sortBy === "imports"
+          ? "by_importCount"
+          : sortBy === "recent"
+            ? "by_firstReceivedAt"
+            : "by_readerCount"
       contentQuery = ctx.db.query("newsletterContent").withIndex(indexName)
     }
 
     // Fetch all matching items (with reasonable limit for safety)
-    let allItems = await contentQuery.order("desc").take(1000)
+    let allItems = await contentQuery.order("desc").take(MAX_COMMUNITY_CONTENT_SCAN)
 
     // Story 7.4 Task 12.1-12.2: Filter out moderated content
+    // Story 9.8 Task 1.1: This also filters for admin-approved content
     allItems = filterModeratedContent(allItems, blockedSenderEmails)
 
     // Story 6.4 Task 3.3: Apply domain filter if provided
@@ -263,6 +384,12 @@ export const listCommunityNewsletters = query({
         const diff = b.firstReceivedAt - a.firstReceivedAt
         return diff !== 0 ? diff : a._id.localeCompare(b._id) // Tie-break by _id
       })
+    } else if (sortBy === "imports") {
+      // Story 9.8 Task 2.2: Sort by importCount
+      sortedItems.sort((a, b) => {
+        const diff = (b.importCount ?? 0) - (a.importCount ?? 0)
+        return diff !== 0 ? diff : a._id.localeCompare(b._id) // Tie-break by _id
+      })
     } else {
       sortedItems.sort((a, b) => {
         const diff = b.readerCount - a.readerCount
@@ -275,7 +402,12 @@ export const listCommunityNewsletters = query({
     if (args.cursorValue !== undefined && args.cursorId) {
       // Find the cursor position using sort value + id
       startIndex = sortedItems.findIndex((item) => {
-        const itemValue = sortBy === "recent" ? item.firstReceivedAt : item.readerCount
+        const itemValue =
+          sortBy === "recent"
+            ? item.firstReceivedAt
+            : sortBy === "imports"
+              ? (item.importCount ?? 0)
+              : item.readerCount
         if (itemValue < args.cursorValue!) return true
         if (itemValue === args.cursorValue && item._id > args.cursorId!) return true
         return false
@@ -297,11 +429,14 @@ export const listCommunityNewsletters = query({
     const nextCursorValue = lastItem
       ? sortBy === "recent"
         ? lastItem.firstReceivedAt
-        : lastItem.readerCount
+        : sortBy === "imports"
+          ? (lastItem.importCount ?? 0)
+          : lastItem.readerCount
       : null
     const nextCursorId = lastItem?._id ?? null
 
     // Return only public fields - NEVER expose user data
+    // Story 9.8 Task 6.2: Include importCount in response
     return {
       items: resultItems.map((c) => ({
         _id: c._id,
@@ -310,6 +445,7 @@ export const listCommunityNewsletters = query({
         senderName: c.senderName,
         firstReceivedAt: c.firstReceivedAt,
         readerCount: c.readerCount,
+        importCount: c.importCount ?? 0, // Story 9.8: Add import count
         hasSummary: Boolean(c.summary),
       })),
       nextCursor: hasMore ? nextCursorId : null, // Legacy support
@@ -323,21 +459,23 @@ export const listCommunityNewsletters = query({
  * List community newsletters by sender
  * Story 6.1 Task 1.3
  * Story 7.4 Task 12.1-12.2: Exclude moderated content
+ * Story 9.8 Task 1.2, 4.3: Only admin-approved content, return total count
  *
  * Convenience wrapper for listCommunityNewsletters with senderEmail filter
  * MODERATION: Excludes hidden content and blocked sender content.
+ * CURATION: Only returns admin-approved content (Story 9.8).
  */
 export const listCommunityNewslettersBySender = query({
   args: {
     senderEmail: v.string(),
-    sortBy: v.optional(v.union(v.literal("popular"), v.literal("recent"))),
+    sortBy: v.optional(v.union(v.literal("popular"), v.literal("recent"), v.literal("imports"))),
     cursor: v.optional(v.id("newsletterContent")),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Auth check - must be logged in to browse community
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return { items: [], nextCursor: null }
+    if (!identity) return { items: [], nextCursor: null, totalCount: 0 }
 
     const sortBy = args.sortBy ?? "recent" // Default to recent for sender view
     const limit = Math.min(args.limit ?? 20, 100)
@@ -347,7 +485,7 @@ export const listCommunityNewslettersBySender = query({
 
     // If sender is blocked, return empty (their content shouldn't be visible)
     if (blockedSenderEmails.has(args.senderEmail)) {
-      return { items: [], nextCursor: null }
+      return { items: [], nextCursor: null, totalCount: 0 }
     }
 
     // Query ALL newsletters from this sender (up to reasonable max)
@@ -359,13 +497,25 @@ export const listCommunityNewslettersBySender = query({
       .collect()
 
     // Story 7.4 Task 12.1: Filter out hidden content
-    const allItems = rawItems.filter((c) => c.isHiddenFromCommunity !== true)
+    // Story 9.8 Task 1.2: Only show admin-approved content
+    const allItems = rawItems.filter(
+      (c) => c.isHiddenFromCommunity !== true && c.communityApprovedAt !== undefined
+    )
+
+    // Story 9.8 Task 4.3: Total count for sender view
+    const totalCount = allItems.length
 
     // Sort by desired field
     const sortedItems = [...allItems]
     if (sortBy === "recent") {
       sortedItems.sort((a, b) => {
         const diff = b.firstReceivedAt - a.firstReceivedAt
+        return diff !== 0 ? diff : a._id.localeCompare(b._id) // Tie-break by _id
+      })
+    } else if (sortBy === "imports") {
+      // Story 9.8: Sort by importCount
+      sortedItems.sort((a, b) => {
+        const diff = (b.importCount ?? 0) - (a.importCount ?? 0)
         return diff !== 0 ? diff : a._id.localeCompare(b._id) // Tie-break by _id
       })
     } else {
@@ -397,9 +547,11 @@ export const listCommunityNewslettersBySender = query({
         senderName: c.senderName,
         firstReceivedAt: c.firstReceivedAt,
         readerCount: c.readerCount,
+        importCount: c.importCount ?? 0, // Story 9.8: Add import count
         hasSummary: Boolean(c.summary),
       })),
       nextCursor,
+      totalCount, // Story 9.8 Task 4.3: Return total count
     }
   },
 })
@@ -408,11 +560,13 @@ export const listCommunityNewslettersBySender = query({
  * Get distinct senders from community content
  * Story 6.1 Task 2.4 - for sender filter dropdown
  * Story 7.4 Task 12.2: Exclude blocked senders
+ * Story 9.8 Task 1.4: Only show senders with approved content
  *
  * Returns unique sender emails with their names and newsletter counts.
  * Uses the global senders table with subscriberCount for efficient lookup
  * instead of scanning all newsletterContent records.
  * MODERATION: Excludes blocked senders.
+ * CURATION: Only shows senders that have at least one admin-approved newsletter.
  */
 export const listCommunitySenders = query({
   args: {
@@ -429,17 +583,30 @@ export const listCommunitySenders = query({
     const blockedSenders = await ctx.db.query("blockedSenders").collect()
     const blockedSenderIds = new Set(blockedSenders.map((b) => b.senderId))
 
+    // Story 9.8: Get emails of senders with approved content
+    const allApprovedContent = await ctx.db
+      .query("newsletterContent")
+      .take(MAX_COMMUNITY_CONTENT_SCAN)
+    const sendersWithApprovedContent = new Set(
+      allApprovedContent
+        .filter((c) => c.communityApprovedAt !== undefined && c.isHiddenFromCommunity !== true)
+        .map((c) => c.senderEmail)
+    )
+
     // Use the global senders table which already has subscriberCount
     // This is much more efficient than scanning all newsletterContent
-    // Fetch extra to account for blocked senders
+    // Fetch extra to account for blocked senders and filtering
     const senders = await ctx.db
       .query("senders")
       .withIndex("by_subscriberCount")
       .order("desc")
-      .take(limit * 2)
+      .take(limit * 3)
 
     // Story 7.4: Filter out blocked senders
-    const visibleSenders = senders.filter((s) => !blockedSenderIds.has(s._id))
+    // Story 9.8: Filter out senders without approved content
+    const visibleSenders = senders.filter(
+      (s) => !blockedSenderIds.has(s._id) && sendersWithApprovedContent.has(s.email)
+    )
 
     // Return sender info for the dropdown
     // subscriberCount indicates popularity (how many users receive from this sender)
@@ -584,15 +751,17 @@ export const getNewsletterContentWithModerationCheck = internalQuery({
 /**
  * Add a community newsletter to user's personal collection
  * Story 6.1 Task 4.1-4.3
+ * Story 9.8: Mark source as "community" and increment importCount
+ * Story 9.9: Updated for Epic 9 folder-centric and source tracking
  *
- * Creates userNewsletter with contentId reference, enabling:
- * - Personal actions (mark as read, hide, reading progress)
- * - Summary regeneration
- * - Organization with folders
+ * Creates userNewsletter with:
+ * - contentId reference (from community)
+ * - source: "community" (Epic 9 tracking)
+ * - folderId: auto-created or existing folder for sender
  *
  * Also:
- * - Creates userSenderSettings if new sender relationship
- * - Increments readerCount on newsletterContent
+ * - Creates userSenderSettings with folderId if new sender relationship
+ * - Increments readerCount AND importCount on newsletterContent
  */
 export const addToCollection = mutation({
   args: { contentId: v.id("newsletterContent") },
@@ -619,8 +788,12 @@ export const addToCollection = mutation({
       throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter content not found" })
     }
 
+    // Story 9.8: Verify content is community-approved
+    if (content.communityApprovedAt === undefined) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Content not available in community" })
+    }
+
     // 4. Check if already in collection (by userId + contentId)
-    // Need to scan user's newsletters since no direct index
     const existingUserNewsletters = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
@@ -629,7 +802,13 @@ export const addToCollection = mutation({
     const existing = existingUserNewsletters.find((n) => n.contentId === args.contentId)
 
     if (existing) {
-      return { alreadyExists: true, userNewsletterId: existing._id }
+      // Story 9.9: Get folder name for response
+      const folder = existing.folderId ? await ctx.db.get(existing.folderId) : null
+      return {
+        alreadyExists: true,
+        userNewsletterId: existing._id,
+        folderName: folder?.name ?? null,
+      }
     }
 
     // 5. Get or create global sender
@@ -650,28 +829,72 @@ export const addToCollection = mutation({
       sender = (await ctx.db.get(senderId))!
     }
 
-    // 6. Get or create userSenderSettings (default isPrivate: false)
+    // 6. Story 9.9: Get or create folder for this sender
+    // This follows the folder auto-creation pattern from Story 9.3
     const existingSettings = await ctx.db
       .query("userSenderSettings")
-      .withIndex("by_userId_senderId", (q) => q.eq("userId", user._id).eq("senderId", sender._id))
+      .withIndex("by_userId_senderId", (q) =>
+        q.eq("userId", user._id).eq("senderId", sender._id)
+      )
       .first()
 
-    if (!existingSettings) {
-      await ctx.db.insert("userSenderSettings", {
-        userId: user._id,
-        senderId: sender._id,
-        isPrivate: false, // Default to public - community sharing enabled
-      })
-      // Increment subscriberCount since this is a new user-sender relationship
-      await ctx.db.patch(sender._id, {
-        subscriberCount: sender.subscriberCount + 1,
-      })
+    let folderId: Id<"folders">
+    let folderName: string
+
+    if (existingSettings?.folderId) {
+      // Use existing folder
+      folderId = existingSettings.folderId
+      const folder = await ctx.db.get(folderId)
+      folderName = folder?.name ?? sender.name ?? sender.email
+    } else {
+      // Create folder for this sender (Story 9.3 pattern)
+      const senderDisplayName = sender.name ?? sender.email.split("@")[0]
+
+      // Check if folder with this name exists (avoid duplicates)
+      const existingFolder = await ctx.db
+        .query("folders")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .filter((q) => q.eq(q.field("name"), senderDisplayName))
+        .first()
+
+      if (existingFolder) {
+        folderId = existingFolder._id
+        folderName = existingFolder.name
+      } else {
+        const now = Date.now()
+        folderId = await ctx.db.insert("folders", {
+          userId: user._id,
+          name: senderDisplayName,
+          isHidden: false,
+          createdAt: now,
+          updatedAt: now,
+        })
+        folderName = senderDisplayName
+      }
+
+      // Create or update userSenderSettings with folderId
+      if (existingSettings) {
+        await ctx.db.patch(existingSettings._id, { folderId })
+      } else {
+        await ctx.db.insert("userSenderSettings", {
+          userId: user._id,
+          senderId: sender._id,
+          isPrivate: false, // Community imports are public
+          folderId,
+        })
+        // Increment subscriberCount since this is a new user-sender relationship
+        await ctx.db.patch(sender._id, {
+          subscriberCount: sender.subscriberCount + 1,
+        })
+      }
     }
 
     // 7. Create userNewsletter with contentId reference
+    // Story 9.9: Set source to "community" and assign folderId
     const userNewsletterId = await ctx.db.insert("userNewsletters", {
       userId: user._id,
       senderId: sender._id,
+      folderId, // Story 9.9: Required folder assignment
       contentId: args.contentId,
       subject: content.subject,
       senderEmail: content.senderEmail,
@@ -679,15 +902,246 @@ export const addToCollection = mutation({
       receivedAt: content.firstReceivedAt,
       isRead: false,
       isHidden: false,
-      isPrivate: false, // Added from community = public
+      isPrivate: false, // Community imports are public
+      source: "community", // Story 9.9: Track origin
     })
 
-    // 8. Increment readerCount (user is now a reader)
+    // 8. Increment readerCount AND importCount
+    // Story 9.9: Track imports separately from reader count
     await ctx.db.patch(args.contentId, {
       readerCount: content.readerCount + 1,
+      importCount: (content.importCount ?? 0) + 1,
     })
 
-    return { alreadyExists: false, userNewsletterId }
+    return {
+      alreadyExists: false,
+      userNewsletterId,
+      folderName, // Story 9.9: Return folder name for UI confirmation
+    }
+  },
+})
+
+/**
+ * Bulk import multiple community newsletters
+ * Story 9.9 Task 3
+ *
+ * Efficiently imports multiple newsletters by:
+ * - Batching folder creation (one per sender)
+ * - Processing imports in sequence to avoid race conditions
+ * - Returning detailed results for each item
+ */
+export const bulkImportFromCommunity = mutation({
+  args: {
+    contentIds: v.array(v.id("newsletterContent")),
+  },
+  handler: async (ctx, args) => {
+    // Auth check
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    // Limit batch size to prevent timeout
+    if (args.contentIds.length > 50) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: "Maximum 50 newsletters can be imported at once",
+      })
+    }
+
+    // Get user's existing newsletters for duplicate detection
+    const existingNewsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+    const existingContentIds = new Set(
+      existingNewsletters.filter((n) => n.contentId).map((n) => n.contentId)
+    )
+
+    // Get user's existing settings for folder lookup
+    const existingSettingsArr = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+    const settingsBySenderId = new Map(existingSettingsArr.map((s) => [s.senderId, s]))
+
+    // Get user's existing folders
+    const existingFolders = await ctx.db
+      .query("folders")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+    const foldersByName = new Map(existingFolders.map((f) => [f.name, f]))
+
+    // Track created folders in this batch to avoid duplicates
+    // Track created folders in this batch to avoid duplicates
+    const createdFoldersThisBatch = new Map<string, Id<"folders">>()
+
+    // Results tracking
+    const results: Array<{
+      contentId: string
+      status: "imported" | "skipped" | "error"
+      error?: string
+      folderName?: string
+    }> = []
+
+    let imported = 0
+    let skipped = 0
+    let failed = 0
+
+    for (const contentId of args.contentIds) {
+      try {
+        // Skip if already in collection
+        if (existingContentIds.has(contentId)) {
+          results.push({ contentId, status: "skipped" })
+          skipped++
+          continue
+        }
+
+        // Get content
+        const content = await ctx.db.get(contentId)
+        if (!content) {
+          results.push({ contentId, status: "error", error: "Content not found" })
+          failed++
+          continue
+        }
+
+        // Verify community-approved
+        if (content.communityApprovedAt === undefined) {
+          results.push({ contentId, status: "error", error: "Not community-approved" })
+          failed++
+          continue
+        }
+
+        // Get or create sender
+        let sender = await ctx.db
+          .query("senders")
+          .withIndex("by_email", (q) => q.eq("email", content.senderEmail))
+          .first()
+
+        if (!sender) {
+          const senderId = await ctx.db.insert("senders", {
+            email: content.senderEmail,
+            name: content.senderName,
+            domain: content.senderEmail.split("@")[1] || "unknown",
+            subscriberCount: 1,
+            newsletterCount: 1,
+          })
+          sender = (await ctx.db.get(senderId))!
+        }
+
+        // Get or create folder
+        const senderDisplayName = sender.name ?? sender.email.split("@")[0]
+        let folderId: Id<"folders">
+        let folderName: string
+
+        const existingSetting = settingsBySenderId.get(sender._id)
+        if (existingSetting?.folderId) {
+          folderId = existingSetting.folderId
+          const folder = await ctx.db.get(folderId)
+          folderName = folder?.name ?? senderDisplayName
+        } else {
+          // Check if folder exists or was created in this batch
+          const existingFolder = foldersByName.get(senderDisplayName)
+          const batchCreatedFolderId = createdFoldersThisBatch.get(senderDisplayName)
+
+          if (existingFolder) {
+            folderId = existingFolder._id
+            folderName = existingFolder.name
+          } else if (batchCreatedFolderId) {
+            folderId = batchCreatedFolderId
+            folderName = senderDisplayName
+          } else {
+            const now = Date.now()
+            folderId = await ctx.db.insert("folders", {
+              userId: user._id,
+              name: senderDisplayName,
+              isHidden: false,
+              createdAt: now,
+              updatedAt: now,
+            })
+            folderName = senderDisplayName
+            createdFoldersThisBatch.set(senderDisplayName, folderId)
+            // Note: foldersByName is not updated here since we track new folders in createdFoldersThisBatch
+          }
+
+          // Create or update settings
+          if (existingSetting) {
+            await ctx.db.patch(existingSetting._id, { folderId })
+            settingsBySenderId.set(sender._id, { ...existingSetting, folderId })
+          } else {
+            const settingsId = await ctx.db.insert("userSenderSettings", {
+              userId: user._id,
+              senderId: sender._id,
+              isPrivate: false,
+              folderId,
+            })
+            // Track for this batch (don't need full type for local tracking)
+            settingsBySenderId.set(sender._id, {
+              _id: settingsId,
+              userId: user._id,
+              senderId: sender._id,
+              isPrivate: false,
+              folderId,
+              _creationTime: Date.now(),
+            } as Doc<"userSenderSettings">)
+            await ctx.db.patch(sender._id, {
+              subscriberCount: sender.subscriberCount + 1,
+            })
+          }
+        }
+
+        // Create userNewsletter
+        await ctx.db.insert("userNewsletters", {
+          userId: user._id,
+          senderId: sender._id,
+          folderId,
+          contentId,
+          subject: content.subject,
+          senderEmail: content.senderEmail,
+          senderName: content.senderName,
+          receivedAt: content.firstReceivedAt,
+          isRead: false,
+          isHidden: false,
+          isPrivate: false,
+          source: "community",
+        })
+
+        // Increment counts
+        await ctx.db.patch(contentId, {
+          readerCount: content.readerCount + 1,
+          importCount: (content.importCount ?? 0) + 1,
+        })
+
+        // Track as imported
+        existingContentIds.add(contentId)
+        results.push({ contentId, status: "imported", folderName })
+        imported++
+      } catch (error) {
+        results.push({
+          contentId,
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        })
+        failed++
+      }
+    }
+
+    return {
+      imported,
+      skipped,
+      failed,
+      total: args.contentIds.length,
+      results,
+    }
   },
 })
 

@@ -122,7 +122,7 @@ development_status:
   # All newsletters private by default, admin curates community content
   # Folders become primary navigation (senders live inside folders)
   # Sprint Change Proposal: sprint-change-proposal-2026-02-01.md
-  epic-9: in-progress
+  epic-9: done
   9-1-schema-migration: done  # Code review complete - 5 fixes (2 HIGH, 3 MEDIUM)
   9-2-private-by-default: done  # Code review complete - 5 fixes (2 HIGH, 3 MEDIUM), 867 tests pass
   9-3-folder-auto-creation: done  # Code review complete - 3 MEDIUM fixes, 919 tests pass

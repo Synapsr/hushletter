@@ -10,7 +10,19 @@ import { ReaderView, clearCacheEntry } from "~/components/ReaderView"
 import { SummaryPanel } from "~/components/SummaryPanel"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { ArrowLeft, BookOpen, BookMarked, EyeOff, Eye, RefreshCw } from "lucide-react"
+import { ArrowLeft, BookOpen, BookMarked, EyeOff, Eye, RefreshCw, Trash2, Mail, Globe } from "lucide-react"
+import { Badge } from "~/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog"
 
 export const Route = createFileRoute("/_authed/newsletters/$id")({
   component: NewsletterDetailPage,
@@ -28,6 +40,8 @@ interface NewsletterMetadata {
   isPrivate: boolean
   readProgress?: number
   contentStatus: "available" | "missing" | "error"
+  /** Story 9.10: Newsletter source for unified folder view display */
+  source?: "email" | "gmail" | "manual" | "community"
 }
 
 /**
@@ -130,6 +144,7 @@ function PageError({ message }: { message: string }) {
  * Newsletter header with subject, sender, date, and read status controls
  * Story 3.4: AC2 (Resume), AC4 (Mark read/unread), AC5 (Progress display)
  * Story 3.5: AC1, AC4 (Hide/Unhide)
+ * Story 9.10: Source indicator and delete with community import handling
  */
 function NewsletterHeader({
   subject,
@@ -139,11 +154,13 @@ function NewsletterHeader({
   readProgress,
   isRead,
   isHidden,
+  source,
   onResumeClick,
   onMarkRead,
   onMarkUnread,
   onHide,
   onUnhide,
+  onDelete,
   isUpdating,
 }: {
   subject: string
@@ -153,11 +170,13 @@ function NewsletterHeader({
   readProgress?: number
   isRead: boolean
   isHidden: boolean
+  source?: "email" | "gmail" | "manual" | "community"
   onResumeClick?: () => void
   onMarkRead: () => void
   onMarkUnread: () => void
   onHide: () => void
   onUnhide: () => void
+  onDelete: () => void
   isUpdating: boolean
 }) {
   const senderDisplay = senderName || senderEmail
@@ -167,9 +186,26 @@ function NewsletterHeader({
   const showResumeButton =
     readProgress !== undefined && readProgress > 0 && readProgress < 100
 
+  // Story 9.10: Determine if this is a community import
+  const isCommunity = source === "community"
+
   return (
     <header className="border-b pb-6 mb-6">
-      <h1 className="text-2xl font-bold text-foreground mb-2">{subject}</h1>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h1 className="text-2xl font-bold text-foreground">{subject}</h1>
+        {/* Story 9.10: Source indicator badge */}
+        {isCommunity ? (
+          <Badge variant="secondary" className="flex items-center gap-1 shrink-0">
+            <Globe className="h-3 w-3" aria-hidden="true" />
+            <span>From community</span>
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="flex items-center gap-1 shrink-0">
+            <Mail className="h-3 w-3" aria-hidden="true" />
+            <span>Your collection</span>
+          </Badge>
+        )}
+      </div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-2 text-muted-foreground">
           <span className="font-medium text-foreground">{senderDisplay}</span>
@@ -261,6 +297,40 @@ function NewsletterHeader({
               Hide
             </Button>
           )}
+
+          {/* Story 9.10: Delete button with confirmation */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-1">
+                <Trash2 className="h-4 w-4" />
+                {isCommunity ? "Remove" : "Delete"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {isCommunity
+                    ? "Remove from collection?"
+                    : "Delete newsletter?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {isCommunity
+                    ? "This will remove the newsletter from your personal collection. The newsletter will still be available in the community library."
+                    : "This will permanently delete this newsletter from your collection."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                {/* Story 9.10 (code review fix): Destructive styling for permanent delete, default for community remove */}
+                <AlertDialogAction
+                  onClick={onDelete}
+                  className={isCommunity ? undefined : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+                >
+                  {isCommunity ? "Remove" : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </header>
@@ -317,6 +387,9 @@ function NewsletterDetailPage() {
   // Story 3.5: Mutations for hide/unhide
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter)
   const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter)
+
+  // Story 9.10: Delete newsletter mutation
+  const deleteNewsletter = useMutation(api.newsletters.deleteUserNewsletter)
 
   // Validate route param before using - prevents invalid ID errors
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -410,6 +483,19 @@ function NewsletterDetailPage() {
     }
   }
 
+  // Story 9.10: Handler for delete (AC6)
+  const handleDelete = async () => {
+    try {
+      await deleteNewsletter({ userNewsletterId })
+      // Navigate back after delete
+      navigate({ to: "/newsletters" })
+    } catch (error) {
+      console.error("[NewsletterDetail] Failed to delete newsletter:", error)
+      setHideConfirmation("Failed to delete newsletter")
+      setTimeout(() => setHideConfirmation(null), 2000)
+    }
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Back navigation - uses history.back() to preserve URL params like ?sender= (AC4) */}
@@ -441,11 +527,13 @@ function NewsletterDetailPage() {
         readProgress={newsletter.readProgress}
         isRead={newsletter.isRead}
         isHidden={newsletter.isHidden}
+        source={newsletter.source}
         onResumeClick={handleResumeClick}
         onMarkRead={handleMarkRead}
         onMarkUnread={handleMarkUnread}
         onHide={handleHide}
         onUnhide={handleUnhide}
+        onDelete={handleDelete}
         isUpdating={false}
       />
 

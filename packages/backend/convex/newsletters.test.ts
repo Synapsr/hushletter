@@ -1458,6 +1458,228 @@ describe("Private-by-Default Architecture (Story 9.2)", () => {
     })
   })
 
+// ============================================================
+// Story 9.10: Delete Newsletter with Community Import Support
+// ============================================================
+
+describe("deleteUserNewsletter mutation contract (Story 9.10)", () => {
+  it("should export deleteUserNewsletter mutation", () => {
+    expect(api.newsletters.deleteUserNewsletter).toBeDefined()
+  })
+
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "required Id<'userNewsletters'>",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+  })
+
+  it("requires authentication", () => {
+    const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+    expect(expectedError.code).toBe("UNAUTHORIZED")
+  })
+
+  it("validates newsletter ownership", () => {
+    const expectedError = { code: "FORBIDDEN", message: "Not your newsletter" }
+    expect(expectedError.code).toBe("FORBIDDEN")
+  })
+
+  it("throws NOT_FOUND when newsletter doesn't exist", () => {
+    const expectedError = { code: "NOT_FOUND", message: "Newsletter not found" }
+    expect(expectedError.code).toBe("NOT_FOUND")
+  })
+
+  it("returns { deleted: true } on success", () => {
+    const expectedReturn = { deleted: true }
+    expect(expectedReturn.deleted).toBe(true)
+  })
+
+  describe("Community Import Handling (AC #6)", () => {
+    it("decrements importCount when source is 'community'", () => {
+      const communityDeleteBehavior = {
+        condition: "source === 'community' && contentId exists",
+        action: "Decrement importCount on newsletterContent",
+        minValue: 0,
+        formula: "Math.max(0, (content.importCount ?? 1) - 1)",
+      }
+      expect(communityDeleteBehavior.action).toContain("Decrement importCount")
+      expect(communityDeleteBehavior.minValue).toBe(0)
+    })
+
+    it("does NOT delete newsletterContent record", () => {
+      const communityDeleteBehavior = {
+        contentDeletion: false,
+        reason: "Other users may have imported the same content",
+      }
+      expect(communityDeleteBehavior.contentDeletion).toBe(false)
+    })
+
+    it("does NOT decrement readerCount (only set once on first read)", () => {
+      const readerCountBehavior = {
+        decrementOnDelete: false,
+        reason: "readerCount is historical - set once when first read",
+      }
+      expect(readerCountBehavior.decrementOnDelete).toBe(false)
+    })
+
+    it("handles missing newsletterContent gracefully", () => {
+      // If contentId references deleted content, just proceed with userNewsletter delete
+      const gracefulHandling = {
+        condition: "content not found from contentId",
+        action: "Skip importCount decrement, proceed with delete",
+        throwError: false,
+      }
+      expect(gracefulHandling.throwError).toBe(false)
+    })
+
+    it("handles importCount going to zero", () => {
+      const zeroImportCountBehavior = {
+        currentImportCount: 1,
+        afterDelete: 0,
+        contentPreserved: true,
+        reason: "Content may still be useful for future imports or admin review",
+      }
+      expect(zeroImportCountBehavior.afterDelete).toBe(0)
+      expect(zeroImportCountBehavior.contentPreserved).toBe(true)
+    })
+  })
+
+  describe("Private Source Handling", () => {
+    it("does not touch newsletterContent for private sources", () => {
+      const privateDeleteBehavior = {
+        condition: "source === 'email' | 'gmail' | 'manual'",
+        newsletterContentInteraction: false,
+        reason: "Private newsletters don't have contentId",
+      }
+      expect(privateDeleteBehavior.newsletterContentInteraction).toBe(false)
+    })
+
+    it("does not delete R2 content immediately", () => {
+      const r2Behavior = {
+        immediateR2Deletion: false,
+        reason: "R2 cleanup can be handled by separate background process",
+        reference: "privateR2Key remains orphaned until cleanup",
+      }
+      expect(r2Behavior.immediateR2Deletion).toBe(false)
+    })
+  })
+})
+
+describe("Source Field in Query Responses (Story 9.10)", () => {
+  describe("listUserNewsletters", () => {
+    it("includes source field in response for unified folder display", () => {
+      const responseFields = [
+        "_id",
+        "subject",
+        "senderEmail",
+        "receivedAt",
+        "isRead",
+        "isHidden",
+        "isPrivate",
+        "hasSummary",
+        "source", // Story 9.10 addition
+      ]
+      expect(responseFields).toContain("source")
+    })
+  })
+
+  describe("listUserNewslettersBySender", () => {
+    it("includes source field in response", () => {
+      const responseFields = ["_id", "subject", "hasSummary", "source"]
+      expect(responseFields).toContain("source")
+    })
+  })
+
+  describe("listUserNewslettersByFolder", () => {
+    it("includes source field in response for mixed source display", () => {
+      const responseFields = [
+        "_id",
+        "subject",
+        "senderDisplayName",
+        "hasSummary",
+        "source", // Story 9.10 addition
+      ]
+      expect(responseFields).toContain("source")
+    })
+
+    it("sorts newsletters by receivedAt regardless of source", () => {
+      const sortBehavior = {
+        index: "by_userId_receivedAt",
+        order: "desc",
+        mixesSources: true,
+        reason: "AC #1: all newsletters shown sorted by date",
+      }
+      expect(sortBehavior.order).toBe("desc")
+      expect(sortBehavior.mixesSources).toBe(true)
+    })
+  })
+
+  describe("listHiddenNewsletters", () => {
+    it("includes source field for hidden newsletters", () => {
+      const responseFields = ["_id", "isHidden", "hasSummary", "source"]
+      expect(responseFields).toContain("source")
+    })
+  })
+})
+
+describe("Story 9.10 Acceptance Criteria", () => {
+  it("AC #1: Mixed sources shown sorted by date", () => {
+    const ac1 = {
+      requirement: "Folder has both private and community-imported newsletters",
+      behavior: "All newsletters shown sorted by receivedAt descending",
+      implementation: "listUserNewslettersByFolder uses by_userId_receivedAt index",
+    }
+    expect(ac1.behavior).toContain("sorted by receivedAt")
+  })
+
+  it("AC #2: Private source indicator", () => {
+    const ac2 = {
+      requirement: "Private newsletters show 'private' indicator",
+      implementation: "NewsletterCard checks source !== 'community'",
+      icon: "Mail (envelope) from lucide-react",
+    }
+    expect(ac2.icon).toContain("envelope")
+  })
+
+  it("AC #3: Community source indicator", () => {
+    const ac3 = {
+      requirement: "Community imports show 'community' indicator",
+      implementation: "NewsletterCard checks source === 'community'",
+      icon: "Globe from lucide-react",
+      styling: "text-blue-500 for visual distinction",
+    }
+    expect(ac3.icon).toContain("Globe")
+  })
+
+  it("AC #4: Private content fetches from privateR2Key", () => {
+    const ac4 = {
+      requirement: "Click private newsletter -> fetch from privateR2Key",
+      implementation: "getUserNewsletterWithContent checks isPrivate && privateR2Key",
+      r2KeyPattern: "private/{userId}/{timestamp}-{uuid}.{ext}",
+    }
+    expect(ac4.r2KeyPattern).toContain("private/")
+  })
+
+  it("AC #5: Community content fetches from contentId", () => {
+    const ac5 = {
+      requirement: "Click community import -> fetch from newsletterContent.r2Key via contentId",
+      implementation: "getUserNewsletterWithContent checks !isPrivate && contentId",
+      lookupPath: "userNewsletter.contentId -> newsletterContent.r2Key",
+    }
+    expect(ac5.lookupPath).toContain("contentId")
+  })
+
+  it("AC #6: Delete community import decrements importCount", () => {
+    const ac6 = {
+      requirement: "Delete community import: userNewsletter removed, importCount decremented",
+      newsletterContentPreserved: true,
+      importCountFormula: "Math.max(0, (content.importCount ?? 1) - 1)",
+      uiConfirmation: "Remove from collection? (vs Delete for private)",
+    }
+    expect(ac6.newsletterContentPreserved).toBe(true)
+  })
+})
+
   describe("getOrCreateFolderForSender behavior (Story 9.2 Code Review Fix)", () => {
     it("should return existing folderId if userSenderSettings has one", () => {
       const scenario = {

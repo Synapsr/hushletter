@@ -491,4 +491,106 @@ describe("NewsletterCard", () => {
       expect(navigationHandler).not.toHaveBeenCalled()
     })
   })
+
+  // Story 9.10: Source Indicators (Unified Folder View)
+  describe("Source Indicators (Story 9.10)", () => {
+    describe("Private sources", () => {
+      it("shows Mail icon for source='email'", () => {
+        const emailNewsletter: NewsletterData = {
+          ...mockNewsletter,
+          source: "email",
+        }
+
+        render(<NewsletterCard newsletter={emailNewsletter} />)
+
+        const sourceIcon = screen.getByLabelText("Private")
+        expect(sourceIcon).toBeInTheDocument()
+        expect(sourceIcon).toHaveClass("text-muted-foreground")
+      })
+
+      it("shows Mail icon for source='gmail'", () => {
+        const gmailNewsletter: NewsletterData = {
+          ...mockNewsletter,
+          source: "gmail",
+        }
+
+        render(<NewsletterCard newsletter={gmailNewsletter} />)
+
+        const sourceIcon = screen.getByLabelText("Private")
+        expect(sourceIcon).toBeInTheDocument()
+      })
+
+      it("shows Mail icon for source='manual'", () => {
+        const manualNewsletter: NewsletterData = {
+          ...mockNewsletter,
+          source: "manual",
+        }
+
+        render(<NewsletterCard newsletter={manualNewsletter} />)
+
+        const sourceIcon = screen.getByLabelText("Private")
+        expect(sourceIcon).toBeInTheDocument()
+      })
+
+      it("shows Mail icon for source undefined (legacy newsletters)", () => {
+        // Legacy newsletters without source field default to private indicator
+        render(<NewsletterCard newsletter={mockNewsletter} />)
+
+        const sourceIcon = screen.getByLabelText("Private")
+        expect(sourceIcon).toBeInTheDocument()
+      })
+    })
+
+    describe("Community source", () => {
+      it("shows Globe icon for source='community'", () => {
+        const communityNewsletter: NewsletterData = {
+          ...mockNewsletter,
+          source: "community",
+        }
+
+        render(<NewsletterCard newsletter={communityNewsletter} />)
+
+        const sourceIcon = screen.getByLabelText("From community")
+        expect(sourceIcon).toBeInTheDocument()
+      })
+
+      it("community indicator has blue color", () => {
+        const communityNewsletter: NewsletterData = {
+          ...mockNewsletter,
+          source: "community",
+        }
+
+        render(<NewsletterCard newsletter={communityNewsletter} />)
+
+        const sourceIcon = screen.getByLabelText("From community")
+        expect(sourceIcon).toHaveClass("text-blue-500")
+      })
+    })
+
+    describe("Accessibility", () => {
+      it("source indicator has aria-label for screen readers", () => {
+        const emailNewsletter: NewsletterData = {
+          ...mockNewsletter,
+          source: "email",
+        }
+
+        render(<NewsletterCard newsletter={emailNewsletter} />)
+
+        const sourceIcon = screen.getByLabelText("Private")
+        expect(sourceIcon).toHaveAttribute("aria-label")
+      })
+
+      it("community indicator has aria-label for screen readers", () => {
+        const communityNewsletter: NewsletterData = {
+          ...mockNewsletter,
+          source: "community",
+        }
+
+        render(<NewsletterCard newsletter={communityNewsletter} />)
+
+        const sourceIcon = screen.getByLabelText("From community")
+        expect(sourceIcon).toHaveAttribute("aria-label")
+      })
+    })
+  })
 })

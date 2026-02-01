@@ -523,6 +523,7 @@ export const getNewsletterContentInternal = internalQuery({
  * Story 2.5.1: Updated to use userNewsletters table
  * Story 3.5: AC2 - Exclude hidden newsletters from main list
  * Story 5.2: Task 1.1 - Added hasSummary field for summary indicator
+ * Story 9.10: Added source field for unified folder view display
  */
 export const listUserNewsletters = query({
   args: {},
@@ -537,6 +538,15 @@ export const listUserNewsletters = query({
 
     if (!user) return []
 
+    // Story 9.5: Fetch hidden folder IDs to exclude newsletters from hidden folders
+    const folders = await ctx.db
+      .query("folders")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+    const hiddenFolderIds = new Set(
+      folders.filter((f) => f.isHidden).map((f) => f._id)
+    )
+
     // Use by_userId_receivedAt index for proper sorting by receivedAt (AC2)
     // Convex index ordering: when using compound index, order applies to last indexed field
     const newsletters = await ctx.db
@@ -546,7 +556,10 @@ export const listUserNewsletters = query({
       .collect()
 
     // Story 3.5 AC2: Exclude hidden newsletters from main list
-    const visibleNewsletters = newsletters.filter((n) => !n.isHidden)
+    // Story 9.5 AC6: Exclude newsletters in hidden folders from "All Newsletters"
+    const visibleNewsletters = newsletters.filter(
+      (n) => !n.isHidden && (!n.folderId || !hiddenFolderIds.has(n.folderId))
+    )
 
     // Story 5.2: Derive hasSummary for each newsletter
     // Code review fix: Batch-fetch contentIds to avoid N+1 queries
@@ -563,6 +576,7 @@ export const listUserNewsletters = query({
     )
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
+    // Story 9.10: Include source field for unified folder view display
     const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
       let hasSummary = Boolean(newsletter.summary)
 
@@ -571,7 +585,7 @@ export const listUserNewsletters = query({
         hasSummary = Boolean(content?.summary)
       }
 
-      return { ...newsletter, hasSummary }
+      return { ...newsletter, hasSummary, source: newsletter.source }
     })
 
     return enrichedNewsletters
@@ -583,6 +597,7 @@ export const listUserNewsletters = query({
  * Story 3.1: Task 5 - Support sender-based filtering (AC2, AC3)
  * Story 3.5: AC2 - Exclude hidden newsletters from main list
  * Story 5.2: Task 1.1 - Added hasSummary field for summary indicator
+ * Story 9.10: Added source field for unified folder view display
  *
  * If senderId is provided, returns only newsletters from that sender.
  * If senderId is undefined/null, returns all newsletters (same as listUserNewsletters).
@@ -647,6 +662,7 @@ export const listUserNewslettersBySender = query({
     )
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
+    // Story 9.10: Include source field for unified folder view display
     const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
       let hasSummary = Boolean(newsletter.summary)
 
@@ -655,7 +671,7 @@ export const listUserNewslettersBySender = query({
         hasSummary = Boolean(content?.summary)
       }
 
-      return { ...newsletter, hasSummary }
+      return { ...newsletter, hasSummary, source: newsletter.source }
     })
 
     return enrichedNewsletters
@@ -667,6 +683,7 @@ export const listUserNewslettersBySender = query({
  * Story 3.3: AC3 - Browse newsletters by folder
  * Story 3.5: AC2 - Exclude hidden newsletters from main list
  * Story 5.2: Task 1.1 - Added hasSummary field for summary indicator
+ * Story 9.10: Added source field for unified folder view display
  *
  * - If folderId is null, returns newsletters from "uncategorized" senders
  *   (senders with no folder assignment)
@@ -742,6 +759,7 @@ export const listUserNewslettersByFolder = query({
     )
 
     // Derive hasSummary for each newsletter and enrich with sender info (O(1) lookups)
+    // Story 9.10: Include source field for unified folder view display
     const enrichedNewsletters = filteredNewsletters.map((newsletter) => {
       const sender = senderMap.get(newsletter.senderId)
 
@@ -755,6 +773,7 @@ export const listUserNewslettersByFolder = query({
         ...newsletter,
         senderDisplayName: sender?.name || sender?.email || newsletter.senderEmail,
         hasSummary,
+        source: newsletter.source,
       }
     })
 
@@ -995,6 +1014,7 @@ export const unhideNewsletter = mutation({
  * List hidden newsletters for current user
  * Story 3.5: AC3 - View hidden newsletters
  * Story 5.2: Task 1.1 - Added hasSummary field for summary indicator
+ * Story 9.10: Added source field for unified folder view display
  */
 export const listHiddenNewsletters = query({
   args: {},
@@ -1033,6 +1053,7 @@ export const listHiddenNewsletters = query({
     )
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
+    // Story 9.10: Include source field for unified folder view display
     const enrichedNewsletters = hiddenNewsletters.map((newsletter) => {
       let hasSummary = Boolean(newsletter.summary)
 
@@ -1041,7 +1062,7 @@ export const listHiddenNewsletters = query({
         hasSummary = Boolean(content?.summary)
       }
 
-      return { ...newsletter, hasSummary }
+      return { ...newsletter, hasSummary, source: newsletter.source }
     })
 
     return enrichedNewsletters
@@ -1115,5 +1136,75 @@ export const hasAnyNewsletters = query({
       .first()
 
     return firstNewsletter !== null
+  },
+})
+
+// ============================================================
+// Story 9.10: Delete Newsletter with Community Import Support
+// ============================================================
+
+/**
+ * Delete a user newsletter from their collection
+ * Story 9.10 Task 4: Handle community import decrement
+ *
+ * For community imports (source === "community"):
+ * - Decrements importCount on newsletterContent
+ * - Does NOT delete the newsletterContent record (other users may have it)
+ *
+ * For private sources (email, gmail, manual):
+ * - Simply removes the userNewsletter record
+ * - R2 content cleanup is handled separately (not in this mutation)
+ */
+export const deleteUserNewsletter = mutation({
+  args: { userNewsletterId: v.id("userNewsletters") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+
+    if (!userNewsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    // Verify ownership
+    if (userNewsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Not your newsletter" })
+    }
+
+    // Story 9.10: Handle community import decrement
+    if (userNewsletter.source === "community" && userNewsletter.contentId) {
+      const content = await ctx.db.get(userNewsletter.contentId)
+      if (content) {
+        // Story 9.10 (code review fix): Decrement importCount on community delete
+        // Default to 1 for legacy content without explicit importCount
+        // Math.max(0, ...) ensures we never go negative
+        const newImportCount = Math.max(0, (content.importCount ?? 1) - 1)
+        await ctx.db.patch(userNewsletter.contentId, {
+          importCount: newImportCount,
+          // Note: Do NOT decrement readerCount - that's set once on first read
+        })
+      }
+      // Note: We do NOT delete newsletterContent - other users may have it
+    }
+
+    // For private newsletters, we could optionally delete R2 content
+    // But for safety, we just remove the reference (R2 cleanup can be a separate process)
+
+    // Delete the userNewsletter record
+    await ctx.db.delete(args.userNewsletterId)
+
+    return { deleted: true }
   },
 })

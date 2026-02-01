@@ -125,10 +125,10 @@ development_status:
   epic-9: in-progress
   9-1-schema-migration: done  # Code review complete - 5 fixes (2 HIGH, 3 MEDIUM)
   9-2-private-by-default: done  # Code review complete - 5 fixes (2 HIGH, 3 MEDIUM), 867 tests pass
-  9-3-folder-auto-creation: ready-for-dev
+  9-3-folder-auto-creation: done  # Code review complete - 3 MEDIUM fixes, 919 tests pass
   9-4-folder-centric-navigation: ready-for-dev
   9-5-folder-actions: ready-for-dev
-  9-6-admin-moderation-queue: backlog
+  9-6-admin-moderation-queue: ready-for-dev  # Story file created - admin queue for privacy-first moderation
   9-7-admin-publish-flow: backlog
   9-8-community-browse: backlog
   9-9-community-import: backlog

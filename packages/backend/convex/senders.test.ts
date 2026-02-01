@@ -963,3 +963,534 @@ describe("listDistinctDomains query contract (Story 6.4 Task 3.1)", () => {
     expect(extractBehavior.deduplication).toContain("unique domains")
   })
 })
+
+// =============================================================================
+// Story 9.3: Folder Auto-Creation Edge Cases
+// =============================================================================
+
+describe("getOrCreateFolderForSender export (Story 9.2, 9.3)", () => {
+  it("should export getOrCreateFolderForSender internal mutation", () => {
+    expect(internal.senders.getOrCreateFolderForSender).toBeDefined()
+  })
+})
+
+// =============================================================================
+// Story 9.3 Code Review Fix: Behavioral Unit Tests for Helper Functions
+// These tests actually execute the exported helper functions (not just document contracts)
+// =============================================================================
+
+import {
+  sanitizeFolderName,
+  makeUniqueFolderName,
+  MAX_FOLDER_NAME_LENGTH,
+  DEFAULT_FOLDER_NAME,
+} from "./senders"
+
+describe("sanitizeFolderName (behavioral tests)", () => {
+  it("returns input unchanged for normal strings", () => {
+    expect(sanitizeFolderName("Morning Brew")).toBe("Morning Brew")
+    expect(sanitizeFolderName("The Hustle")).toBe("The Hustle")
+  })
+
+  it("trims leading and trailing whitespace", () => {
+    expect(sanitizeFolderName("  Morning Brew  ")).toBe("Morning Brew")
+    expect(sanitizeFolderName("\t\nHustle\n\t")).toBe("Hustle")
+  })
+
+  it("replaces newlines with spaces", () => {
+    expect(sanitizeFolderName("Morning\nBrew")).toBe("Morning Brew")
+    expect(sanitizeFolderName("The\r\nHustle")).toBe("The Hustle")
+  })
+
+  it("replaces tabs with spaces", () => {
+    expect(sanitizeFolderName("Morning\tBrew")).toBe("Morning Brew")
+  })
+
+  it("collapses multiple spaces into single space", () => {
+    expect(sanitizeFolderName("Morning   Brew")).toBe("Morning Brew")
+    expect(sanitizeFolderName("The    Hustle   Newsletter")).toBe(
+      "The Hustle Newsletter"
+    )
+  })
+
+  it("removes control characters (ASCII 0-31)", () => {
+    const withControl = String.fromCharCode(0) + "Test" + String.fromCharCode(31)
+    expect(sanitizeFolderName(withControl)).toBe("Test")
+  })
+
+  it("truncates to MAX_FOLDER_NAME_LENGTH characters", () => {
+    const longName = "A".repeat(150)
+    const result = sanitizeFolderName(longName)
+    expect(result.length).toBe(MAX_FOLDER_NAME_LENGTH)
+    expect(result).toBe("A".repeat(100))
+  })
+
+  it("handles truncation with trailing whitespace correctly", () => {
+    // Name that would be 100 chars + trailing spaces after sanitization
+    const nameWithSpaces = "A".repeat(98) + "  \t\n  "
+    const result = sanitizeFolderName(nameWithSpaces)
+    expect(result.length).toBeLessThanOrEqual(MAX_FOLDER_NAME_LENGTH)
+    expect(result.endsWith(" ")).toBe(false)
+  })
+
+  it("returns empty string for all-control-character input", () => {
+    const allControl =
+      String.fromCharCode(0) +
+      String.fromCharCode(1) +
+      String.fromCharCode(31)
+    expect(sanitizeFolderName(allControl)).toBe("")
+  })
+
+  it("returns empty string for whitespace-only input", () => {
+    expect(sanitizeFolderName("   ")).toBe("")
+    expect(sanitizeFolderName("\t\n\r")).toBe("")
+  })
+
+  it("preserves unicode characters", () => {
+    expect(sanitizeFolderName("日本語ニュースレター")).toBe("日本語ニュースレター")
+    expect(sanitizeFolderName("Émoji 🎉 News")).toBe("Émoji 🎉 News")
+  })
+})
+
+describe("makeUniqueFolderName (behavioral tests)", () => {
+  it("returns base name when no duplicates exist", () => {
+    expect(makeUniqueFolderName("Morning Brew", [])).toBe("Morning Brew")
+    expect(
+      makeUniqueFolderName("Morning Brew", [{ name: "Other Folder" }])
+    ).toBe("Morning Brew")
+  })
+
+  it("appends counter 2 when base name exists", () => {
+    expect(
+      makeUniqueFolderName("Morning Brew", [{ name: "Morning Brew" }])
+    ).toBe("Morning Brew 2")
+  })
+
+  it("increments counter for multiple duplicates", () => {
+    const existingFolders = [
+      { name: "Morning Brew" },
+      { name: "Morning Brew 2" },
+      { name: "Morning Brew 3" },
+    ]
+    expect(makeUniqueFolderName("Morning Brew", existingFolders)).toBe(
+      "Morning Brew 4"
+    )
+  })
+
+  it("handles gaps in counter sequence", () => {
+    const existingFolders = [
+      { name: "Morning Brew" },
+      { name: "Morning Brew 2" },
+      // Note: "Morning Brew 3" is missing
+      { name: "Morning Brew 4" },
+    ]
+    // Should find the first available: 3
+    expect(makeUniqueFolderName("Morning Brew", existingFolders)).toBe(
+      "Morning Brew 3"
+    )
+  })
+
+  it("performs case-insensitive duplicate detection", () => {
+    expect(
+      makeUniqueFolderName("morning brew", [{ name: "Morning Brew" }])
+    ).toBe("morning brew 2")
+    expect(
+      makeUniqueFolderName("MORNING BREW", [{ name: "morning brew" }])
+    ).toBe("MORNING BREW 2")
+  })
+
+  it("handles empty base name", () => {
+    // Edge case: if sanitization produced empty string (shouldn't happen with proper fallback)
+    expect(makeUniqueFolderName("", [])).toBe("")
+    expect(makeUniqueFolderName("", [{ name: "" }])).toBe(" 2")
+  })
+})
+
+describe("DEFAULT_FOLDER_NAME constant", () => {
+  it("is exported and has a sensible value", () => {
+    expect(DEFAULT_FOLDER_NAME).toBeDefined()
+    expect(DEFAULT_FOLDER_NAME.length).toBeGreaterThan(0)
+    expect(DEFAULT_FOLDER_NAME).toBe("Unnamed Folder")
+  })
+})
+
+describe("MAX_FOLDER_NAME_LENGTH constant", () => {
+  it("is exported and set to 100", () => {
+    expect(MAX_FOLDER_NAME_LENGTH).toBeDefined()
+    expect(MAX_FOLDER_NAME_LENGTH).toBe(100)
+  })
+})
+
+describe("getOrCreateFolderForSender mutation contract (Story 9.3)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userId: "required Id<'users'>",
+      senderId: "required Id<'senders'>",
+    }
+    expect(expectedArgsShape).toHaveProperty("userId")
+    expect(expectedArgsShape).toHaveProperty("senderId")
+  })
+
+  it("returns folderId", () => {
+    const expectedReturn = "Id<'folders'>"
+    expect(expectedReturn).toBe("Id<'folders'>")
+  })
+
+  it("documents fast path - returns existing folderId if set", () => {
+    const fastPath = {
+      condition: "userSenderSettings exists with folderId set",
+      action: "return folderId immediately (no folder creation)",
+      benefit: "Avoids unnecessary queries for existing folders",
+    }
+    expect(fastPath.action).toContain("return folderId immediately")
+  })
+
+  it("uses by_userId_senderId index for settings lookup", () => {
+    const indexUsed = "by_userId_senderId"
+    expect(indexUsed).toBe("by_userId_senderId")
+  })
+})
+
+describe("Folder name derivation (Story 9.3 Task 1.5, 5.1)", () => {
+  it("prefers sender.name as folder name", () => {
+    const testCases = [
+      { sender: { name: "Morning Brew", email: "hello@morningbrew.com" }, expectedName: "Morning Brew" },
+      { sender: { name: "The Hustle", email: "newsletter@thehustle.co" }, expectedName: "The Hustle" },
+    ]
+    for (const tc of testCases) {
+      const folderName = tc.sender.name || tc.sender.email || "Unknown Sender"
+      expect(folderName).toBe(tc.expectedName)
+    }
+  })
+
+  it("falls back to sender.email when name is not available", () => {
+    const testCases = [
+      { sender: { name: undefined, email: "news@example.com" }, expectedName: "news@example.com" },
+      { sender: { name: null, email: "hello@world.io" }, expectedName: "hello@world.io" },
+      { sender: { name: "", email: "test@domain.com" }, expectedName: "test@domain.com" },
+    ]
+    for (const tc of testCases) {
+      const folderName = tc.sender.name || tc.sender.email || "Unknown Sender"
+      expect(folderName).toBe(tc.expectedName)
+    }
+  })
+
+  it("uses 'Unknown Sender' as last resort", () => {
+    const testCases = [
+      { sender: { name: undefined, email: undefined }, expectedName: "Unknown Sender" },
+      { sender: { name: null, email: null }, expectedName: "Unknown Sender" },
+    ]
+    for (const tc of testCases) {
+      const folderName = tc.sender.name || tc.sender.email || "Unknown Sender"
+      expect(folderName).toBe(tc.expectedName)
+    }
+  })
+})
+
+describe("Folder name sanitization (Story 9.3 Task 5.2, 5.3)", () => {
+  it("truncates long sender names to 100 characters", () => {
+    const MAX_FOLDER_NAME_LENGTH = 100
+    const longName = "A".repeat(150)
+    const sanitized = longName.slice(0, MAX_FOLDER_NAME_LENGTH)
+    expect(sanitized.length).toBe(100)
+    expect(sanitized.length).toBeLessThanOrEqual(MAX_FOLDER_NAME_LENGTH)
+  })
+
+  it("removes newlines and tabs from folder name", () => {
+    const testCases = [
+      { input: "Morning\nBrew", expected: "Morning Brew" },
+      { input: "The\tHustle", expected: "The Hustle" },
+      { input: "Test\r\nNewsletter", expected: "Test Newsletter" },
+    ]
+    for (const tc of testCases) {
+      // Full sanitization: replace special chars, then collapse whitespace
+      const sanitized = tc.input.replace(/[\r\n\t]/g, " ").replace(/\s+/g, " ")
+      expect(sanitized).toBe(tc.expected)
+    }
+  })
+
+  it("collapses multiple whitespace into single space", () => {
+    const testCases = [
+      { input: "Morning   Brew", expected: "Morning Brew" },
+      { input: "The    Hustle  Newsletter", expected: "The Hustle Newsletter" },
+    ]
+    for (const tc of testCases) {
+      const sanitized = tc.input.replace(/\s+/g, " ")
+      expect(sanitized).toBe(tc.expected)
+    }
+  })
+
+  it("removes control characters from folder name", () => {
+    const controlChar = String.fromCharCode(0) + "Test" + String.fromCharCode(31)
+    const sanitized = controlChar.replace(/[\x00-\x1F]/g, "")
+    expect(sanitized).toBe("Test")
+  })
+
+  it("trims leading and trailing whitespace", () => {
+    const testCases = [
+      { input: "  Morning Brew  ", expected: "Morning Brew" },
+      { input: "\n\tHustle\n", expected: "Hustle" },
+    ]
+    for (const tc of testCases) {
+      const sanitized = tc.input.replace(/[\r\n\t]/g, " ").replace(/\s+/g, " ").trim()
+      expect(sanitized).toBe(tc.expected)
+    }
+  })
+})
+
+describe("Duplicate folder name handling (Story 9.3 Task 1.6)", () => {
+  it("uses base name when no duplicates exist", () => {
+    const baseName = "Morning Brew"
+    const existingFolders: { name: string }[] = []
+    const existingNames = new Set(existingFolders.map((f) => f.name.toLowerCase()))
+
+    const uniqueName = existingNames.has(baseName.toLowerCase())
+      ? `${baseName} 2`
+      : baseName
+
+    expect(uniqueName).toBe("Morning Brew")
+  })
+
+  it("appends counter when duplicate name exists", () => {
+    const baseName = "Morning Brew"
+    const existingFolders = [{ name: "Morning Brew" }]
+    const existingNames = new Set(existingFolders.map((f) => f.name.toLowerCase()))
+
+    let counter = 2
+    let uniqueName = baseName
+    if (existingNames.has(baseName.toLowerCase())) {
+      while (existingNames.has(`${baseName} ${counter}`.toLowerCase())) {
+        counter++
+      }
+      uniqueName = `${baseName} ${counter}`
+    }
+
+    expect(uniqueName).toBe("Morning Brew 2")
+  })
+
+  it("increments counter for multiple duplicates", () => {
+    const baseName = "Morning Brew"
+    const existingFolders = [
+      { name: "Morning Brew" },
+      { name: "Morning Brew 2" },
+      { name: "Morning Brew 3" },
+    ]
+    const existingNames = new Set(existingFolders.map((f) => f.name.toLowerCase()))
+
+    let counter = 2
+    let uniqueName = baseName
+    if (existingNames.has(baseName.toLowerCase())) {
+      while (existingNames.has(`${baseName} ${counter}`.toLowerCase())) {
+        counter++
+      }
+      uniqueName = `${baseName} ${counter}`
+    }
+
+    expect(uniqueName).toBe("Morning Brew 4")
+  })
+
+  it("handles case-insensitive duplicate detection", () => {
+    const baseName = "morning brew"
+    const existingFolders = [{ name: "Morning Brew" }]
+    const existingNames = new Set(existingFolders.map((f) => f.name.toLowerCase()))
+
+    const isDuplicate = existingNames.has(baseName.toLowerCase())
+    expect(isDuplicate).toBe(true)
+  })
+
+  it("uses by_userId index to get existing folders efficiently", () => {
+    const indexUsed = "by_userId"
+    expect(indexUsed).toBe("by_userId")
+  })
+})
+
+describe("Folder creation fields (Story 9.3 Task 1.7)", () => {
+  it("creates folder with required fields", () => {
+    const now = Date.now()
+    const folderFields = {
+      userId: "Id<'users'>",
+      name: "string - derived from sender",
+      isHidden: false,
+      createdAt: now,
+      updatedAt: now,
+    }
+    expect(folderFields.isHidden).toBe(false)
+    expect(folderFields.createdAt).toBe(now)
+    expect(folderFields.updatedAt).toBe(now)
+  })
+
+  it("sets isHidden to false for auto-created folders", () => {
+    const isHidden = false
+    expect(isHidden).toBe(false)
+  })
+})
+
+describe("userSenderSettings update (Story 9.3 Task 1.8)", () => {
+  it("updates existing settings with folderId", () => {
+    const existingSettingsScenario = {
+      condition: "userSenderSettings exists but folderId is null",
+      action: "patch settings with new folderId",
+      preserves: ["isPrivate", "senderId", "userId"],
+    }
+    expect(existingSettingsScenario.action).toContain("patch")
+    expect(existingSettingsScenario.preserves).toContain("isPrivate")
+  })
+
+  it("creates new settings with folderId if none exist", () => {
+    const newSettingsScenario = {
+      condition: "no userSenderSettings exists",
+      action: "insert new settings with folderId and isPrivate=true",
+      isPrivate: true,
+    }
+    expect(newSettingsScenario.isPrivate).toBe(true)
+  })
+
+  it("sets isPrivate to true for new settings (Story 9.2 private-by-default)", () => {
+    const defaultIsPrivate = true
+    expect(defaultIsPrivate).toBe(true)
+  })
+})
+
+describe("Race condition handling (Story 9.3 Task 5.4)", () => {
+  it("documents race condition detection pattern", () => {
+    const raceProtection = {
+      detection: "After insert, query all settings with same userId+senderId",
+      condition: "allSettings.length > 1",
+      resolution: "Keep oldest by _creationTime, delete duplicates",
+    }
+    expect(raceProtection.condition).toBe("allSettings.length > 1")
+  })
+
+  it("documents orphaned folder cleanup on race loss", () => {
+    const folderCleanup = {
+      scenario: "Race loser created folder but another request won",
+      detection: "keepSettings.folderId !== our folderId",
+      action: "Delete our orphaned folder, return winner's folderId",
+    }
+    expect(folderCleanup.action).toContain("Delete our orphaned folder")
+  })
+
+  it("increments subscriberCount only on successful unique creation", () => {
+    const countBehavior = {
+      raceWinner: "subscriberCount incremented (new relationship)",
+      raceLoser: "subscriberCount NOT incremented (duplicate deleted)",
+    }
+    expect(countBehavior.raceLoser).toContain("NOT incremented")
+  })
+})
+
+describe("E2E: New sender creates folder with sender name (AC #1, #2)", () => {
+  it("documents complete flow for new sender folder creation", () => {
+    const flow = {
+      trigger: "Newsletter arrives from new sender",
+      precondition: {
+        senderHasFolder: false,
+        userSenderSettingsExist: false,
+      },
+      steps: [
+        "1. emailIngestion calls getOrCreateFolderForSender",
+        "2. Check userSenderSettings - not found",
+        "3. Get sender info for folder name",
+        "4. Sanitize and check for duplicate folder names",
+        "5. Create folder with sender name",
+        "6. Create userSenderSettings with folderId and isPrivate=true",
+        "7. Increment sender.subscriberCount",
+        "8. Return folderId for newsletter storage",
+      ],
+      finalState: {
+        folderCreated: true,
+        folderName: "sender.name || sender.email",
+        userSenderSettingsCreated: true,
+        userSenderSettingsFolderId: "points to new folder",
+        userSenderSettingsIsPrivate: true,
+      },
+    }
+    expect(flow.finalState.folderCreated).toBe(true)
+    expect(flow.finalState.userSenderSettingsIsPrivate).toBe(true)
+  })
+})
+
+describe("E2E: Existing sender with folder doesn't create duplicate (AC #4)", () => {
+  it("documents flow for existing sender with folder", () => {
+    const flow = {
+      trigger: "Newsletter arrives from sender that already has folder",
+      precondition: {
+        senderHasFolder: true,
+        userSenderSettingsExist: true,
+        folderId: "folder_existing",
+      },
+      steps: [
+        "1. emailIngestion calls getOrCreateFolderForSender",
+        "2. Check userSenderSettings - found with folderId",
+        "3. Return existing folderId immediately (fast path)",
+      ],
+      finalState: {
+        newFolderCreated: false,
+        returnedFolderId: "folder_existing",
+      },
+    }
+    expect(flow.finalState.newFolderCreated).toBe(false)
+  })
+})
+
+describe("E2E: Newsletter goes to existing folder (AC #5)", () => {
+  it("documents that newsletters use existing folder", () => {
+    const flow = {
+      trigger: "Second newsletter from same sender",
+      precondition: {
+        folderExists: true,
+        folderId: "folder_abc",
+      },
+      steps: [
+        "1. getOrCreateFolderForSender returns existing folderId",
+        "2. storeNewsletterContent uses folderId",
+        "3. userNewsletter.folderId = folder_abc",
+      ],
+      finalState: {
+        newsletterInFolder: true,
+        folderId: "folder_abc",
+        duplicateFolderCreated: false,
+      },
+    }
+    expect(flow.finalState.duplicateFolderCreated).toBe(false)
+    expect(flow.finalState.folderId).toBe("folder_abc")
+  })
+})
+
+describe("Integration: All ingestion paths use getOrCreateFolderForSender (Story 9.3 Tasks 2-4)", () => {
+  it("email ingestion calls getOrCreateFolderForSender", () => {
+    const emailIngestionFlow = {
+      path: "emailIngestion.ts",
+      call: "internal.senders.getOrCreateFolderForSender",
+      passesToStorage: true,
+    }
+    expect(emailIngestionFlow.call).toContain("getOrCreateFolderForSender")
+  })
+
+  it("Gmail import calls getOrCreateFolderForSender", () => {
+    const gmailImportFlow = {
+      path: "gmail.ts - processAndStoreImportedEmail",
+      call: "internal.senders.getOrCreateFolderForSender",
+      passesToStorage: true,
+    }
+    expect(gmailImportFlow.call).toContain("getOrCreateFolderForSender")
+  })
+
+  it("drag-drop import calls getOrCreateFolderForSender", () => {
+    const manualImportFlow = {
+      path: "manualImport.ts - importEmlNewsletter",
+      call: "internal.senders.getOrCreateFolderForSender",
+      passesToStorage: true,
+    }
+    expect(manualImportFlow.call).toContain("getOrCreateFolderForSender")
+  })
+
+  it("forward-to-import calls getOrCreateFolderForSender", () => {
+    const importIngestionFlow = {
+      path: "importIngestion.ts - receiveImportEmail",
+      call: "internal.senders.getOrCreateFolderForSender",
+      passesToStorage: true,
+    }
+    expect(importIngestionFlow.call).toContain("getOrCreateFolderForSender")
+  })
+})

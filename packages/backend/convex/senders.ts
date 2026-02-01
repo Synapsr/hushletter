@@ -691,29 +691,105 @@ export const listFollowedSenders = query({
 })
 
 // ============================================================
-// Story 9.2: Folder Auto-Creation for Senders
+// Story 9.2 + 9.3: Folder Auto-Creation for Senders
 // ============================================================
+
+/**
+ * Maximum folder name length
+ * Story 9.3: Task 5.2 - Truncate long sender names
+ *
+ * Rationale: 100 characters balances UI display constraints (most folder names
+ * fit in sidebars without truncation) while allowing descriptive names.
+ * This matches common filesystem limits and prevents excessively long names
+ * from breaking layouts.
+ */
+export const MAX_FOLDER_NAME_LENGTH = 100
+
+/**
+ * Default folder name when all other derivation attempts fail
+ * Story 9.3 Code Review: Explicit fallback prevents empty folder names
+ */
+export const DEFAULT_FOLDER_NAME = "Unnamed Folder"
+
+/**
+ * Sanitize folder name by removing problematic characters
+ * Story 9.3: Task 5.3 - Handle special characters in sender names
+ *
+ * Exported for unit testing (Story 9.3 Code Review Fix).
+ *
+ * @param name Raw name from sender
+ * @returns Sanitized name safe for folder display (may be empty if input is all control chars)
+ */
+export function sanitizeFolderName(name: string): string {
+  return (
+    name
+      .trim()
+      // Remove newlines and tabs
+      .replace(/[\r\n\t]/g, " ")
+      // Collapse multiple whitespace into single space
+      .replace(/\s+/g, " ")
+      // Remove control characters (ASCII 0-31 except space)
+      .replace(/[\x00-\x1F]/g, "")
+      // Truncate to max length
+      .slice(0, MAX_FOLDER_NAME_LENGTH)
+      .trim()
+  )
+}
+
+/**
+ * Make a unique folder name by appending counter if needed
+ * Story 9.3: Task 1.6 - Handle duplicate folder names
+ *
+ * Exported for unit testing (Story 9.3 Code Review Fix).
+ *
+ * @param baseName Desired folder name
+ * @param existingFolders List of existing folders for the user
+ * @returns Unique folder name (e.g., "Morning Brew" or "Morning Brew 2")
+ */
+export function makeUniqueFolderName(
+  baseName: string,
+  existingFolders: { name: string }[]
+): string {
+  const existingNames = new Set(
+    existingFolders.map((f) => f.name.toLowerCase())
+  )
+
+  // If base name is unique, use it
+  if (!existingNames.has(baseName.toLowerCase())) {
+    return baseName
+  }
+
+  // Append counter until we find a unique name
+  let counter = 2
+  while (existingNames.has(`${baseName} ${counter}`.toLowerCase())) {
+    counter++
+  }
+  return `${baseName} ${counter}`
+}
 
 /**
  * Get or create a folder for a sender
  * Story 9.2: Task 3.2, 4.3, 5.3 - Folder resolution for ingestion paths
+ * Story 9.3: Enhanced with edge case handling
  *
  * Every ingestion path needs to resolve a folder for the sender:
  * 1. Check if userSenderSettings exists with folderId
- * 2. If folderId exists, return it
- * 3. If not, create a new folder with sender's name
- * 4. Update userSenderSettings with the new folderId
+ * 2. If folderId exists, return it (fast path)
+ * 3. If not, derive folder name from sender info
+ * 4. Sanitize and handle duplicate names
+ * 5. Create new folder
+ * 6. Update/create userSenderSettings with the new folderId
  *
- * This ensures every newsletter has a folder assignment (folder-centric architecture).
+ * Edge Cases (Story 9.3):
+ * - Sender with only email (no name): Uses email as folder name
+ * - Long sender names: Truncated to 100 characters
+ * - Special characters: Sanitized for safe display
+ * - Duplicate folder names: Counter appended (e.g., "Morning Brew 2")
+ * - Race conditions: Protected with duplicate detection and cleanup
  *
  * RACE CONDITION PROTECTION: If concurrent requests create duplicate settings,
  * we detect and clean up duplicates, keeping the oldest record. subscriberCount
  * is only incremented if we successfully created a new unique relationship.
- * This mirrors the behavior of getOrCreateUserSenderSettings.
- *
- * NOTE: This function may create userSenderSettings if it doesn't exist.
- * It uses the same race condition protection pattern as getOrCreateUserSenderSettings
- * to ensure consistent behavior.
  */
 export const getOrCreateFolderForSender = internalMutation({
   args: {
@@ -721,7 +797,7 @@ export const getOrCreateFolderForSender = internalMutation({
     senderId: v.id("senders"),
   },
   handler: async (ctx, args) => {
-    // Check if userSenderSettings exists with folderId
+    // Step 1: Check if userSenderSettings exists with folderId (fast path)
     const settings = await ctx.db
       .query("userSenderSettings")
       .withIndex("by_userId_senderId", (q) =>
@@ -730,25 +806,58 @@ export const getOrCreateFolderForSender = internalMutation({
       .first()
 
     if (settings?.folderId) {
-      // Folder already assigned - return it
+      // Folder already assigned - return it immediately
       return settings.folderId
     }
 
-    // Get sender info for folder name
+    // Step 2: Get sender info for folder name
     const sender = await ctx.db.get(args.senderId)
-    const folderName = sender?.name || sender?.email || "Unknown Sender"
+    if (!sender) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Sender not found",
+      })
+    }
 
-    // Create folder for this sender
+    // Step 3: Derive folder name with fallback (Story 9.3: Task 1.5, 5.1)
+    // Prefer name, fallback to email, last resort "Unknown Sender"
+    let baseName = sender.name || sender.email || "Unknown Sender"
+
+    // Step 4: Sanitize folder name (Story 9.3: Task 5.2, 5.3)
+    baseName = sanitizeFolderName(baseName)
+
+    // Handle edge case where sanitization produces empty string
+    // Story 9.3 Code Review Fix: Add explicit final fallback to prevent empty folder names
+    if (baseName.length === 0) {
+      baseName = sender.email || DEFAULT_FOLDER_NAME
+      baseName = sanitizeFolderName(baseName)
+
+      // Final safety check - if even email sanitizes to empty, use default
+      if (baseName.length === 0) {
+        baseName = DEFAULT_FOLDER_NAME
+      }
+    }
+
+    // Step 5: Get existing folders to check for duplicates (Story 9.3: Task 1.6)
+    const existingFolders = await ctx.db
+      .query("folders")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect()
+
+    // Make folder name unique by appending counter if needed
+    const finalName = makeUniqueFolderName(baseName, existingFolders)
+
+    // Step 6: Create folder for this sender
     const now = Date.now()
     const folderId = await ctx.db.insert("folders", {
       userId: args.userId,
-      name: folderName,
+      name: finalName,
       isHidden: false,
       createdAt: now,
       updatedAt: now,
     })
 
-    // Update or create userSenderSettings with folderId
+    // Step 7: Update or create userSenderSettings with folderId
     if (settings) {
       // Settings exists but no folderId - just update it
       await ctx.db.patch(settings._id, { folderId })
@@ -762,7 +871,7 @@ export const getOrCreateFolderForSender = internalMutation({
         folderId,
       })
 
-      // Race condition check: verify we didn't create a duplicate
+      // Race condition check: verify we didn't create a duplicate (Story 9.3: Task 5.4)
       const allSettings = await ctx.db
         .query("userSenderSettings")
         .withIndex("by_userId_senderId", (q) =>
@@ -802,21 +911,19 @@ export const getOrCreateFolderForSender = internalMutation({
 
         // Don't increment subscriberCount - we didn't create a new relationship
         console.log(
-          `[senders] Created folder "${folderName}" (${folderId}) for sender ${args.senderId} (race resolved)`
+          `[senders] Created folder "${finalName}" (${folderId}) for sender ${args.senderId} (race resolved)`
         )
         return keepSettings.folderId ?? folderId
       }
 
       // We successfully created the only record - increment subscriber count
-      if (sender) {
-        await ctx.db.patch(args.senderId, {
-          subscriberCount: sender.subscriberCount + 1,
-        })
-      }
+      await ctx.db.patch(args.senderId, {
+        subscriberCount: sender.subscriberCount + 1,
+      })
     }
 
     console.log(
-      `[senders] Created folder "${folderName}" (${folderId}) for sender ${args.senderId}`
+      `[senders] Created folder "${finalName}" (${folderId}) for sender ${args.senderId}`
     )
 
     return folderId

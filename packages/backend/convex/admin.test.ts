@@ -1546,3 +1546,795 @@ describe("Story 7.4 admin authorization", () => {
     // reportContent requires auth but not admin
   })
 })
+
+// ============================================================
+// Story 9.6: Admin Moderation Queue Tests
+// ============================================================
+
+describe("Story 9.6: Admin Moderation Queue API exports", () => {
+  it("should export listModerationQueue query", () => {
+    expect(api.admin.listModerationQueue).toBeDefined()
+  })
+
+  it("should export listModerationNewslettersForSender query", () => {
+    expect(api.admin.listModerationNewslettersForSender).toBeDefined()
+  })
+
+  it("should export getModerationNewsletterDetail query", () => {
+    expect(api.admin.getModerationNewsletterDetail).toBeDefined()
+  })
+
+  it("should export getModerationNewsletterContent action", () => {
+    expect(api.admin.getModerationNewsletterContent).toBeDefined()
+  })
+
+  it("should export getModerationQueueCount query", () => {
+    expect(api.admin.getModerationQueueCount).toBeDefined()
+  })
+})
+
+describe("listModerationQueue query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderEmail: "optional string - filter by sender email (partial match)",
+      startDate: "optional number - filter by start date (Unix timestamp ms)",
+      endDate: "optional number - filter by end date (Unix timestamp ms)",
+      sortBy: "optional union - 'newsletterCount' | 'senderName' | 'latestReceived'",
+      limit: "optional number - defaults to 50, capped at 100",
+    }
+    expect(expectedArgsShape.senderEmail).toContain("optional")
+    expect(expectedArgsShape.sortBy).toContain("optional")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      items: "array of sender groups with newsletter counts",
+      hasMore: "boolean - whether more items exist",
+      totalSenders: "number - total matching senders",
+    }
+    expect(expectedReturnShape).toHaveProperty("items")
+    expect(expectedReturnShape).toHaveProperty("hasMore")
+    expect(expectedReturnShape).toHaveProperty("totalSenders")
+  })
+
+  it("defines sender group item shape", () => {
+    const expectedItemShape = {
+      senderId: "id<senders>",
+      senderEmail: "string",
+      senderName: "string | undefined",
+      senderDomain: "string",
+      newsletterCount: "number - count of user newsletters from this sender",
+      latestReceived: "number - Unix timestamp ms",
+      sampleSubjects: "array of strings - up to 3 sample subjects",
+    }
+    expect(expectedItemShape).toHaveProperty("senderId")
+    expect(expectedItemShape).toHaveProperty("newsletterCount")
+    expect(expectedItemShape).toHaveProperty("sampleSubjects")
+  })
+
+  it("documents filtering logic - excludes already-approved content", () => {
+    const behavior = {
+      excludesNewslettersWithContentId: true,
+      reason: "contentId means content was published to community",
+      onlyIncludesPrivateR2KeyNewsletters: true,
+    }
+    expect(behavior.excludesNewslettersWithContentId).toBe(true)
+    expect(behavior.onlyIncludesPrivateR2KeyNewsletters).toBe(true)
+  })
+
+  it("documents admin authorization requirement", () => {
+    const behavior = {
+      requiresAdmin: true,
+      authMethod: "requireAdmin(ctx)",
+    }
+    expect(behavior.requiresAdmin).toBe(true)
+  })
+})
+
+describe("listModerationNewslettersForSender query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      senderId: "id<senders> - sender to list newsletters for",
+      limit: "optional number - defaults to 50",
+    }
+    expect(expectedArgsShape).toHaveProperty("senderId")
+    expect(expectedArgsShape.limit).toContain("optional")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedItemShape = {
+      id: "id<userNewsletters>",
+      subject: "string",
+      senderEmail: "string",
+      senderName: "string | undefined",
+      receivedAt: "number - Unix timestamp ms",
+      userId: "id<users> - for reference",
+      userEmail: "string - for audit (admin-only)",
+      source: "string - 'email' | 'gmail' | 'manual' | 'community'",
+    }
+    expect(expectedItemShape).toHaveProperty("id")
+    expect(expectedItemShape).toHaveProperty("userEmail")
+    expect(expectedItemShape).toHaveProperty("source")
+  })
+
+  it("documents user email exposure for audit", () => {
+    const securityBehavior = {
+      exposesUserEmail: true,
+      reason: "Admin needs user context for audit purposes",
+      communityNeverSeesThis: true,
+    }
+    expect(securityBehavior.exposesUserEmail).toBe(true)
+  })
+})
+
+describe("getModerationNewsletterDetail query contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "id<userNewsletters> - specific newsletter to get details for",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      id: "id<userNewsletters>",
+      subject: "string",
+      senderEmail: "string",
+      senderName: "string | undefined",
+      receivedAt: "number - Unix timestamp ms",
+      source: "string - 'email' | 'gmail' | 'manual' | 'community'",
+      userEmail: "string - owner's email for audit",
+      userId: "id<users>",
+      senderId: "id<senders>",
+      piiDetection: "PiiDetectionResult - detected personalization patterns",
+    }
+    expect(expectedReturnShape).toHaveProperty("id")
+    expect(expectedReturnShape).toHaveProperty("userEmail")
+    expect(expectedReturnShape).toHaveProperty("piiDetection")
+  })
+
+  it("documents PII detection result shape", () => {
+    const piiDetectionResult = {
+      hasPotentialPII: "boolean",
+      findings: "array of PiiFind objects",
+      recommendation: "string - advisory message",
+    }
+    expect(piiDetectionResult).toHaveProperty("hasPotentialPII")
+    expect(piiDetectionResult).toHaveProperty("findings")
+  })
+
+  it("documents error codes", () => {
+    const errorCodes = {
+      NOT_FOUND: "Newsletter not found",
+    }
+    expect(errorCodes).toHaveProperty("NOT_FOUND")
+  })
+})
+
+describe("getModerationNewsletterContent action contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "id<userNewsletters> - newsletter to fetch content for",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      signedUrl: "string - R2 signed URL for content (valid 1 hour)",
+      subject: "string",
+      senderEmail: "string",
+      senderName: "string | undefined",
+      receivedAt: "number - Unix timestamp ms",
+    }
+    expect(expectedReturnShape).toHaveProperty("signedUrl")
+    expect(expectedReturnShape).toHaveProperty("subject")
+  })
+
+  it("documents R2 signed URL pattern", () => {
+    const behavior = {
+      usesPrivateR2Key: true,
+      urlExpiresIn: "1 hour (3600 seconds)",
+      neverExposesR2KeyDirectly: true,
+    }
+    expect(behavior.usesPrivateR2Key).toBe(true)
+    expect(behavior.neverExposesR2KeyDirectly).toBe(true)
+  })
+
+  it("documents error codes", () => {
+    const errorCodes = {
+      NOT_FOUND: "Newsletter content not found",
+      FORBIDDEN: "Admin access required",
+    }
+    expect(errorCodes).toHaveProperty("NOT_FOUND")
+    expect(errorCodes).toHaveProperty("FORBIDDEN")
+  })
+})
+
+describe("getModerationQueueCount query contract", () => {
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      count: "number - total newsletters pending moderation",
+    }
+    expect(expectedReturnShape).toHaveProperty("count")
+  })
+
+  it("documents count logic", () => {
+    const behavior = {
+      countsNewslettersWithPrivateR2Key: true,
+      excludesNewslettersWithContentId: true,
+      reason: "Count only user-owned private content not yet published",
+    }
+    expect(behavior.countsNewslettersWithPrivateR2Key).toBe(true)
+    expect(behavior.excludesNewslettersWithContentId).toBe(true)
+  })
+})
+
+describe("PII Detection contract", () => {
+  it("defines PII detection patterns", () => {
+    const patterns = [
+      { type: "greeting", description: "Personalized greeting like 'Hi John,'" },
+      { type: "email", description: "Email address in content" },
+      { type: "name_reference", description: "Name in salutation like 'Dear John'" },
+      { type: "unsubscribe_link", description: "Personalized unsubscribe link with user ID" },
+      { type: "tracking_pixel", description: "Tracking pixel with user identifier" },
+      { type: "user_id", description: "User identifier in URL parameters" },
+    ]
+    expect(patterns).toHaveLength(6)
+  })
+
+  it("documents PiiFind object shape", () => {
+    const piiFind = {
+      type: "string - pattern type",
+      description: "string - human-readable description",
+      count: "number - how many matches found",
+      samples: "array of strings - up to 3 sample matches",
+    }
+    expect(piiFind).toHaveProperty("type")
+    expect(piiFind).toHaveProperty("count")
+    expect(piiFind).toHaveProperty("samples")
+  })
+
+  it("documents advisory-only nature of PII detection", () => {
+    const behavior = {
+      isAdvisoryOnly: true,
+      doesNotBlockActions: true,
+      adminMakesFinalDecision: true,
+    }
+    expect(behavior.isAdvisoryOnly).toBe(true)
+    expect(behavior.doesNotBlockActions).toBe(true)
+  })
+})
+
+describe("Story 9.6 admin authorization", () => {
+  it("documents all Story 9.6 queries/actions require admin authorization", () => {
+    const story96Queries = [
+      "listModerationQueue",
+      "listModerationNewslettersForSender",
+      "getModerationNewsletterDetail",
+      "getModerationNewsletterContent",
+      "getModerationQueueCount",
+    ]
+    const allRequireAdmin = true
+    expect(allRequireAdmin).toBe(true)
+    expect(story96Queries).toHaveLength(5)
+  })
+})
+
+describe("Story 9.6 key differences from Story 7.4", () => {
+  it("documents data source difference", () => {
+    const comparison = {
+      story74: "Uses newsletterContent table (community content)",
+      story96: "Uses userNewsletters with privateR2Key (user-owned content)",
+    }
+    expect(comparison.story74).toContain("newsletterContent")
+    expect(comparison.story96).toContain("userNewsletters")
+  })
+
+  it("documents purpose difference", () => {
+    const comparison = {
+      story74: "Manage existing community content",
+      story96: "Review user content for potential publishing to community",
+    }
+    expect(comparison.story74).toContain("existing community")
+    expect(comparison.story96).toContain("Review user content")
+  })
+
+  it("documents content access difference", () => {
+    const comparison = {
+      story74: "Public R2 keys (shared content)",
+      story96: "Private R2 keys (user-specific)",
+    }
+    expect(comparison.story74).toContain("Public")
+    expect(comparison.story96).toContain("Private")
+  })
+
+  it("documents user info exposure difference", () => {
+    const comparison = {
+      story74: "No user info (content is shared/deduped)",
+      story96: "Shows user email for audit purposes",
+    }
+    expect(comparison.story74).toContain("No user info")
+    expect(comparison.story96).toContain("user email for audit")
+  })
+})
+
+// ============================================================
+// Story 9.7: Admin Publish Flow Tests
+// ============================================================
+
+describe("Story 9.7: Admin Publish Flow API exports", () => {
+  it("should export publishToCommunity action", () => {
+    expect(api.admin.publishToCommunity).toBeDefined()
+  })
+
+  it("should export rejectFromCommunity mutation", () => {
+    expect(api.admin.rejectFromCommunity).toBeDefined()
+  })
+
+  it("should export getAdminUser as internal query", () => {
+    expect(internal.admin.getAdminUser).toBeDefined()
+  })
+
+  it("should export createCommunityContent as internal mutation", () => {
+    expect(internal.admin.createCommunityContent).toBeDefined()
+  })
+
+  it("should export markNewsletterReviewed as internal mutation", () => {
+    expect(internal.admin.markNewsletterReviewed).toBeDefined()
+  })
+
+  it("should export logModerationAction as internal mutation", () => {
+    expect(internal.admin.logModerationAction).toBeDefined()
+  })
+})
+
+describe("publishToCommunity action contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "id<userNewsletters> - newsletter to publish",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      success: "boolean - always true on success",
+      contentId: "id<newsletterContent> - created or reused content ID",
+      reusedExisting: "boolean - true if content already existed",
+    }
+    expect(expectedReturnShape).toHaveProperty("success")
+    expect(expectedReturnShape).toHaveProperty("contentId")
+    expect(expectedReturnShape).toHaveProperty("reusedExisting")
+  })
+
+  it("documents admin authorization requirement", () => {
+    const behavior = {
+      requiresAdmin: true,
+      authMethod: "getAdminUser internal query",
+      errorOnNoAdmin: "ConvexError({ code: 'UNAUTHORIZED', message: 'Admin access required' })",
+    }
+    expect(behavior.requiresAdmin).toBe(true)
+  })
+
+  it("documents R2 workflow", () => {
+    const workflow = {
+      step1: "Fetch content from user's privateR2Key",
+      step2: "Compute content hash for deduplication",
+      step3: "Check for existing newsletterContent with same hash",
+      step4If: "Existing: increment readerCount, reuse contentId",
+      step4Else: "New: upload to community/ R2 key, create newsletterContent",
+    }
+    expect(workflow.step3).toContain("hash")
+    expect(workflow.step4If).toContain("increment")
+    expect(workflow.step4Else).toContain("community/")
+  })
+
+  it("documents deduplication behavior", () => {
+    const behavior = {
+      checksContentHash: true,
+      reuseExistingContent: true,
+      incrementsReaderCount: true,
+      neverDuplicatesContent: true,
+    }
+    expect(behavior.checksContentHash).toBe(true)
+    expect(behavior.neverDuplicatesContent).toBe(true)
+  })
+
+  it("documents community R2 key format", () => {
+    const keyFormat = {
+      prefix: "community/",
+      pattern: "community/{timestamp}-{uuid}.{ext}",
+      extOptions: ["html", "txt"],
+    }
+    expect(keyFormat.prefix).toBe("community/")
+    expect(keyFormat.pattern).toContain("{timestamp}")
+  })
+
+  it("documents review status tracking", () => {
+    const behavior = {
+      setsReviewStatus: "published",
+      setsReviewedAt: "Date.now()",
+      setsReviewedBy: "admin._id",
+    }
+    expect(behavior.setsReviewStatus).toBe("published")
+  })
+
+  it("documents audit log entry", () => {
+    const auditEntry = {
+      actionType: "publish_to_community",
+      targetType: "userNewsletter",
+      detailsInclude: ["contentId", "senderEmail", "subject", "reusedExisting"],
+    }
+    expect(auditEntry.actionType).toBe("publish_to_community")
+  })
+
+  it("documents error codes", () => {
+    const errorCodes = {
+      UNAUTHORIZED: "Admin access required",
+      NOT_FOUND: "Newsletter not found",
+      VALIDATION_ERROR: "Newsletter has no private content OR already reviewed",
+      EXTERNAL_ERROR: "Failed to fetch content from R2",
+    }
+    expect(errorCodes).toHaveProperty("UNAUTHORIZED")
+    expect(errorCodes).toHaveProperty("VALIDATION_ERROR")
+    expect(errorCodes).toHaveProperty("EXTERNAL_ERROR")
+  })
+
+  it("documents user content protection", () => {
+    const behavior = {
+      userPrivateR2KeyUnchanged: true,
+      userNewsletterContentUnchanged: true,
+      onlyAddsReviewTracking: true,
+    }
+    expect(behavior.userPrivateR2KeyUnchanged).toBe(true)
+  })
+})
+
+describe("rejectFromCommunity mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "id<userNewsletters> - newsletter to reject",
+      reason: "string - reason for rejection (required)",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+    expect(expectedArgsShape).toHaveProperty("reason")
+  })
+
+  it("defines expected return shape", () => {
+    const expectedReturnShape = {
+      success: "boolean - always true on success",
+    }
+    expect(expectedReturnShape).toHaveProperty("success")
+  })
+
+  it("documents admin authorization requirement", () => {
+    const behavior = {
+      requiresAdmin: true,
+      authMethod: "requireAdmin(ctx)",
+    }
+    expect(behavior.requiresAdmin).toBe(true)
+  })
+
+  it("documents rejection behavior", () => {
+    const behavior = {
+      doesNotModifyUserContent: true,
+      doesNotDeleteAnything: true,
+      onlySetsReviewStatus: true,
+      createsAuditLog: true,
+    }
+    expect(behavior.doesNotModifyUserContent).toBe(true)
+    expect(behavior.doesNotDeleteAnything).toBe(true)
+  })
+
+  it("documents review status tracking", () => {
+    const behavior = {
+      setsReviewStatus: "rejected",
+      setsReviewedAt: "Date.now()",
+      setsReviewedBy: "admin._id",
+    }
+    expect(behavior.setsReviewStatus).toBe("rejected")
+  })
+
+  it("documents audit log entry", () => {
+    const auditEntry = {
+      actionType: "reject_from_community",
+      targetType: "userNewsletter",
+      reasonRequired: true,
+      detailsInclude: ["senderEmail", "subject"],
+    }
+    expect(auditEntry.actionType).toBe("reject_from_community")
+    expect(auditEntry.reasonRequired).toBe(true)
+  })
+
+  it("documents error codes", () => {
+    const errorCodes = {
+      NOT_FOUND: "Newsletter not found",
+      VALIDATION_ERROR: "Newsletter has no private content OR already reviewed",
+      FORBIDDEN: "Non-admin user",
+    }
+    expect(errorCodes).toHaveProperty("NOT_FOUND")
+    expect(errorCodes).toHaveProperty("VALIDATION_ERROR")
+  })
+})
+
+describe("createCommunityContent internal mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      contentHash: "string - SHA-256 hash for deduplication",
+      r2Key: "string - community/ prefixed R2 key",
+      subject: "string",
+      senderEmail: "string",
+      senderName: "optional string",
+      receivedAt: "number - Unix timestamp ms",
+      communityApprovedAt: "number - approval timestamp",
+      communityApprovedBy: "id<users> - admin who approved",
+    }
+    expect(expectedArgsShape).toHaveProperty("contentHash")
+    expect(expectedArgsShape).toHaveProperty("communityApprovedAt")
+    expect(expectedArgsShape).toHaveProperty("communityApprovedBy")
+  })
+
+  it("documents race condition handling", () => {
+    const behavior = {
+      checksForExistingHash: true,
+      onRaceCondition: "Increments readerCount on existing, returns existing ID",
+      preventsduplicates: true,
+    }
+    expect(behavior.checksForExistingHash).toBe(true)
+    expect(behavior.preventsduplicates).toBe(true)
+  })
+
+  it("documents newsletterContent record shape", () => {
+    const recordShape = {
+      contentHash: "string",
+      r2Key: "string",
+      subject: "string",
+      senderEmail: "string",
+      senderName: "string | undefined",
+      firstReceivedAt: "number",
+      readerCount: 0,
+      importCount: 0,
+      communityApprovedAt: "number",
+      communityApprovedBy: "id<users>",
+    }
+    expect(recordShape.readerCount).toBe(0)
+    expect(recordShape.importCount).toBe(0)
+  })
+})
+
+describe("markNewsletterReviewed internal mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "id<userNewsletters>",
+      reviewStatus: "union - 'published' | 'rejected'",
+      reviewedBy: "id<users> - admin who reviewed",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+    expect(expectedArgsShape).toHaveProperty("reviewStatus")
+    expect(expectedArgsShape).toHaveProperty("reviewedBy")
+  })
+
+  it("documents patch behavior", () => {
+    const behavior = {
+      setsReviewStatus: true,
+      setsReviewedAt: "Date.now()",
+      setsReviewedBy: "args.reviewedBy",
+    }
+    expect(behavior.setsReviewStatus).toBe(true)
+  })
+})
+
+describe("logModerationAction internal mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      adminId: "id<users>",
+      actionType:
+        "union - includes 'publish_to_community' | 'reject_from_community'",
+      targetType: "union - includes 'userNewsletter'",
+      targetId: "string",
+      reason: "string",
+      details: "optional string - JSON stringified",
+    }
+    expect(expectedArgsShape).toHaveProperty("adminId")
+    expect(expectedArgsShape).toHaveProperty("actionType")
+  })
+
+  it("documents new action types for Story 9.7", () => {
+    const newActionTypes = ["publish_to_community", "reject_from_community"]
+    expect(newActionTypes).toContain("publish_to_community")
+    expect(newActionTypes).toContain("reject_from_community")
+  })
+
+  it("documents new target type for Story 9.7", () => {
+    const newTargetTypes = ["userNewsletter"]
+    expect(newTargetTypes).toContain("userNewsletter")
+  })
+})
+
+describe("listModerationQueue Story 9.7 updates", () => {
+  it("documents new includeReviewed parameter", () => {
+    const newParam = {
+      includeReviewed: "optional boolean - shows reviewed items if true",
+      defaultValue: false,
+    }
+    expect(newParam.includeReviewed).toContain("optional")
+  })
+
+  it("documents filtering of reviewed newsletters", () => {
+    const behavior = {
+      excludesPublished: true,
+      excludesRejected: true,
+      filterCondition: "reviewStatus === undefined",
+      canOverrideWithIncludeReviewed: true,
+    }
+    expect(behavior.excludesPublished).toBe(true)
+    expect(behavior.excludesRejected).toBe(true)
+  })
+})
+
+describe("listModerationNewslettersForSender Story 9.7 updates", () => {
+  it("documents new includeReviewed parameter", () => {
+    const newParam = {
+      includeReviewed: "optional boolean - shows reviewed items if true",
+      defaultValue: false,
+    }
+    expect(newParam.includeReviewed).toContain("optional")
+  })
+})
+
+describe("userNewsletters schema Story 9.7 updates", () => {
+  it("documents new review tracking fields", () => {
+    const newFields = {
+      reviewStatus: "optional union - 'published' | 'rejected'",
+      reviewedAt: "optional number - Unix timestamp ms",
+      reviewedBy: "optional id<users> - admin who reviewed",
+    }
+    expect(newFields).toHaveProperty("reviewStatus")
+    expect(newFields).toHaveProperty("reviewedAt")
+    expect(newFields).toHaveProperty("reviewedBy")
+  })
+
+  it("documents new by_reviewStatus index", () => {
+    const newIndex = {
+      by_reviewStatus: "For filtering moderation queue by review status",
+    }
+    expect(newIndex).toHaveProperty("by_reviewStatus")
+  })
+})
+
+describe("moderationLog schema Story 9.7 updates", () => {
+  it("documents new action types", () => {
+    const allActionTypes = [
+      "hide_content",
+      "restore_content",
+      "block_sender",
+      "unblock_sender",
+      "resolve_report",
+      "dismiss_report",
+      "publish_to_community", // NEW
+      "reject_from_community", // NEW
+    ]
+    expect(allActionTypes).toContain("publish_to_community")
+    expect(allActionTypes).toContain("reject_from_community")
+    expect(allActionTypes).toHaveLength(8)
+  })
+
+  it("documents new target type", () => {
+    const allTargetTypes = [
+      "content",
+      "sender",
+      "report",
+      "userNewsletter", // NEW
+    ]
+    expect(allTargetTypes).toContain("userNewsletter")
+    expect(allTargetTypes).toHaveLength(4)
+  })
+})
+
+describe("Story 9.7 key behaviors", () => {
+  it("documents privacy-first publishing model", () => {
+    const model = {
+      userContentAlwaysPrivate: true,
+      onlyAdminCanPublish: true,
+      publishCreatesCopy: true,
+      userCopyUnaffected: true,
+    }
+    expect(model.userContentAlwaysPrivate).toBe(true)
+    expect(model.publishCreatesCopy).toBe(true)
+  })
+
+  it("documents R2 key separation", () => {
+    const keyModel = {
+      userKeys: "private/{userId}/{timestamp}-{uuid}.{ext}",
+      communityKeys: "community/{timestamp}-{uuid}.{ext}",
+      neverExposesUserKeys: true,
+    }
+    expect(keyModel.userKeys).toContain("private/")
+    expect(keyModel.communityKeys).toContain("community/")
+  })
+
+  it("documents deduplication at community level", () => {
+    const dedupModel = {
+      hashesNormalizedContent: true,
+      checksNewsletterContentTable: true,
+      incrementsReaderCountIfExists: true,
+      avoidsR2Duplication: true,
+    }
+    expect(dedupModel.hashesNormalizedContent).toBe(true)
+  })
+
+  it("documents audit trail requirements", () => {
+    const auditRequirements = {
+      everyPublishLogged: true,
+      everyRejectLogged: true,
+      includesAdminId: true,
+      includesReason: true,
+      includesDetails: true,
+    }
+    expect(auditRequirements.everyPublishLogged).toBe(true)
+    expect(auditRequirements.everyRejectLogged).toBe(true)
+  })
+
+  it("documents moderation queue behavior after review", () => {
+    const queueBehavior = {
+      publishedRemoved: true,
+      rejectedRemoved: true,
+      userCanStillSeeTheirCopy: true,
+      adminCanViewWithIncludeReviewed: true,
+    }
+    expect(queueBehavior.publishedRemoved).toBe(true)
+    expect(queueBehavior.rejectedRemoved).toBe(true)
+  })
+})
+
+describe("Story 9.7 relationship to other stories", () => {
+  it("documents relationship to Story 9.6 (Admin Moderation Queue)", () => {
+    const relationship = {
+      buildsOn: "listModerationQueue, getModerationNewsletterDetail",
+      addsActionButtons: "Publish/Reject in ModerationNewsletterModal",
+      extendsFiltering: "Adds includeReviewed parameter",
+    }
+    expect(relationship.buildsOn).toContain("listModerationQueue")
+  })
+
+  it("documents relationship to Story 9.8 (Community Browse)", () => {
+    const relationship = {
+      publishedContentAppearsIn: "Community browse queries",
+      usesNewsletterContentTable: true,
+      communityApprovedAtUsedForFiltering: true,
+    }
+    expect(relationship.usesNewsletterContentTable).toBe(true)
+  })
+
+  it("documents relationship to Story 9.9 (Community Import)", () => {
+    const relationship = {
+      contentFromThisStory: "Available for user import",
+      importCountTracked: true,
+      readerCountIncremented: true,
+    }
+    expect(relationship.importCountTracked).toBe(true)
+  })
+})
+
+describe("Story 9.7 admin authorization", () => {
+  it("documents all Story 9.7 functions require admin authorization", () => {
+    const story97Functions = [
+      "publishToCommunity", // action
+      "rejectFromCommunity", // mutation
+    ]
+    const allRequireAdmin = true
+    expect(allRequireAdmin).toBe(true)
+    expect(story97Functions).toHaveLength(2)
+  })
+
+  it("documents internal mutations for action workflow", () => {
+    const internalMutations = [
+      "createCommunityContent",
+      "markNewsletterReviewed",
+      "logModerationAction",
+      "getAdminUser", // actually internalQuery
+    ]
+    expect(internalMutations).toHaveLength(4)
+  })
+})

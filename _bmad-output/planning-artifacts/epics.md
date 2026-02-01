@@ -1674,3 +1674,288 @@ Users can import newsletters from any email provider via drag-and-drop `.eml` fi
 - Index: `.index("by_userId_messageId", ["userId", "messageId"])`
 - Content hash fallback uses `normalizeForHash()` from Story 2.5.2
 - Duplicate check happens before R2 upload (avoid unnecessary storage)
+
+---
+
+## Epic 9: Course Correction - Privacy-First & Folder-Centric Architecture
+
+Refactor the application to make all newsletters private by default with admin-curated community content, and replace sender-based navigation with folder-based navigation.
+
+**FRs covered:** FR14 (modified), FR21 (modified), FR23 (modified), FR27 (modified), FR37, FR38, FR39, FR40, FR41, FR42, FR43, FR44
+
+**Implementation Notes:**
+- This epic addresses stakeholder feedback about privacy risks and UX simplification
+- All user newsletters are private by default (no automatic community sharing)
+- Admin curates community by creating sanitized copies of user newsletters
+- Folders become the primary organizational unit (senders live inside folders)
+- Users can merge private + community newsletters in the same folder
+
+**Key Architecture Changes:**
+- Remove automatic deduplication to community
+- Senders are global (shared across users and community)
+- `userNewsletters.privateR2Key` for user content, `contentId` only for community imports
+- `userNewsletters.source` tracks origin (email, gmail, manual, community)
+- Folders required for all senders (`userSenderSettings.folderId` mandatory)
+
+---
+
+### Story 9.1: Schema Migration
+
+**As a** developer,
+**I want** to migrate the database schema to support privacy-first and folder-centric architecture,
+**So that** the foundation is in place for subsequent stories.
+
+**Acceptance Criteria:**
+
+**Given** the migration runs
+**When** reviewing the schema
+**Then** `senders` table is global (no userId field)
+**And** `folders` table exists with userId, name, isHidden, createdAt, updatedAt
+**And** `userSenderSettings.folderId` is required (not optional)
+**And** `userNewsletters.folderId` is required (not optional)
+**And** `userNewsletters.source` field exists with union type
+**And** `newsletterContent` has communityApprovedAt, communityApprovedBy, importCount fields
+
+**Given** the migration runs on existing data
+**When** processing existing newsletters
+**Then** each existing sender gets a folder created (named after sender)
+**And** existing `userSenderSettings` get folderId populated
+**And** existing `userNewsletters` get folderId and source populated
+
+---
+
+### Story 9.2: Private-by-Default
+
+**As a** user receiving newsletters,
+**I want** all my newsletters to be stored privately,
+**So that** my content is never shared without explicit admin curation.
+
+**Acceptance Criteria:**
+
+**Given** an email arrives at my dedicated address
+**When** the system stores it
+**Then** it uses `privateR2Key` (uploads to R2 with user-specific key)
+**And** `contentId` is null (no community reference)
+**And** `source` is set to "email"
+
+**Given** I import via Gmail
+**When** newsletters are stored
+**Then** they use `privateR2Key`
+**And** `source` is "gmail"
+
+**Given** I import via drag-drop or forward
+**When** newsletters are stored
+**Then** they use `privateR2Key`
+**And** `source` is "manual"
+
+**Given** the old deduplication logic exists
+**When** reviewing the codebase
+**Then** automatic deduplication to `newsletterContent` is removed
+**And** `newsletterContent` is only created by admin action
+
+---
+
+### Story 9.3: Folder Auto-Creation
+
+**As a** user receiving newsletters from new senders,
+**I want** a folder to be automatically created for each new sender,
+**So that** my newsletters are organized without manual effort.
+
+**Acceptance Criteria:**
+
+**Given** a newsletter arrives from a new sender
+**When** the system processes it
+**Then** a new folder is created with the sender's name
+**And** the sender is linked to this folder via `userSenderSettings`
+**And** the newsletter is placed in this folder
+
+**Given** a sender already exists with a folder
+**When** a new newsletter arrives from that sender
+**Then** no new folder is created
+**And** the newsletter goes to the existing folder
+
+---
+
+### Story 9.4: Folder-Centric Navigation
+
+**As a** user viewing my newsletters,
+**I want** to see folders instead of senders in the sidebar,
+**So that** I have a simpler mental model for organization.
+
+**Acceptance Criteria:**
+
+**Given** I am logged in
+**When** I view the main navigation sidebar
+**Then** I see a list of my folders (not senders)
+**And** each folder shows unread count and newsletter count
+**And** hidden folders are not shown by default
+
+**Given** I click on a folder
+**When** the folder opens
+**Then** I see all newsletters in that folder
+**And** newsletters are sorted by date (newest first)
+**And** I can see which senders are in this folder
+
+**Given** a folder has multiple senders
+**When** viewing the folder
+**Then** newsletters from all senders are shown together
+**And** each newsletter shows its sender name
+
+---
+
+### Story 9.5: Folder Actions
+
+**As a** user managing my newsletters,
+**I want** to merge, hide, and rename folders,
+**So that** I can organize my reading experience.
+
+**Acceptance Criteria:**
+
+**Given** I have two folders
+**When** I merge folder B into folder A
+**Then** all senders from B move to folder A
+**And** all newsletters from B appear in folder A
+**And** folder B is deleted
+**And** the action can be undone
+
+**Given** I have a folder
+**When** I hide the folder
+**Then** it disappears from main navigation
+**And** newsletters in it are not shown in "All" view
+**And** I can view hidden folders in settings
+**And** I can unhide a folder
+
+**Given** I have a folder
+**When** I rename it
+**Then** the new name is saved
+**And** it appears in navigation with new name
+
+---
+
+### Story 9.6: Admin Moderation Queue
+
+**As an** administrator,
+**I want** to see a queue of user newsletters to review,
+**So that** I can curate community content.
+
+**Acceptance Criteria:**
+
+**Given** I am logged in as admin
+**When** I navigate to Content Moderation
+**Then** I see newsletters grouped by sender
+**And** I can see how many newsletters are from each sender
+**And** I can filter by sender or date range
+
+**Given** I am viewing the moderation queue
+**When** I select a newsletter
+**Then** I can view its full content
+**And** I can see which user owns it (for audit, not displayed to community)
+**And** I can identify potential PII or personalization
+
+---
+
+### Story 9.7: Admin Publish Flow
+
+**As an** administrator,
+**I want** to publish sanitized newsletters to the community database,
+**So that** clean content is available for all users.
+
+**Acceptance Criteria:**
+
+**Given** I am reviewing a newsletter
+**When** I click "Publish to Community"
+**Then** the system creates a NEW `newsletterContent` record
+**And** content is uploaded to R2 with new key (not user's key)
+**And** `communityApprovedAt` is set to current time
+**And** `communityApprovedBy` is set to my admin ID
+**And** the original user's `privateR2Key` is unchanged
+
+**Given** I am reviewing a newsletter
+**When** I click "Reject"
+**Then** the newsletter is marked as reviewed
+**And** it won't appear in my queue again
+**And** the user's newsletter is unchanged
+
+**Given** I publish content
+**When** the action completes
+**Then** an audit log entry is created
+**And** the community newsletter is immediately browsable
+
+---
+
+### Story 9.8: Community Browse
+
+**As a** user exploring newsletters,
+**I want** to browse the admin-curated community database,
+**So that** I can discover new content.
+
+**Acceptance Criteria:**
+
+**Given** I am logged in
+**When** I navigate to Community/Discover
+**Then** I see newsletters from `newsletterContent` (admin-approved only)
+**And** I can filter by sender
+**And** I can sort by date or popularity (importCount)
+
+**Given** I am browsing community
+**When** viewing a sender
+**Then** I see how many community newsletters are available
+**And** I see which ones I already have (private or imported)
+**And** I can preview newsletter content before importing
+
+---
+
+### Story 9.9: Community Import
+
+**As a** user who found interesting community content,
+**I want** to import newsletters to my personal collection,
+**So that** I can read them alongside my private newsletters.
+
+**Acceptance Criteria:**
+
+**Given** I am viewing a community newsletter
+**When** I click "Import" or "Add to Collection"
+**Then** a `userNewsletter` is created with `contentId` (not privateR2Key)
+**And** `source` is set to "community"
+**And** it's placed in my folder for that sender (or creates one)
+**And** `newsletterContent.importCount` is incremented
+
+**Given** I already have a folder for this sender
+**When** I import a community newsletter
+**Then** it appears in my existing folder
+**And** it's mixed with my private newsletters by date
+
+**Given** I import multiple newsletters
+**When** selecting bulk import
+**Then** all selected newsletters are imported
+**And** I see progress and confirmation
+
+---
+
+### Story 9.10: Unified Folder View
+
+**As a** user viewing a folder,
+**I want** to see both private and community-imported newsletters together,
+**So that** I have a complete view of content from that sender.
+
+**Acceptance Criteria:**
+
+**Given** my folder has both private and community-imported newsletters
+**When** I view the folder
+**Then** all newsletters are shown sorted by date
+**And** private newsletters show a "private" indicator (e.g., 📧)
+**And** community imports show a "community" indicator (e.g., 🌐)
+
+**Given** I click on a private newsletter
+**When** loading content
+**Then** it fetches from my `privateR2Key`
+
+**Given** I click on a community-imported newsletter
+**When** loading content
+**Then** it fetches from `newsletterContent.r2Key` via `contentId`
+
+**Given** I delete a community-imported newsletter
+**When** the deletion completes
+**Then** my `userNewsletter` is removed
+**And** the `newsletterContent` is unchanged
+**And** `importCount` is decremented

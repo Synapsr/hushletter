@@ -312,10 +312,12 @@ describe("FolderSidebar (Story 9.4)", () => {
     it("shows selected folder as active", () => {
       render(<FolderSidebar {...defaultProps} selectedFolderId="folder-tech" />)
 
-      // Tech folder button should have active styling
+      // Tech folder wrapper (parent div) should have active styling
+      // Story 9.5: Changed from button to div wrapper to avoid nested buttons with dropdown
       const techButton = screen.getByText("Tech").closest("button")
-      expect(techButton?.className).toContain("bg-accent")
-      expect(techButton?.className).toContain("font-medium")
+      const folderWrapper = techButton?.parentElement
+      expect(folderWrapper?.className).toContain("bg-accent")
+      expect(folderWrapper?.className).toContain("font-medium")
     })
 
     it("clears filter when All Newsletters is clicked", () => {

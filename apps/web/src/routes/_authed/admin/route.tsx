@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
 import { Skeleton } from "~/components/ui/skeleton"
+import { Badge } from "~/components/ui/badge"
 import { ShieldAlert } from "lucide-react"
 
 /**
@@ -21,6 +22,11 @@ export const Route = createFileRoute("/_authed/admin")({
 function AdminLayout() {
   const { data: adminCheck, isPending, isError, error } = useQuery(
     convexQuery(api.admin.checkIsAdmin, {})
+  )
+
+  // Story 9.6: Get moderation queue count for nav badge
+  const { data: moderationCount } = useQuery(
+    convexQuery(api.admin.getModerationQueueCount, {})
   )
 
   // Show loading skeleton while checking admin status
@@ -117,6 +123,19 @@ function AdminLayout() {
               activeProps={{ className: "text-foreground font-medium" }}
             >
               Privacy Review
+            </Link>
+            <Link
+              to="/admin/moderation"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              activeProps={{ className: "text-foreground font-medium" }}
+            >
+              Moderation
+              {typeof moderationCount?.count === "number" &&
+                moderationCount.count > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {moderationCount.count}
+                  </Badge>
+                )}
             </Link>
             <Link
               to="/admin/community"

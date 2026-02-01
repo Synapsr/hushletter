@@ -25,6 +25,7 @@ import { Route as AuthedNewslettersIdRouteImport } from './routes/_authed/newsle
 import { Route as AuthedImportManualRouteImport } from './routes/_authed/import/manual'
 import { Route as AuthedCommunityContentIdRouteImport } from './routes/_authed/community/$contentId'
 import { Route as AuthedAdminPrivacyRouteImport } from './routes/_authed/admin/privacy'
+import { Route as AuthedAdminModerationRouteImport } from './routes/_authed/admin/moderation'
 import { Route as AuthedAdminHealthRouteImport } from './routes/_authed/admin/health'
 import { Route as AuthedAdminDeliveryRouteImport } from './routes/_authed/admin/delivery'
 import { Route as AuthedAdminCommunityRouteImport } from './routes/_authed/admin/community'
@@ -110,6 +111,11 @@ const AuthedAdminPrivacyRoute = AuthedAdminPrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
+const AuthedAdminModerationRoute = AuthedAdminModerationRouteImport.update({
+  id: '/moderation',
+  path: '/moderation',
+  getParentRoute: () => AuthedAdminRouteRoute,
+} as any)
 const AuthedAdminHealthRoute = AuthedAdminHealthRouteImport.update({
   id: '/health',
   path: '/health',
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/admin/community': typeof AuthedAdminCommunityRoute
   '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
+  '/admin/moderation': typeof AuthedAdminModerationRoute
   '/admin/privacy': typeof AuthedAdminPrivacyRoute
   '/community/$contentId': typeof AuthedCommunityContentIdRoute
   '/import/manual': typeof AuthedImportManualRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/admin/community': typeof AuthedAdminCommunityRoute
   '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
+  '/admin/moderation': typeof AuthedAdminModerationRoute
   '/admin/privacy': typeof AuthedAdminPrivacyRoute
   '/community/$contentId': typeof AuthedCommunityContentIdRoute
   '/import/manual': typeof AuthedImportManualRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/_authed/admin/community': typeof AuthedAdminCommunityRoute
   '/_authed/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/_authed/admin/health': typeof AuthedAdminHealthRoute
+  '/_authed/admin/moderation': typeof AuthedAdminModerationRoute
   '/_authed/admin/privacy': typeof AuthedAdminPrivacyRoute
   '/_authed/community/$contentId': typeof AuthedCommunityContentIdRoute
   '/_authed/import/manual': typeof AuthedImportManualRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/admin/community'
     | '/admin/delivery'
     | '/admin/health'
+    | '/admin/moderation'
     | '/admin/privacy'
     | '/community/$contentId'
     | '/import/manual'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/admin/community'
     | '/admin/delivery'
     | '/admin/health'
+    | '/admin/moderation'
     | '/admin/privacy'
     | '/community/$contentId'
     | '/import/manual'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/_authed/admin/community'
     | '/_authed/admin/delivery'
     | '/_authed/admin/health'
+    | '/_authed/admin/moderation'
     | '/_authed/admin/privacy'
     | '/_authed/community/$contentId'
     | '/_authed/import/manual'
@@ -384,6 +396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminPrivacyRouteImport
       parentRoute: typeof AuthedAdminRouteRoute
     }
+    '/_authed/admin/moderation': {
+      id: '/_authed/admin/moderation'
+      path: '/moderation'
+      fullPath: '/admin/moderation'
+      preLoaderRoute: typeof AuthedAdminModerationRouteImport
+      parentRoute: typeof AuthedAdminRouteRoute
+    }
     '/_authed/admin/health': {
       id: '/_authed/admin/health'
       path: '/health'
@@ -419,6 +438,7 @@ interface AuthedAdminRouteRouteChildren {
   AuthedAdminCommunityRoute: typeof AuthedAdminCommunityRoute
   AuthedAdminDeliveryRoute: typeof AuthedAdminDeliveryRoute
   AuthedAdminHealthRoute: typeof AuthedAdminHealthRoute
+  AuthedAdminModerationRoute: typeof AuthedAdminModerationRoute
   AuthedAdminPrivacyRoute: typeof AuthedAdminPrivacyRoute
   AuthedAdminIndexRoute: typeof AuthedAdminIndexRoute
 }
@@ -427,6 +447,7 @@ const AuthedAdminRouteRouteChildren: AuthedAdminRouteRouteChildren = {
   AuthedAdminCommunityRoute: AuthedAdminCommunityRoute,
   AuthedAdminDeliveryRoute: AuthedAdminDeliveryRoute,
   AuthedAdminHealthRoute: AuthedAdminHealthRoute,
+  AuthedAdminModerationRoute: AuthedAdminModerationRoute,
   AuthedAdminPrivacyRoute: AuthedAdminPrivacyRoute,
   AuthedAdminIndexRoute: AuthedAdminIndexRoute,
 }

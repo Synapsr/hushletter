@@ -8,6 +8,7 @@ import {
 import * as React from "react"
 import { createServerFn } from "@tanstack/react-start"
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react"
+import { Toaster } from "sonner"
 import appCss from "~/styles/app.css?url"
 import { authClient } from "~/lib/auth-client"
 import { getToken } from "~/lib/auth-server"
@@ -97,6 +98,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        {/* Story 9.5: Toast notifications for folder actions */}
+        <Toaster position="bottom-right" />
         <Scripts />
       </body>
     </html>

@@ -225,9 +225,9 @@ No vanity metrics. No growth hacking. A tool that works.
 
 ### Newsletter Reading
 
-- **FR14:** Users can view all newsletters organized by sender
+- **FR14:** Users can view all newsletters organized by folder. Each folder contains one or more senders.
 - **FR15:** Users can read newsletter content in a clean interface
-- **FR16:** Users can browse newsletters by category/folder
+- **FR16:** Users can browse newsletters by folder (primary navigation)
 - **FR17:** Users can mark newsletters as read
 - **FR18:** Users can hide newsletters without unsubscribing
 
@@ -238,17 +238,28 @@ No vanity metrics. No growth hacking. A tool that works.
 
 ### Community Database
 
-- **FR21:** Newsletters are shared to community database by default
-- **FR22:** Users can mark specific senders as private (excluded from sharing)
-- **FR23:** Users can access back-catalog of newsletters from community database
+- **FR21:** All user newsletters are private by default. Community database is populated exclusively by admin curation.
+- ~~**FR22:** Users can mark specific senders as private (excluded from sharing)~~ **REMOVED** - No longer needed; all private by default
+- **FR23:** Users can browse and import newsletters from the admin-curated community database to their personal collection
 - **FR24:** New users can browse newsletters they haven't personally received
 
 ### Admin & Operations
 
 - **FR25:** Admin can view system health metrics
 - **FR26:** Admin can monitor email delivery status
-- **FR27:** Admin can review content flagged as private
+- **FR27:** Admin can review user newsletters and publish sanitized versions to community database
 - **FR28:** Admin can manage community database content
+
+### Folder Architecture (Course Correction - 2026-02-01)
+
+- **FR37:** Senders are global (shared across all users and community)
+- **FR38:** New senders are automatically mapped to a new folder on first receipt
+- **FR39:** Users can merge folders to combine multiple senders into one folder
+- **FR40:** Users can hide folders (soft-archive all newsletters within)
+- **FR41:** Users can rename folders
+- **FR42:** Admin can publish a newsletter to community by creating a sanitized copy (original user content unchanged)
+- **FR43:** Users can import community newsletters to their existing folders, merging with their private collection from the same sender
+- **FR44:** User's folder view shows both private and community-imported newsletters, sorted by date, with visual indicator of source
 
 ## Non-Functional Requirements
 

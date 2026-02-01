@@ -1766,7 +1766,7 @@ export const resolveReport = mutation({
       actionType: args.resolution === "resolved" ? "resolve_report" : "dismiss_report",
       targetType: "report",
       targetId: args.reportId,
-      reason: args.note,
+      reason: args.note ?? `Report ${args.resolution}`,
       details: JSON.stringify({
         contentId: report.contentId,
         hideContent: args.hideContent,

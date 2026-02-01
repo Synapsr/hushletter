@@ -23,6 +23,9 @@ describe("Admin Route Layout Contract", () => {
         "index.tsx (dashboard)",
         "health.tsx (health details)",
         "delivery.tsx (email delivery monitoring)", // Story 7.2
+        "privacy.tsx (privacy review)", // Story 7.3
+        "moderation.tsx (moderation queue)", // Story 9.6
+        "community.tsx (community content)", // Story 7.4
       ],
     }
 
@@ -76,6 +79,9 @@ describe("Admin Route Layout Contract", () => {
             "Overview (/admin)",
             "Health Details (/admin/health)",
             "Email Delivery (/admin/delivery)", // Story 7.2
+            "Privacy Review (/admin/privacy)", // Story 7.3
+            "Moderation (/admin/moderation)", // Story 9.6
+            "Community Content (/admin/community)", // Story 7.4
           ],
         },
         main: "Outlet for child routes",
@@ -87,7 +93,7 @@ describe("Admin Route Layout Contract", () => {
     }
 
     expect(adminLayout.structure.header.title).toBe("Admin Dashboard")
-    expect(adminLayout.structure.header.navigation).toHaveLength(3)
+    expect(adminLayout.structure.header.navigation).toHaveLength(6)
   })
 
   it("documents navigation link behavior", () => {
@@ -107,11 +113,44 @@ describe("Admin Route Layout Contract", () => {
         to: "/admin/delivery",
         activeOptions: { exact: false },
       },
+      {
+        label: "Privacy Review", // Story 7.3
+        to: "/admin/privacy",
+        activeOptions: { exact: false },
+      },
+      {
+        label: "Moderation", // Story 9.6
+        to: "/admin/moderation",
+        activeOptions: { exact: false },
+        badge: "getModerationQueueCount",
+      },
+      {
+        label: "Community Content", // Story 7.4
+        to: "/admin/community",
+        activeOptions: { exact: false },
+      },
     ]
 
     expect(navLinks[0].activeOptions.exact).toBe(true)
     expect(navLinks[1].to).toBe("/admin/health")
     expect(navLinks[2].to).toBe("/admin/delivery")
+    expect(navLinks[3].to).toBe("/admin/privacy")
+    expect(navLinks[4].to).toBe("/admin/moderation")
+    expect(navLinks[4].badge).toBe("getModerationQueueCount")
+    expect(navLinks[5].to).toBe("/admin/community")
+  })
+
+  it("documents moderation queue count badge (Story 9.6)", () => {
+    const moderationBadge = {
+      query: "getModerationQueueCount",
+      showsWhen: "count > 0",
+      variant: "secondary",
+      styling: "ml-1 text-xs",
+      content: "count number",
+    }
+
+    expect(moderationBadge.query).toBe("getModerationQueueCount")
+    expect(moderationBadge.showsWhen).toBe("count > 0")
   })
 })
 

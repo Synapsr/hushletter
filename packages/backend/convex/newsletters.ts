@@ -1049,6 +1049,44 @@ export const listHiddenNewsletters = query({
 })
 
 // ============================================================
+// Story 9.4: Folder-Centric Navigation Queries
+// ============================================================
+
+/**
+ * Get count of hidden newsletters
+ * Story 9.4: AC3 - Hidden section shows count of hidden newsletters
+ *
+ * Returns the count of all newsletters with isHidden === true for the current user.
+ * Used by FolderSidebar to show hidden newsletter count in the "Hidden" section.
+ *
+ * Note: This counts hidden NEWSLETTERS, not hidden folders.
+ * Hidden folders are excluded from the sidebar entirely.
+ */
+export const getHiddenNewsletterCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return 0
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return 0
+
+    // Count hidden newsletters
+    const hiddenNewsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .filter((q) => q.eq(q.field("isHidden"), true))
+      .collect()
+
+    return hiddenNewsletters.length
+  },
+})
+
+// ============================================================
 // Story 6.4: Empty State Detection
 // ============================================================
 

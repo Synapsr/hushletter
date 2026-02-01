@@ -7,11 +7,10 @@ import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel
 import { NewsletterCard, type NewsletterData } from "~/components/NewsletterCard"
 import { EmptyNewsletterState } from "~/components/EmptyNewsletterState"
 import {
-  SenderSidebar,
-  SenderSidebarSkeleton,
-  type SenderData,
+  FolderSidebar,
+  FolderSidebarSkeleton,
   type FolderData,
-} from "~/components/SenderSidebar"
+} from "~/components/FolderSidebar"
 import {
   Sheet,
   SheetContent,
@@ -22,15 +21,37 @@ import { Button } from "~/components/ui/button"
 import { Menu } from "lucide-react"
 
 /**
+ * Sender data returned by listSendersInFolder query
+ * Story 9.4: AC5 - Show senders in folder header
+ *
+ * Note: This interface should match the return type of api.senders.listSendersInFolder.
+ * Keep in sync with senders.ts.
+ */
+interface FolderSenderData {
+  _id: string
+  email: string
+  name?: string
+  displayName: string
+  domain: string
+}
+
+/** Code review fix: Extract magic string to constant */
+const FILTER_HIDDEN = "hidden" as const
+type FilterType = typeof FILTER_HIDDEN
+
+/**
  * Search params schema for URL-based filtering
- * Story 3.1: Task 4 - URL format /newsletters?sender={senderId}
- * Story 3.3: Task 1.5, 2.2 - Added folder param
+ * Story 9.4: Folder-centric navigation - folder is now PRIMARY
  * Story 3.5: Task 6, 7 - Added filter param for "hidden"
+ *
+ * URL structure:
+ * - /newsletters                    → All newsletters (from visible folders)
+ * - /newsletters?folder={folderId}  → Folder view (PRIMARY)
+ * - /newsletters?filter=hidden      → Hidden newsletters
  */
 type NewsletterSearchParams = {
-  sender?: string
   folder?: string
-  filter?: string  // Story 3.5: "hidden" filter
+  filter?: FilterType  // Story 3.5: "hidden" filter
 }
 
 /**
@@ -48,15 +69,13 @@ function isValidConvexId(id: string | undefined): boolean {
 export const Route = createFileRoute("/_authed/newsletters/")({
   component: NewslettersPage,
   validateSearch: (search: Record<string, unknown>): NewsletterSearchParams => {
-    const sender = typeof search.sender === "string" ? search.sender : undefined
     const folder = typeof search.folder === "string" ? search.folder : undefined
     const filter = typeof search.filter === "string" ? search.filter : undefined
 
     return {
-      // Code review fix (MEDIUM-2): Validate IDs before passing to queries
-      sender: isValidConvexId(sender) ? sender : undefined,
-      folder: folder === "uncategorized" || isValidConvexId(folder) ? folder : undefined,
-      filter: filter === "hidden" ? filter : undefined, // Only allow known filter values
+      // Story 9.4: Folder is now primary navigation - validate ID
+      folder: isValidConvexId(folder) ? folder : undefined,
+      filter: filter === FILTER_HIDDEN ? FILTER_HIDDEN : undefined, // Only allow known filter values
     }
   },
 })
@@ -97,9 +116,9 @@ function NewsletterListSkeleton() {
 function PageSkeleton() {
   return (
     <div className="flex min-h-screen">
-      {/* Desktop sidebar skeleton */}
+      {/* Desktop sidebar skeleton - Story 9.4: Using FolderSidebarSkeleton */}
       <div className="hidden md:block">
-        <SenderSidebarSkeleton />
+        <FolderSidebarSkeleton />
       </div>
       {/* Main content skeleton */}
       <main className="flex-1 p-6">
@@ -110,10 +129,44 @@ function PageSkeleton() {
   )
 }
 
+/**
+ * FolderHeader - Shows folder name and senders in folder
+ * Story 9.4: AC4, AC5 - Folder detail view header
+ */
+function FolderHeader({ folderId }: { folderId: string }) {
+  // Get folder details
+  const { data: folder } = useQuery(
+    convexQuery(api.folders.getFolder, { folderId: folderId as Id<"folders"> })
+  )
+
+  // Get senders in this folder
+  const { data: senders } = useQuery(
+    convexQuery(api.senders.listSendersInFolder, { folderId: folderId as Id<"folders"> })
+  )
+
+  if (!folder) return null
+
+  const senderList = (senders ?? []) as FolderSenderData[]
+
+  return (
+    <div className="mb-6">
+      <h1 className="text-3xl font-bold text-foreground">{folder.name}</h1>
+      {/* Story 9.4 AC5: Show which senders are in this folder */}
+      {senderList.length > 0 && (
+        <p className="text-sm text-muted-foreground mt-1">
+          {senderList.length === 1
+            ? `From ${senderList[0].displayName}`
+            : `From ${senderList.map((s) => s.displayName).join(", ")}`}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function NewslettersPage() {
-  // Story 3.3 Task 1.5, 2.2: URL-based filter state for both sender and folder
+  // Story 9.4: Folder-centric navigation - folder is PRIMARY
   // Story 3.5: Added filter param for "hidden"
-  const { sender: senderIdParam, folder: folderIdParam, filter: filterParam } = Route.useSearch()
+  const { folder: folderIdParam, filter: filterParam } = Route.useSearch()
   const navigate = useNavigate()
 
   // Mobile sidebar state
@@ -125,87 +178,45 @@ function NewslettersPage() {
   )
   const user = userData as CurrentUserData
 
-  // Get senders with unread counts for totals calculation
-  const { data: sendersData, isPending: sendersPending } = useQuery(
-    convexQuery(api.senders.listSendersForUserWithUnreadCounts, {})
-  )
-  const senders = (sendersData ?? []) as SenderData[]
-
-  // Get folders with unread counts
-  // Story 3.3 Task 1.1
+  // Story 9.4: Get visible folders with unread counts
   const { data: foldersData, isPending: foldersPending } = useQuery(
-    convexQuery(api.folders.listFoldersWithUnreadCounts, {})
+    convexQuery(api.folders.listVisibleFoldersWithUnreadCounts, {})
   )
   const folders = (foldersData ?? []) as FolderData[]
 
   // Determine filter type - mutually exclusive
-  const isFilteringByHidden = filterParam === "hidden"
-  const isFilteringByFolder = !!folderIdParam && !senderIdParam && !isFilteringByHidden
-  const isFilteringBySender = !isFilteringByFolder && !isFilteringByHidden
+  const isFilteringByHidden = filterParam === FILTER_HIDDEN
+  const isFilteringByFolder = !!folderIdParam && !isFilteringByHidden
 
-  // Story 3.3 Task 2.1: Get newsletters by folder OR by sender
-  // Folder filter and sender filter are mutually exclusive
-  const { data: newslettersBySender, isPending: newslettersBySenderPending } = useQuery({
-    ...convexQuery(api.newsletters.listUserNewslettersBySender, {
-      senderId: senderIdParam as Id<"senders"> | undefined,
-    }),
-    enabled: isFilteringBySender, // Only run when filtering by sender (or no filter)
-  })
-
-  // Story 3.3 Task 2.1: Query for folder-filtered newsletters
+  // Story 9.4: Get newsletters by folder (now primary navigation)
+  // When no folder is selected, show all newsletters
   const { data: newslettersByFolder, isPending: newslettersByFolderPending } = useQuery({
     ...convexQuery(api.newsletters.listUserNewslettersByFolder, {
-      // "uncategorized" becomes null for uncategorized senders
-      folderId: folderIdParam === "uncategorized" ? null : (folderIdParam as Id<"folders">),
+      folderId: folderIdParam as Id<"folders">,
     }),
-    enabled: isFilteringByFolder, // Only run when filtering by folder
+    enabled: isFilteringByFolder,
+  })
+
+  // Story 9.4: Get all newsletters when no folder is selected (across all visible folders)
+  const { data: allNewsletters, isPending: allNewslettersPending } = useQuery({
+    ...convexQuery(api.newsletters.listUserNewslettersBySender, {
+      senderId: undefined, // All newsletters from all senders
+    }),
+    enabled: !isFilteringByFolder && !isFilteringByHidden,
   })
 
   // Story 3.5: Always fetch hidden newsletters (used for count + conditionally for display)
-  // Code review fix: consolidated from two separate queries to avoid redundant fetches
   const { data: hiddenNewsletters, isPending: hiddenNewslettersPending } = useQuery(
     convexQuery(api.newsletters.listHiddenNewsletters, {})
   )
-  const hiddenCount = Array.isArray(hiddenNewsletters) ? hiddenNewsletters.length : 0
 
-  // Calculate totals for "All Newsletters" display
-  const { totalNewsletterCount, totalUnreadCount } = useMemo(() => {
-    return senders.reduce(
-      (acc, sender) => ({
-        totalNewsletterCount: acc.totalNewsletterCount + sender.userNewsletterCount,
-        totalUnreadCount: acc.totalUnreadCount + sender.unreadCount,
-      }),
-      { totalNewsletterCount: 0, totalUnreadCount: 0 }
-    )
-  }, [senders])
-
-  // Get selected sender details for header
-  const selectedSender = useMemo(() => {
-    if (!senderIdParam) return null
-    return senders.find((s) => s._id === senderIdParam) ?? null
-  }, [senders, senderIdParam])
-
-  // Get selected folder details for header
-  // Story 3.3 Task 2.3
+  // Get selected folder details
   const selectedFolder = useMemo(() => {
     if (!folderIdParam) return null
-    if (folderIdParam === "uncategorized") {
-      return { name: "Uncategorized", _id: "uncategorized" }
-    }
     return folders.find((f) => f._id === folderIdParam) ?? null
   }, [folders, folderIdParam])
 
-  // Story 3.3 Task 1.5: Handle sender selection with URL update
-  const handleSenderSelect = (selectedSenderId: string | null) => {
-    navigate({
-      to: "/newsletters",
-      search: selectedSenderId ? { sender: selectedSenderId } : {},
-    })
-    // Close mobile sidebar on selection
-    setSidebarOpen(false)
-  }
-
-  // Story 3.3 Task 1.5: Handle folder selection with URL update
+  // Story 9.4: Handle folder selection with URL update (PRIMARY navigation)
   const handleFolderSelect = (selectedFolderId: string | null) => {
     navigate({
       to: "/newsletters",
@@ -216,7 +227,7 @@ function NewslettersPage() {
   }
 
   // Story 3.5: Handle filter selection (e.g., "hidden")
-  const handleFilterSelect = (filter: string | null) => {
+  const handleFilterSelect = (filter: FilterType | null) => {
     navigate({
       to: "/newsletters",
       search: filter ? { filter } : {},
@@ -226,12 +237,12 @@ function NewslettersPage() {
   }
 
   // Show loading skeleton while initial data is loading
-  const isPending = userPending || sendersPending || foldersPending ||
+  const isPending = userPending || foldersPending ||
     (isFilteringByHidden
       ? hiddenNewslettersPending
       : isFilteringByFolder
         ? newslettersByFolderPending
-        : newslettersBySenderPending)
+        : allNewslettersPending)
 
   if (isPending) {
     return <PageSkeleton />
@@ -244,81 +255,65 @@ function NewslettersPage() {
     ? (hiddenNewsletters ?? []) as NewsletterData[]
     : isFilteringByFolder
       ? (newslettersByFolder ?? []) as NewsletterData[]
-      : (newslettersBySender ?? []) as NewsletterData[]
+      : (allNewsletters ?? []) as NewsletterData[]
 
-  // Sidebar props shared between desktop and mobile
+  // Story 9.4: FolderSidebar props - simplified from SenderSidebar
   const sidebarProps = {
-    selectedSenderId: senderIdParam ?? null,
     selectedFolderId: folderIdParam ?? null,
-    selectedFilter: filterParam ?? null,  // Story 3.5
-    onSenderSelect: handleSenderSelect,
+    selectedFilter: filterParam ?? null,
     onFolderSelect: handleFolderSelect,
-    onFilterSelect: handleFilterSelect,  // Story 3.5
-    totalNewsletterCount,
-    totalUnreadCount,
-    hiddenCount,  // Story 3.5
+    onFilterSelect: handleFilterSelect,
   }
-
-  // Determine header text based on current filter
-  // Story 3.3 Task 2.3, Story 3.5 Task 7
-  const headerText = isFilteringByHidden
-    ? "Hidden Newsletters"
-    : selectedSender
-      ? selectedSender.displayName
-      : selectedFolder
-        ? selectedFolder.name
-        : "All Newsletters"
 
   return (
     <div className="flex min-h-screen">
-      {/* Task 6: Desktop sidebar - fixed width (AC1) */}
+      {/* Story 9.4 Task 1: Desktop sidebar - FolderSidebar replaces SenderSidebar */}
       <div className="hidden md:block">
-        <SenderSidebar {...sidebarProps} />
+        <FolderSidebar {...sidebarProps} />
       </div>
 
-      {/* Task 6: Mobile sidebar trigger + drawer
-          NOTE: Position fixed at top-4 left-4 - ensure this doesn't overlap
-          with any global header/nav in the _authed layout. Adjust if needed.
-      */}
+      {/* Mobile sidebar trigger + drawer */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Open sender menu">
+            <Button variant="outline" size="icon" aria-label="Open folder menu">
               <Menu className="h-4 w-4" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72" showCloseButton={false}>
-            <SheetTitle className="sr-only">Sender Navigation</SheetTitle>
-            <SenderSidebar {...sidebarProps} />
+            <SheetTitle className="sr-only">Folder Navigation</SheetTitle>
+            <FolderSidebar {...sidebarProps} />
           </SheetContent>
         </Sheet>
       </div>
 
-      {/* Task 6: Main content area - flex grow */}
+      {/* Main content area */}
       <main className="flex-1 p-6 md:p-8">
-        {/* Dynamic header based on filter (AC3) - Story 3.3 Task 2.3 */}
-        <h1 className="text-3xl font-bold text-foreground mb-6">
-          {headerText}
-        </h1>
+        {/* Story 9.4: Dynamic header based on folder selection */}
+        {isFilteringByHidden ? (
+          <h1 className="text-3xl font-bold text-foreground mb-6">
+            Hidden Newsletters
+          </h1>
+        ) : selectedFolder && folderIdParam ? (
+          /* Story 9.4 AC4, AC5: Folder header with sender list */
+          <FolderHeader folderId={folderIdParam} />
+        ) : (
+          <h1 className="text-3xl font-bold text-foreground mb-6">
+            All Newsletters
+          </h1>
+        )}
 
-        {/* Empty state when no newsletters (AC5 from 2.4) */}
+        {/* Empty state when no newsletters */}
         {newsletterList.length === 0 ? (
           isFilteringByHidden ? (
-            // Story 3.5 Task 7.3: Empty state for hidden newsletters view (AC3)
+            // Story 3.5: Empty state for hidden newsletters view
             <div className="text-center py-12">
               <p className="text-muted-foreground">
                 No hidden newsletters. Newsletters you hide will appear here.
               </p>
             </div>
-          ) : selectedSender ? (
-            // Empty state for sender-filtered view
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
-                No newsletters from {selectedSender.displayName} yet.
-              </p>
-            </div>
           ) : selectedFolder ? (
-            // Empty state for folder-filtered view - Story 3.3
+            // Story 9.4 Task 6.2: Empty state for folder-filtered view
             <div className="text-center py-12">
               <p className="text-muted-foreground">
                 No newsletters in {selectedFolder.name}.
@@ -329,8 +324,8 @@ function NewslettersPage() {
             <EmptyNewsletterState dedicatedEmail={dedicatedEmail} />
           )
         ) : (
-          /* Newsletter list - sorted by receivedAt descending (AC3) */
-          /* Story 3.5 Task 7.2: Show "Unhide" button for hidden newsletters (AC4) */
+          /* Story 9.4 AC4: Newsletter list - sorted by date (newest first) */
+          /* Story 9.4 AC7: Each newsletter shows sender name via NewsletterCard */
           <div className="space-y-3">
             {newsletterList.map((newsletter) => (
               <NewsletterCard

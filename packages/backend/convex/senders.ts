@@ -931,6 +931,58 @@ export const getOrCreateFolderForSender = internalMutation({
 })
 
 /**
+ * List senders in a specific folder
+ * Story 9.4: AC5 - Show which senders are in the folder detail view
+ *
+ * Returns senders that are assigned to the specified folder via userSenderSettings.
+ * Used to display "From [sender1], [sender2]..." in the folder header.
+ */
+export const listSendersInFolder = query({
+  args: { folderId: v.id("folders") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return []
+
+    // Verify folder ownership
+    const folder = await ctx.db.get(args.folderId)
+    if (!folder || folder.userId !== user._id) return []
+
+    // Get userSenderSettings for this folder using by_folderId index
+    const settings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_folderId", (q) => q.eq("folderId", args.folderId))
+      .filter((q) => q.eq(q.field("userId"), user._id))
+      .collect()
+
+    // Get sender details for each setting
+    const senders = await Promise.all(
+      settings.map(async (setting) => {
+        const sender = await ctx.db.get(setting.senderId)
+        if (!sender) return null
+        return {
+          _id: sender._id,
+          email: sender.email,
+          name: sender.name,
+          displayName: sender.name || sender.email,
+          domain: sender.domain,
+        }
+      })
+    )
+
+    return senders
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+  },
+})
+
+/**
  * List distinct domains from senders table for filter dropdown
  * Story 6.4 Task 3.1
  *

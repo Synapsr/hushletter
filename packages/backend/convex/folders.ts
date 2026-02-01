@@ -357,6 +357,64 @@ export const getFolder = query({
   },
 })
 
+/**
+ * Get folder with its senders in a single query
+ * Story 9.4 Code Review Fix: MEDIUM-3 - Consolidate FolderHeader queries
+ *
+ * Returns folder details along with all senders assigned to it.
+ * Reduces network round-trips from 2 to 1 for folder header display.
+ */
+export const getFolderWithSenders = query({
+  args: { folderId: v.id("folders") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return null
+
+    const folder = await ctx.db.get(args.folderId)
+    if (!folder) return null
+
+    // Verify ownership
+    if (folder.userId !== user._id) return null
+
+    // Get senders in this folder (same logic as listSendersInFolder)
+    const settings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_folderId", (q) => q.eq("folderId", args.folderId))
+      .filter((q) => q.eq(q.field("userId"), user._id))
+      .collect()
+
+    const senders = await Promise.all(
+      settings.map(async (setting) => {
+        const sender = await ctx.db.get(setting.senderId)
+        if (!sender) return null
+        return {
+          _id: sender._id,
+          email: sender.email,
+          name: sender.name,
+          displayName: sender.name || sender.email,
+          domain: sender.domain,
+        }
+      })
+    )
+
+    const filteredSenders = senders
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+
+    return {
+      ...folder,
+      senders: filteredSenders,
+    }
+  },
+})
+
 export const deleteFolder = mutation({
   args: {
     folderId: v.id("folders"),
@@ -409,5 +467,428 @@ export const deleteFolder = mutation({
     }
 
     await ctx.db.delete(args.folderId)
+  },
+})
+
+/**
+ * Helper to generate a unique folder name by appending a counter if needed.
+ * Used by renameFolder and createFolder to handle duplicates.
+ * Story 9.5: Task 1.3 - Handle duplicate folder names
+ */
+function makeUniqueFolderName(
+  baseName: string,
+  existingFolders: { name: string }[]
+): string {
+  const lowerBase = baseName.toLowerCase()
+  const existingNames = new Set(existingFolders.map((f) => f.name.toLowerCase()))
+
+  if (!existingNames.has(lowerBase)) {
+    return baseName
+  }
+
+  // Find the next available counter
+  let counter = 2
+  while (existingNames.has(`${lowerBase} ${counter}`)) {
+    counter++
+  }
+  return `${baseName} ${counter}`
+}
+
+/**
+ * Rename a folder
+ * Story 9.5: Task 1 - Folder Rename (AC #9, #10)
+ *
+ * Validates:
+ * - User is authenticated and owns the folder
+ * - New name is not empty and within length limits
+ * - Handles duplicate names by appending counter
+ *
+ * Updates updatedAt timestamp for tracking modifications.
+ */
+export const renameFolder = mutation({
+  args: {
+    folderId: v.id("folders"),
+    newName: v.string(),
+  },
+  returns: v.object({ name: v.string() }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    // Validate ownership
+    const folder = await ctx.db.get(args.folderId)
+    if (!folder || folder.userId !== user._id) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Folder not found" })
+    }
+
+    // Validate name - Task 1.2
+    const trimmedName = args.newName.trim()
+    if (!trimmedName) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: "Folder name cannot be empty",
+      })
+    }
+    if (trimmedName.length > 100) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: "Folder name must be 100 characters or less",
+      })
+    }
+
+    // Check for duplicate names (case-insensitive) - Task 1.3
+    const existingFolders = await ctx.db
+      .query("folders")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+
+    // Exclude current folder from duplicate check
+    const otherFolders = existingFolders.filter((f) => f._id !== args.folderId)
+    const finalName = makeUniqueFolderName(trimmedName, otherFolders)
+
+    // Update folder - Task 1.4
+    await ctx.db.patch(args.folderId, {
+      name: finalName,
+      updatedAt: Date.now(),
+    })
+
+    return { name: finalName }
+  },
+})
+
+/**
+ * Hide a folder from main navigation
+ * Story 9.5: Task 2 - Folder Hide (AC #5)
+ *
+ * Sets isHidden = true, which excludes the folder from:
+ * - listVisibleFoldersWithUnreadCounts (sidebar)
+ * - "All Newsletters" aggregate counts
+ */
+export const hideFolder = mutation({
+  args: { folderId: v.id("folders") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    const folder = await ctx.db.get(args.folderId)
+    if (!folder || folder.userId !== user._id) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Folder not found" })
+    }
+
+    await ctx.db.patch(args.folderId, {
+      isHidden: true,
+      updatedAt: Date.now(),
+    })
+  },
+})
+
+/**
+ * Unhide a folder to restore it to main navigation
+ * Story 9.5: Task 2 - Folder Unhide (AC #8)
+ *
+ * Sets isHidden = false, restoring the folder to:
+ * - listVisibleFoldersWithUnreadCounts (sidebar)
+ * - "All Newsletters" aggregate counts
+ */
+export const unhideFolder = mutation({
+  args: { folderId: v.id("folders") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    const folder = await ctx.db.get(args.folderId)
+    if (!folder || folder.userId !== user._id) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Folder not found" })
+    }
+
+    await ctx.db.patch(args.folderId, {
+      isHidden: false,
+      updatedAt: Date.now(),
+    })
+  },
+})
+
+/**
+ * List hidden folders for settings page
+ * Story 9.5: Task 2.6, 5.2 - Hidden Folders in Settings (AC #7)
+ *
+ * Returns hidden folders with counts for display in settings.
+ * Used to show users which folders are hidden and allow unhiding.
+ */
+export const listHiddenFolders = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return []
+
+    // Fetch all data for computing stats - avoid N+1
+    const [folders, allSettings, allNewsletters] = await Promise.all([
+      ctx.db
+        .query("folders")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("userSenderSettings")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("userNewsletters")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+    ])
+
+    const hiddenFolders = folders.filter((f) => f.isHidden)
+
+    // Build newsletter counts by folder
+    const newslettersByFolder = new Map<string, number>()
+    for (const newsletter of allNewsletters) {
+      if (newsletter.folderId) {
+        const current = newslettersByFolder.get(newsletter.folderId) ?? 0
+        newslettersByFolder.set(newsletter.folderId, current + 1)
+      }
+    }
+
+    // Build sender counts by folder
+    const sendersByFolder = new Map<string, number>()
+    for (const setting of allSettings) {
+      if (setting.folderId) {
+        const current = sendersByFolder.get(setting.folderId) ?? 0
+        sendersByFolder.set(setting.folderId, current + 1)
+      }
+    }
+
+    return hiddenFolders.map((folder) => ({
+      ...folder,
+      newsletterCount: newslettersByFolder.get(folder._id) ?? 0,
+      senderCount: sendersByFolder.get(folder._id) ?? 0,
+    }))
+  },
+})
+
+/**
+ * Merge one folder into another
+ * Story 9.5: Task 3 - Folder Merge (AC #1, #2, #3, #4)
+ *
+ * Moves all senders and newsletters from source folder to target folder,
+ * then deletes the source folder. Stores merge history for undo capability.
+ *
+ * Returns mergeId for undo, plus counts of moved items for user feedback.
+ */
+export const mergeFolders = mutation({
+  args: {
+    sourceFolderId: v.id("folders"),
+    targetFolderId: v.id("folders"),
+  },
+  returns: v.object({
+    mergeId: v.string(),
+    movedNewsletterCount: v.number(),
+    movedSenderCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    // Validate not merging into self
+    if (args.sourceFolderId === args.targetFolderId) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: "Cannot merge folder into itself",
+      })
+    }
+
+    // Validate ownership of both folders
+    const sourceFolder = await ctx.db.get(args.sourceFolderId)
+    const targetFolder = await ctx.db.get(args.targetFolderId)
+
+    if (!sourceFolder || sourceFolder.userId !== user._id) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Source folder not found" })
+    }
+    if (!targetFolder || targetFolder.userId !== user._id) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Target folder not found" })
+    }
+
+    // Move userSenderSettings to target folder - Task 3.2
+    const senderSettings = await ctx.db
+      .query("userSenderSettings")
+      .withIndex("by_folderId", (q) => q.eq("folderId", args.sourceFolderId))
+      .collect()
+
+    // Filter to only this user's settings (index doesn't include userId)
+    const userSenderSettings = senderSettings.filter(
+      (s) => s.userId === user._id
+    )
+
+    for (const setting of userSenderSettings) {
+      await ctx.db.patch(setting._id, { folderId: args.targetFolderId })
+    }
+
+    // Move userNewsletters to target folder - Task 3.3
+    const newsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_folderId", (q) =>
+        q.eq("userId", user._id).eq("folderId", args.sourceFolderId)
+      )
+      .collect()
+
+    for (const newsletter of newsletters) {
+      await ctx.db.patch(newsletter._id, { folderId: args.targetFolderId })
+    }
+
+    // Store merge history for undo - Task 6.1, 6.2
+    const mergeId = crypto.randomUUID()
+    const now = Date.now()
+    await ctx.db.insert("folderMergeHistory", {
+      mergeId,
+      userId: user._id,
+      sourceFolderName: sourceFolder.name,
+      sourceFolderColor: sourceFolder.color,
+      targetFolderId: args.targetFolderId,
+      movedSenderSettingIds: userSenderSettings.map((s) => s._id),
+      movedNewsletterIds: newsletters.map((n) => n._id),
+      createdAt: now,
+      expiresAt: now + 30000, // 30 seconds to undo - Task 6.6
+    })
+
+    // Delete source folder - Task 3.4
+    await ctx.db.delete(args.sourceFolderId)
+
+    // Update target folder timestamp
+    await ctx.db.patch(args.targetFolderId, { updatedAt: now })
+
+    return {
+      mergeId,
+      movedNewsletterCount: newsletters.length,
+      movedSenderCount: userSenderSettings.length,
+    }
+  },
+})
+
+/**
+ * Undo a folder merge operation
+ * Story 9.5: Task 6 - Undo Merge (AC #4)
+ *
+ * Recreates the source folder and moves items back.
+ * Only works within the undo time window (30 seconds).
+ */
+export const undoFolderMerge = mutation({
+  args: { mergeId: v.string() },
+  returns: v.object({ restoredFolderId: v.id("folders") }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    // Find merge history - Task 6.3
+    const history = await ctx.db
+      .query("folderMergeHistory")
+      .withIndex("by_mergeId", (q) => q.eq("mergeId", args.mergeId))
+      .first()
+
+    if (!history || history.userId !== user._id) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Merge history not found or expired",
+      })
+    }
+
+    // Check expiry - Task 6.6
+    if (Date.now() > history.expiresAt) {
+      throw new ConvexError({
+        code: "EXPIRED",
+        message: "Undo window has expired",
+      })
+    }
+
+    // Recreate source folder - Task 6.4
+    const now = Date.now()
+    const newFolderId = await ctx.db.insert("folders", {
+      userId: user._id,
+      name: history.sourceFolderName,
+      color: history.sourceFolderColor,
+      isHidden: false,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    // Move items back to recreated folder - Task 6.5
+    for (const settingId of history.movedSenderSettingIds) {
+      const setting = await ctx.db.get(settingId)
+      if (setting && setting.userId === user._id) {
+        await ctx.db.patch(settingId, { folderId: newFolderId })
+      }
+    }
+
+    for (const newsletterId of history.movedNewsletterIds) {
+      const newsletter = await ctx.db.get(newsletterId)
+      if (newsletter && newsletter.userId === user._id) {
+        await ctx.db.patch(newsletterId, { folderId: newFolderId })
+      }
+    }
+
+    // Delete history record
+    await ctx.db.delete(history._id)
+
+    return { restoredFolderId: newFolderId }
   },
 })

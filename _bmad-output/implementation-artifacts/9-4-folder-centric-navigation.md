@@ -1,6 +1,6 @@
 # Story 9.4: Folder-Centric Navigation
 
-Status: review
+Status: done
 
 ## Story
 
@@ -728,10 +728,10 @@ N/A
 - apps/web/src/components/FolderSidebar.test.tsx - 19 tests for FolderSidebar
 
 **Modified Files:**
-- packages/backend/convex/folders.ts - Added `listVisibleFoldersWithUnreadCounts`, `getFolder` queries
+- packages/backend/convex/folders.ts - Added `listVisibleFoldersWithUnreadCounts`, `getFolder`, `getFolderWithSenders` queries
 - packages/backend/convex/senders.ts - Added `listSendersInFolder` query
 - packages/backend/convex/newsletters.ts - Added `getHiddenNewsletterCount` query
-- apps/web/src/routes/_authed/newsletters/index.tsx - Replaced SenderSidebar with FolderSidebar, added FolderHeader
+- apps/web/src/routes/_authed/newsletters/index.tsx - Replaced SenderSidebar with FolderSidebar, added FolderHeader (uses consolidated query)
 
 ### Change Log
 
@@ -743,3 +743,10 @@ N/A
   - MEDIUM-3: Added progressive loading for hidden section
   - MEDIUM-6: Added sync comment for FolderSenderData interface
   - LOW-1: Extracted "hidden" magic string to FILTER_HIDDEN constant
+- 2026-02-01: Code review #2 fixes applied - 2 improvements (1 MEDIUM, 1 LOW):
+  - MEDIUM-3: Consolidated FolderHeader queries into single `getFolderWithSenders` query (1 round-trip instead of 2)
+  - LOW-2: Added data-testid="folder-icon" for reliable test queries
+
+### Review Follow-ups (AI)
+
+- [ ] [AI-Review][MEDIUM] Consider adding `by_userId_isHidden` index or denormalized hiddenCount for getHiddenNewsletterCount performance [newsletters.ts:1077-1098]

@@ -126,11 +126,11 @@ development_status:
   9-1-schema-migration: done  # Code review complete - 5 fixes (2 HIGH, 3 MEDIUM)
   9-2-private-by-default: done  # Code review complete - 5 fixes (2 HIGH, 3 MEDIUM), 867 tests pass
   9-3-folder-auto-creation: done  # Code review complete - 3 MEDIUM fixes, 919 tests pass
-  9-4-folder-centric-navigation: review
-  9-5-folder-actions: ready-for-dev
+  9-4-folder-centric-navigation: done  # Code review #2 complete - 2 fixes (1 MEDIUM, 1 LOW), test mocks updated
+  9-5-folder-actions: in-progress
   9-6-admin-moderation-queue: ready-for-dev  # Story file created - admin queue for privacy-first moderation
   9-7-admin-publish-flow: ready-for-dev
   9-8-community-browse: ready-for-dev
   9-9-community-import: ready-for-dev
-  9-10-unified-folder-view: backlog
+  9-10-unified-folder-view: ready-for-dev  # Story file created - unified display of private + community newsletters
   epic-9-retrospective: optional

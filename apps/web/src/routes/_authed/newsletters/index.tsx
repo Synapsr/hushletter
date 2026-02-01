@@ -132,25 +132,21 @@ function PageSkeleton() {
 /**
  * FolderHeader - Shows folder name and senders in folder
  * Story 9.4: AC4, AC5 - Folder detail view header
+ * Code Review Fix MEDIUM-3: Uses consolidated getFolderWithSenders query (1 round-trip instead of 2)
  */
 function FolderHeader({ folderId }: { folderId: string }) {
-  // Get folder details
-  const { data: folder } = useQuery(
-    convexQuery(api.folders.getFolder, { folderId: folderId as Id<"folders"> })
+  // Get folder with senders in a single query (Code Review Fix MEDIUM-3)
+  const { data: folderData } = useQuery(
+    convexQuery(api.folders.getFolderWithSenders, { folderId: folderId as Id<"folders"> })
   )
 
-  // Get senders in this folder
-  const { data: senders } = useQuery(
-    convexQuery(api.senders.listSendersInFolder, { folderId: folderId as Id<"folders"> })
-  )
+  if (!folderData) return null
 
-  if (!folder) return null
-
-  const senderList = (senders ?? []) as FolderSenderData[]
+  const senderList = (folderData.senders ?? []) as FolderSenderData[]
 
   return (
     <div className="mb-6">
-      <h1 className="text-3xl font-bold text-foreground">{folder.name}</h1>
+      <h1 className="text-3xl font-bold text-foreground">{folderData.name}</h1>
       {/* Story 9.4 AC5: Show which senders are in this folder */}
       {senderList.length > 0 && (
         <p className="text-sm text-muted-foreground mt-1">

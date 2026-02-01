@@ -6,11 +6,20 @@ import type { FolderData } from "./FolderSidebar"
 // Mock react-query
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn(),
+  useQueryClient: vi.fn(() => ({
+    invalidateQueries: vi.fn(),
+  })),
+  useMutation: vi.fn(() => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+  })),
 }))
 
 // Mock convex-query
 vi.mock("@convex-dev/react-query", () => ({
   convexQuery: vi.fn((api, args) => ({ queryKey: [api, args], queryFn: () => {} })),
+  useConvexMutation: vi.fn(() => vi.fn()),
 }))
 
 // Mock Convex API
@@ -152,8 +161,8 @@ describe("FolderSidebar (Story 9.4)", () => {
     it("renders folder icons for each folder", () => {
       render(<FolderSidebar {...defaultProps} />)
 
-      // Should have folder icons (lucide-react FolderIcon)
-      const folderIcons = document.querySelectorAll('svg[class*="lucide-folder"]')
+      // Code Review Fix LOW-2: Use data-testid for reliable test queries
+      const folderIcons = screen.getAllByTestId("folder-icon")
       expect(folderIcons.length).toBeGreaterThanOrEqual(mockFolders.length)
     })
   })

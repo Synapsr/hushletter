@@ -4,6 +4,7 @@ import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
 import { cn } from "~/lib/utils"
 import { FolderIcon, EyeOff, AlertCircle } from "lucide-react"
+import { FolderActionsDropdown } from "./FolderActionsDropdown"
 
 /**
  * Folder data from listVisibleFoldersWithUnreadCounts query
@@ -189,26 +190,31 @@ export function FolderSidebar({
 
       <div className="h-px bg-border my-2" role="separator" />
 
-      {/* Folder list - Primary navigation - Story 9.4 Task 1.1-1.4 */}
+      {/* Folder list - Primary navigation - Story 9.4 Task 1.1-1.4, Story 9.5 Task 4.2 */}
       <ul role="list" className="space-y-1">
         {folderList.map((folder) => (
-          <li key={folder._id}>
-            <button
-              onClick={() => handleFolderClick(folder._id)}
-              aria-current={selectedFolderId === folder._id ? "page" : undefined}
+          <li key={folder._id} className="group relative">
+            {/* Wrapper div instead of button to avoid nested buttons with dropdown */}
+            <div
               className={cn(
                 "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
-                "hover:bg-accent transition-colors text-left",
+                "hover:bg-accent transition-colors text-left cursor-pointer",
                 selectedFolderId === folder._id && "bg-accent font-medium"
               )}
             >
-              <div className="flex items-center gap-2 truncate flex-1 mr-2">
+              {/* Main clickable area - triggers folder selection */}
+              <button
+                onClick={() => handleFolderClick(folder._id)}
+                aria-current={selectedFolderId === folder._id ? "page" : undefined}
+                className="flex items-center gap-2 truncate flex-1 mr-2 bg-transparent border-none p-0 text-left cursor-pointer"
+              >
                 <FolderIcon
                   className="h-4 w-4 flex-shrink-0 text-muted-foreground"
                   aria-hidden="true"
+                  data-testid="folder-icon"
                 />
                 <span className="truncate">{folder.name}</span>
-              </div>
+              </button>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Story 9.4 AC2: Unread count indicator */}
                 {folder.unreadCount > 0 && (
@@ -218,11 +224,22 @@ export function FolderSidebar({
                     aria-label={`${folder.unreadCount} unread in ${folder.name}`}
                   />
                 )}
-                <span className="text-muted-foreground text-xs">
+                <span className="text-muted-foreground text-xs group-hover:hidden">
                   {folder.newsletterCount}
                 </span>
+                {/* Story 9.5: Folder actions dropdown - appears on hover */}
+                <FolderActionsDropdown
+                  folderId={folder._id}
+                  folderName={folder.name}
+                  onHideSuccess={() => {
+                    // If hidden folder was selected, clear selection
+                    if (selectedFolderId === folder._id) {
+                      onFolderSelect(null)
+                    }
+                  }}
+                />
               </div>
-            </button>
+            </div>
           </li>
         ))}
       </ul>

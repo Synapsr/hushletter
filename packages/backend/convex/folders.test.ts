@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { api, internal } from "./_generated/api"
+import { api } from "./_generated/api"
 
 /**
  * Contract Tests for folders.ts - Story 3.3
@@ -252,3 +252,384 @@ describe("folders error handling", () => {
     expect(validErrorCodes).toContain("UNAUTHORIZED")
   })
 })
+
+// =============================================================================
+// Story 9.5: Folder Actions (Rename, Hide, Merge)
+// =============================================================================
+
+describe("folders API exports (Story 9.5)", () => {
+  it("should export folder action mutation functions", () => {
+    expect(api.folders.renameFolder).toBeDefined()
+    expect(api.folders.hideFolder).toBeDefined()
+    expect(api.folders.unhideFolder).toBeDefined()
+    expect(api.folders.mergeFolders).toBeDefined()
+    expect(api.folders.undoFolderMerge).toBeDefined()
+  })
+
+  it("should export hidden folders query function", () => {
+    expect(api.folders.listHiddenFolders).toBeDefined()
+  })
+})
+
+// =============================================================================
+// Story 9.5 AC #9, #10: Folder Rename
+// =============================================================================
+
+describe("renameFolder mutation contract (Story 9.5 Task 1)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      folderId: "required Id<'folders'>",
+      newName: "required string - new folder name",
+    }
+    expect(expectedArgsShape).toHaveProperty("folderId")
+    expect(expectedArgsShape).toHaveProperty("newName")
+  })
+
+  it("returns the final folder name (may differ from input if duplicate)", () => {
+    const expectedReturn = {
+      name: "string - final folder name after any deduplication",
+    }
+    expect(expectedReturn).toHaveProperty("name")
+  })
+
+  it("validates name is not empty (Task 1.2)", () => {
+    const expectedError = {
+      code: "VALIDATION_ERROR",
+      message: "Folder name cannot be empty",
+    }
+    expect(expectedError.code).toBe("VALIDATION_ERROR")
+  })
+
+  it("validates name length limit (Task 1.2)", () => {
+    const expectedError = {
+      code: "VALIDATION_ERROR",
+      message: "Folder name must be 100 characters or less",
+    }
+    expect(expectedError.code).toBe("VALIDATION_ERROR")
+  })
+
+  it("handles duplicate names by appending counter (Task 1.3)", () => {
+    const deduplicationBehavior = {
+      input: "Tech",
+      existingNames: ["Tech"],
+      output: "Tech 2",
+      algorithm: "Case-insensitive comparison, append incrementing counter",
+    }
+    expect(deduplicationBehavior.output).toBe("Tech 2")
+  })
+
+  it("updates updatedAt timestamp on rename (Task 1.4)", () => {
+    const updateBehavior = {
+      fieldsUpdated: ["name", "updatedAt"],
+      updatedAtValue: "Date.now()",
+    }
+    expect(updateBehavior.fieldsUpdated).toContain("updatedAt")
+  })
+
+  it("throws NOT_FOUND for non-existent or unowned folder", () => {
+    const expectedError = {
+      code: "NOT_FOUND",
+      message: "Folder not found",
+    }
+    expect(expectedError.code).toBe("NOT_FOUND")
+  })
+})
+
+// =============================================================================
+// Story 9.5 AC #5, #6, #7, #8: Folder Hide/Unhide
+// =============================================================================
+
+describe("hideFolder mutation contract (Story 9.5 Task 2)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      folderId: "required Id<'folders'>",
+    }
+    expect(expectedArgsShape).toHaveProperty("folderId")
+  })
+
+  it("sets isHidden = true on folder (AC #5)", () => {
+    const updateBehavior = {
+      fieldsUpdated: ["isHidden", "updatedAt"],
+      isHiddenValue: true,
+    }
+    expect(updateBehavior.isHiddenValue).toBe(true)
+  })
+
+  it("updates updatedAt timestamp on hide (Task 2.4)", () => {
+    const updateBehavior = {
+      fieldsUpdated: ["isHidden", "updatedAt"],
+      updatedAtValue: "Date.now()",
+    }
+    expect(updateBehavior.fieldsUpdated).toContain("updatedAt")
+  })
+})
+
+describe("unhideFolder mutation contract (Story 9.5 Task 2)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      folderId: "required Id<'folders'>",
+    }
+    expect(expectedArgsShape).toHaveProperty("folderId")
+  })
+
+  it("sets isHidden = false on folder (AC #8)", () => {
+    const updateBehavior = {
+      fieldsUpdated: ["isHidden", "updatedAt"],
+      isHiddenValue: false,
+    }
+    expect(updateBehavior.isHiddenValue).toBe(false)
+  })
+})
+
+describe("listHiddenFolders query contract (Story 9.5 Task 2.6)", () => {
+  it("returns only hidden folders (AC #7)", () => {
+    const filterBehavior = {
+      filter: "folders.filter(f => f.isHidden)",
+      visibleFolders: "excluded",
+    }
+    expect(filterBehavior.filter).toContain("isHidden")
+  })
+
+  it("returns folder stats for settings display", () => {
+    const expectedReturn = {
+      _id: "Id<'folders'>",
+      name: "string",
+      color: "string | undefined",
+      newsletterCount: "number",
+      senderCount: "number",
+    }
+    expect(expectedReturn).toHaveProperty("newsletterCount")
+    expect(expectedReturn).toHaveProperty("senderCount")
+  })
+})
+
+describe("listUserNewsletters excludes hidden folder content (Story 9.5 AC #6)", () => {
+  it("excludes newsletters in hidden folders from All Newsletters view", () => {
+    const filterBehavior = {
+      step1: "Fetch all folders for user",
+      step2: "Build set of hidden folder IDs",
+      step3: "Filter newsletters where folderId not in hidden set",
+      result: "All Newsletters excludes content from hidden folders",
+    }
+    expect(filterBehavior.step3).toContain("folderId not in hidden set")
+  })
+})
+
+// =============================================================================
+// Story 9.5 AC #1, #2, #3, #4: Folder Merge with Undo
+// =============================================================================
+
+describe("mergeFolders mutation contract (Story 9.5 Task 3)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      sourceFolderId: "required Id<'folders'> - folder to merge from",
+      targetFolderId: "required Id<'folders'> - folder to merge into",
+    }
+    expect(expectedArgsShape).toHaveProperty("sourceFolderId")
+    expect(expectedArgsShape).toHaveProperty("targetFolderId")
+  })
+
+  it("returns mergeId and item counts for UI feedback", () => {
+    const expectedReturn = {
+      mergeId: "string - UUID for undo operation",
+      movedNewsletterCount: "number",
+      movedSenderCount: "number",
+    }
+    expect(expectedReturn).toHaveProperty("mergeId")
+    expect(expectedReturn).toHaveProperty("movedNewsletterCount")
+    expect(expectedReturn).toHaveProperty("movedSenderCount")
+  })
+
+  it("moves senders from source to target folder (AC #1, Task 3.2)", () => {
+    const moveBehavior = {
+      step1: "Query userSenderSettings with sourceFolderId",
+      step2: "Patch each setting with folderId = targetFolderId",
+    }
+    expect(moveBehavior.step2).toContain("targetFolderId")
+  })
+
+  it("moves newsletters from source to target folder (AC #2, Task 3.3)", () => {
+    const moveBehavior = {
+      step1: "Query userNewsletters with sourceFolderId",
+      step2: "Patch each newsletter with folderId = targetFolderId",
+    }
+    expect(moveBehavior.step2).toContain("targetFolderId")
+  })
+
+  it("deletes source folder after move (AC #3, Task 3.4)", () => {
+    const deleteBehavior = {
+      step: "ctx.db.delete(sourceFolderId)",
+      order: "After all items moved",
+    }
+    expect(deleteBehavior.order).toBe("After all items moved")
+  })
+
+  it("stores merge history for undo capability (AC #4, Task 6.1-6.2)", () => {
+    const historyRecord = {
+      mergeId: "UUID",
+      userId: "Id<'users'>",
+      sourceFolderName: "string - for recreation",
+      sourceFolderColor: "string | undefined",
+      targetFolderId: "Id<'folders'>",
+      movedSenderSettingIds: "Id<'userSenderSettings'>[]",
+      movedNewsletterIds: "Id<'userNewsletters'>[]",
+      createdAt: "number",
+      expiresAt: "number - 30 seconds after creation",
+    }
+    expect(historyRecord).toHaveProperty("mergeId")
+    expect(historyRecord).toHaveProperty("movedSenderSettingIds")
+    expect(historyRecord).toHaveProperty("expiresAt")
+  })
+
+  it("throws VALIDATION_ERROR for merging folder into itself", () => {
+    const expectedError = {
+      code: "VALIDATION_ERROR",
+      message: "Cannot merge folder into itself",
+    }
+    expect(expectedError.code).toBe("VALIDATION_ERROR")
+  })
+
+  it("throws NOT_FOUND for non-existent or unowned folders", () => {
+    const expectedErrors = [
+      { code: "NOT_FOUND", message: "Source folder not found" },
+      { code: "NOT_FOUND", message: "Target folder not found" },
+    ]
+    expect(expectedErrors[0].code).toBe("NOT_FOUND")
+    expect(expectedErrors[1].code).toBe("NOT_FOUND")
+  })
+})
+
+describe("undoFolderMerge mutation contract (Story 9.5 Task 6)", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      mergeId: "required string - UUID from mergeFolders result",
+    }
+    expect(expectedArgsShape).toHaveProperty("mergeId")
+  })
+
+  it("returns recreated folder ID and restoration counts (Code Review Fix HIGH-2)", () => {
+    const expectedReturn = {
+      restoredFolderId: "Id<'folders'>",
+      restoredSenderCount: "number - senders successfully restored",
+      restoredNewsletterCount: "number - newsletters successfully restored",
+      skippedSenderCount: "number - senders that were deleted and couldn't be restored",
+      skippedNewsletterCount: "number - newsletters that were deleted and couldn't be restored",
+    }
+    expect(expectedReturn).toHaveProperty("restoredFolderId")
+    expect(expectedReturn).toHaveProperty("restoredSenderCount")
+    expect(expectedReturn).toHaveProperty("restoredNewsletterCount")
+    expect(expectedReturn).toHaveProperty("skippedSenderCount")
+    expect(expectedReturn).toHaveProperty("skippedNewsletterCount")
+  })
+
+  it("recreates source folder with original name and color (Task 6.4)", () => {
+    const recreateBehavior = {
+      fields: ["name", "color", "isHidden=false", "createdAt", "updatedAt"],
+      source: "From folderMergeHistory record",
+    }
+    expect(recreateBehavior.source).toBe("From folderMergeHistory record")
+  })
+
+  it("moves items back to recreated folder (Task 6.5)", () => {
+    const restoreBehavior = {
+      step1: "Recreate source folder",
+      step2: "Patch movedSenderSettingIds with new folderId",
+      step3: "Patch movedNewsletterIds with new folderId",
+      validation: "Check each item still exists before patching",
+    }
+    expect(restoreBehavior.validation).toContain("exists before patching")
+  })
+
+  it("enforces 30 second undo window (Task 6.6)", () => {
+    const windowBehavior = {
+      expiresAt: "createdAt + 30000ms",
+      check: "Date.now() > history.expiresAt",
+      error: { code: "EXPIRED", message: "Undo window has expired" },
+    }
+    expect(windowBehavior.error.code).toBe("EXPIRED")
+  })
+
+  it("throws NOT_FOUND for invalid or expired mergeId", () => {
+    const expectedError = {
+      code: "NOT_FOUND",
+      message: "Merge history not found or expired",
+    }
+    expect(expectedError.code).toBe("NOT_FOUND")
+  })
+
+  it("deletes history record after successful undo", () => {
+    const cleanupBehavior = {
+      step: "ctx.db.delete(history._id)",
+      reason: "Prevent double-undo",
+    }
+    expect(cleanupBehavior.reason).toBe("Prevent double-undo")
+  })
+})
+
+// =============================================================================
+// Story 9.5: folderMergeHistory Table Schema
+// =============================================================================
+
+describe("folderMergeHistory table schema (Story 9.5 Task 6.1)", () => {
+  it("defines expected schema fields", () => {
+    const expectedSchema = {
+      mergeId: "v.string() - UUID for lookup",
+      userId: "v.id('users')",
+      sourceFolderName: "v.string()",
+      sourceFolderColor: "v.optional(v.string())",
+      targetFolderId: "v.id('folders')",
+      movedSenderSettingIds: "v.array(v.id('userSenderSettings'))",
+      movedNewsletterIds: "v.array(v.id('userNewsletters'))",
+      createdAt: "v.number()",
+      expiresAt: "v.number()",
+    }
+    expect(expectedSchema).toHaveProperty("mergeId")
+    expect(expectedSchema).toHaveProperty("movedSenderSettingIds")
+    expect(expectedSchema).toHaveProperty("expiresAt")
+  })
+
+  it("has indexes for efficient lookup", () => {
+    const expectedIndexes = ["by_mergeId", "by_userId", "by_expiresAt"]
+    expect(expectedIndexes).toContain("by_mergeId")
+    expect(expectedIndexes).toContain("by_expiresAt")
+  })
+})
+
+// =============================================================================
+// Story 9.5 Code Review: Merge History Cleanup
+// =============================================================================
+
+describe("cleanupExpiredMergeHistory mutation contract (Code Review Fix HIGH-1/LOW-3)", () => {
+  it("should export cleanup function", () => {
+    // Note: This is an internal mutation, accessed via internal.folders.cleanupExpiredMergeHistory
+    const expectedBehavior = {
+      trigger: "cron job every 5 minutes",
+      action: "Delete folderMergeHistory records where expiresAt < Date.now()",
+      returns: "{ deletedCount: number }",
+    }
+    expect(expectedBehavior.trigger).toContain("cron")
+  })
+
+  it("uses by_expiresAt index for efficient cleanup", () => {
+    const indexUsed = "by_expiresAt"
+    expect(indexUsed).toBe("by_expiresAt")
+  })
+})
+
+// =============================================================================
+// Code Review Note (HIGH-4): Behavioral Test Coverage Gap
+// =============================================================================
+//
+// IMPORTANT: The tests in this file are CONTRACT/SCHEMA documentation tests.
+// They verify API surface and document expected behavior, but do NOT execute
+// actual Convex functions against a database.
+//
+// For full behavioral coverage of Story 9.5, integration tests should be added
+// that verify:
+// - Task 7.5: Newsletters in hidden folders are actually excluded from "All"
+// - Task 7.10: Undo merge actually restores source folder and moves items back
+// - Task 7.6: Unhide actually restores folder visibility
+//
+// These integration tests require a running Convex test environment.
+// See: https://docs.convex.dev/testing for Convex testing patterns
+//

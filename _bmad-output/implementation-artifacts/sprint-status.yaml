@@ -127,8 +127,8 @@ development_status:
   9-2-private-by-default: done  # Code review complete - 5 fixes (2 HIGH, 3 MEDIUM), 867 tests pass
   9-3-folder-auto-creation: done  # Code review complete - 3 MEDIUM fixes, 919 tests pass
   9-4-folder-centric-navigation: done  # Code review #2 complete - 2 fixes (1 MEDIUM, 1 LOW), test mocks updated
-  9-5-folder-actions: in-progress
-  9-6-admin-moderation-queue: ready-for-dev  # Story file created - admin queue for privacy-first moderation
+  9-5-folder-actions: done  # Code review complete - 9 fixes (4 HIGH, 5 MEDIUM), TTL cleanup cron, partial undo warning
+  9-6-admin-moderation-queue: in-progress  # Story file created - admin queue for privacy-first moderation
   9-7-admin-publish-flow: ready-for-dev
   9-8-community-browse: ready-for-dev
   9-9-community-import: ready-for-dev

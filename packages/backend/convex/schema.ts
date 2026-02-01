@@ -138,6 +138,34 @@ export default defineSchema({
   }).index("by_userId", ["userId"]),
 
   // ============================================================
+  // Story 9.5: Folder Merge Undo History
+  // ============================================================
+
+  /**
+   * Folder merge history for undo capability
+   * Story 9.5: Task 6.1 - Store merge operations for undo
+   *
+   * Stores the state needed to undo a folder merge:
+   * - Source folder metadata (name, color) for recreation
+   * - IDs of moved items to restore their original folder
+   * - TTL for undo window (30 seconds)
+   */
+  folderMergeHistory: defineTable({
+    mergeId: v.string(), // UUID for identifying this merge operation
+    userId: v.id("users"),
+    sourceFolderName: v.string(),
+    sourceFolderColor: v.optional(v.string()),
+    targetFolderId: v.id("folders"),
+    movedSenderSettingIds: v.array(v.id("userSenderSettings")),
+    movedNewsletterIds: v.array(v.id("userNewsletters")),
+    createdAt: v.number(), // Unix timestamp ms
+    expiresAt: v.number(), // Unix timestamp ms - undo window expiry
+  })
+    .index("by_mergeId", ["mergeId"])
+    .index("by_userId", ["userId"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  // ============================================================
   // Epic 4: Gmail Import Tables
   // Story 4.2: Newsletter Sender Scanning
   // ============================================================

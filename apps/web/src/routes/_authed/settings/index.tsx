@@ -7,6 +7,7 @@ import { useForm } from "@tanstack/react-form"
 import { z } from "zod"
 import { useState, useEffect, useRef } from "react"
 import { DedicatedEmailDisplay } from "~/components/DedicatedEmailDisplay"
+import { HiddenFoldersSection } from "~/components/HiddenFoldersSection"
 import {
   Card,
   CardContent,
@@ -16,7 +17,7 @@ import {
 } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
-import { Pencil, X, Check, Mail, AlertCircle, Shield, ChevronRight } from "lucide-react"
+import { Pencil, X, Check, Mail, AlertCircle, Shield, ChevronRight, FolderIcon } from "lucide-react"
 import { DisconnectConfirmDialog } from "~/routes/_authed/import/DisconnectConfirmDialog"
 
 export const Route = createFileRoute("/_authed/settings/")({
@@ -344,6 +345,22 @@ function SettingsPage() {
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
           </Link>
+        </CardContent>
+      </Card>
+
+      {/* Hidden Folders Section - Story 9.5: Task 5.1 */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FolderIcon className="h-5 w-5" />
+            Hidden Folders
+          </CardTitle>
+          <CardDescription>
+            Manage folders you've hidden from the sidebar
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <HiddenFoldersSection />
         </CardContent>
       </Card>
 

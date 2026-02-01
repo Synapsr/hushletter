@@ -16,4 +16,17 @@ crons.daily(
   internal.admin.recordDailyMetrics
 )
 
+/**
+ * Clean up expired folder merge history records
+ * Story 9.5 Code Review Fix HIGH-1/LOW-3: TTL cleanup for folderMergeHistory
+ *
+ * Runs every 5 minutes to delete merge history records past their 30-second TTL.
+ * This prevents unbounded growth of the folderMergeHistory table.
+ */
+crons.interval(
+  "cleanup expired merge history",
+  { minutes: 5 },
+  internal.folders.cleanupExpiredMergeHistory
+)
+
 export default crons

@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server"
+import { internalMutation, mutation, query } from "./_generated/server"
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
 
@@ -820,10 +820,19 @@ export const mergeFolders = mutation({
  *
  * Recreates the source folder and moves items back.
  * Only works within the undo time window (30 seconds).
+ *
+ * Code Review Fix HIGH-2: Reports if some items couldn't be restored
+ * (e.g., if deleted between merge and undo).
  */
 export const undoFolderMerge = mutation({
   args: { mergeId: v.string() },
-  returns: v.object({ restoredFolderId: v.id("folders") }),
+  returns: v.object({
+    restoredFolderId: v.id("folders"),
+    restoredSenderCount: v.number(),
+    restoredNewsletterCount: v.number(),
+    skippedSenderCount: v.number(),
+    skippedNewsletterCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
@@ -872,10 +881,19 @@ export const undoFolderMerge = mutation({
     })
 
     // Move items back to recreated folder - Task 6.5
+    // Code Review Fix HIGH-2: Track restoration counts
+    let restoredSenderCount = 0
+    let skippedSenderCount = 0
+    let restoredNewsletterCount = 0
+    let skippedNewsletterCount = 0
+
     for (const settingId of history.movedSenderSettingIds) {
       const setting = await ctx.db.get(settingId)
       if (setting && setting.userId === user._id) {
         await ctx.db.patch(settingId, { folderId: newFolderId })
+        restoredSenderCount++
+      } else {
+        skippedSenderCount++
       }
     }
 
@@ -883,12 +901,58 @@ export const undoFolderMerge = mutation({
       const newsletter = await ctx.db.get(newsletterId)
       if (newsletter && newsletter.userId === user._id) {
         await ctx.db.patch(newsletterId, { folderId: newFolderId })
+        restoredNewsletterCount++
+      } else {
+        skippedNewsletterCount++
       }
     }
 
     // Delete history record
     await ctx.db.delete(history._id)
 
-    return { restoredFolderId: newFolderId }
+    return {
+      restoredFolderId: newFolderId,
+      restoredSenderCount,
+      restoredNewsletterCount,
+      skippedSenderCount,
+      skippedNewsletterCount,
+    }
+  },
+})
+
+/**
+ * Clean up expired folder merge history records
+ * Story 9.5 Code Review Fix HIGH-1/LOW-3: TTL cleanup for folderMergeHistory
+ *
+ * Called periodically via cron to delete records past their expiresAt time.
+ * This prevents unbounded growth of the folderMergeHistory table.
+ *
+ * Runs every 5 minutes to clean up expired records (30-second TTL per record).
+ */
+export const cleanupExpiredMergeHistory = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now()
+
+    // Find all expired records using by_expiresAt index
+    const expiredRecords = await ctx.db
+      .query("folderMergeHistory")
+      .withIndex("by_expiresAt")
+      .filter((q) => q.lt(q.field("expiresAt"), now))
+      .collect()
+
+    let deletedCount = 0
+    for (const record of expiredRecords) {
+      await ctx.db.delete(record._id)
+      deletedCount++
+    }
+
+    if (deletedCount > 0) {
+      console.log(
+        `[folders] Cleaned up ${deletedCount} expired merge history records`
+      )
+    }
+
+    return { deletedCount }
   },
 })

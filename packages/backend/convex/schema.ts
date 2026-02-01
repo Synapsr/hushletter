@@ -52,7 +52,8 @@ export default defineSchema({
     .index("by_senderEmail", ["senderEmail"])
     .index("by_readerCount", ["readerCount"])
     .index("by_firstReceivedAt", ["firstReceivedAt"]) // Story 6.1: For "Recent" sort in community browse
-    .index("by_isHiddenFromCommunity", ["isHiddenFromCommunity"]), // Story 7.4: Efficient moderation queries
+    .index("by_isHiddenFromCommunity", ["isHiddenFromCommunity"]) // Story 7.4: Efficient moderation queries
+    .index("by_importCount", ["importCount"]), // Story 9.8: For sorting by import popularity
 
   // User's relationship to newsletters (per-user, references shared content or private)
   // Story 2.5.1: Task 1 - userNewsletters table
@@ -87,6 +88,12 @@ export default defineSchema({
         v.literal("community")
       )
     ),
+    // Story 9.7: Admin review tracking for moderation workflow
+    reviewStatus: v.optional(
+      v.union(v.literal("published"), v.literal("rejected"))
+    ),
+    reviewedAt: v.optional(v.number()), // Unix timestamp ms
+    reviewedBy: v.optional(v.id("users")), // Admin who reviewed
   })
     .index("by_userId", ["userId"])
     .index("by_userId_receivedAt", ["userId", "receivedAt"])
@@ -95,7 +102,8 @@ export default defineSchema({
     .index("by_contentId", ["contentId"])
     .index("by_receivedAt", ["receivedAt"]) // Story 7.1: Admin recent activity queries
     .index("by_userId_messageId", ["userId", "messageId"]) // Story 8.4: Duplicate detection
-    .index("by_userId_folderId", ["userId", "folderId"]), // Story 9.1: Task 1.6 - For folder queries
+    .index("by_userId_folderId", ["userId", "folderId"]) // Story 9.1: Task 1.6 - For folder queries
+    .index("by_reviewStatus", ["reviewStatus"]), // Story 9.7: Task 1.4 - For moderation queue filtering
 
   // Global sender registry (not user-scoped)
   // Story 2.5.1: Task 1 - Refactored senders table
@@ -331,15 +339,18 @@ export default defineSchema({
       v.literal("block_sender"),
       v.literal("unblock_sender"),
       v.literal("resolve_report"),
-      v.literal("dismiss_report")
+      v.literal("dismiss_report"),
+      v.literal("publish_to_community"), // Story 9.7: Admin publish action
+      v.literal("reject_from_community") // Story 9.7: Admin reject action
     ),
     targetType: v.union(
       v.literal("content"),
       v.literal("sender"),
-      v.literal("report")
+      v.literal("report"),
+      v.literal("userNewsletter") // Story 9.7: For publish/reject actions
     ),
     targetId: v.string(), // ID of content, sender, or report
-    reason: v.optional(v.string()),
+    reason: v.string(), // Required - all moderation actions must have a reason
     details: v.optional(v.string()), // JSON stringified additional details
     createdAt: v.number(), // Unix timestamp ms
   })

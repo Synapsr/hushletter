@@ -1,8 +1,15 @@
-import { query, mutation, internalMutation } from "./_generated/server"
+import { query, mutation, internalMutation, internalQuery, action } from "./_generated/server"
+import { internal } from "./_generated/api"
 import type { Id, Doc } from "./_generated/dataModel"
 import { v, ConvexError } from "convex/values"
 import { requireAdmin } from "./_internal/auth"
 import { authComponent } from "./auth"
+import { r2 } from "./r2"
+import {
+  normalizeForHash,
+  computeContentHash,
+} from "./_internal/contentNormalization"
+import { detectPotentialPII } from "./_internal/piiDetection"
 
 /** Type alias for sender documents */
 type SenderDoc = Doc<"senders">
@@ -1902,5 +1909,697 @@ export const listModerationLog = query({
     )
 
     return results
+  },
+})
+
+// ============================================================
+// Story 9.6: Admin Moderation Queue
+// ============================================================
+
+/**
+ * List moderation queue - groups user newsletters by sender for admin review
+ * Story 9.6 Task 1.1-1.4
+ *
+ * Returns user newsletters grouped by sender, for admin moderation.
+ * Only shows newsletters with privateR2Key (user-owned content not yet published).
+ * Excludes newsletters with contentId (already imported from community).
+ *
+ * CRITICAL: This shows PRIVATE user content to admin for curation.
+ * Admin can preview content and decide whether to publish to community (Story 9.7).
+ */
+export const listModerationQueue = query({
+  args: {
+    senderEmail: v.optional(v.string()),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    sortBy: v.optional(
+      v.union(
+        v.literal("newsletterCount"),
+        v.literal("senderName"),
+        v.literal("latestReceived")
+      )
+    ),
+    limit: v.optional(v.number()),
+    includeReviewed: v.optional(v.boolean()), // Story 9.7: Show reviewed items if needed
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    // Get all user newsletters with privateR2Key (user-owned content)
+    // Exclude newsletters that have contentId (community imports)
+    const allNewsletters = await ctx.db.query("userNewsletters").collect()
+
+    // Filter to only private user-owned content
+    // Story 9.7: Exclude already-reviewed newsletters unless includeReviewed=true
+    let newsletters = allNewsletters.filter(
+      (n) =>
+        n.privateR2Key !== undefined &&
+        n.contentId === undefined &&
+        (args.includeReviewed || n.reviewStatus === undefined)
+    )
+
+    // Apply date filters
+    if (args.startDate) {
+      newsletters = newsletters.filter((n) => n.receivedAt >= args.startDate!)
+    }
+    if (args.endDate) {
+      newsletters = newsletters.filter((n) => n.receivedAt <= args.endDate!)
+    }
+
+    // Group by senderId
+    const senderGroups = new Map<
+      string,
+      {
+        senderId: string
+        newsletters: typeof newsletters
+        latestReceived: number
+      }
+    >()
+
+    for (const n of newsletters) {
+      const key = n.senderId
+      const existing = senderGroups.get(key)
+      if (existing) {
+        existing.newsletters.push(n)
+        existing.latestReceived = Math.max(existing.latestReceived, n.receivedAt)
+      } else {
+        senderGroups.set(key, {
+          senderId: n.senderId,
+          newsletters: [n],
+          latestReceived: n.receivedAt,
+        })
+      }
+    }
+
+    // Get sender details and apply sender filter
+    const results = []
+    for (const [senderId, group] of senderGroups) {
+      const sender = await ctx.db.get(senderId as Id<"senders">)
+      if (!sender) continue
+
+      // Apply sender email filter (partial match)
+      if (
+        args.senderEmail &&
+        !sender.email.toLowerCase().includes(args.senderEmail.toLowerCase())
+      ) {
+        continue
+      }
+
+      results.push({
+        senderId: sender._id,
+        senderEmail: sender.email,
+        senderName: sender.name,
+        senderDomain: sender.domain,
+        newsletterCount: group.newsletters.length,
+        latestReceived: group.latestReceived,
+        sampleSubjects: group.newsletters
+          .sort((a, b) => b.receivedAt - a.receivedAt)
+          .slice(0, 3)
+          .map((n) => n.subject),
+      })
+    }
+
+    // Sort
+    const sortBy = args.sortBy ?? "latestReceived"
+    results.sort((a, b) => {
+      if (sortBy === "newsletterCount") return b.newsletterCount - a.newsletterCount
+      if (sortBy === "senderName")
+        return (a.senderName ?? a.senderEmail).localeCompare(
+          b.senderName ?? b.senderEmail
+        )
+      return b.latestReceived - a.latestReceived
+    })
+
+    // Paginate
+    const limit = Math.min(args.limit ?? 50, 100)
+    return {
+      items: results.slice(0, limit),
+      hasMore: results.length > limit,
+      totalSenders: results.length,
+    }
+  },
+})
+
+/**
+ * List newsletters for a specific sender in the moderation queue
+ * Story 9.6 Task 1 (expanded view)
+ *
+ * Returns individual newsletters from a sender for admin review.
+ * Includes user email for audit purposes.
+ */
+export const listModerationNewslettersForSender = query({
+  args: {
+    senderId: v.id("senders"),
+    limit: v.optional(v.number()),
+    includeReviewed: v.optional(v.boolean()), // Story 9.7: Show reviewed items if needed
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const newsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_senderId", (q) => q.eq("senderId", args.senderId))
+      .collect()
+
+    // Filter to only private user-owned content
+    // Story 9.7: Exclude already-reviewed newsletters unless includeReviewed=true
+    const filteredNewsletters = newsletters.filter(
+      (n) =>
+        n.privateR2Key !== undefined &&
+        n.contentId === undefined &&
+        (args.includeReviewed || n.reviewStatus === undefined)
+    )
+
+    // Sort by receivedAt descending
+    filteredNewsletters.sort((a, b) => b.receivedAt - a.receivedAt)
+
+    // Apply limit
+    const limit = args.limit ?? 50
+    const limitedNewsletters = filteredNewsletters.slice(0, limit)
+
+    // Get user emails for each newsletter (audit info)
+    const results = await Promise.all(
+      limitedNewsletters.map(async (n) => {
+        const user = await ctx.db.get(n.userId)
+        return {
+          id: n._id,
+          subject: n.subject,
+          senderEmail: n.senderEmail,
+          senderName: n.senderName,
+          receivedAt: n.receivedAt,
+          userId: n.userId,
+          userEmail: user?.email ?? "Unknown", // Audit only
+          source: n.source,
+        }
+      })
+    )
+
+    return results
+  },
+})
+
+/**
+ * Get detailed newsletter information for moderation
+ * Story 9.6 Task 2.1
+ *
+ * Returns full newsletter metadata including user email for audit.
+ * Also runs PII detection on content if available.
+ */
+export const getModerationNewsletterDetail = query({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const newsletter = await ctx.db.get(args.userNewsletterId)
+    if (!newsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    // Get user for audit
+    const user = await ctx.db.get(newsletter.userId)
+
+    // Get sender
+    const sender = await ctx.db.get(newsletter.senderId)
+
+    // Note: PII detection runs on content in the action (getModerationNewsletterContent)
+    // For this query, we just return metadata
+
+    return {
+      id: newsletter._id,
+      subject: newsletter.subject,
+      senderEmail: newsletter.senderEmail,
+      senderName: newsletter.senderName,
+      receivedAt: newsletter.receivedAt,
+      source: newsletter.source,
+      userEmail: user?.email ?? "Unknown",
+      userId: newsletter.userId,
+      senderId: newsletter.senderId,
+      senderDomain: sender?.domain,
+      privateR2Key: newsletter.privateR2Key, // Admin can see this
+    }
+  },
+})
+
+/**
+ * Get moderation queue count for nav badge
+ * Story 9.6 Task 5.2
+ *
+ * Returns count of newsletters pending moderation.
+ */
+export const getModerationQueueCount = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx)
+
+    // Count newsletters with privateR2Key and without contentId
+    const allNewsletters = await ctx.db.query("userNewsletters").collect()
+
+    const count = allNewsletters.filter(
+      (n) => n.privateR2Key !== undefined && n.contentId === undefined
+    ).length
+
+    return { count }
+  },
+})
+
+/**
+ * Get moderation newsletter content with signed URL and PII detection
+ * Story 9.6 Task 2.2, 2.3
+ *
+ * Fetches the actual HTML content from R2 using privateR2Key.
+ * Returns a signed URL for the content (valid for 1 hour) and PII detection results.
+ *
+ * CRITICAL: Only admins can access this - never expose private content to other users.
+ */
+/** Return type for getModerationNewsletterContent */
+interface ModerationContentResult {
+  signedUrl: string
+  subject: string
+  senderEmail: string
+  senderName?: string
+  receivedAt: number
+  piiDetection: {
+    hasPotentialPII: boolean
+    findings: Array<{ type: string; description: string; count: number; samples: string[] }>
+    recommendation: string
+  } | null
+}
+
+export const getModerationNewsletterContent = action({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args): Promise<ModerationContentResult> => {
+    // H1 FIX: Verify admin access first
+    const adminUser = await ctx.runQuery(internal.admin.getAdminUser, {})
+    if (!adminUser) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Admin access required" })
+    }
+
+    // Get newsletter
+    const newsletter = await ctx.runQuery(
+      internal.admin.getModerationNewsletterInternal,
+      { userNewsletterId: args.userNewsletterId }
+    )
+
+    if (!newsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    if (!newsletter.privateR2Key) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter content not found",
+      })
+    }
+
+    // Get signed URL for content (valid for 1 hour)
+    const signedUrl = await r2.getUrl(newsletter.privateR2Key, { expiresIn: 3600 })
+
+    // H2 FIX: Fetch content and run PII detection
+    let piiDetection = null
+    try {
+      // Fetch the HTML content from the signed URL
+      const response = await fetch(signedUrl)
+      if (response.ok) {
+        const htmlContent = await response.text()
+        piiDetection = detectPotentialPII(htmlContent)
+      }
+    } catch (error) {
+      // PII detection is advisory - don't fail the request if it errors
+      console.error("PII detection failed:", error)
+      piiDetection = {
+        hasPotentialPII: false,
+        findings: [],
+        recommendation: "Unable to analyze content for personalization.",
+      }
+    }
+
+    return {
+      signedUrl,
+      subject: newsletter.subject,
+      senderEmail: newsletter.senderEmail,
+      senderName: newsletter.senderName,
+      receivedAt: newsletter.receivedAt,
+      piiDetection,
+    }
+  },
+})
+
+/**
+ * Internal query to get newsletter for action (admin check happens in caller)
+ * Story 9.6 Task 2.2
+ */
+export const getModerationNewsletterInternal = internalQuery({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userNewsletterId)
+  },
+})
+
+// ============================================================
+// Story 9.7: Admin Publish Flow
+// ============================================================
+
+/**
+ * Get current admin user (for actions that can't use requireAdmin directly)
+ * Story 9.7 Task 2.1
+ *
+ * Actions cannot use ctx.auth directly, so we use this internal query
+ * to verify admin status and get the admin user.
+ */
+export const getAdminUser = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user || !user.isAdmin) return null
+    return user
+  },
+})
+
+/**
+ * Publish a user's newsletter to the community database
+ * Story 9.7 Task 2
+ *
+ * This is an ACTION (not mutation) because it:
+ * 1. Fetches content from R2 (external call)
+ * 2. Uploads content to new R2 key (external call)
+ * 3. Then creates database records (mutations)
+ *
+ * Process:
+ * 1. Fetch user's private content from R2
+ * 2. Compute content hash for deduplication
+ * 3. Check if content already exists in newsletterContent
+ * 4. If exists: increment readerCount
+ * 5. If not: upload to new R2 key, create newsletterContent
+ * 6. Mark userNewsletter as reviewed
+ * 7. Log moderation action
+ */
+export const publishToCommunity = action({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean
+    contentId: Id<"newsletterContent">
+    reusedExisting: boolean
+  }> => {
+    // 1. Require admin
+    const adminUser = await ctx.runQuery(internal.admin.getAdminUser, {})
+    if (!adminUser) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Admin access required" })
+    }
+
+    // 2. Get newsletter metadata
+    const newsletter = await ctx.runQuery(internal.admin.getModerationNewsletterInternal, {
+      userNewsletterId: args.userNewsletterId,
+    })
+
+    if (!newsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    if (!newsletter.privateR2Key) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: "Newsletter has no private content to publish",
+      })
+    }
+
+    // Check if already reviewed
+    if (newsletter.reviewStatus) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: `Newsletter already ${newsletter.reviewStatus}`,
+      })
+    }
+
+    // 3. Fetch content from user's R2 key
+    const signedUrl = await r2.getUrl(newsletter.privateR2Key, { expiresIn: 300 })
+    const response = await fetch(signedUrl)
+    if (!response.ok) {
+      throw new ConvexError({
+        code: "EXTERNAL_ERROR",
+        message: "Failed to fetch newsletter content from storage",
+      })
+    }
+    const content = await response.text()
+
+    // 4. Compute content hash for deduplication
+    const normalized = normalizeForHash(content)
+    const contentHash = await computeContentHash(normalized)
+
+    // 5. Check for existing community content with same hash
+    const existingContent = await ctx.runQuery(internal.newsletters.findByContentHash, {
+      contentHash,
+    })
+
+    let contentId: Id<"newsletterContent">
+
+    if (existingContent) {
+      // Content already exists - increment readerCount
+      await ctx.runMutation(internal.newsletters.incrementReaderCount, {
+        contentId: existingContent._id,
+      })
+      contentId = existingContent._id
+      // Reusing existing community content - deduplication successful
+    } else {
+      // 6. Upload to new R2 key with community prefix
+      const timestamp = Date.now()
+      const randomId = crypto.randomUUID()
+      const ext = newsletter.privateR2Key.endsWith(".txt") ? "txt" : "html"
+      const communityR2Key = `community/${timestamp}-${randomId}.${ext}`
+
+      const contentType = ext === "html" ? "text/html" : "text/plain"
+      const blob = new Blob([content], { type: `${contentType}; charset=utf-8` })
+      await r2.store(ctx, blob, { key: communityR2Key, type: contentType })
+
+      // 7. Create newsletterContent record
+      contentId = await ctx.runMutation(internal.admin.createCommunityContent, {
+        contentHash,
+        r2Key: communityR2Key,
+        subject: newsletter.subject,
+        senderEmail: newsletter.senderEmail,
+        senderName: newsletter.senderName,
+        receivedAt: newsletter.receivedAt,
+        communityApprovedAt: Date.now(),
+        communityApprovedBy: adminUser._id,
+      })
+
+      // Created new community content with r2Key
+    }
+
+    // 8. Mark user newsletter as reviewed
+    await ctx.runMutation(internal.admin.markNewsletterReviewed, {
+      userNewsletterId: args.userNewsletterId,
+      reviewStatus: "published",
+      reviewedBy: adminUser._id,
+    })
+
+    // 9. Log moderation action
+    await ctx.runMutation(internal.admin.logModerationAction, {
+      adminId: adminUser._id,
+      actionType: "publish_to_community",
+      targetType: "userNewsletter",
+      targetId: args.userNewsletterId,
+      reason: "Published to community database",
+      details: JSON.stringify({
+        contentId,
+        senderEmail: newsletter.senderEmail,
+        subject: newsletter.subject,
+        reusedExisting: existingContent !== null,
+      }),
+    })
+
+    return {
+      success: true,
+      contentId,
+      reusedExisting: existingContent !== null,
+    }
+  },
+})
+
+/**
+ * Create community content record
+ * Story 9.7 Task 2.7 - Internal mutation called by publishToCommunity action
+ *
+ * Handles race conditions - if content with same hash was created
+ * between our check and this mutation, we reuse the existing record.
+ */
+export const createCommunityContent = internalMutation({
+  args: {
+    contentHash: v.string(),
+    r2Key: v.string(),
+    subject: v.string(),
+    senderEmail: v.string(),
+    senderName: v.optional(v.string()),
+    receivedAt: v.number(),
+    communityApprovedAt: v.number(),
+    communityApprovedBy: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Race condition check (same as createNewsletterContent in newsletters.ts)
+    const existing = await ctx.db
+      .query("newsletterContent")
+      .withIndex("by_contentHash", (q) => q.eq("contentHash", args.contentHash))
+      .first()
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        readerCount: existing.readerCount + 1,
+      })
+      return existing._id
+    }
+
+    const contentId = await ctx.db.insert("newsletterContent", {
+      contentHash: args.contentHash,
+      r2Key: args.r2Key,
+      subject: args.subject,
+      senderEmail: args.senderEmail,
+      senderName: args.senderName,
+      firstReceivedAt: args.receivedAt,
+      readerCount: 0, // No readers yet - importCount tracks community imports
+      importCount: 0,
+      communityApprovedAt: args.communityApprovedAt,
+      communityApprovedBy: args.communityApprovedBy,
+    })
+
+    return contentId
+  },
+})
+
+/**
+ * Mark newsletter as reviewed
+ * Story 9.7 Task 2.10 / Task 3.3
+ */
+export const markNewsletterReviewed = internalMutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+    reviewStatus: v.union(v.literal("published"), v.literal("rejected")),
+    reviewedBy: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userNewsletterId, {
+      reviewStatus: args.reviewStatus,
+      reviewedAt: Date.now(),
+      reviewedBy: args.reviewedBy,
+    })
+  },
+})
+
+/**
+ * Log moderation action (internal mutation for actions)
+ * Story 9.7 Task 2.11 / Task 3.5
+ *
+ * Extended to support new action types for publish flow.
+ */
+export const logModerationAction = internalMutation({
+  args: {
+    adminId: v.id("users"),
+    actionType: v.union(
+      v.literal("hide_content"),
+      v.literal("restore_content"),
+      v.literal("block_sender"),
+      v.literal("unblock_sender"),
+      v.literal("resolve_report"),
+      v.literal("dismiss_report"),
+      v.literal("publish_to_community"),
+      v.literal("reject_from_community")
+    ),
+    targetType: v.union(
+      v.literal("content"),
+      v.literal("sender"),
+      v.literal("report"),
+      v.literal("userNewsletter")
+    ),
+    targetId: v.string(),
+    reason: v.string(),
+    details: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("moderationLog", {
+      actionType: args.actionType,
+      targetType: args.targetType,
+      targetId: args.targetId,
+      adminId: args.adminId,
+      reason: args.reason,
+      details: args.details,
+      createdAt: Date.now(),
+    })
+  },
+})
+
+/**
+ * Reject a newsletter from community publication
+ * Story 9.7 Task 3
+ *
+ * This is a MUTATION (not action) because it only modifies database records.
+ * No R2 operations needed - we're just marking the newsletter as reviewed.
+ * User's newsletter content is NOT modified (AC #8).
+ */
+export const rejectFromCommunity = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx)
+
+    const newsletter = await ctx.db.get(args.userNewsletterId)
+    if (!newsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    if (!newsletter.privateR2Key) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: "Newsletter has no private content",
+      })
+    }
+
+    // Check if already reviewed
+    if (newsletter.reviewStatus) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: `Newsletter already ${newsletter.reviewStatus}`,
+      })
+    }
+
+    // Mark as reviewed (rejected) - does NOT modify content (AC #8)
+    await ctx.db.patch(args.userNewsletterId, {
+      reviewStatus: "rejected",
+      reviewedAt: Date.now(),
+      reviewedBy: admin._id,
+    })
+
+    // Log moderation action
+    await ctx.db.insert("moderationLog", {
+      adminId: admin._id,
+      actionType: "reject_from_community",
+      targetType: "userNewsletter",
+      targetId: args.userNewsletterId,
+      reason: args.reason,
+      details: JSON.stringify({
+        senderEmail: newsletter.senderEmail,
+        subject: newsletter.subject,
+      }),
+      createdAt: Date.now(),
+    })
+
+    return { success: true }
   },
 })

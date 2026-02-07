@@ -16,7 +16,7 @@ import { parseEmlFile, type ParsedEml, type EmlParseResult } from "@hushletter/s
 import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
 import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { EmlDropZone } from "./-EmlDropZone";
 import { EmlPreview } from "./-EmlPreview";

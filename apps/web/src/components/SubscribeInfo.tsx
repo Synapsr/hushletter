@@ -12,8 +12,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
 import { Copy, Check, Mail, ExternalLink } from "lucide-react";
 
 /** Type for getCurrentUser query response - matches auth.ts return type */

@@ -18,15 +18,15 @@ import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import { Link } from "@tanstack/react-router";
 import {
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+  Progress,
+} from "@hushletter/ui";
 import {
   Loader2,
   CheckCircle2,
@@ -379,11 +379,9 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
               Import More
             </Button>
             {imported > 0 && (
-              <Button asChild className="flex-1">
-                <Link to="/newsletters">
+              <Button render={<Link to="/newsletters" />} className="flex-1">
                   View Newsletters
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
               </Button>
             )}
           </>

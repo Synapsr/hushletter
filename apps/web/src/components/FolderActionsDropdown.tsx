@@ -4,13 +4,13 @@ import { useConvexMutation } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { toast } from "sonner";
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
+} from "@hushletter/ui";
 import { MoreHorizontal, Pencil, EyeOff, Merge } from "lucide-react";
 import { RenameFolderDialog } from "./RenameFolderDialog";
 import { MergeFolderDialog } from "./MergeFolderDialog";
@@ -63,16 +63,8 @@ export function FolderActionsDropdown({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label={`Actions for ${folderName}`}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" aria-label={`Actions for ${folderName}`} onClick={(e) => e.stopPropagation()} />}>
             <MoreHorizontal className="h-4 w-4" />
-          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onClick={() => setIsRenameOpen(true)}>

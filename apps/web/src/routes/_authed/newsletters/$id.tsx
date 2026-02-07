@@ -8,8 +8,23 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { ReaderView, clearCacheEntry } from "@/components/ReaderView";
 import { SummaryPanel } from "@/components/SummaryPanel";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@hushletter/ui";
 import {
   ArrowLeft,
   BookOpen,
@@ -21,18 +36,6 @@ import {
   Mail,
   Globe,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authed/newsletters/$id")({
   component: NewsletterDetailPage,
@@ -295,11 +298,9 @@ function NewsletterHeader({
 
           {/* Story 9.10: Delete button with confirmation */}
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1">
+            <AlertDialogTrigger render={<Button variant="ghost" size="sm" className="gap-1" />}>
                 <Trash2 className="h-4 w-4" />
                 {isCommunity ? "Remove" : "Delete"}
-              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

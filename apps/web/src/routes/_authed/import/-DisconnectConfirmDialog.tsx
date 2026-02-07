@@ -7,14 +7,14 @@
  */
 
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "@hushletter/ui";
 import { AlertTriangle, Loader2 } from "lucide-react";
 
 interface DisconnectConfirmDialogProps {
@@ -49,8 +49,7 @@ export function DisconnectConfirmDialog({
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             Disconnect Gmail?
           </DialogTitle>
-          <DialogDescription asChild>
-            <div className="space-y-4 pt-2">
+          <DialogDescription render={<div className="space-y-4 pt-2" />}>
               <p>
                 You&apos;re about to disconnect <strong>{gmailAddress}</strong>.
               </p>
@@ -76,7 +75,6 @@ export function DisconnectConfirmDialog({
               <p className="text-sm">
                 You can reconnect Gmail at any time to scan and import again.
               </p>
-            </div>
           </DialogDescription>
         </DialogHeader>
 

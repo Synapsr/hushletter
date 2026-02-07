@@ -1,5 +1,5 @@
 import { AlertTriangle, XCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@hushletter/ui";
 
 /**
  * Anomaly type from getDeliveryAnomalies query

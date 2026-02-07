@@ -8,9 +8,7 @@ import { z } from "zod";
 import { useState, useEffect, useRef } from "react";
 import { DedicatedEmailDisplay } from "@/components/DedicatedEmailDisplay";
 import { HiddenFoldersSection } from "@/components/HiddenFoldersSection";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from "@hushletter/ui";
 import {
   Pencil,
   X,
@@ -21,7 +19,7 @@ import {
   ChevronRight,
   FolderIcon,
 } from "lucide-react";
-import { DisconnectConfirmDialog } from "@/routes/_authed/import/DisconnectConfirmDialog";
+import { DisconnectConfirmDialog } from "@/routes/_authed/import/-DisconnectConfirmDialog";
 
 export const Route = createFileRoute("/_authed/settings/")({
   component: SettingsPage,
@@ -147,9 +145,7 @@ function GmailSettingsSection() {
                 Gmail is not connected. Connect your Gmail to scan and import your existing
                 newsletters.
               </p>
-              <Button asChild variant="outline">
-                <Link to="/import">Connect Gmail</Link>
-              </Button>
+              <Button render={<Link to="/import" />} variant="outline">Connect Gmail</Button>
             </div>
           )}
         </CardContent>

@@ -7,10 +7,7 @@ import { StatCard } from "@/components/admin/StatCard";
 import { ServiceStatusBadge } from "@/components/admin/ServiceStatusBadge";
 import { RecentActivityFeed } from "@/components/admin/RecentActivityFeed";
 import { TrendChart } from "@/components/admin/TrendChart";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@hushletter/ui";
 import {
   Users,
   Mail,

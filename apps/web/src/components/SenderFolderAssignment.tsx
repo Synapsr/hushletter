@@ -5,22 +5,20 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { useForm } from "@tanstack/react-form";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog";
+} from "@hushletter/ui";
 import { FolderIcon, CheckIcon } from "lucide-react";
 
 /**
@@ -79,14 +77,15 @@ export function SenderFolderAssignment({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button variant="outline" size="sm">
+      {trigger ? (
+        <DialogTrigger render={trigger as React.ReactElement}>
+        </DialogTrigger>
+      ) : (
+        <DialogTrigger render={<Button variant="outline" size="sm" />}>
             <FolderIcon className="h-4 w-4 mr-2" />
             {currentFolder ? currentFolder.name : "Assign to Folder"}
-          </Button>
-        )}
-      </DialogTrigger>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Assign "{senderName}" to Folder</DialogTitle>
@@ -101,7 +100,7 @@ export function SenderFolderAssignment({
             <Select
               value={selectedFolderId ?? "none"}
               onValueChange={(value) =>
-                setSelectedFolderId(value === "none" ? undefined : (value as Id<"folders">))
+                value !== null && setSelectedFolderId(value === "none" ? undefined : (value as Id<"folders">))
               }
             >
               <SelectTrigger>
@@ -129,10 +128,8 @@ export function SenderFolderAssignment({
             )}
           </div>
           <div className="flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <DialogClose render={<Button type="button" variant="outline" />}>
                 Cancel
-              </Button>
             </DialogClose>
             <form.Subscribe
               selector={(state) => state.isSubmitting}
@@ -193,7 +190,7 @@ export function SenderFolderDropdown({
       children={(isSubmitting) => (
         <Select
           value={currentFolderId ?? "none"}
-          onValueChange={handleChange}
+          onValueChange={(v) => v !== null && handleChange(v)}
           disabled={isSubmitting}
         >
           <SelectTrigger className="w-[180px]">

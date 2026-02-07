@@ -1,8 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Badge, Button, Card, CardContent, Checkbox } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import { Sparkles, Users, Lock, Download, Check } from "lucide-react";
 

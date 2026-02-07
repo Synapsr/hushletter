@@ -4,21 +4,19 @@ import { useConvexMutation, convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { toast } from "sonner";
 import {
+  Button,
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
-import {
+  DialogHeader,
+  DialogTitle,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+} from "@hushletter/ui";
 import { AlertCircle } from "lucide-react";
 
 /**
@@ -192,7 +190,7 @@ export function MergeFolderDialog({
                 <span>No other folders available to merge into</span>
               </div>
             ) : (
-              <Select value={targetFolderId} onValueChange={setTargetFolderId}>
+              <Select value={targetFolderId} onValueChange={(v) => v !== null && setTargetFolderId(v)}>
                 <SelectTrigger id="target-folder">
                   <SelectValue placeholder="Select target folder" />
                 </SelectTrigger>

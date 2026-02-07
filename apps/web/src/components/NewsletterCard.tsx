@@ -3,11 +3,9 @@ import { Link } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, Card, CardContent, Tooltip, TooltipTrigger, TooltipContent } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import { EyeOff, Eye, Sparkles, Lock, Mail, Globe } from "lucide-react";
-import { Tooltip } from "@/components/ui/tooltip";
 import { SummaryPreview } from "./SummaryPreview";
 
 /** Newsletter data from listUserNewsletters query */
@@ -198,19 +196,25 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
                 {/* Date, source indicator, privacy indicator, and summary indicator row */}
                 <div className="flex items-center gap-1.5">
                   {/* Story 9.10: Source indicator - shows newsletter origin */}
-                  <Tooltip content={sourceInfo.tooltip}>
-                    <sourceInfo.Icon
-                      className={cn("h-3.5 w-3.5", sourceInfo.className)}
-                      aria-label={sourceInfo.label}
-                    />
+                  <Tooltip>
+                    <TooltipTrigger className="inline-flex">
+                      <sourceInfo.Icon
+                        className={cn("h-3.5 w-3.5", sourceInfo.className)}
+                        aria-label={sourceInfo.label}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>{sourceInfo.tooltip}</TooltipContent>
                   </Tooltip>
                   {/* Story 6.2: Privacy indicator - lock icon for private newsletters */}
                   {newsletter.isPrivate && (
-                    <Tooltip content="This newsletter is private and not shared with the community">
-                      <Lock
-                        className="h-3.5 w-3.5 text-muted-foreground"
-                        aria-label="Private newsletter"
-                      />
+                    <Tooltip>
+                      <TooltipTrigger className="inline-flex">
+                        <Lock
+                          className="h-3.5 w-3.5 text-muted-foreground"
+                          aria-label="Private newsletter"
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent>This newsletter is private and not shared with the community</TooltipContent>
                     </Tooltip>
                   )}
                   {/* Story 5.2: Summary indicator - clickable to toggle preview */}

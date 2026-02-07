@@ -7,12 +7,8 @@ import { CommunityContentTable } from "@/components/admin/CommunityContentTable"
 import { BlockedSendersTable } from "@/components/admin/BlockedSendersTable";
 import { ReportsQueue } from "@/components/admin/ReportsQueue";
 import { ModerationLogTable } from "@/components/admin/ModerationLogTable";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle, Badge, Card, CardContent, CardHeader, CardTitle, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from "@hushletter/ui";
 import { AlertCircle, Eye, EyeOff, Ban, Flag } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 /** Community content summary type */
 interface CommunitySummary {

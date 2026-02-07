@@ -10,8 +10,7 @@ import { useConvexMutation } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { Lock, Unlock, AlertCircle } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip } from "@/components/ui/tooltip";
+import { Switch, Tooltip, TooltipTrigger, TooltipContent } from "@hushletter/ui";
 
 interface PrivacyToggleProps {
   senderId: Id<"senders">;
@@ -52,8 +51,11 @@ export function PrivacyToggle({ senderId, isPrivate, compact = false }: PrivacyT
   return (
     <div className="flex items-center gap-2">
       {error ? (
-        <Tooltip content={error}>
-          <AlertCircle className="h-4 w-4 text-destructive" aria-label="Error updating privacy" />
+        <Tooltip>
+          <TooltipTrigger className="inline-flex">
+            <AlertCircle className="h-4 w-4 text-destructive" aria-label="Error updating privacy" />
+          </TooltipTrigger>
+          <TooltipContent>{error}</TooltipContent>
         </Tooltip>
       ) : isPrivate ? (
         <Lock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />

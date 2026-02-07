@@ -3,8 +3,7 @@ import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Button, Skeleton } from "@hushletter/ui";
 import { FolderIcon, Eye, AlertCircle, ExternalLink } from "lucide-react";
 
 /**

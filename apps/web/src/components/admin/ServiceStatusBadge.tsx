@@ -1,5 +1,4 @@
-import { Badge } from "@/components/ui/badge";
-import { Tooltip } from "@/components/ui/tooltip";
+import { Badge, Tooltip, TooltipTrigger, TooltipContent } from "@hushletter/ui";
 import { CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,19 +44,22 @@ export function ServiceStatusBadge({ service, status }: ServiceStatusBadgeProps)
   const Icon = status.healthy ? CheckCircle : XCircle;
 
   return (
-    <Tooltip content={status.message}>
-      <Badge
-        variant={status.healthy ? "default" : "destructive"}
-        className={cn(
-          "flex items-center gap-1.5 cursor-default",
-          status.healthy && "bg-green-600 hover:bg-green-700 text-white",
-        )}
-        role="status"
-        aria-label={`${service}: ${status.healthy ? "Healthy" : "Unhealthy"}`}
-      >
-        <Icon className="h-3 w-3" aria-hidden="true" />
-        {service}
-      </Badge>
+    <Tooltip>
+      <TooltipTrigger className="inline-flex">
+        <Badge
+          variant={status.healthy ? "default" : "destructive"}
+          className={cn(
+            "flex items-center gap-1.5 cursor-default",
+            status.healthy && "bg-green-600 hover:bg-green-700 text-white",
+          )}
+          role="status"
+          aria-label={`${service}: ${status.healthy ? "Healthy" : "Unhealthy"}`}
+        >
+          <Icon className="h-3 w-3" aria-hidden="true" />
+          {service}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>{status.message}</TooltipContent>
     </Tooltip>
   );
 }

@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@hushletter/ui";
 import { CheckCircle, Clock, Download, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 

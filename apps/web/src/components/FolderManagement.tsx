@@ -5,16 +5,16 @@ import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
+  Button,
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog";
+  Input,
+} from "@hushletter/ui";
 import { FolderIcon, PencilIcon, TrashIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -72,11 +72,9 @@ function CreateFolderDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full">
+      <DialogTrigger render={<Button variant="outline" size="sm" className="w-full" />}>
           <PlusIcon className="h-4 w-4 mr-2" />
           Create Folder
-        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -108,10 +106,8 @@ function CreateFolderDialog() {
             )}
           />
           <div className="flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <DialogClose render={<Button type="button" variant="outline" />}>
                 Cancel
-              </Button>
             </DialogClose>
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
@@ -158,10 +154,8 @@ function EditFolderDialog({ folder }: { folder: FolderData }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+      <DialogTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
           <PencilIcon className="h-4 w-4" />
-        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -193,10 +187,8 @@ function EditFolderDialog({ folder }: { folder: FolderData }) {
             )}
           />
           <div className="flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <DialogClose render={<Button type="button" variant="outline" />}>
                 Cancel
-              </Button>
             </DialogClose>
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
@@ -235,14 +227,8 @@ function DeleteFolderDialog({ folder }: { folder: FolderData }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-destructive hover:text-destructive"
-        >
+      <DialogTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" />}>
           <TrashIcon className="h-4 w-4" />
-        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -259,10 +245,8 @@ function DeleteFolderDialog({ folder }: { folder: FolderData }) {
           }}
         >
           <div className="flex justify-end gap-2 mt-4">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <DialogClose render={<Button type="button" variant="outline" />}>
                 Cancel
-              </Button>
             </DialogClose>
             <form.Subscribe
               selector={(state) => state.isSubmitting}

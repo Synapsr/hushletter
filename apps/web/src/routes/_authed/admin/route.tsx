@@ -2,8 +2,7 @@ import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { Badge, Skeleton } from "@hushletter/ui";
 import { ShieldAlert } from "lucide-react";
 
 /**

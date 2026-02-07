@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@hushletter/ui";
 import { Lock, Unlock, Users, Database } from "lucide-react";
 
 /**

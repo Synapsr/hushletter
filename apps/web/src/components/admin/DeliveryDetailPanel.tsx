@@ -1,8 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useConvexMutation } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, Button } from "@hushletter/ui";
 import { format } from "date-fns";
 import type { DeliveryLog } from "./DeliveryLogTable";
 

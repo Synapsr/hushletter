@@ -9,9 +9,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@hushletter/backend";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Progress } from "@hushletter/ui";
 import { Search, Loader2, Mail, RefreshCw, AlertCircle, CheckCircle2, Inbox } from "lucide-react";
 import { SenderReview } from "./-SenderReview";
 import { ImportProgress } from "./-ImportProgress";

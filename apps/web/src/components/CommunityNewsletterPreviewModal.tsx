@@ -3,13 +3,13 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import {
+  Button,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "@hushletter/ui";
 import { Loader2, Download, X, Sparkles, FolderOpen, Check } from "lucide-react";
 import { toast } from "sonner";
 

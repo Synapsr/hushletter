@@ -4,7 +4,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
+import { Button } from "@hushletter/ui";
 import { Sparkles, ChevronDown, ChevronUp, Users } from "lucide-react";
 
 interface SummaryPreviewProps {

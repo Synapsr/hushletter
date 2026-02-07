@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@hushletter/ui";
 import { CheckCircle, AlertCircle, Clock, Download } from "lucide-react";
 
 /**

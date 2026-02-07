@@ -7,15 +7,15 @@
  */
 
 import { type ParsedEml } from "@hushletter/shared";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@hushletter/ui";
 import { Mail, User, Calendar, Loader2, CheckCircle2, X } from "lucide-react";
 
 interface EmlPreviewProps {

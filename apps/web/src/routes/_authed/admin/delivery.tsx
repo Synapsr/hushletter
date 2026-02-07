@@ -6,15 +6,7 @@ import { api } from "@hushletter/backend";
 import { DeliveryStatsCard } from "@/components/admin/DeliveryStatsCard";
 import { DeliveryLogTable } from "@/components/admin/DeliveryLogTable";
 import { AnomalyAlertBanner } from "@/components/admin/AnomalyAlertBanner";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton } from "@hushletter/ui";
 
 /**
  * Email Delivery Monitoring Page

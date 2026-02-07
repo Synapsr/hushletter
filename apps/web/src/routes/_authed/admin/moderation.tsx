@@ -3,9 +3,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@hushletter/backend";
 import { ModerationQueueTable } from "@/components/admin/ModerationQueueTable";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@hushletter/ui";
 import { AlertCircle, Inbox } from "lucide-react";
 
 /**

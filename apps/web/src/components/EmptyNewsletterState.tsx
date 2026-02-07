@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { DedicatedEmailDisplay } from "@/components/DedicatedEmailDisplay";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
 import { Inbox, Compass } from "lucide-react";
 
 interface EmptyNewsletterStateProps {

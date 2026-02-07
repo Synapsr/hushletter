@@ -4,8 +4,7 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import DOMPurify from "dompurify";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, Card, CardContent, CardHeader, CardTitle } from "@hushletter/ui";
 import { ArrowLeft, Plus, Users, Check, Sparkles, Loader2, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authed/community/$contentId")({

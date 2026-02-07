@@ -3,15 +3,7 @@ import { formatDistanceToNow } from "date-fns";
 import { DeliveryStatusBadge } from "./DeliveryStatusBadge";
 import { DeliveryDetailPanel } from "./DeliveryDetailPanel";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 

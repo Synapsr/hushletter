@@ -11,10 +11,7 @@ import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { useState, useMemo, useDeferredValue } from "react";
 import { Shield, Search, ArrowLeft, Info } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, Input } from "@hushletter/ui";
 import { PrivacyToggle } from "@/components/PrivacyToggle";
 
 export const Route = createFileRoute("/_authed/settings/privacy")({

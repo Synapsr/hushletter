@@ -1,13 +1,4 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Badge, Progress, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hushletter/ui";
 
 /**
  * Private sender from listPrivateSenders query

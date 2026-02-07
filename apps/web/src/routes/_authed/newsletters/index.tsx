@@ -7,8 +7,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { NewsletterCard, type NewsletterData } from "@/components/NewsletterCard";
 import { EmptyNewsletterState } from "@/components/EmptyNewsletterState";
 import { FolderSidebar, FolderSidebarSkeleton, type FolderData } from "@/components/FolderSidebar";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { Button, Sheet, SheetContent, SheetTitle, SheetTrigger } from "@hushletter/ui";
 import { Menu } from "lucide-react";
 
 /**
@@ -261,10 +260,8 @@ function NewslettersPage() {
       {/* Mobile sidebar trigger + drawer */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Open folder menu">
+          <SheetTrigger render={<Button variant="outline" size="icon" aria-label="Open folder menu" />}>
               <Menu className="h-4 w-4" />
-            </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72" showCloseButton={false}>
             <SheetTitle className="sr-only">Folder Navigation</SheetTitle>

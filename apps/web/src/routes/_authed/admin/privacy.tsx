@@ -7,10 +7,7 @@ import { PrivacyStatsCard } from "@/components/admin/PrivacyStatsCard";
 import { PrivacyAuditPanel } from "@/components/admin/PrivacyAuditPanel";
 import { PrivacySenderTable } from "@/components/admin/PrivacySenderTable";
 import { NewsletterSearchPanel } from "@/components/admin/NewsletterSearchPanel";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle, Card, CardContent, CardHeader, CardTitle, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from "@hushletter/ui";
 import { AlertCircle } from "lucide-react";
 
 /**

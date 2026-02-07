@@ -16,7 +16,7 @@ import { useMutation } from "convex/react";
 import { useQuery as useTanstackQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import { Button } from "@/components/ui/button";
+import { Button } from "@hushletter/ui";
 import { UserPlus, UserCheck, Loader2 } from "lucide-react";
 
 interface FollowButtonProps {

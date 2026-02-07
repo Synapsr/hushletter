@@ -13,15 +13,16 @@ import { CommunityNewsletterPreviewModal } from "@/components/CommunityNewslette
 import { BulkImportBar } from "@/components/BulkImportBar";
 import { SharingOnboardingModal } from "@/components/SharingOnboardingModal";
 import {
+  Button,
+  Card,
+  CardContent,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+} from "@hushletter/ui";
 import { convexQuery } from "@convex-dev/react-query";
 import {
   Loader2,
@@ -731,7 +732,7 @@ function CommunityBrowsePage() {
               {/* Separator when both selection mode controls and filters are shown */}
               {selectionMode && <div className="h-6 border-l border-border" />}
               {/* Sort control - Story 9.8 Task 6.1: Added Most Imported option */}
-              <Select value={sort || "popular"} onValueChange={handleSortChange}>
+              <Select value={sort || "popular"} onValueChange={(v) => v !== null && handleSortChange(v)}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
@@ -743,7 +744,7 @@ function CommunityBrowsePage() {
               </Select>
 
               {/* Sender filter */}
-              <Select value={sender || "all"} onValueChange={handleSenderChange}>
+              <Select value={sender || "all"} onValueChange={(v) => v !== null && handleSenderChange(v)}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="All senders" />
                 </SelectTrigger>
@@ -758,7 +759,7 @@ function CommunityBrowsePage() {
               </Select>
 
               {/* Story 6.4 Task 3.2: Domain filter */}
-              <Select value={domain || "all"} onValueChange={handleDomainChange}>
+              <Select value={domain || "all"} onValueChange={(v) => v !== null && handleDomainChange(v)}>
                 <SelectTrigger className="w-[180px]" aria-label="Filter by domain">
                   <SelectValue placeholder="All domains" />
                 </SelectTrigger>

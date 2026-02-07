@@ -1,5 +1,4 @@
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle, Badge } from "@hushletter/ui";
 import { CheckCircle, AlertTriangle, XCircle, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 

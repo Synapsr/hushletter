@@ -9,8 +9,11 @@
     ".": {
       "default": "./src/index.ts"
     },
-    "./": {
-      "default": "./src/index.ts"
+    "./lib/*": {
+      "default": "./src/lib/*"
+    },
+    "./components/*": {
+      "default": "./src/components/*"
     },
     "./postcss.config.mjs": "./src/postcss.config.mjs",
     "./toast": {
@@ -37,8 +40,8 @@
   },
   "devDependencies": {
     "@hushletter/config": "workspace:*",
-    "@types/react": "19.2.7",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
     "typescript": "^5.9.3"
   }
 }

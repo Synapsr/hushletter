@@ -21,16 +21,16 @@ import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import {
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
+  Checkbox,
+} from "@hushletter/ui";
 import { ChevronDown, Mail, Loader2, CheckCircle2, AlertCircle, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 

@@ -55,7 +55,7 @@ vi.mock("@tanstack/react-query", async () => {
 })
 
 // Import the DisconnectConfirmDialog component
-import { DisconnectConfirmDialog } from "../import/DisconnectConfirmDialog"
+import { DisconnectConfirmDialog } from "../import/-DisconnectConfirmDialog"
 
 // Create a test component that mimics GmailSettingsSection's behavior
 // This isolates the Settings page logic for unit testing

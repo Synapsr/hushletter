@@ -14,8 +14,7 @@ import { useAction } from "convex/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { authClient } from "@/lib/auth-client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
 import { Mail, Check, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { DisconnectConfirmDialog } from "./-DisconnectConfirmDialog";
 

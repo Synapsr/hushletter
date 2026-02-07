@@ -12,7 +12,7 @@
  */
 
 import { useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@hushletter/ui";
 import { Upload, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 

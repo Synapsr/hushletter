@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
+import { Button } from "@hushletter/ui";
 import { Download, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 

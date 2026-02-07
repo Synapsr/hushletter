@@ -13,8 +13,7 @@ import { useQuery } from "convex/react";
 import { api } from "@hushletter/backend";
 import { GmailConnect } from "./-GmailConnect";
 import { SenderScanner } from "./-SenderScanner";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
 import { AlertCircle, RefreshCw, Upload, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authed/import/")({
@@ -122,11 +121,9 @@ function ImportPage() {
               If you have newsletters saved as .eml files, you can drag and drop them to import them
               into Hushletter.
             </p>
-            <Button asChild>
-              <Link to="/import/manual">
+            <Button render={<Link to="/import/manual" />}>
                 Import .eml Files
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
             </Button>
           </CardContent>
         </Card>

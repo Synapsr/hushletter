@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card"
 import { Skeleton } from "~/components/ui/skeleton"
 import { Badge } from "~/components/ui/badge"

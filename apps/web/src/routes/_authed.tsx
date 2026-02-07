@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import type { RouterContext } from "~/router"
 import { signOut } from "~/lib/auth-client"
 import { Button } from "~/components/ui/button"

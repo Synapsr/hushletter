@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 
 /**
  * Contract Tests for CommunityNewsletterPreviewModal

@@ -17,7 +17,7 @@ vi.mock("./SummaryPreview", () => ({
 }))
 
 // Mock the api export
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     newsletters: {
       hideNewsletter: "hideNewsletter",

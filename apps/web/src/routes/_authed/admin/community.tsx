@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { useState } from "react"
 import { CommunityContentTable } from "~/components/admin/CommunityContentTable"
 import { BlockedSendersTable } from "~/components/admin/BlockedSendersTable"

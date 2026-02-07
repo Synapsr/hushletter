@@ -11,7 +11,7 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { Copy, Check, Mail, ExternalLink } from "lucide-react"

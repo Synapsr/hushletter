@@ -13,7 +13,7 @@ import {
 } from "~/components/ui/table"
 import { Button } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
-import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 
 /**
  * Delivery log item type from listDeliveryLogs query

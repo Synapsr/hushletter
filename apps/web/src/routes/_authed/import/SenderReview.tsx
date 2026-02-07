@@ -19,7 +19,7 @@
 
 import { useState, useCallback, useMemo } from "react"
 import { useQuery, useMutation, useAction } from "convex/react"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import {
   Card,
   CardContent,

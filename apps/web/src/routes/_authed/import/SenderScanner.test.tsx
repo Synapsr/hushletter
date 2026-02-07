@@ -31,7 +31,7 @@ vi.mock("convex/react", () => ({
 }))
 
 // Mock the api import
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     gmail: {
       getScanProgress: "getScanProgress",

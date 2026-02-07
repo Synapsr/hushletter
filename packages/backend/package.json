@@ -1,5 +1,5 @@
 {
-  "name": "@newsletter-manager/backend",
+  "name": "@hushletter/backend",
   "version": "0.0.0",
   "private": true,
   "type": "module",

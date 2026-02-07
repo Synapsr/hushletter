@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { cn } from "~/lib/utils"
 import { FolderIcon, EyeOff, AlertCircle } from "lucide-react"
 import { FolderActionsDropdown } from "./FolderActionsDropdown"

@@ -12,7 +12,7 @@ import { useSearch, useNavigate } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAction } from "convex/react"
 import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { authClient } from "~/lib/auth-client"
 import {
   Card,

@@ -19,7 +19,7 @@ vi.mock("~/lib/auth-client", () => ({
   },
 }))
 
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     gmail: {
       getGmailAccount: "api.gmail.getGmailAccount",

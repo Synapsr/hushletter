@@ -1,7 +1,7 @@
 import PostalMime from "postal-mime"
 import type { Env, ImportEmailPayload, ConvexImportResponse } from "./types"
 import { type ConvexConfig } from "./convexClient"
-import { sanitizeHtml } from "@newsletter-manager/shared/utils"
+import { sanitizeHtml } from "@hushletter/shared/utils"
 
 /**
  * Rate limit: 50 imports per hour per user

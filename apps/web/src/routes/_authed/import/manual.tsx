@@ -12,9 +12,9 @@
 
 import { useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
-import { parseEmlFile, type ParsedEml, type EmlParseResult } from "@newsletter-manager/shared"
+import { parseEmlFile, type ParsedEml, type EmlParseResult } from "@hushletter/shared"
 import { useAction } from "convex/react"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
   Card,

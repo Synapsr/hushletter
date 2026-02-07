@@ -1,0 +1,24 @@
+{
+  "extends": "@hushletter/config/tsconfig.base.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": [
+      "node",
+      "react",
+      "react-dom"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@hushletter/ui/*": [
+        "./src/*"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  }
+}

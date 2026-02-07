@@ -11,8 +11,8 @@ export default defineConfig({
   },
   ssr: {
     // Bundle @convex-dev/better-auth for SSR compatibility
-    // Bundle @newsletter-manager/shared for monorepo imports
-    noExternal: ['@convex-dev/better-auth', '@newsletter-manager/shared'],
+    // Bundle @hushletter/shared for monorepo imports
+    noExternal: ['@convex-dev/better-auth', '@hushletter/shared'],
   },
   plugins: [
     tailwindcss(),

@@ -1,5 +1,5 @@
 {
-  "name": "@newsletter-manager/email-worker",
+  "name": "@hushletter/email-worker",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -18,7 +18,7 @@
     "wrangler": "^4.60.0"
   },
   "dependencies": {
-    "@newsletter-manager/shared": "workspace:*",
+    "@hushletter/shared": "workspace:*",
     "postal-mime": "^2.7.3"
   }
 }

@@ -8,7 +8,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useQuery, useAction } from "convex/react"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import {
   Card,
   CardContent,

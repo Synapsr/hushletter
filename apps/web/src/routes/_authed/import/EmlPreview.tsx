@@ -6,7 +6,7 @@
  * Shows subject, sender (email + name), and formatted date.
  */
 
-import { type ParsedEml } from "@newsletter-manager/shared"
+import { type ParsedEml } from "@hushletter/shared"
 import { Button } from "~/components/ui/button"
 import {
   Card,

@@ -15,7 +15,7 @@ import { useState } from "react"
 import { useMutation } from "convex/react"
 import { useQuery as useTanstackQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { Button } from "~/components/ui/button"
 import { UserPlus, UserCheck, Loader2 } from "lucide-react"
 

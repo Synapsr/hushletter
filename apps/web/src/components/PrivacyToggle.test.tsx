@@ -28,7 +28,7 @@ vi.mock("@tanstack/react-query", () => ({
 }))
 
 // Mock the backend API
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     senders: {
       updateSenderSettings: "senders:updateSenderSettings",
@@ -37,7 +37,7 @@ vi.mock("@newsletter-manager/backend", () => ({
 }))
 
 describe("PrivacyToggle", () => {
-  const mockSenderId = "test-sender-id" as unknown as import("@newsletter-manager/backend/convex/_generated/dataModel").Id<"senders">
+  const mockSenderId = "test-sender-id" as unknown as import("@hushletter/backend/convex/_generated/dataModel").Id<"senders">
 
   beforeEach(() => {
     vi.clearAllMocks()

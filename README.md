@@ -1,10 +1,10 @@
-# Newsletter Manager
+# Hushletter
 
 Your newsletters, organized and accessible. One dedicated email address. All your newsletters in one clean interface.
 
 ## Tech Stack
 
-- **Monorepo**: Turborepo with pnpm workspaces
+- **Monorepo**: Turborepo with Bun workspaces
 - **Frontend**: TanStack Start (React metaframework)
 - **Backend**: Convex (real-time database)
 - **Authentication**: Better Auth with Convex integration
@@ -15,7 +15,7 @@ Your newsletters, organized and accessible. One dedicated email address. All you
 ## Project Structure
 
 ```
-newsletter-manager/
+hushletter/
 ├── apps/
 │   ├── web/                    # TanStack Start web app
 │   │   ├── src/
@@ -43,8 +43,7 @@ newsletter-manager/
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm 9+
+- Bun 1.x+
 - Convex account ([sign up](https://convex.dev))
 
 ### Installation
@@ -52,10 +51,10 @@ newsletter-manager/
 ```bash
 # Clone the repository
 git clone <your-repo-url>
-cd newsletter-manager
+cd hushletter
 
 # Install dependencies
-pnpm install
+bun install
 ```
 
 ### Convex Setup
@@ -65,7 +64,7 @@ pnpm install
 2. Initialize Convex in the backend package:
    ```bash
    cd packages/backend
-   npx convex dev
+   bunx convex dev
    ```
    Follow the prompts to connect to your Convex project.
 
@@ -86,14 +85,14 @@ pnpm install
 5. Set the Better Auth secret in Convex:
    ```bash
    cd packages/backend
-   npx convex env set BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+   bunx convex env set BETTER_AUTH_SECRET=$(openssl rand -base64 32)
    ```
 
 ### Development
 
 ```bash
 # Start all services (backend + web)
-pnpm dev
+bun dev
 ```
 
 This will start:
@@ -104,10 +103,10 @@ This will start:
 
 ```bash
 # Backend only
-pnpm --filter @newsletter-manager/backend dev
+bun --filter @hushletter/backend dev
 
 # Web only (requires backend running)
-pnpm --filter @newsletter-manager/web dev
+bun --filter @hushletter/web dev
 ```
 
 ## Adding a Mobile App (Expo)
@@ -117,13 +116,13 @@ This monorepo is structured to easily add an Expo React Native app:
 1. Create the native app:
    ```bash
    cd apps
-   npx create-expo-app native
+   bunx create-expo-app native
    ```
 
 2. Add the backend dependency:
    ```bash
    cd native
-   pnpm add @newsletter-manager/backend convex
+   bun add @hushletter/backend convex
    ```
 
 3. Configure Expo to use the shared Convex backend.
@@ -134,14 +133,14 @@ This monorepo is structured to easily add an Expo React Native app:
 
 ```bash
 cd packages/backend
-npx convex deploy
+bunx convex deploy
 ```
 
 ### Web App (Cloudflare Pages)
 
 1. Connect your repository to Cloudflare Pages
 2. Configure build settings:
-   - Build command: `pnpm --filter @newsletter-manager/web build`
+   - Build command: `bun --filter @hushletter/web build`
    - Build output: `apps/web/.vinxi/build/output/public`
 3. Set environment variables:
    - `VITE_CONVEX_URL`: Your Convex production URL
@@ -151,10 +150,10 @@ npx convex deploy
 
 | Command | Description |
 |---------|-------------|
-| `pnpm dev` | Start all development servers |
-| `pnpm build` | Build all packages |
-| `pnpm lint` | Run oxlint on all packages |
-| `pnpm format` | Format code with Prettier |
+| `bun dev` | Start all development servers |
+| `bun run build` | Build all packages |
+| `bun run lint` | Run oxlint on all packages |
+| `bun run format` | Format code with Prettier |
 
 ## License
 

@@ -1,0 +1,3 @@
+{
+  "extends": "@art-behind/config/tsconfig.base.json"
+}

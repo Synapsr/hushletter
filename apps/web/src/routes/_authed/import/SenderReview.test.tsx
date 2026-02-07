@@ -23,7 +23,7 @@ vi.mock("convex/react", () => ({
 }))
 
 // Mock the api module
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     gmail: {
       getDetectedSenders: "getDetectedSenders",

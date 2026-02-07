@@ -1,6 +1,6 @@
 import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { useState } from "react"
 import {
   Table,
@@ -28,7 +28,7 @@ import {
   XCircle,
   History,
 } from "lucide-react"
-import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 
 /** Moderation log item returned from listModerationLog */
 interface ModerationLogItem {

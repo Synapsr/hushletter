@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { DeliveryLogTable } from "./DeliveryLogTable"
-import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 
 // Mock the child components
 vi.mock("./DeliveryStatusBadge", () => ({

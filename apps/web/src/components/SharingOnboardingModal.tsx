@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import {
   Dialog,
   DialogContent,

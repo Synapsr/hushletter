@@ -12,7 +12,7 @@ vi.mock("@convex-dev/react-query", () => ({
   convexQuery: vi.fn(),
 }))
 
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     admin: {
       searchNewsletters: "searchNewsletters",

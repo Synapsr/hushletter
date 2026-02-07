@@ -1,6 +1,6 @@
 import PostalMime from "postal-mime"
 // Import sanitizeHtml from shared package to avoid duplication
-import { sanitizeHtml } from "@newsletter-manager/shared/utils"
+import { sanitizeHtml } from "@hushletter/shared/utils"
 
 /**
  * Parsed email data structure

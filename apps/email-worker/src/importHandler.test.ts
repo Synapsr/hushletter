@@ -39,7 +39,7 @@ vi.mock("postal-mime", () => {
 })
 
 // Mock the sanitizeHtml function
-vi.mock("@newsletter-manager/shared/utils", () => ({
+vi.mock("@hushletter/shared/utils", () => ({
   sanitizeHtml: (html: string) => html,
 }))
 

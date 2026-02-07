@@ -38,7 +38,7 @@ vi.mock("@convex-dev/react-query", () => ({
   convexQuery: (api: unknown, args: unknown) => ({ queryKey: [api, args] }),
 }))
 
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     ai: {
       getNewsletterSummary: "getNewsletterSummary",

@@ -2,8 +2,8 @@ import { useRef, useCallback, useMemo, useState, useDeferredValue } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useConvex, useMutation } from "convex/react"
-import { api } from "@newsletter-manager/backend"
-import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
+import { api } from "@hushletter/backend"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 import {
   CommunityNewsletterCard,
   type CommunityNewsletterData,

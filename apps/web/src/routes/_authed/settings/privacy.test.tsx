@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 import { useState, useMemo, useDeferredValue } from "react"
 
 // Mock router context
@@ -48,7 +48,7 @@ vi.mock("@tanstack/react-query", () => ({
 }))
 
 // Mock the backend API
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     senders: {
       listSendersForUserWithUnreadCounts: "senders:listSendersForUserWithUnreadCounts",

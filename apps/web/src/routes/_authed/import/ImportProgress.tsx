@@ -12,7 +12,7 @@
 
 import { useState } from "react"
 import { useQuery, useAction } from "convex/react"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { Link } from "@tanstack/react-router"
 import {
   Card,

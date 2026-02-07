@@ -8,7 +8,7 @@
  *   - No longer uses isPrivate from userSenderSettings
  *
  * Provides Convex actions for importing newsletters from .eml files.
- * Uses the EML parser from @newsletter-manager/shared for client-side parsing,
+ * Uses the EML parser from @hushletter/shared for client-side parsing,
  * then processes server-side for R2 upload and database storage.
  */
 

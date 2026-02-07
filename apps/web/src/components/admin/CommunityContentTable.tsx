@@ -1,6 +1,6 @@
 import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { useConvexMutation } from "@convex-dev/react-query"
 import { useState, useDeferredValue } from "react"
 import {
@@ -33,7 +33,7 @@ import {
 import { Label } from "~/components/ui/label"
 import { Textarea } from "~/components/ui/textarea"
 import { Eye, EyeOff, Ban, Search, Users, Calendar } from "lucide-react"
-import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 
 /** Content item returned from listCommunityContent */
 interface ContentItem {

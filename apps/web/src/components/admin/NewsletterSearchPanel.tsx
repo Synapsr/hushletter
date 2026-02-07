@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { useForm } from "@tanstack/react-form"
 import { Input } from "~/components/ui/input"
 import { Button } from "~/components/ui/button"

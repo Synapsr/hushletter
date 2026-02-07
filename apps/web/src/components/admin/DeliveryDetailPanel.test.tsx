@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { DeliveryDetailPanel } from "./DeliveryDetailPanel"
-import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 
 // Mock the mutation hook
 const mockMutate = vi.fn()

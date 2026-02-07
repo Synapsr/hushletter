@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { SummaryPreview } from "./SummaryPreview"
-import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 
 // Mock TanStack Router's Link component
 vi.mock("@tanstack/react-router", () => ({
@@ -23,7 +23,7 @@ vi.mock("@convex-dev/react-query", () => ({
 }))
 
 // Mock the api
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     ai: {
       getNewsletterSummary: "getNewsletterSummary",

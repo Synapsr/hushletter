@@ -23,7 +23,7 @@ vi.mock("@convex-dev/react-query", () => ({
 }))
 
 // Mock Convex API
-vi.mock("@newsletter-manager/backend", () => ({
+vi.mock("@hushletter/backend", () => ({
   api: {
     folders: {
       listVisibleFoldersWithUnreadCounts: "folders.listVisibleFoldersWithUnreadCounts",

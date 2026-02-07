@@ -7,8 +7,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
-import { api } from "@newsletter-manager/backend"
-import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"
+import { api } from "@hushletter/backend"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 import { useState, useMemo, useDeferredValue } from "react"
 import { Shield, Search, ArrowLeft, Info } from "lucide-react"
 import {

@@ -10,7 +10,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
 import { useQuery } from "convex/react"
-import { api } from "@newsletter-manager/backend"
+import { api } from "@hushletter/backend"
 import { GmailConnect } from "./GmailConnect"
 import { SenderScanner } from "./SenderScanner"
 import { Button } from "~/components/ui/button"

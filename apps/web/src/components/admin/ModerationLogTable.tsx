@@ -1,7 +1,7 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useQuery } from "@tanstack/react-query"
-import { api } from "@hushletter/backend"
-import { useState } from "react"
+import { convexQuery } from "@convex-dev/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@hushletter/backend";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -9,43 +9,35 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
-import { Badge } from "~/components/ui/badge"
-import { Skeleton } from "~/components/ui/skeleton"
-import {
-  Eye,
-  EyeOff,
-  Ban,
-  Unlock,
-  CheckCircle,
-  XCircle,
-  History,
-} from "lucide-react"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Eye, EyeOff, Ban, Unlock, CheckCircle, XCircle, History } from "lucide-react";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 
 /** Moderation log item returned from listModerationLog */
 interface ModerationLogItem {
-  id: Id<"moderationLog">
+  id: Id<"moderationLog">;
   actionType:
     | "hide_content"
     | "restore_content"
     | "block_sender"
     | "unblock_sender"
     | "resolve_report"
-    | "dismiss_report"
-  targetType: "content" | "sender" | "report"
-  targetId: string
-  reason: string | undefined
-  details: Record<string, unknown> | null
-  adminEmail: string
-  createdAt: number
+    | "dismiss_report";
+  targetType: "content" | "sender" | "report";
+  targetId: string;
+  reason: string | undefined;
+  details: Record<string, unknown> | null;
+  adminEmail: string;
+  createdAt: number;
 }
 
 /**
@@ -65,7 +57,7 @@ const actionIcons: Record<string, React.ReactNode> = {
   unblock_sender: <Unlock className="h-4 w-4" />,
   resolve_report: <CheckCircle className="h-4 w-4" />,
   dismiss_report: <XCircle className="h-4 w-4" />,
-}
+};
 
 const actionLabels: Record<string, string> = {
   hide_content: "Hid Content",
@@ -74,19 +66,16 @@ const actionLabels: Record<string, string> = {
   unblock_sender: "Unblocked Sender",
   resolve_report: "Resolved Report",
   dismiss_report: "Dismissed Report",
-}
+};
 
-const actionVariants: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
+const actionVariants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   hide_content: "secondary",
   restore_content: "default",
   block_sender: "destructive",
   unblock_sender: "default",
   resolve_report: "default",
   dismiss_report: "secondary",
-}
+};
 
 type ActionType =
   | "hide_content"
@@ -94,32 +83,30 @@ type ActionType =
   | "block_sender"
   | "unblock_sender"
   | "resolve_report"
-  | "dismiss_report"
+  | "dismiss_report";
 
 export function ModerationLogTable() {
-  const [actionFilter, setActionFilter] = useState<ActionType | "all">("all")
+  const [actionFilter, setActionFilter] = useState<ActionType | "all">("all");
 
   // Query
   const { data, isPending, isError } = useQuery(
     convexQuery(api.admin.listModerationLog, {
       actionType: actionFilter === "all" ? undefined : actionFilter,
       limit: 50,
-    })
-  )
+    }),
+  );
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString()
-  }
+    return new Date(timestamp).toLocaleString();
+  };
 
   if (isError) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        Failed to load moderation log
-      </div>
-    )
+      <div className="text-center py-8 text-muted-foreground">Failed to load moderation log</div>
+    );
   }
 
-  const logs = (data ?? []) as ModerationLogItem[]
+  const logs = (data ?? []) as ModerationLogItem[];
 
   return (
     <div className="space-y-4">
@@ -194,9 +181,7 @@ export function ModerationLogTable() {
                     </div>
                   </TableCell>
                   <TableCell className="max-w-[250px]">
-                    <span className="text-sm truncate block">
-                      {log.reason || "-"}
-                    </span>
+                    <span className="text-sm truncate block">{log.reason || "-"}</span>
                     {log.details && (
                       <details className="text-xs text-muted-foreground">
                         <summary className="cursor-pointer hover:text-foreground">
@@ -217,5 +202,5 @@ export function ModerationLogTable() {
         </div>
       )}
     </div>
-  )
+  );
 }

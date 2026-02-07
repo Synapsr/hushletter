@@ -452,8 +452,8 @@ DEPRECATED (may still work but not primary nav):
 // 3. Update header to show folder name + senders
 // 4. Ensure newsletters show sender name prominently
 
-import { FolderSidebar } from "~/components/FolderSidebar"
-// Remove: import { SenderSidebar } from "~/components/SenderSidebar"
+import { FolderSidebar } from "@/components/FolderSidebar"
+// Remove: import { SenderSidebar } from "@/components/SenderSidebar"
 
 function NewslettersPage() {
   // Remove: sender query params as primary navigation

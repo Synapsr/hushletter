@@ -145,9 +145,9 @@ pnpm add @tanstack/react-form zod
 import { useForm } from "@tanstack/react-form"
 import { z } from "zod"
 import { useNavigate } from "@tanstack/react-router"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { signUp } from "~/lib/auth-client"
 
 // Zod schema for validation

@@ -155,7 +155,7 @@ User toggles privacy → Call updateSenderSettings(senderId, isPrivate: true/fal
 
 **PrivacyToggle Component Pattern:**
 ```typescript
-import { Switch } from "~/components/ui/switch"
+import { Switch } from "@/components/ui/switch"
 import { useConvexMutation } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
 import { useQueryClient } from "@tanstack/react-query"
@@ -205,7 +205,7 @@ export function PrivacyToggle({ senderId, isPrivate }: PrivacyToggleProps) {
 ```typescript
 // In NewsletterCard.tsx - Add to existing component
 import { Lock } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Inside the card, near the sender name or date:
 {newsletter.isPrivate && (

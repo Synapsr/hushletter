@@ -4,124 +4,120 @@
  * AC #5: Privacy settings page with sender list and bulk management
  */
 
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
-import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import { useState, useMemo, useDeferredValue } from "react"
-import { Shield, Search, ArrowLeft, Info } from "lucide-react"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
-import { Checkbox } from "~/components/ui/checkbox"
-import { PrivacyToggle } from "~/components/PrivacyToggle"
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { useState, useMemo, useDeferredValue } from "react";
+import { Shield, Search, ArrowLeft, Info } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PrivacyToggle } from "@/components/PrivacyToggle";
 
 export const Route = createFileRoute("/_authed/settings/privacy")({
   component: PrivacySettingsPage,
-})
+});
 
 // Type for sender data from listSendersForUserWithUnreadCounts query
 type SenderData = {
-  _id: Id<"senders">
-  email: string
-  name: string | null
-  displayName: string
-  domain: string
-  userNewsletterCount: number
-  unreadCount: number
-  isPrivate: boolean
-  folderId: Id<"folders"> | null
-}
+  _id: Id<"senders">;
+  email: string;
+  name: string | null;
+  displayName: string;
+  domain: string;
+  userNewsletterCount: number;
+  unreadCount: number;
+  isPrivate: boolean;
+  folderId: Id<"folders"> | null;
+};
 
 function PrivacySettingsPage() {
-  const queryClient = useQueryClient()
-  const { data: senders, isPending, error } = useQuery(
-    convexQuery(api.senders.listSendersForUserWithUnreadCounts, {})
-  )
-  const senderList = senders as SenderData[] | undefined
+  const queryClient = useQueryClient();
+  const {
+    data: senders,
+    isPending,
+    error,
+  } = useQuery(convexQuery(api.senders.listSendersForUserWithUnreadCounts, {}));
+  const senderList = senders as SenderData[] | undefined;
 
   // Search and selection state
-  const [searchQuery, setSearchQuery] = useState("")
-  const deferredSearchQuery = useDeferredValue(searchQuery)
-  const [selectedSenders, setSelectedSenders] = useState<Set<Id<"senders">>>(new Set())
+  const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [selectedSenders, setSelectedSenders] = useState<Set<Id<"senders">>>(new Set());
 
   // Bulk update mutation
-  const mutationFn = useConvexMutation(api.senders.updateSenderSettings)
+  const mutationFn = useConvexMutation(api.senders.updateSenderSettings);
   const updateSettings = useMutation({
     mutationFn,
     onSuccess: () => {
-      queryClient.invalidateQueries()
+      queryClient.invalidateQueries();
     },
-  })
+  });
 
   // Filter senders by search query (using deferred value for performance)
   const filteredSenders = useMemo(() => {
-    if (!senderList) return []
-    if (!deferredSearchQuery.trim()) return senderList
+    if (!senderList) return [];
+    if (!deferredSearchQuery.trim()) return senderList;
 
-    const query = deferredSearchQuery.toLowerCase()
+    const query = deferredSearchQuery.toLowerCase();
     return senderList.filter(
       (sender) =>
         sender.displayName.toLowerCase().includes(query) ||
         sender.email.toLowerCase().includes(query) ||
-        sender.domain.toLowerCase().includes(query)
-    )
-  }, [senderList, deferredSearchQuery])
+        sender.domain.toLowerCase().includes(query),
+    );
+  }, [senderList, deferredSearchQuery]);
 
   // Selection handlers
   const toggleSenderSelection = (senderId: Id<"senders">) => {
     setSelectedSenders((prev) => {
-      const next = new Set(prev)
+      const next = new Set(prev);
       if (next.has(senderId)) {
-        next.delete(senderId)
+        next.delete(senderId);
       } else {
-        next.add(senderId)
+        next.add(senderId);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
   const toggleSelectAll = () => {
     if (selectedSenders.size === filteredSenders.length) {
-      setSelectedSenders(new Set())
+      setSelectedSenders(new Set());
     } else {
-      setSelectedSenders(new Set(filteredSenders.map((s) => s._id)))
+      setSelectedSenders(new Set(filteredSenders.map((s) => s._id)));
     }
-  }
+  };
 
   // Bulk privacy update handlers
   const handleBulkPrivate = async () => {
     try {
       await Promise.all(
         Array.from(selectedSenders).map((senderId) =>
-          updateSettings.mutateAsync({ senderId, isPrivate: true })
-        )
-      )
-      setSelectedSenders(new Set())
+          updateSettings.mutateAsync({ senderId, isPrivate: true }),
+        ),
+      );
+      setSelectedSenders(new Set());
     } catch (error) {
-      console.error("[PrivacySettings] Bulk private update failed:", error)
+      console.error("[PrivacySettings] Bulk private update failed:", error);
     }
-  }
+  };
 
   const handleBulkPublic = async () => {
     try {
       await Promise.all(
         Array.from(selectedSenders).map((senderId) =>
-          updateSettings.mutateAsync({ senderId, isPrivate: false })
-        )
-      )
-      setSelectedSenders(new Set())
+          updateSettings.mutateAsync({ senderId, isPrivate: false }),
+        ),
+      );
+      setSelectedSenders(new Set());
     } catch (error) {
-      console.error("[PrivacySettings] Bulk public update failed:", error)
+      console.error("[PrivacySettings] Bulk public update failed:", error);
     }
-  }
+  };
 
   // Loading state
   if (isPending) {
@@ -133,7 +129,7 @@ function PrivacySettingsPage() {
           <div className="h-64 bg-muted rounded" />
         </div>
       </div>
-    )
+    );
   }
 
   // Error state
@@ -148,11 +144,12 @@ function PrivacySettingsPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
-  const isAllSelected = filteredSenders.length > 0 && selectedSenders.size === filteredSenders.length
-  const isSomeSelected = selectedSenders.size > 0 && selectedSenders.size < filteredSenders.length
+  const isAllSelected =
+    filteredSenders.length > 0 && selectedSenders.size === filteredSenders.length;
+  const isSomeSelected = selectedSenders.size > 0 && selectedSenders.size < filteredSenders.length;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -190,7 +187,9 @@ function PrivacySettingsPage() {
                 <li>
                   <strong>Private senders:</strong> Newsletters are only visible to you
                 </li>
-                <li>Changing privacy settings only affects <strong>future</strong> newsletters</li>
+                <li>
+                  Changing privacy settings only affects <strong>future</strong> newsletters
+                </li>
                 <li>Existing newsletters keep their current privacy status</li>
               </ul>
             </div>
@@ -266,9 +265,7 @@ function PrivacySettingsPage() {
                 {/* Sender rows */}
                 {filteredSenders.length === 0 ? (
                   <div className="px-4 py-8 text-center text-muted-foreground">
-                    {searchQuery
-                      ? "No senders match your search"
-                      : "No senders to display"}
+                    {searchQuery ? "No senders match your search" : "No senders to display"}
                   </div>
                 ) : (
                   filteredSenders.map((sender) => (
@@ -283,19 +280,13 @@ function PrivacySettingsPage() {
                       />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{sender.displayName}</p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {sender.email}
-                        </p>
+                        <p className="text-sm text-muted-foreground truncate">{sender.email}</p>
                       </div>
                       <div className="w-24 text-center text-sm text-muted-foreground hidden sm:block">
                         {sender.userNewsletterCount}
                       </div>
                       <div className="w-32 flex justify-end">
-                        <PrivacyToggle
-                          senderId={sender._id}
-                          isPrivate={sender.isPrivate}
-                          compact
-                        />
+                        <PrivacyToggle senderId={sender._id} isPrivate={sender.isPrivate} compact />
                       </div>
                     </div>
                   ))
@@ -305,13 +296,9 @@ function PrivacySettingsPage() {
               {/* Privacy stats */}
               {senderList.length > 0 && (
                 <div className="flex gap-4 text-sm text-muted-foreground pt-2">
-                  <span>
-                    {senderList.filter((s) => s.isPrivate).length} private
-                  </span>
+                  <span>{senderList.filter((s) => s.isPrivate).length} private</span>
                   <span>•</span>
-                  <span>
-                    {senderList.filter((s) => !s.isPrivate).length} public
-                  </span>
+                  <span>{senderList.filter((s) => !s.isPrivate).length} public</span>
                 </div>
               )}
             </div>
@@ -319,5 +306,5 @@ function PrivacySettingsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

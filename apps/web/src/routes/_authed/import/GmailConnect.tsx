@@ -7,28 +7,22 @@
  * Handles connected, disconnected, connecting, and error states.
  */
 
-import { useState } from "react"
-import { useSearch, useNavigate } from "@tanstack/react-router"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useAction } from "convex/react"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { authClient } from "~/lib/auth-client"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Mail, Check, AlertCircle, Loader2, RefreshCw } from "lucide-react"
-import { DisconnectConfirmDialog } from "./DisconnectConfirmDialog"
+import { useState } from "react";
+import { useSearch, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAction } from "convex/react";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { authClient } from "~/lib/auth-client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Mail, Check, AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { DisconnectConfirmDialog } from "./DisconnectConfirmDialog";
 
 // Search params type for this route
 type ImportSearchParams = {
-  error?: string
-}
+  error?: string;
+};
 
 /**
  * Connected state - shows Gmail account info and next actions
@@ -39,8 +33,8 @@ function ConnectedState({
   email,
   onOpenDisconnectDialog,
 }: {
-  email: string
-  onOpenDisconnectDialog: () => void
+  email: string;
+  onOpenDisconnectDialog: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -49,9 +43,7 @@ function ConnectedState({
           <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
         </div>
         <div>
-          <p className="font-medium text-green-800 dark:text-green-200">
-            Gmail Connected
-          </p>
+          <p className="font-medium text-green-800 dark:text-green-200">Gmail Connected</p>
           <p className="text-sm text-green-600 dark:text-green-400">{email}</p>
         </div>
       </div>
@@ -63,16 +55,12 @@ function ConnectedState({
       </div>
 
       <div className="pt-2">
-        <Button
-          onClick={onOpenDisconnectDialog}
-          variant="ghost"
-          size="sm"
-        >
+        <Button onClick={onOpenDisconnectDialog} variant="ghost" size="sm">
           Disconnect Gmail
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -83,8 +71,8 @@ function DisconnectedState({
   onConnect,
   isConnecting,
 }: {
-  onConnect: () => void
-  isConnecting: boolean
+  onConnect: () => void;
+  isConnecting: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -94,15 +82,13 @@ function DisconnectedState({
         </div>
         <div>
           <p className="font-medium">Gmail Not Connected</p>
-          <p className="text-sm text-muted-foreground">
-            Connect to import your newsletters
-          </p>
+          <p className="text-sm text-muted-foreground">Connect to import your newsletters</p>
         </div>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        We&apos;ll request read-only access to your Gmail to scan for
-        newsletters. Your email content stays private and secure.
+        We&apos;ll request read-only access to your Gmail to scan for newsletters. Your email
+        content stays private and secure.
       </p>
 
       <Button onClick={onConnect} disabled={isConnecting} className="w-full">
@@ -119,20 +105,14 @@ function DisconnectedState({
         )}
       </Button>
     </div>
-  )
+  );
 }
 
 /**
  * Error state - shows error message and retry option
  * Story 4.1: Task 5.3, 5.4 (AC #5)
  */
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-900">
@@ -140,9 +120,7 @@ function ErrorState({
           <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
         </div>
         <div>
-          <p className="font-medium text-red-800 dark:text-red-200">
-            Connection Failed
-          </p>
+          <p className="font-medium text-red-800 dark:text-red-200">Connection Failed</p>
           <p className="text-sm text-red-600 dark:text-red-400">{message}</p>
         </div>
       </div>
@@ -152,7 +130,7 @@ function ErrorState({
         Try Again
       </Button>
     </div>
-  )
+  );
 }
 
 /**
@@ -170,7 +148,7 @@ function LoadingSkeleton() {
         <div className="h-20 bg-muted rounded animate-pulse" />
       </CardContent>
     </Card>
-  )
+  );
 }
 
 /**
@@ -182,65 +160,67 @@ export function GmailConnect() {
   // Note: useState for isConnecting is acceptable here because OAuth flows redirect
   // away from the page. This tracks "user clicked, waiting for redirect" which is
   // UI state, not data loading state. There's no isPending equivalent for redirects.
-  const [isConnecting, setIsConnecting] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false);
   // Note: useState for isDisconnecting is required because Convex useAction doesn't
   // provide isPending like useMutation does. This is an accepted exception per
   // ReaderView.tsx:104-113 pattern in the codebase.
-  const [isDisconnecting, setIsDisconnecting] = useState(false)
-  const [localError, setLocalError] = useState<string | null>(null)
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   // Story 4.5: Dialog state for confirmation
-  const [isDisconnectDialogOpen, setIsDisconnectDialogOpen] = useState(false)
+  const [isDisconnectDialogOpen, setIsDisconnectDialogOpen] = useState(false);
 
   // Use TanStack Router hooks for URL params
-  const searchParams = useSearch({ strict: false }) as ImportSearchParams
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const searchParams = useSearch({ strict: false }) as ImportSearchParams;
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Disconnect Gmail action
-  const disconnectGmail = useAction(api.gmail.disconnectGmail)
+  const disconnectGmail = useAction(api.gmail.disconnectGmail);
 
   // Type for Gmail account data returned by the query
-  type GmailAccountData = { email: string; connectedAt: number } | null
+  type GmailAccountData = { email: string; connectedAt: number } | null;
 
   // Query Gmail connection status
-  const { data, isPending, error: queryError } = useQuery(
-    convexQuery(api.gmail.getGmailAccount, {})
-  )
-  const gmailAccount = data as GmailAccountData | undefined
+  const {
+    data,
+    isPending,
+    error: queryError,
+  } = useQuery(convexQuery(api.gmail.getGmailAccount, {}));
+  const gmailAccount = data as GmailAccountData | undefined;
 
   // Determine connection state - must check for both null (not connected) and undefined (loading)
-  const isConnected = gmailAccount !== null && gmailAccount !== undefined
+  const isConnected = gmailAccount !== null && gmailAccount !== undefined;
 
   // Derive error from multiple sources: URL params, local state, or query error
   const getErrorMessage = (): string | null => {
     // Local errors from OAuth flow take precedence
-    if (localError) return localError
+    if (localError) return localError;
 
     // Check URL params for OAuth callback errors
     if (searchParams?.error === "access_denied") {
-      return "You cancelled the connection. Click Connect to try again."
+      return "You cancelled the connection. Click Connect to try again.";
     }
     if (searchParams?.error) {
-      return "Failed to connect Gmail. Please try again."
+      return "Failed to connect Gmail. Please try again.";
     }
 
     // Query errors (from Convex)
     if (queryError) {
-      return "Unable to check Gmail connection. Please refresh the page."
+      return "Unable to check Gmail connection. Please refresh the page.";
     }
 
-    return null
-  }
+    return null;
+  };
 
-  const displayError = getErrorMessage()
+  const displayError = getErrorMessage();
 
   /**
    * Initiate Google OAuth flow
    * Story 4.1: Task 3.2 (AC #1, #2)
    */
   const handleConnect = async () => {
-    setIsConnecting(true)
-    setLocalError(null)
+    setIsConnecting(true);
+    setLocalError(null);
 
     try {
       // Use Better Auth's social sign-in with linkSocial for existing users
@@ -248,40 +228,40 @@ export function GmailConnect() {
       await authClient.linkSocial({
         provider: "google",
         callbackURL: "/import",
-      })
+      });
       // User will be redirected to Google OAuth consent screen
     } catch (err) {
       // Handle errors that occur before redirect
-      setIsConnecting(false)
+      setIsConnecting(false);
       if (err instanceof Error) {
         if (err.message.includes("cancelled") || err.message.includes("denied")) {
-          setLocalError("You cancelled the connection. Click Connect to try again.")
+          setLocalError("You cancelled the connection. Click Connect to try again.");
         } else {
-          setLocalError("Failed to connect Gmail. Please try again.")
+          setLocalError("Failed to connect Gmail. Please try again.");
         }
       } else {
-        setLocalError("An unexpected error occurred. Please try again.")
+        setLocalError("An unexpected error occurred. Please try again.");
       }
     }
-  }
+  };
 
   /**
    * Clear error and retry connection
    * Story 4.1: Task 5.4 (AC #5)
    */
   const handleRetry = () => {
-    setLocalError(null)
+    setLocalError(null);
     // Clear URL params using router navigation
-    navigate({ to: "/import", search: {}, replace: true })
-  }
+    navigate({ to: "/import", search: {}, replace: true });
+  };
 
   /**
    * Open disconnect confirmation dialog
    * Story 4.5: Task 3.1 (AC #1)
    */
   const handleOpenDisconnectDialog = () => {
-    setIsDisconnectDialogOpen(true)
-  }
+    setIsDisconnectDialogOpen(true);
+  };
 
   /**
    * Confirm disconnect Gmail account
@@ -289,29 +269,29 @@ export function GmailConnect() {
    * Removes the Google account link and cleans up scan data
    */
   const handleConfirmDisconnect = async () => {
-    setIsDisconnecting(true)
-    setLocalError(null)
+    setIsDisconnecting(true);
+    setLocalError(null);
 
     try {
-      await disconnectGmail({})
+      await disconnectGmail({});
       // Invalidate queries to refresh UI state
-      await queryClient.invalidateQueries()
+      await queryClient.invalidateQueries();
       // Close dialog on success
-      setIsDisconnectDialogOpen(false)
+      setIsDisconnectDialogOpen(false);
     } catch (err) {
       if (err instanceof Error) {
-        setLocalError(err.message)
+        setLocalError(err.message);
       } else {
-        setLocalError("Failed to disconnect Gmail. Please try again.")
+        setLocalError("Failed to disconnect Gmail. Please try again.");
       }
     } finally {
-      setIsDisconnecting(false)
+      setIsDisconnecting(false);
     }
-  }
+  };
 
   // Show loading skeleton while fetching connection status
   if (isPending) {
-    return <LoadingSkeleton />
+    return <LoadingSkeleton />;
   }
 
   return (
@@ -322,9 +302,7 @@ export function GmailConnect() {
             <Mail className="h-5 w-5" />
             Gmail Integration
           </CardTitle>
-          <CardDescription>
-            Import newsletters from your existing Gmail inbox
-          </CardDescription>
+          <CardDescription>Import newsletters from your existing Gmail inbox</CardDescription>
         </CardHeader>
         <CardContent>
           {displayError ? (
@@ -335,10 +313,7 @@ export function GmailConnect() {
               onOpenDisconnectDialog={handleOpenDisconnectDialog}
             />
           ) : (
-            <DisconnectedState
-              onConnect={handleConnect}
-              isConnecting={isConnecting}
-            />
+            <DisconnectedState onConnect={handleConnect} isConnecting={isConnecting} />
           )}
         </CardContent>
       </Card>
@@ -354,5 +329,5 @@ export function GmailConnect() {
         />
       )}
     </>
-  )
+  );
 }

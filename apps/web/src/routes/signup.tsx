@@ -1,24 +1,24 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { useForm } from "@tanstack/react-form"
-import { z } from "zod"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { signUp } from "~/lib/auth-client"
-import { getErrorMessage, extractNameFromEmail } from "~/lib/utils/error"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useForm } from "@tanstack/react-form";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { signUp } from "~/lib/auth-client";
+import { getErrorMessage, extractNameFromEmail } from "~/lib/utils/error";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
-})
+});
 
 // Zod schema for form validation
 const signupSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-})
+});
 
 function SignupPage() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   const form = useForm({
     defaultValues: {
@@ -38,33 +38,31 @@ function SignupPage() {
           },
           {
             onSuccess: () => {
-              navigate({ to: "/newsletters" })
+              navigate({ to: "/newsletters" });
             },
             onError: (ctx) => {
               // Handle specific error codes from Better Auth
-              const errorCode = ctx.error?.code
-              const errorMessage = ctx.error?.message
+              const errorCode = ctx.error?.code;
+              const errorMessage = ctx.error?.message;
 
               if (
                 errorCode === "USER_ALREADY_EXISTS" ||
                 errorMessage?.toLowerCase().includes("already exists")
               ) {
-                throw new Error("An account with this email already exists")
+                throw new Error("An account with this email already exists");
               }
 
               // Provide user-friendly message for other errors
-              throw new Error(
-                errorMessage || "Registration failed. Please try again."
-              )
+              throw new Error(errorMessage || "Registration failed. Please try again.");
             },
-          }
-        )
+          },
+        );
       } catch (error) {
         // Return error to be displayed via form.Subscribe
-        throw new Error(getErrorMessage(error))
+        throw new Error(getErrorMessage(error));
       }
     },
-  })
+  });
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 flex items-center justify-center p-4">
@@ -78,8 +76,8 @@ function SignupPage() {
         <CardContent>
           <form
             onSubmit={(e) => {
-              e.preventDefault()
-              form.handleSubmit()
+              e.preventDefault();
+              form.handleSubmit();
             }}
             className="space-y-4"
           >
@@ -165,11 +163,7 @@ function SignupPage() {
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
               children={([canSubmit, isSubmitting]) => (
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={!canSubmit || isSubmitting}
-                >
+                <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
                   {isSubmitting ? "Creating account..." : "Sign Up"}
                 </Button>
               )}
@@ -179,15 +173,12 @@ function SignupPage() {
           {/* Sign in link */}
           <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-6">
             Already have an account?{" "}
-            <Link
-              to="/login"
-              className="text-primary hover:underline font-medium"
-            >
+            <Link to="/login" className="text-primary hover:underline font-medium">
               Sign In
             </Link>
           </p>
         </CardContent>
       </Card>
     </main>
-  )
+  );
 }

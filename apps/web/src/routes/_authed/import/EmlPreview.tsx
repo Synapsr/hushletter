@@ -6,8 +6,8 @@
  * Shows subject, sender (email + name), and formatted date.
  */
 
-import { type ParsedEml } from "@hushletter/shared"
-import { Button } from "~/components/ui/button"
+import { type ParsedEml } from "@hushletter/shared";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -15,18 +15,18 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card"
-import { Mail, User, Calendar, Loader2, CheckCircle2, X } from "lucide-react"
+} from "@/components/ui/card";
+import { Mail, User, Calendar, Loader2, CheckCircle2, X } from "lucide-react";
 
 interface EmlPreviewProps {
   /** Parsed EML data to display */
-  parsedEml: ParsedEml
+  parsedEml: ParsedEml;
   /** Callback when user confirms import */
-  onConfirm: () => void
+  onConfirm: () => void;
   /** Callback when user cancels */
-  onCancel: () => void
+  onCancel: () => void;
   /** Whether import is currently in progress */
-  isImporting: boolean
+  isImporting: boolean;
 }
 
 /**
@@ -39,18 +39,13 @@ function formatDate(timestamp: number): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  })
+  });
 }
 
 /**
  * Preview component for a single parsed .eml file
  */
-export function EmlPreview({
-  parsedEml,
-  onConfirm,
-  onCancel,
-  isImporting,
-}: EmlPreviewProps) {
+export function EmlPreview({ parsedEml, onConfirm, onCancel, isImporting }: EmlPreviewProps) {
   return (
     <Card>
       <CardHeader>
@@ -58,20 +53,14 @@ export function EmlPreview({
           <Mail className="h-5 w-5" />
           Preview Newsletter
         </CardTitle>
-        <CardDescription>
-          Review the newsletter details before importing
-        </CardDescription>
+        <CardDescription>Review the newsletter details before importing</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
         {/* Subject */}
         <div>
-          <p className="text-sm font-medium text-muted-foreground mb-1">
-            Subject
-          </p>
-          <p className="text-base font-medium text-gray-900 dark:text-white">
-            {parsedEml.subject}
-          </p>
+          <p className="text-sm font-medium text-muted-foreground mb-1">Subject</p>
+          <p className="text-base font-medium text-gray-900 dark:text-white">{parsedEml.subject}</p>
         </div>
 
         {/* Sender */}
@@ -82,9 +71,7 @@ export function EmlPreview({
           </p>
           <div className="text-base">
             {parsedEml.senderName && (
-              <p className="font-medium text-gray-900 dark:text-white">
-                {parsedEml.senderName}
-              </p>
+              <p className="font-medium text-gray-900 dark:text-white">{parsedEml.senderName}</p>
             )}
             <p
               className={
@@ -113,11 +100,7 @@ export function EmlPreview({
         <div className="pt-2 border-t">
           <p className="text-sm text-muted-foreground">
             Content type:{" "}
-            {parsedEml.htmlContent
-              ? "HTML"
-              : parsedEml.textContent
-                ? "Plain text"
-                : "Empty"}
+            {parsedEml.htmlContent ? "HTML" : parsedEml.textContent ? "Plain text" : "Empty"}
           </p>
           {parsedEml.inlineImages.length > 0 && (
             <p className="text-sm text-muted-foreground">
@@ -133,20 +116,11 @@ export function EmlPreview({
       </CardContent>
 
       <CardFooter className="flex gap-3">
-        <Button
-          variant="outline"
-          onClick={onCancel}
-          disabled={isImporting}
-          className="flex-1"
-        >
+        <Button variant="outline" onClick={onCancel} disabled={isImporting} className="flex-1">
           <X className="mr-2 h-4 w-4" />
           Cancel
         </Button>
-        <Button
-          onClick={onConfirm}
-          disabled={isImporting}
-          className="flex-1"
-        >
+        <Button onClick={onConfirm} disabled={isImporting} className="flex-1">
           {isImporting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -161,5 +135,5 @@ export function EmlPreview({
         </Button>
       </CardFooter>
     </Card>
-  )
+  );
 }

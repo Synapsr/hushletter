@@ -138,7 +138,7 @@ Community Import:
 // apps/web/src/components/NewsletterCard.tsx
 
 import { Mail, Globe } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface NewsletterCardProps {
   // ... existing props
@@ -429,8 +429,8 @@ export const getFolderWithSourceBreakdown = query({
 // apps/web/src/routes/_authed/newsletters/$id.tsx
 
 import { Mail, Globe, Trash2 } from "lucide-react"
-import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -441,7 +441,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "~/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog"
 
 function ReaderHeader({ newsletter }: { newsletter: UserNewsletter }) {
   const isCommunity = newsletter.source === "community"

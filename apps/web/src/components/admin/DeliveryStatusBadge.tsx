@@ -1,29 +1,29 @@
-import { Badge } from "~/components/ui/badge"
-import { CheckCircle, Clock, Download, AlertCircle } from "lucide-react"
-import { cn } from "~/lib/utils"
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, Clock, Download, AlertCircle } from "lucide-react";
+import { cn } from "~/lib/utils";
 
 /**
  * Valid delivery status values
  * Story 7.2: Task 4.4
  */
-type DeliveryStatus = "received" | "processing" | "stored" | "failed"
+type DeliveryStatus = "received" | "processing" | "stored" | "failed";
 
 /**
  * Props for the DeliveryStatusBadge component
  */
 interface DeliveryStatusBadgeProps {
   /** The delivery status to display */
-  status: DeliveryStatus
+  status: DeliveryStatus;
 }
 
 /** Configuration for each status type */
 const statusConfig: Record<
   DeliveryStatus,
   {
-    label: string
-    variant: "default" | "secondary" | "destructive" | "outline"
-    icon: typeof CheckCircle
-    className?: string
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+    icon: typeof CheckCircle;
+    className?: string;
   }
 > = {
   received: {
@@ -35,7 +35,8 @@ const statusConfig: Record<
     label: "Processing",
     variant: "secondary",
     icon: Clock,
-    className: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-200 dark:border-yellow-800",
+    className:
+      "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-200 dark:border-yellow-800",
   },
   stored: {
     label: "Stored",
@@ -48,7 +49,7 @@ const statusConfig: Record<
     variant: "destructive",
     icon: AlertCircle,
   },
-}
+};
 
 /**
  * DeliveryStatusBadge displays a colored badge with icon for delivery status
@@ -59,8 +60,8 @@ const statusConfig: Record<
  * <DeliveryStatusBadge status="failed" />
  */
 export function DeliveryStatusBadge({ status }: DeliveryStatusBadgeProps) {
-  const config = statusConfig[status]
-  const Icon = config.icon
+  const config = statusConfig[status];
+  const Icon = config.icon;
 
   return (
     <Badge
@@ -71,5 +72,5 @@ export function DeliveryStatusBadge({ status }: DeliveryStatusBadgeProps) {
       <Icon className="h-3 w-3" aria-hidden="true" />
       {config.label}
     </Badge>
-  )
+  );
 }

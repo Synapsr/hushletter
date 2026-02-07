@@ -10,28 +10,22 @@
  *                → (multiple) BULK_PROGRESS → COMPLETE
  */
 
-import { useState } from "react"
-import { createFileRoute } from "@tanstack/react-router"
-import { parseEmlFile, type ParsedEml, type EmlParseResult } from "@hushletter/shared"
-import { useAction } from "convex/react"
-import { api } from "@hushletter/backend"
-import { Link, useNavigate } from "@tanstack/react-router"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card"
-import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
-import { EmlDropZone } from "./EmlDropZone"
-import { EmlPreview } from "./EmlPreview"
-import { BulkImportProgress } from "./BulkImportProgress"
-import { readFileAsArrayBuffer, getParserErrorMessage } from "./emlUtils"
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { parseEmlFile, type ParsedEml, type EmlParseResult } from "@hushletter/shared";
+import { useAction } from "convex/react";
+import { api } from "@hushletter/backend";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
+import { EmlDropZone } from "./EmlDropZone";
+import { EmlPreview } from "./EmlPreview";
+import { BulkImportProgress } from "./BulkImportProgress";
+import { readFileAsArrayBuffer, getParserErrorMessage } from "./emlUtils";
 
 export const Route = createFileRoute("/_authed/import/manual")({
   component: ManualImportPage,
-})
+});
 
 /** Import state machine */
 type ImportState =
@@ -40,27 +34,19 @@ type ImportState =
   | { type: "preview"; parsed: ParsedEml }
   | { type: "uploading"; parsed: ParsedEml }
   | { type: "bulk_progress"; files: File[] }
-  | { type: "error"; message: string }
+  | { type: "error"; message: string };
 
 /**
  * Error Alert Component (inline pattern from SenderReview)
  */
-function ErrorAlert({
-  message,
-  onDismiss,
-}: {
-  message: string
-  onDismiss: () => void
-}) {
+function ErrorAlert({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (
     <div
       role="alert"
       className="flex items-center gap-2 p-3 mb-4 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-900"
     >
       <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
-      <span className="text-sm text-red-700 dark:text-red-300 flex-1">
-        {message}
-      </span>
+      <span className="text-sm text-red-700 dark:text-red-300 flex-1">{message}</span>
       <button
         onClick={onDismiss}
         className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-sm font-medium"
@@ -69,63 +55,62 @@ function ErrorAlert({
         Dismiss
       </button>
     </div>
-  )
+  );
 }
 
 /**
  * Manual Import Page Component
  */
 function ManualImportPage() {
-  const [state, setState] = useState<ImportState>({ type: "idle" })
-  const [error, setError] = useState<string | null>(null)
-  const navigate = useNavigate()
+  const [state, setState] = useState<ImportState>({ type: "idle" });
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const importAction = useAction(api.manualImport.importEmlNewsletter)
+  const importAction = useAction(api.manualImport.importEmlNewsletter);
 
   // Handle files selected from drop zone
   const handleFilesSelected = async (files: File[]) => {
-    setError(null)
+    setError(null);
 
-    if (files.length === 0) return
+    if (files.length === 0) return;
 
     // Multiple files → go to bulk import
     if (files.length > 1) {
-      setState({ type: "bulk_progress", files })
-      return
+      setState({ type: "bulk_progress", files });
+      return;
     }
 
     // Single file → parse and preview
-    const file = files[0]
-    setState({ type: "parsing", fileCount: 1 })
+    const file = files[0];
+    setState({ type: "parsing", fileCount: 1 });
 
     try {
-      const buffer = await readFileAsArrayBuffer(file)
-      const result: EmlParseResult = await parseEmlFile(buffer)
+      const buffer = await readFileAsArrayBuffer(file);
+      const result: EmlParseResult = await parseEmlFile(buffer);
 
       if (!result.success) {
         // Parser error
-        const errorMessage = getParserErrorMessage(result.error.code)
-        setError(errorMessage)
-        setState({ type: "idle" })
-        return
+        const errorMessage = getParserErrorMessage(result.error.code);
+        setError(errorMessage);
+        setState({ type: "idle" });
+        return;
       }
 
       // Show preview
-      setState({ type: "preview", parsed: result.data })
+      setState({ type: "preview", parsed: result.data });
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to read file"
-      setError(errorMessage)
-      setState({ type: "idle" })
+      const errorMessage = err instanceof Error ? err.message : "Failed to read file";
+      setError(errorMessage);
+      setState({ type: "idle" });
     }
-  }
+  };
 
   // Handle single file import confirmation
   const handleConfirmImport = async () => {
-    if (state.type !== "preview") return
+    if (state.type !== "preview") return;
 
-    setState({ type: "uploading", parsed: state.parsed })
-    setError(null)
+    setState({ type: "uploading", parsed: state.parsed });
+    setError(null);
 
     try {
       const result = await importAction({
@@ -136,7 +121,7 @@ function ManualImportPage() {
         htmlContent: state.parsed.htmlContent ?? undefined,
         textContent: state.parsed.textContent ?? undefined,
         messageId: state.parsed.messageId ?? undefined,
-      })
+      });
 
       // Story 8.4: Handle duplicate detection - navigate to existing newsletter
       if (result.skipped) {
@@ -144,39 +129,38 @@ function ManualImportPage() {
         navigate({
           to: "/newsletters/$id",
           params: { id: result.existingId },
-        })
-        return
+        });
+        return;
       }
 
       // Navigate to the imported newsletter
       navigate({
         to: "/newsletters/$id",
         params: { id: result.userNewsletterId },
-      })
+      });
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to import newsletter"
-      setError(errorMessage)
-      setState({ type: "idle" })
+      const errorMessage = err instanceof Error ? err.message : "Failed to import newsletter";
+      setError(errorMessage);
+      setState({ type: "idle" });
     }
-  }
+  };
 
   // Handle cancel/back actions
   const handleCancel = () => {
-    setState({ type: "idle" })
-    setError(null)
-  }
+    setState({ type: "idle" });
+    setError(null);
+  };
 
   // Handle bulk import completion
   const handleBulkComplete = () => {
-    setState({ type: "idle" })
-    setError(null)
-  }
+    setState({ type: "idle" });
+    setError(null);
+  };
 
   // Handle drop zone errors
   const handleDropZoneError = (message: string) => {
-    setError(message)
-  }
+    setError(message);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -189,9 +173,7 @@ function ManualImportPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Import
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Manual Import
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Manual Import</h1>
         <p className="text-muted-foreground">
           Import newsletters from .eml files exported from your email client
         </p>
@@ -214,9 +196,7 @@ function ManualImportPage() {
         <Card>
           <CardHeader>
             <CardTitle>Parsing Email File</CardTitle>
-            <CardDescription>
-              Reading and validating the .eml file...
-            </CardDescription>
+            <CardDescription>Reading and validating the .eml file...</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -264,14 +244,16 @@ function ManualImportPage() {
               <strong>Gmail:</strong> Open email → Three dots menu → Download message
             </li>
             <li>
-              <strong>Outlook:</strong> Select email → File → Save As → Save as type: Outlook Message Format
+              <strong>Outlook:</strong> Select email → File → Save As → Save as type: Outlook
+              Message Format
             </li>
             <li>
-              <strong>Apple Mail:</strong> Select email → File → Save As → Format: Raw Message Source
+              <strong>Apple Mail:</strong> Select email → File → Save As → Format: Raw Message
+              Source
             </li>
           </ul>
         </div>
       )}
     </div>
-  )
+  );
 }

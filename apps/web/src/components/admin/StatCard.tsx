@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { cn } from "~/lib/utils"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "~/lib/utils";
 
 /**
  * Props for the StatCard component
@@ -7,17 +7,17 @@ import { cn } from "~/lib/utils"
  */
 interface StatCardProps {
   /** The metric title/label */
-  title: string
+  title: string;
   /** The numeric value to display */
-  value: number
+  value: number;
   /** Optional icon to display in the header */
-  icon?: React.ReactNode
+  icon?: React.ReactNode;
   /** Optional trend text (e.g., "+5 today") */
-  trend?: string
+  trend?: string;
   /** Optional description text */
-  description?: string
+  description?: string;
   /** Optional additional CSS classes */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -32,14 +32,7 @@ interface StatCardProps {
  *   trend="+5 today"
  * />
  */
-export function StatCard({
-  title,
-  value,
-  icon,
-  trend,
-  description,
-  className,
-}: StatCardProps) {
+export function StatCard({ title, value, icon, trend, description, className }: StatCardProps) {
   return (
     <Card className={cn("", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -51,10 +44,7 @@ export function StatCard({
         )}
       </CardHeader>
       <CardContent>
-        <div
-          className="text-2xl font-bold"
-          aria-label={`${title}: ${value.toLocaleString()}`}
-        >
+        <div className="text-2xl font-bold" aria-label={`${title}: ${value.toLocaleString()}`}>
           {value.toLocaleString()}
         </div>
         {trend && (
@@ -68,10 +58,8 @@ export function StatCard({
             {trend}
           </p>
         )}
-        {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
-        )}
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </CardContent>
     </Card>
-  )
+  );
 }

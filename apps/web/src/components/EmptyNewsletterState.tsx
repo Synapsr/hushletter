@@ -1,11 +1,11 @@
-import { Link } from "@tanstack/react-router"
-import { DedicatedEmailDisplay } from "~/components/DedicatedEmailDisplay"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Inbox, Compass } from "lucide-react"
+import { Link } from "@tanstack/react-router";
+import { DedicatedEmailDisplay } from "@/components/DedicatedEmailDisplay";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Inbox, Compass } from "lucide-react";
 
 interface EmptyNewsletterStateProps {
-  dedicatedEmail: string | null
+  dedicatedEmail: string | null;
 }
 
 /**
@@ -69,5 +69,5 @@ export function EmptyNewsletterState({ dedicatedEmail }: EmptyNewsletterStatePro
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

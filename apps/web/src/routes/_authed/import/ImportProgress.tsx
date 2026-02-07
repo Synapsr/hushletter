@@ -10,10 +10,10 @@
  * - Progress persistence across page refresh (AC#5)
  */
 
-import { useState } from "react"
-import { useQuery, useAction } from "convex/react"
-import { api } from "@hushletter/backend"
-import { Link } from "@tanstack/react-router"
+import { useState } from "react";
+import { useQuery, useAction } from "convex/react";
+import { api } from "@hushletter/backend";
+import { Link } from "@tanstack/react-router";
 import {
   Card,
   CardContent,
@@ -21,9 +21,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Progress } from "~/components/ui/progress"
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Loader2,
   CheckCircle2,
@@ -32,21 +32,21 @@ import {
   SkipForward,
   XCircle,
   ArrowRight,
-} from "lucide-react"
+} from "lucide-react";
 
 /**
  * Types for import progress
  */
 type ImportProgressData = {
-  status: "pending" | "importing" | "complete" | "error"
-  totalEmails: number
-  importedEmails: number
-  failedEmails: number
-  skippedEmails: number
-  startedAt: number
-  completedAt?: number
-  error?: string
-}
+  status: "pending" | "importing" | "complete" | "error";
+  totalEmails: number;
+  importedEmails: number;
+  failedEmails: number;
+  skippedEmails: number;
+  startedAt: number;
+  completedAt?: number;
+  error?: string;
+};
 
 /**
  * Loading skeleton for the component
@@ -62,7 +62,7 @@ function LoadingSkeleton() {
         <div className="h-10 bg-muted rounded animate-pulse" />
       </CardContent>
     </Card>
-  )
+  );
 }
 
 /**
@@ -70,12 +70,9 @@ function LoadingSkeleton() {
  * Story 4.4: Task 6.1, 6.2 (AC#1)
  */
 function ImportingState({ progress }: { progress: ImportProgressData }) {
-  const processedEmails =
-    progress.importedEmails + progress.failedEmails + progress.skippedEmails
+  const processedEmails = progress.importedEmails + progress.failedEmails + progress.skippedEmails;
   const percentage =
-    progress.totalEmails > 0
-      ? Math.round((processedEmails / progress.totalEmails) * 100)
-      : 0
+    progress.totalEmails > 0 ? Math.round((processedEmails / progress.totalEmails) * 100) : 0;
 
   return (
     <div className="space-y-4">
@@ -131,20 +128,15 @@ function ImportingState({ progress }: { progress: ImportProgressData }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /**
  * Complete state - shows summary and navigation
  * Story 4.4: Task 6.3, 6.4 (AC#3)
  */
-function CompleteState({
-  progress,
-}: {
-  progress: ImportProgressData
-}) {
-  const totalProcessed =
-    progress.importedEmails + progress.failedEmails + progress.skippedEmails
+function CompleteState({ progress }: { progress: ImportProgressData }) {
+  const totalProcessed = progress.importedEmails + progress.failedEmails + progress.skippedEmails;
 
   return (
     <div className="space-y-4">
@@ -153,9 +145,7 @@ function CompleteState({
           <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
         </div>
         <div>
-          <p className="font-medium text-green-800 dark:text-green-200">
-            Import Complete!
-          </p>
+          <p className="font-medium text-green-800 dark:text-green-200">Import Complete!</p>
           <p className="text-sm text-green-600 dark:text-green-400">
             Successfully imported {progress.importedEmails} newsletter
             {progress.importedEmails !== 1 ? "s" : ""}
@@ -164,9 +154,7 @@ function CompleteState({
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Import Summary
-        </h3>
+        <h3 className="text-sm font-medium text-muted-foreground">Import Summary</h3>
 
         <div className="grid grid-cols-1 gap-2">
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -181,13 +169,9 @@ function CompleteState({
             <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
               <div className="flex items-center gap-2">
                 <SkipForward className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">
-                  Skipped (duplicates)
-                </span>
+                <span className="text-muted-foreground">Skipped (duplicates)</span>
               </div>
-              <span className="text-muted-foreground">
-                {progress.skippedEmails}
-              </span>
+              <span className="text-muted-foreground">{progress.skippedEmails}</span>
             </div>
           )}
 
@@ -197,9 +181,7 @@ function CompleteState({
                 <XCircle className="h-4 w-4 text-red-500" />
                 <span className="text-red-600 dark:text-red-400">Failed</span>
               </div>
-              <span className="text-red-600 dark:text-red-400">
-                {progress.failedEmails}
-              </span>
+              <span className="text-red-600 dark:text-red-400">{progress.failedEmails}</span>
             </div>
           )}
         </div>
@@ -217,7 +199,7 @@ function CompleteState({
         </Link>
       </Button>
     </div>
-  )
+  );
 }
 
 /**
@@ -229,9 +211,9 @@ function ErrorState({
   onRetry,
   isRetrying,
 }: {
-  progress: ImportProgressData
-  onRetry: () => void
-  isRetrying: boolean
+  progress: ImportProgressData;
+  onRetry: () => void;
+  isRetrying: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -240,9 +222,7 @@ function ErrorState({
           <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
         </div>
         <div>
-          <p className="font-medium text-red-800 dark:text-red-200">
-            Import Failed
-          </p>
+          <p className="font-medium text-red-800 dark:text-red-200">Import Failed</p>
           <p className="text-sm text-red-600 dark:text-red-400">
             {progress.error || "An unexpected error occurred"}
           </p>
@@ -253,19 +233,14 @@ function ErrorState({
         <div className="p-3 bg-muted rounded-lg">
           <p className="text-sm text-muted-foreground">
             {progress.importedEmails} email
-            {progress.importedEmails !== 1 ? "s were" : " was"} successfully
-            imported before the error occurred.
+            {progress.importedEmails !== 1 ? "s were" : " was"} successfully imported before the
+            error occurred.
           </p>
         </div>
       )}
 
       <div className="flex gap-3">
-        <Button
-          onClick={onRetry}
-          disabled={isRetrying}
-          variant="outline"
-          className="flex-1"
-        >
+        <Button onClick={onRetry} disabled={isRetrying} variant="outline" className="flex-1">
           {isRetrying ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -282,53 +257,49 @@ function ErrorState({
         )}
       </div>
     </div>
-  )
+  );
 }
 
 /**
  * ImportProgress - Main component for showing import progress
  * Story 4.4: Task 6 (All ACs)
  */
-export function ImportProgress({
-  onBack,
-}: {
-  onBack?: () => void
-}) {
+export function ImportProgress({ onBack }: { onBack?: () => void }) {
   // Query import progress (reactive - updates in real-time via Convex)
   const importProgress = useQuery(api.gmail.getImportProgress) as
     | ImportProgressData
     | null
-    | undefined
+    | undefined;
 
   // Action to restart import
-  const startImport = useAction(api.gmail.startHistoricalImport)
+  const startImport = useAction(api.gmail.startHistoricalImport);
 
   // Local state for retry tracking
-  const [isRetrying, setIsRetrying] = useState(false)
+  const [isRetrying, setIsRetrying] = useState(false);
 
   // Handle retry
   const handleRetry = async () => {
-    setIsRetrying(true)
+    setIsRetrying(true);
     try {
-      await startImport()
+      await startImport();
     } catch (error) {
-      console.error("[ImportProgress] Retry failed:", error)
+      console.error("[ImportProgress] Retry failed:", error);
     } finally {
-      setIsRetrying(false)
+      setIsRetrying(false);
     }
-  }
+  };
 
   // Show loading skeleton while fetching initial state
   if (importProgress === undefined) {
-    return <LoadingSkeleton />
+    return <LoadingSkeleton />;
   }
 
   // No import in progress or started
   if (!importProgress) {
-    return null
+    return null;
   }
 
-  const { status } = importProgress
+  const { status } = importProgress;
 
   return (
     <Card>
@@ -366,9 +337,7 @@ export function ImportProgress({
               <Loader2 className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin" />
             </div>
             <div>
-              <p className="font-medium text-blue-800 dark:text-blue-200">
-                Preparing Import...
-              </p>
+              <p className="font-medium text-blue-800 dark:text-blue-200">Preparing Import...</p>
               <p className="text-sm text-blue-600 dark:text-blue-400">
                 Your import will start shortly
               </p>
@@ -378,11 +347,7 @@ export function ImportProgress({
         {status === "importing" && <ImportingState progress={importProgress} />}
         {status === "complete" && <CompleteState progress={importProgress} />}
         {status === "error" && (
-          <ErrorState
-            progress={importProgress}
-            onRetry={handleRetry}
-            isRetrying={isRetrying}
-          />
+          <ErrorState progress={importProgress} onRetry={handleRetry} isRetrying={isRetrying} />
         )}
       </CardContent>
 
@@ -394,5 +359,5 @@ export function ImportProgress({
         </CardFooter>
       )}
     </Card>
-  )
+  );
 }

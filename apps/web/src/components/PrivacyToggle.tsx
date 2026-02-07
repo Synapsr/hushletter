@@ -4,20 +4,20 @@
  * Uses existing updateSenderSettings mutation from senders.ts
  */
 
-import { useState } from "react"
-import { useQueryClient, useMutation } from "@tanstack/react-query"
-import { useConvexMutation } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import { Lock, Unlock, AlertCircle } from "lucide-react"
-import { Switch } from "~/components/ui/switch"
-import { Tooltip } from "~/components/ui/tooltip"
+import { useState } from "react";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { Lock, Unlock, AlertCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip } from "@/components/ui/tooltip";
 
 interface PrivacyToggleProps {
-  senderId: Id<"senders">
-  isPrivate: boolean
+  senderId: Id<"senders">;
+  isPrivate: boolean;
   /** Optional: Show compact version without label */
-  compact?: boolean
+  compact?: boolean;
 }
 
 /**
@@ -25,29 +25,29 @@ interface PrivacyToggleProps {
  * AC #1: Toggle "Private" option for a sender, updates userSenderSettings.isPrivate
  */
 export function PrivacyToggle({ senderId, isPrivate, compact = false }: PrivacyToggleProps) {
-  const queryClient = useQueryClient()
-  const mutationFn = useConvexMutation(api.senders.updateSenderSettings)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient();
+  const mutationFn = useConvexMutation(api.senders.updateSenderSettings);
+  const [error, setError] = useState<string | null>(null);
 
   const { mutateAsync, isPending } = useMutation({
     mutationFn,
     onSuccess: () => {
-      setError(null)
-      queryClient.invalidateQueries()
+      setError(null);
+      queryClient.invalidateQueries();
     },
-  })
+  });
 
   const handleToggle = async (checked: boolean) => {
     try {
-      setError(null)
-      await mutateAsync({ senderId, isPrivate: checked })
+      setError(null);
+      await mutateAsync({ senderId, isPrivate: checked });
     } catch (err) {
-      console.error("[PrivacyToggle] Failed to update privacy setting:", err)
-      setError("Failed to update")
+      console.error("[PrivacyToggle] Failed to update privacy setting:", err);
+      setError("Failed to update");
       // Clear error after 3 seconds
-      setTimeout(() => setError(null), 3000)
+      setTimeout(() => setError(null), 3000);
     }
-  }
+  };
 
   return (
     <div className="flex items-center gap-2">
@@ -67,10 +67,8 @@ export function PrivacyToggle({ senderId, isPrivate, compact = false }: PrivacyT
         aria-label={isPrivate ? "Mark sender as public" : "Mark sender as private"}
       />
       {!compact && (
-        <span className="text-sm text-muted-foreground">
-          {isPrivate ? "Private" : "Public"}
-        </span>
+        <span className="text-sm text-muted-foreground">{isPrivate ? "Private" : "Public"}</span>
       )}
     </div>
-  )
+  );
 }

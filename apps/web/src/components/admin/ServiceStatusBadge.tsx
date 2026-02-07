@@ -1,18 +1,18 @@
-import { Badge } from "~/components/ui/badge"
-import { Tooltip } from "~/components/ui/tooltip"
-import { CheckCircle, XCircle } from "lucide-react"
-import { cn } from "~/lib/utils"
+import { Badge } from "@/components/ui/badge";
+import { Tooltip } from "@/components/ui/tooltip";
+import { CheckCircle, XCircle } from "lucide-react";
+import { cn } from "~/lib/utils";
 
 /**
  * Service status data structure
  */
 interface ServiceStatus {
   /** Whether the service is healthy */
-  healthy: boolean
+  healthy: boolean;
   /** Status message to show in tooltip */
-  message: string
+  message: string;
   /** Optional timestamp of last activity */
-  lastActivity?: number | null
+  lastActivity?: number | null;
 }
 
 /**
@@ -21,9 +21,9 @@ interface ServiceStatus {
  */
 interface ServiceStatusBadgeProps {
   /** Display name of the service */
-  service: string
+  service: string;
   /** Status data for the service */
-  status: ServiceStatus
+  status: ServiceStatus;
 }
 
 /**
@@ -42,7 +42,7 @@ interface ServiceStatusBadgeProps {
  * />
  */
 export function ServiceStatusBadge({ service, status }: ServiceStatusBadgeProps) {
-  const Icon = status.healthy ? CheckCircle : XCircle
+  const Icon = status.healthy ? CheckCircle : XCircle;
 
   return (
     <Tooltip content={status.message}>
@@ -50,7 +50,7 @@ export function ServiceStatusBadge({ service, status }: ServiceStatusBadgeProps)
         variant={status.healthy ? "default" : "destructive"}
         className={cn(
           "flex items-center gap-1.5 cursor-default",
-          status.healthy && "bg-green-600 hover:bg-green-700 text-white"
+          status.healthy && "bg-green-600 hover:bg-green-700 text-white",
         )}
         role="status"
         aria-label={`${service}: ${status.healthy ? "Healthy" : "Unhealthy"}`}
@@ -59,5 +59,5 @@ export function ServiceStatusBadge({ service, status }: ServiceStatusBadgeProps)
         {service}
       </Badge>
     </Tooltip>
-  )
+  );
 }

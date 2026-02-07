@@ -1,26 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { convexQuery } from "@convex-dev/react-query"
-import { useQuery } from "@tanstack/react-query"
-import { api } from "@hushletter/backend"
-import { useState } from "react"
-import { CommunityContentTable } from "~/components/admin/CommunityContentTable"
-import { BlockedSendersTable } from "~/components/admin/BlockedSendersTable"
-import { ReportsQueue } from "~/components/admin/ReportsQueue"
-import { ModerationLogTable } from "~/components/admin/ModerationLogTable"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
-import { AlertCircle, Eye, EyeOff, Ban, Flag } from "lucide-react"
-import { Badge } from "~/components/ui/badge"
+import { createFileRoute } from "@tanstack/react-router";
+import { convexQuery } from "@convex-dev/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@hushletter/backend";
+import { useState } from "react";
+import { CommunityContentTable } from "@/components/admin/CommunityContentTable";
+import { BlockedSendersTable } from "@/components/admin/BlockedSendersTable";
+import { ReportsQueue } from "@/components/admin/ReportsQueue";
+import { ModerationLogTable } from "@/components/admin/ModerationLogTable";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, Eye, EyeOff, Ban, Flag } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 /** Community content summary type */
 interface CommunitySummary {
-  totalContent: number
-  hiddenContent: number
-  activeContent: number
-  blockedSenders: number
-  pendingReports: number
+  totalContent: number;
+  hiddenContent: number;
+  activeContent: number;
+  blockedSenders: number;
+  pendingReports: number;
 }
 
 /**
@@ -36,26 +36,23 @@ interface CommunitySummary {
  */
 export const Route = createFileRoute("/_authed/admin/community")({
   component: CommunityManagement,
-})
+});
 
 function CommunityManagement() {
-  const [activeTab, setActiveTab] = useState("content")
+  const [activeTab, setActiveTab] = useState("content");
 
   const {
     data: summary,
     isPending: summaryLoading,
     isError: summaryError,
     error: summaryErrorMessage,
-  } = useQuery(convexQuery(api.admin.getCommunityContentSummary, {}))
+  } = useQuery(convexQuery(api.admin.getCommunityContentSummary, {}));
 
-  const { data: pendingReportsCount } = useQuery(
-    convexQuery(api.admin.getPendingReportsCount, {})
-  )
+  const { data: pendingReportsCount } = useQuery(convexQuery(api.admin.getPendingReportsCount, {}));
 
   // Show error alert if summary query failed
-  const hasError = summaryError
-  const errorMessage =
-    summaryErrorMessage?.message || "An error occurred loading community data"
+  const hasError = summaryError;
+  const errorMessage = summaryErrorMessage?.message || "An error occurred loading community data";
 
   return (
     <div className="space-y-6">
@@ -125,7 +122,7 @@ function CommunityManagement() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
 
 /** Summary cards component for community statistics */
@@ -134,9 +131,7 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Content
-          </CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Total Content</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-2xl font-bold">{summary.totalContent}</p>
@@ -151,9 +146,7 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold text-green-600">
-            {summary.activeContent}
-          </p>
+          <p className="text-2xl font-bold text-green-600">{summary.activeContent}</p>
         </CardContent>
       </Card>
 
@@ -165,9 +158,7 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold text-yellow-600">
-            {summary.hiddenContent}
-          </p>
+          <p className="text-2xl font-bold text-yellow-600">{summary.hiddenContent}</p>
         </CardContent>
       </Card>
 
@@ -179,9 +170,7 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold text-red-600">
-            {summary.blockedSenders}
-          </p>
+          <p className="text-2xl font-bold text-red-600">{summary.blockedSenders}</p>
         </CardContent>
       </Card>
 
@@ -193,11 +182,9 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold text-orange-600">
-            {summary.pendingReports}
-          </p>
+          <p className="text-2xl font-bold text-orange-600">{summary.pendingReports}</p>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

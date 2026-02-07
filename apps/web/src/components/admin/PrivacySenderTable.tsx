@@ -5,25 +5,25 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
-import { Badge } from "~/components/ui/badge"
-import { Progress } from "~/components/ui/progress"
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 /**
  * Private sender from listPrivateSenders query
  */
 interface PrivateSender {
-  senderId: string
-  email: string
-  name: string | undefined
-  domain: string
-  usersMarkedPrivate: number
-  totalSubscribers: number
-  privatePercentage: number
+  senderId: string;
+  email: string;
+  name: string | undefined;
+  domain: string;
+  usersMarkedPrivate: number;
+  totalSubscribers: number;
+  privatePercentage: number;
 }
 
 interface PrivacySenderTableProps {
-  senders: PrivateSender[]
+  senders: PrivateSender[];
 }
 
 /**
@@ -39,7 +39,7 @@ export function PrivacySenderTable({ senders }: PrivacySenderTableProps) {
       <p className="text-center text-muted-foreground py-8" role="status">
         No senders have been marked private by any user
       </p>
-    )
+    );
   }
 
   return (
@@ -58,9 +58,7 @@ export function PrivacySenderTable({ senders }: PrivacySenderTableProps) {
             <TableCell>
               <div>
                 <p className="font-medium">{sender.name || sender.email}</p>
-                {sender.name && (
-                  <p className="text-sm text-muted-foreground">{sender.email}</p>
-                )}
+                {sender.name && <p className="text-sm text-muted-foreground">{sender.email}</p>}
               </div>
             </TableCell>
             <TableCell>
@@ -68,10 +66,7 @@ export function PrivacySenderTable({ senders }: PrivacySenderTableProps) {
             </TableCell>
             <TableCell>
               <span className="font-medium">{sender.usersMarkedPrivate}</span>
-              <span className="text-muted-foreground">
-                {" "}
-                / {sender.totalSubscribers}
-              </span>
+              <span className="text-muted-foreground"> / {sender.totalSubscribers}</span>
             </TableCell>
             <TableCell>
               <div className="flex items-center gap-2">
@@ -87,5 +82,5 @@ export function PrivacySenderTable({ senders }: PrivacySenderTableProps) {
         ))}
       </TableBody>
     </Table>
-  )
+  );
 }

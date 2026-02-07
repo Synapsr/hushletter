@@ -8,53 +8,51 @@
  * - Instructions on how to subscribe
  * - Optional link to sender's website (domain)
  */
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Copy, Check, Mail, ExternalLink } from "lucide-react"
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Copy, Check, Mail, ExternalLink } from "lucide-react";
 
 /** Type for getCurrentUser query response - matches auth.ts return type */
 interface CurrentUserData {
-  id: string
-  email: string
-  name: string | null
-  dedicatedEmail: string | null
+  id: string;
+  email: string;
+  name: string | null;
+  dedicatedEmail: string | null;
 }
 
 interface SubscribeInfoProps {
-  senderEmail: string
-  senderName?: string
-  domain: string
+  senderEmail: string;
+  senderName?: string;
+  domain: string;
 }
 
 export function SubscribeInfo({ senderEmail, senderName, domain }: SubscribeInfoProps) {
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(false);
 
   // Get current user's dedicated email
-  const { data: userData, isError } = useQuery(
-    convexQuery(api.auth.getCurrentUser, {})
-  )
+  const { data: userData, isError } = useQuery(convexQuery(api.auth.getCurrentUser, {}));
 
-  const user = userData as CurrentUserData | null | undefined
-  const dedicatedEmail = user?.dedicatedEmail
+  const user = userData as CurrentUserData | null | undefined;
+  const dedicatedEmail = user?.dedicatedEmail;
 
   const handleCopy = async () => {
-    if (!dedicatedEmail) return
+    if (!dedicatedEmail) return;
 
     try {
-      await navigator.clipboard.writeText(dedicatedEmail)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      await navigator.clipboard.writeText(dedicatedEmail);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       // Failed to copy - visual feedback will not show "copied"
-      console.error("Failed to copy email to clipboard")
+      console.error("Failed to copy email to clipboard");
     }
-  }
+  };
 
-  const displayName = senderName || senderEmail
+  const displayName = senderName || senderEmail;
 
   return (
     <Card>
@@ -82,7 +80,9 @@ export function SubscribeInfo({ senderEmail, senderName, domain }: SubscribeInfo
                 variant="outline"
                 size="icon"
                 onClick={handleCopy}
-                aria-label={copied ? "Email address copied to clipboard" : "Copy email address to clipboard"}
+                aria-label={
+                  copied ? "Email address copied to clipboard" : "Copy email address to clipboard"
+                }
               >
                 {copied ? (
                   <Check className="h-4 w-4 text-green-500" aria-hidden="true" />
@@ -101,9 +101,7 @@ export function SubscribeInfo({ senderEmail, senderName, domain }: SubscribeInfo
             Failed to load your dedicated email address. Please refresh the page.
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Loading your dedicated email address...
-          </p>
+          <p className="text-sm text-muted-foreground">Loading your dedicated email address...</p>
         )}
 
         {/* Instructions */}
@@ -130,5 +128,5 @@ export function SubscribeInfo({ senderEmail, senderName, domain }: SubscribeInfo
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

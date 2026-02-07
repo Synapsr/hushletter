@@ -1,8 +1,8 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { api } from "@hushletter/backend"
-import { useConvexMutation } from "@convex-dev/react-query"
-import { useState } from "react"
+import { convexQuery } from "@convex-dev/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@hushletter/backend";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -10,9 +10,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
-import { Button } from "~/components/ui/button"
-import { Skeleton } from "~/components/ui/skeleton"
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -20,22 +20,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog"
-import { Label } from "~/components/ui/label"
-import { Ban, Unlock, FileText } from "lucide-react"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Ban, Unlock, FileText } from "lucide-react";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 
 /** Blocked sender item returned from listBlockedSenders */
 interface BlockedSenderItem {
-  id: Id<"blockedSenders">
-  senderId: Id<"senders">
-  senderEmail: string
-  senderName: string | undefined
-  domain: string
-  reason: string
-  blockedAt: number
-  blockedByEmail: string
-  contentCount: number
+  id: Id<"blockedSenders">;
+  senderId: Id<"senders">;
+  senderEmail: string;
+  senderName: string | undefined;
+  domain: string;
+  reason: string;
+  blockedAt: number;
+  blockedByEmail: string;
+  contentCount: number;
 }
 
 /**
@@ -48,23 +48,23 @@ interface BlockedSenderItem {
  * - Unblock action with option to restore content
  */
 export function BlockedSendersTable() {
-  const queryClient = useQueryClient()
-  const [unblockDialogOpen, setUnblockDialogOpen] = useState(false)
+  const queryClient = useQueryClient();
+  const [unblockDialogOpen, setUnblockDialogOpen] = useState(false);
   const [selectedSender, setSelectedSender] = useState<{
-    senderId: string
-    senderEmail: string
-    contentCount: number
-  } | null>(null)
-  const [restoreContent, setRestoreContent] = useState(true)
+    senderId: string;
+    senderEmail: string;
+    contentCount: number;
+  } | null>(null);
+  const [restoreContent, setRestoreContent] = useState(true);
 
   // Query
   const { data, isPending, isError } = useQuery(
-    convexQuery(api.admin.listBlockedSenders, { limit: 50 })
-  )
+    convexQuery(api.admin.listBlockedSenders, { limit: 50 }),
+  );
 
   // Mutation
-  const unblockSenderFn = useConvexMutation(api.admin.unblockSender)
-  const unblockMutation = useMutation({ mutationFn: unblockSenderFn })
+  const unblockSenderFn = useConvexMutation(api.admin.unblockSender);
+  const unblockMutation = useMutation({ mutationFn: unblockSenderFn });
 
   /** Invalidate blocked senders queries */
   const invalidateBlockedSendersQueries = async () => {
@@ -77,46 +77,44 @@ export function BlockedSendersTable() {
             (key.includes("listBlockedSenders") ||
               key.includes("listCommunityContent") ||
               key.includes("getCommunityContentSummary") ||
-              key.includes("listModerationLog"))
+              key.includes("listModerationLog")),
         ),
-    })
-  }
+    });
+  };
 
   const handleUnblock = async () => {
-    if (!selectedSender) return
+    if (!selectedSender) return;
 
     await unblockMutation.mutateAsync({
       senderId: selectedSender.senderId as Id<"senders">,
       restoreContent,
-    })
+    });
 
-    await invalidateBlockedSendersQueries()
+    await invalidateBlockedSendersQueries();
 
-    setUnblockDialogOpen(false)
-    setSelectedSender(null)
-    setRestoreContent(true)
-  }
+    setUnblockDialogOpen(false);
+    setSelectedSender(null);
+    setRestoreContent(true);
+  };
 
   const openUnblockDialog = (sender: {
-    senderId: string
-    senderEmail: string
-    contentCount: number
+    senderId: string;
+    senderEmail: string;
+    contentCount: number;
   }) => {
-    setSelectedSender(sender)
-    setRestoreContent(true)
-    setUnblockDialogOpen(true)
-  }
+    setSelectedSender(sender);
+    setRestoreContent(true);
+    setUnblockDialogOpen(true);
+  };
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString()
-  }
+    return new Date(timestamp).toLocaleDateString();
+  };
 
   if (isError) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        Failed to load blocked senders
-      </div>
-    )
+      <div className="text-center py-8 text-muted-foreground">Failed to load blocked senders</div>
+    );
   }
 
   if (isPending) {
@@ -126,21 +124,19 @@ export function BlockedSendersTable() {
           <Skeleton key={`row-skeleton-${i}`} className="h-16" />
         ))}
       </div>
-    )
+    );
   }
 
-  const blockedSenders = (data ?? []) as BlockedSenderItem[]
+  const blockedSenders = (data ?? []) as BlockedSenderItem[];
 
   if (blockedSenders.length === 0) {
     return (
       <div className="text-center py-12">
         <Ban className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium">No Blocked Senders</h3>
-        <p className="text-muted-foreground">
-          No senders have been blocked from the community.
-        </p>
+        <p className="text-muted-foreground">No senders have been blocked from the community.</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -170,16 +166,12 @@ export function BlockedSendersTable() {
                   <div className="flex flex-col">
                     <span className="font-medium">{sender.senderEmail}</span>
                     {sender.senderName && (
-                      <span className="text-xs text-muted-foreground">
-                        {sender.senderName}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{sender.senderName}</span>
                     )}
                   </div>
                 </TableCell>
                 <TableCell>{sender.domain}</TableCell>
-                <TableCell className="max-w-[200px] truncate">
-                  {sender.reason}
-                </TableCell>
+                <TableCell className="max-w-[200px] truncate">{sender.reason}</TableCell>
                 <TableCell>{sender.contentCount} items</TableCell>
                 <TableCell>{formatDate(sender.blockedAt)}</TableCell>
                 <TableCell>{sender.blockedByEmail}</TableCell>
@@ -213,16 +205,13 @@ export function BlockedSendersTable() {
           <DialogHeader>
             <DialogTitle>Unblock Sender</DialogTitle>
             <DialogDescription>
-              This will allow the sender's content to appear in the community
-              again.
+              This will allow the sender's content to appear in the community again.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <Label className="text-sm font-medium">Sender</Label>
-              <p className="text-sm text-muted-foreground">
-                {selectedSender?.senderEmail}
-              </p>
+              <p className="text-sm text-muted-foreground">{selectedSender?.senderEmail}</p>
             </div>
             <div>
               <Label className="text-sm font-medium">Content affected</Label>
@@ -244,10 +233,7 @@ export function BlockedSendersTable() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setUnblockDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setUnblockDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleUnblock} disabled={unblockMutation.isPending}>
@@ -257,5 +243,5 @@ export function BlockedSendersTable() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

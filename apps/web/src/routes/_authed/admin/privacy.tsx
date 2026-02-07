@@ -1,17 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { convexQuery } from "@convex-dev/react-query"
-import { useQuery } from "@tanstack/react-query"
-import { api } from "@hushletter/backend"
-import { useState } from "react"
-import { PrivacyStatsCard } from "~/components/admin/PrivacyStatsCard"
-import { PrivacyAuditPanel } from "~/components/admin/PrivacyAuditPanel"
-import { PrivacySenderTable } from "~/components/admin/PrivacySenderTable"
-import { NewsletterSearchPanel } from "~/components/admin/NewsletterSearchPanel"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
-import { AlertCircle } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router";
+import { convexQuery } from "@convex-dev/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@hushletter/backend";
+import { useState } from "react";
+import { PrivacyStatsCard } from "@/components/admin/PrivacyStatsCard";
+import { PrivacyAuditPanel } from "@/components/admin/PrivacyAuditPanel";
+import { PrivacySenderTable } from "@/components/admin/PrivacySenderTable";
+import { NewsletterSearchPanel } from "@/components/admin/NewsletterSearchPanel";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 /**
  * Privacy Review Page - Admin dashboard for privacy compliance
@@ -25,26 +25,39 @@ import { AlertCircle } from "lucide-react"
  */
 export const Route = createFileRoute("/_authed/admin/privacy")({
   component: PrivacyReview,
-})
+});
 
 function PrivacyReview() {
-  const [activeTab, setActiveTab] = useState("overview")
+  const [activeTab, setActiveTab] = useState("overview");
 
-  const { data: stats, isPending: statsLoading, isError: statsError, error: statsErrorMessage } = useQuery(
-    convexQuery(api.admin.getPrivacyStats, {})
-  )
+  const {
+    data: stats,
+    isPending: statsLoading,
+    isError: statsError,
+    error: statsErrorMessage,
+  } = useQuery(convexQuery(api.admin.getPrivacyStats, {}));
 
-  const { data: audit, isPending: auditLoading, isError: auditError, error: auditErrorMessage } = useQuery(
-    convexQuery(api.admin.runPrivacyAudit, {})
-  )
+  const {
+    data: audit,
+    isPending: auditLoading,
+    isError: auditError,
+    error: auditErrorMessage,
+  } = useQuery(convexQuery(api.admin.runPrivacyAudit, {}));
 
-  const { data: privateSenders, isPending: sendersLoading, isError: sendersError, error: sendersErrorMessage } = useQuery(
-    convexQuery(api.admin.listPrivateSenders, { limit: 20 })
-  )
+  const {
+    data: privateSenders,
+    isPending: sendersLoading,
+    isError: sendersError,
+    error: sendersErrorMessage,
+  } = useQuery(convexQuery(api.admin.listPrivateSenders, { limit: 20 }));
 
   // Show error alert if any query failed
-  const hasError = statsError || auditError || sendersError
-  const errorMessage = statsErrorMessage?.message || auditErrorMessage?.message || sendersErrorMessage?.message || "An error occurred"
+  const hasError = statsError || auditError || sendersError;
+  const errorMessage =
+    statsErrorMessage?.message ||
+    auditErrorMessage?.message ||
+    sendersErrorMessage?.message ||
+    "An error occurred";
 
   return (
     <div className="space-y-6">
@@ -57,9 +70,7 @@ function PrivacyReview() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" aria-hidden="true" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {errorMessage}
-          </AlertDescription>
+          <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       )}
 
@@ -102,23 +113,16 @@ function PrivacyReview() {
               <CardContent>
                 <ul className="space-y-2" role="list" aria-label="Audit check results">
                   {audit.checks.map((check) => (
-                    <li
-                      key={check.name}
-                      className="flex items-center gap-2"
-                    >
+                    <li key={check.name} className="flex items-center gap-2">
                       <span
-                        className={
-                          check.passed ? "text-green-600" : "text-red-600"
-                        }
+                        className={check.passed ? "text-green-600" : "text-red-600"}
                         aria-hidden="true"
                       >
                         {check.passed ? "✓" : "✗"}
                       </span>
                       <span>
                         {check.name}
-                        <span className="sr-only">
-                          {check.passed ? " - passed" : " - failed"}
-                        </span>
+                        <span className="sr-only">{check.passed ? " - passed" : " - failed"}</span>
                       </span>
                     </li>
                   ))}
@@ -145,5 +149,5 @@ function PrivacyReview() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

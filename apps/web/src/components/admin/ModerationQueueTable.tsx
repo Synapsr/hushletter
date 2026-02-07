@@ -1,8 +1,8 @@
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import {
   Table,
   TableBody,
@@ -10,23 +10,23 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
-import { Input } from "~/components/ui/input"
-import { Button } from "~/components/ui/button"
-import { Label } from "~/components/ui/label"
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
-import { Skeleton } from "~/components/ui/skeleton"
-import { ChevronDown, ChevronRight, Search, X } from "lucide-react"
-import { ModerationNewsletterModal } from "./ModerationNewsletterModal"
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import { ModerationNewsletterModal } from "./ModerationNewsletterModal";
 
 /** Sort options for the queue */
-type SortOption = "newsletterCount" | "senderName" | "latestReceived"
+type SortOption = "newsletterCount" | "senderName" | "latestReceived";
 
 /**
  * Moderation Queue Table Component
@@ -40,18 +40,16 @@ type SortOption = "newsletterCount" | "senderName" | "latestReceived"
  * - Sort by count, sender name, or date
  */
 export function ModerationQueueTable() {
-  const [senderFilter, setSenderFilter] = useState("")
-  const [startDate, setStartDate] = useState<string>("")
-  const [endDate, setEndDate] = useState<string>("")
-  const [sortBy, setSortBy] = useState<SortOption>("latestReceived")
-  const [expandedSenders, setExpandedSenders] = useState<Set<string>>(new Set())
-  const [selectedNewsletter, setSelectedNewsletter] = useState<
-    Id<"userNewsletters"> | null
-  >(null)
+  const [senderFilter, setSenderFilter] = useState("");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [sortBy, setSortBy] = useState<SortOption>("latestReceived");
+  const [expandedSenders, setExpandedSenders] = useState<Set<string>>(new Set());
+  const [selectedNewsletter, setSelectedNewsletter] = useState<Id<"userNewsletters"> | null>(null);
 
   // Convert date strings to Unix timestamps for the query
-  const startDateMs = startDate ? new Date(startDate).getTime() : undefined
-  const endDateMs = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : undefined
+  const startDateMs = startDate ? new Date(startDate).getTime() : undefined;
+  const endDateMs = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : undefined;
 
   const { data: queue, isPending } = useQuery(
     convexQuery(api.admin.listModerationQueue, {
@@ -59,34 +57,34 @@ export function ModerationQueueTable() {
       startDate: startDateMs,
       endDate: endDateMs,
       sortBy,
-    })
-  )
+    }),
+  );
 
   const clearFilters = () => {
-    setSenderFilter("")
-    setStartDate("")
-    setEndDate("")
-  }
+    setSenderFilter("");
+    setStartDate("");
+    setEndDate("");
+  };
 
-  const hasActiveFilters = senderFilter || startDate || endDate
+  const hasActiveFilters = senderFilter || startDate || endDate;
 
   const toggleSender = (senderId: string) => {
-    const newExpanded = new Set(expandedSenders)
+    const newExpanded = new Set(expandedSenders);
     if (newExpanded.has(senderId)) {
-      newExpanded.delete(senderId)
+      newExpanded.delete(senderId);
     } else {
-      newExpanded.add(senderId)
+      newExpanded.add(senderId);
     }
-    setExpandedSenders(newExpanded)
-  }
+    setExpandedSenders(newExpanded);
+  };
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
-    })
-  }
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -137,10 +135,7 @@ export function ModerationQueueTable() {
         </div>
         <div>
           <Label className="text-xs text-muted-foreground mb-1 block">Sort</Label>
-          <Select
-            value={sortBy}
-            onValueChange={(value) => setSortBy(value as SortOption)}
-          >
+          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
             <SelectTrigger className="w-[180px]" aria-label="Sort by">
               <SelectValue placeholder="Sort by..." />
             </SelectTrigger>
@@ -200,10 +195,7 @@ export function ModerationQueueTable() {
               ))
             ) : queue?.items.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center py-8 text-muted-foreground"
-                >
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   No newsletters pending moderation
                 </TableCell>
               </TableRow>
@@ -239,24 +231,24 @@ export function ModerationQueueTable() {
         />
       )}
     </div>
-  )
+  );
 }
 
 /** Props for SenderRow component */
 interface SenderRowProps {
   sender: {
-    senderId: Id<"senders">
-    senderEmail: string
-    senderName?: string
-    senderDomain: string
-    newsletterCount: number
-    latestReceived: number
-    sampleSubjects: string[]
-  }
-  isExpanded: boolean
-  onToggle: () => void
-  onSelectNewsletter: (id: Id<"userNewsletters">) => void
-  formatDate: (timestamp: number) => string
+    senderId: Id<"senders">;
+    senderEmail: string;
+    senderName?: string;
+    senderDomain: string;
+    newsletterCount: number;
+    latestReceived: number;
+    sampleSubjects: string[];
+  };
+  isExpanded: boolean;
+  onToggle: () => void;
+  onSelectNewsletter: (id: Id<"userNewsletters">) => void;
+  formatDate: (timestamp: number) => string;
 }
 
 /** Individual sender row with expandable newsletters */
@@ -275,11 +267,7 @@ function SenderRow({
         aria-expanded={isExpanded}
       >
         <TableCell>
-          <button
-            type="button"
-            className="p-1"
-            aria-label={isExpanded ? "Collapse" : "Expand"}
-          >
+          <button type="button" className="p-1" aria-label={isExpanded ? "Collapse" : "Expand"}>
             {isExpanded ? (
               <ChevronDown className="h-4 w-4" aria-hidden="true" />
             ) : (
@@ -289,17 +277,13 @@ function SenderRow({
         </TableCell>
         <TableCell>
           <div>
-            <p className="font-medium">
-              {sender.senderName ?? sender.senderEmail}
-            </p>
+            <p className="font-medium">{sender.senderName ?? sender.senderEmail}</p>
             {sender.senderName && (
               <p className="text-sm text-muted-foreground">{sender.senderEmail}</p>
             )}
           </div>
         </TableCell>
-        <TableCell className="text-right font-medium">
-          {sender.newsletterCount}
-        </TableCell>
+        <TableCell className="text-right font-medium">{sender.newsletterCount}</TableCell>
         <TableCell>{formatDate(sender.latestReceived)}</TableCell>
         <TableCell className="max-w-md">
           <p className="truncate text-sm text-muted-foreground">
@@ -316,14 +300,14 @@ function SenderRow({
         />
       )}
     </>
-  )
+  );
 }
 
 /** Props for SenderNewsletterRows component */
 interface SenderNewsletterRowsProps {
-  senderId: Id<"senders">
-  onSelectNewsletter: (id: Id<"userNewsletters">) => void
-  formatDate: (timestamp: number) => string
+  senderId: Id<"senders">;
+  onSelectNewsletter: (id: Id<"userNewsletters">) => void;
+  formatDate: (timestamp: number) => string;
 }
 
 /** Expanded newsletter rows for a sender */
@@ -333,8 +317,8 @@ function SenderNewsletterRows({
   formatDate,
 }: SenderNewsletterRowsProps) {
   const { data: newsletters, isPending } = useQuery(
-    convexQuery(api.admin.listModerationNewslettersForSender, { senderId })
-  )
+    convexQuery(api.admin.listModerationNewslettersForSender, { senderId }),
+  );
 
   if (isPending) {
     return (
@@ -343,7 +327,7 @@ function SenderNewsletterRows({
           <Skeleton className="h-4 w-40" />
         </TableCell>
       </TableRow>
-    )
+    );
   }
 
   return (
@@ -355,8 +339,8 @@ function SenderNewsletterRows({
             <button
               type="button"
               onClick={(e) => {
-                e.stopPropagation()
-                onSelectNewsletter(newsletter.id)
+                e.stopPropagation();
+                onSelectNewsletter(newsletter.id);
               }}
               className="text-left hover:underline focus:underline focus:outline-none"
             >
@@ -370,5 +354,5 @@ function SenderNewsletterRows({
         </TableRow>
       ))}
     </>
-  )
+  );
 }

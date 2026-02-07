@@ -1,39 +1,30 @@
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
-import { useAction } from "convex/react"
-import { useConvexMutation } from "@convex-dev/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import { useState, useEffect } from "react"
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useAction } from "convex/react";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "~/components/ui/dialog"
-import { Button } from "~/components/ui/button"
-import { Badge } from "~/components/ui/badge"
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Textarea } from "~/components/ui/textarea"
-import {
-  AlertTriangle,
-  User,
-  Mail,
-  Calendar,
-  ExternalLink,
-  Check,
-  X,
-  Loader2,
-} from "lucide-react"
-import { toast } from "sonner"
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertTriangle, User, Mail, Calendar, ExternalLink, Check, X, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 /** Props for ModerationNewsletterModal */
 interface Props {
-  userNewsletterId: Id<"userNewsletters">
-  onClose: () => void
-  onActionComplete?: () => void
+  userNewsletterId: Id<"userNewsletters">;
+  onClose: () => void;
+  onActionComplete?: () => void;
 }
 
 /**
@@ -49,66 +40,60 @@ interface Props {
  * - PII detection warnings
  * - Publish to Community / Reject action buttons
  */
-export function ModerationNewsletterModal({
-  userNewsletterId,
-  onClose,
-  onActionComplete,
-}: Props) {
-  const [contentUrl, setContentUrl] = useState<string | null>(null)
-  const [contentError, setContentError] = useState<string | null>(null)
-  const [isLoadingContent, setIsLoadingContent] = useState(true)
+export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionComplete }: Props) {
+  const [contentUrl, setContentUrl] = useState<string | null>(null);
+  const [contentError, setContentError] = useState<string | null>(null);
+  const [isLoadingContent, setIsLoadingContent] = useState(true);
   const [piiDetection, setPiiDetection] = useState<{
-    hasPotentialPII: boolean
-    findings: Array<{ type: string; description: string; count: number; samples: string[] }>
-    recommendation: string
-  } | null>(null)
-  const [showRejectDialog, setShowRejectDialog] = useState(false)
-  const [rejectReason, setRejectReason] = useState("")
-  const [isPublishing, setIsPublishing] = useState(false)
-  const [isRejecting, setIsRejecting] = useState(false)
+    hasPotentialPII: boolean;
+    findings: Array<{ type: string; description: string; count: number; samples: string[] }>;
+    recommendation: string;
+  } | null>(null);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   // Get newsletter detail (metadata)
   const { data: detail, isPending: detailLoading } = useQuery(
-    convexQuery(api.admin.getModerationNewsletterDetail, { userNewsletterId })
-  )
+    convexQuery(api.admin.getModerationNewsletterDetail, { userNewsletterId }),
+  );
 
   // Action to get content URL
-  const getContent = useAction(api.admin.getModerationNewsletterContent)
+  const getContent = useAction(api.admin.getModerationNewsletterContent);
 
   // Action to publish to community
-  const publishAction = useAction(api.admin.publishToCommunity)
+  const publishAction = useAction(api.admin.publishToCommunity);
 
   // Mutation to reject
-  const rejectFn = useConvexMutation(api.admin.rejectFromCommunity)
-  const rejectMutation = useMutation({ mutationFn: rejectFn })
+  const rejectFn = useConvexMutation(api.admin.rejectFromCommunity);
+  const rejectMutation = useMutation({ mutationFn: rejectFn });
 
   // Load content URL and PII detection when modal opens
   useEffect(() => {
     async function loadContent() {
       try {
-        setIsLoadingContent(true)
-        setContentError(null)
-        setPiiDetection(null)
-        const result = await getContent({ userNewsletterId })
-        setContentUrl(result.signedUrl)
+        setIsLoadingContent(true);
+        setContentError(null);
+        setPiiDetection(null);
+        const result = await getContent({ userNewsletterId });
+        setContentUrl(result.signedUrl);
         // Store PII detection results from the action
         if (result.piiDetection) {
-          setPiiDetection(result.piiDetection)
+          setPiiDetection(result.piiDetection);
         }
       } catch (error) {
-        console.error("Failed to load newsletter content:", error)
-        setContentError(
-          error instanceof Error ? error.message : "Failed to load content"
-        )
+        console.error("Failed to load newsletter content:", error);
+        setContentError(error instanceof Error ? error.message : "Failed to load content");
       } finally {
-        setIsLoadingContent(false)
+        setIsLoadingContent(false);
       }
     }
 
-    loadContent()
-  }, [userNewsletterId, getContent])
+    loadContent();
+  }, [userNewsletterId, getContent]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString(undefined, {
@@ -117,54 +102,54 @@ export function ModerationNewsletterModal({
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    })
-  }
+    });
+  };
 
   const handlePublish = async () => {
-    setIsPublishing(true)
+    setIsPublishing(true);
     try {
-      const result = await publishAction({ userNewsletterId })
+      const result = await publishAction({ userNewsletterId });
       toast.success(
         result.reusedExisting
           ? "Newsletter linked to existing community content"
-          : "Newsletter published to community"
-      )
+          : "Newsletter published to community",
+      );
       // Invalidate all queries to ensure moderation queue and related data refreshes
       // convexQuery generates keys based on function reference, broad invalidation is safest
-      await queryClient.invalidateQueries()
-      onActionComplete?.()
-      onClose()
+      await queryClient.invalidateQueries();
+      onActionComplete?.();
+      onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to publish")
+      toast.error(error instanceof Error ? error.message : "Failed to publish");
     } finally {
-      setIsPublishing(false)
+      setIsPublishing(false);
     }
-  }
+  };
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      toast.error("Please provide a reason for rejection")
-      return
+      toast.error("Please provide a reason for rejection");
+      return;
     }
 
-    setIsRejecting(true)
+    setIsRejecting(true);
     try {
       await rejectMutation.mutateAsync({
         userNewsletterId,
         reason: rejectReason,
-      })
-      toast.success("Newsletter rejected")
+      });
+      toast.success("Newsletter rejected");
       // Invalidate all queries to ensure moderation queue and related data refreshes
-      await queryClient.invalidateQueries()
-      onActionComplete?.()
-      onClose()
+      await queryClient.invalidateQueries();
+      onActionComplete?.();
+      onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to reject")
+      toast.error(error instanceof Error ? error.message : "Failed to reject");
     } finally {
-      setIsRejecting(false)
-      setShowRejectDialog(false)
+      setIsRejecting(false);
+      setShowRejectDialog(false);
     }
-  }
+  };
 
   return (
     <>
@@ -175,7 +160,7 @@ export function ModerationNewsletterModal({
               {detailLoading ? (
                 <Skeleton className="h-6 w-64" />
               ) : (
-                detail?.subject ?? "Newsletter"
+                (detail?.subject ?? "Newsletter")
               )}
             </DialogTitle>
           </DialogHeader>
@@ -192,32 +177,22 @@ export function ModerationNewsletterModal({
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <span className="text-muted-foreground">Sender:</span>
-                  <span className="font-medium">
-                    {detail.senderName ?? detail.senderEmail}
-                  </span>
+                  <span className="font-medium">{detail.senderName ?? detail.senderEmail}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Calendar
-                    className="h-4 w-4 text-muted-foreground"
-                    aria-hidden="true"
-                  />
+                  <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <span className="text-muted-foreground">Received:</span>
                   <span>{formatDate(detail.receivedAt)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ExternalLink
-                    className="h-4 w-4 text-muted-foreground"
-                    aria-hidden="true"
-                  />
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <span className="text-muted-foreground">Source:</span>
                   <Badge variant="outline">{detail.source ?? "email"}</Badge>
                 </div>
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <span className="text-muted-foreground">Owner (Audit):</span>
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    {detail.userEmail}
-                  </code>
+                  <code className="text-xs bg-muted px-1 py-0.5 rounded">{detail.userEmail}</code>
                 </div>
               </div>
 
@@ -233,8 +208,8 @@ export function ModerationNewsletterModal({
                     <ul className="list-disc pl-4 space-y-1">
                       {piiDetection.findings.map((finding, i) => (
                         <li key={i} className="text-sm">
-                          <span className="font-medium">{finding.description}</span>
-                          {" "}({finding.count} found)
+                          <span className="font-medium">{finding.description}</span> (
+                          {finding.count} found)
                           {finding.samples.length > 0 && (
                             <span className="text-muted-foreground ml-1">
                               e.g., "{finding.samples[0]}"
@@ -250,7 +225,8 @@ export function ModerationNewsletterModal({
                   <Check className="h-4 w-4" aria-hidden="true" />
                   <AlertTitle>No Personalization Detected</AlertTitle>
                   <AlertDescription>
-                    {piiDetection?.recommendation ?? "Content appears clean for community publishing."}
+                    {piiDetection?.recommendation ??
+                      "Content appears clean for community publishing."}
                   </AlertDescription>
                 </Alert>
               )}
@@ -277,9 +253,7 @@ export function ModerationNewsletterModal({
                     title="Newsletter content preview"
                   />
                 ) : (
-                  <div className="p-8 text-center text-muted-foreground">
-                    No content available
-                  </div>
+                  <div className="p-8 text-center text-muted-foreground">No content available</div>
                 )}
               </div>
 
@@ -310,9 +284,7 @@ export function ModerationNewsletterModal({
               </DialogFooter>
             </div>
           ) : (
-            <div className="py-8 text-center text-muted-foreground">
-              Newsletter not found
-            </div>
+            <div className="py-8 text-center text-muted-foreground">Newsletter not found</div>
           )}
         </DialogContent>
       </Dialog>
@@ -325,8 +297,8 @@ export function ModerationNewsletterModal({
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              This newsletter will be removed from the moderation queue.
-              The user's copy will remain unchanged.
+              This newsletter will be removed from the moderation queue. The user's copy will remain
+              unchanged.
             </p>
             <Textarea
               placeholder="Reason for rejection (required)..."
@@ -353,5 +325,5 @@ export function ModerationNewsletterModal({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

@@ -1,12 +1,12 @@
-import { useQuery } from "@tanstack/react-query"
-import { useMutation } from "convex/react"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import { useForm } from "@tanstack/react-form"
-import { z } from "zod"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
+import { useQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { useForm } from "@tanstack/react-form";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -14,22 +14,22 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
-} from "~/components/ui/dialog"
-import { FolderIcon, PencilIcon, TrashIcon, PlusIcon } from "lucide-react"
-import { useState } from "react"
+} from "@/components/ui/dialog";
+import { FolderIcon, PencilIcon, TrashIcon, PlusIcon } from "lucide-react";
+import { useState } from "react";
 
 /**
  * Folder data type from listFoldersWithUnreadCounts query
  */
 interface FolderData {
-  _id: Id<"folders">
-  userId: Id<"users">
-  name: string
-  color?: string
-  createdAt: number
-  newsletterCount: number
-  unreadCount: number
-  senderCount: number
+  _id: Id<"folders">;
+  userId: Id<"users">;
+  name: string;
+  color?: string;
+  createdAt: number;
+  newsletterCount: number;
+  unreadCount: number;
+  senderCount: number;
 }
 
 /**
@@ -38,37 +38,37 @@ interface FolderData {
  */
 const folderNameSchema = z.object({
   name: z.string().min(1, "Folder name is required").max(50, "Folder name too long"),
-})
+});
 
 /**
  * CreateFolderDialog - Dialog for creating a new folder
  * Story 3.3 Task 3.1 (AC1)
  */
 function CreateFolderDialog() {
-  const [open, setOpen] = useState(false)
-  const createFolder = useMutation(api.folders.createFolder)
+  const [open, setOpen] = useState(false);
+  const createFolder = useMutation(api.folders.createFolder);
 
   const form = useForm({
     defaultValues: { name: "" },
     validators: { onChange: folderNameSchema },
     onSubmit: async ({ value }) => {
       try {
-        await createFolder({ name: value.name })
-        setOpen(false)
-        form.reset()
+        await createFolder({ name: value.name });
+        setOpen(false);
+        form.reset();
       } catch (error) {
         // Story 3.3 Task 3.4: Handle duplicate folder name error
         if (error instanceof Error && error.message.includes("DUPLICATE")) {
           form.setFieldMeta("name", (prev) => ({
             ...prev,
             errors: ["A folder with this name already exists"],
-          }))
+          }));
         } else {
-          throw error
+          throw error;
         }
       }
     },
-  })
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -84,8 +84,8 @@ function CreateFolderDialog() {
         </DialogHeader>
         <form
           onSubmit={(e) => {
-            e.preventDefault()
-            form.handleSubmit()
+            e.preventDefault();
+            form.handleSubmit();
           }}
           className="space-y-4"
         >
@@ -125,7 +125,7 @@ function CreateFolderDialog() {
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 /**
@@ -133,28 +133,28 @@ function CreateFolderDialog() {
  * Story 3.3 Task 3.1
  */
 function EditFolderDialog({ folder }: { folder: FolderData }) {
-  const [open, setOpen] = useState(false)
-  const updateFolder = useMutation(api.folders.updateFolder)
+  const [open, setOpen] = useState(false);
+  const updateFolder = useMutation(api.folders.updateFolder);
 
   const form = useForm({
     defaultValues: { name: folder.name },
     validators: { onChange: folderNameSchema },
     onSubmit: async ({ value }) => {
       try {
-        await updateFolder({ folderId: folder._id, name: value.name })
-        setOpen(false)
+        await updateFolder({ folderId: folder._id, name: value.name });
+        setOpen(false);
       } catch (error) {
         if (error instanceof Error && error.message.includes("DUPLICATE")) {
           form.setFieldMeta("name", (prev) => ({
             ...prev,
             errors: ["A folder with this name already exists"],
-          }))
+          }));
         } else {
-          throw error
+          throw error;
         }
       }
     },
-  })
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -169,8 +169,8 @@ function EditFolderDialog({ folder }: { folder: FolderData }) {
         </DialogHeader>
         <form
           onSubmit={(e) => {
-            e.preventDefault()
-            form.handleSubmit()
+            e.preventDefault();
+            form.handleSubmit();
           }}
           className="space-y-4"
         >
@@ -210,7 +210,7 @@ function EditFolderDialog({ folder }: { folder: FolderData }) {
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 /**
@@ -221,22 +221,26 @@ function EditFolderDialog({ folder }: { folder: FolderData }) {
  * per project-context.md requirements.
  */
 function DeleteFolderDialog({ folder }: { folder: FolderData }) {
-  const [open, setOpen] = useState(false)
-  const deleteFolder = useMutation(api.folders.deleteFolder)
+  const [open, setOpen] = useState(false);
+  const deleteFolder = useMutation(api.folders.deleteFolder);
 
   // Using TanStack Form for isSubmitting state (project-context.md pattern)
   const form = useForm({
     defaultValues: {},
     onSubmit: async () => {
-      await deleteFolder({ folderId: folder._id as Id<"folders"> })
-      setOpen(false)
+      await deleteFolder({ folderId: folder._id as Id<"folders"> });
+      setOpen(false);
     },
-  })
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:text-destructive"
+        >
           <TrashIcon className="h-4 w-4" />
         </Button>
       </DialogTrigger>
@@ -245,17 +249,20 @@ function DeleteFolderDialog({ folder }: { folder: FolderData }) {
           <DialogTitle>Delete Folder</DialogTitle>
         </DialogHeader>
         <p className="text-muted-foreground">
-          Are you sure you want to delete "{folder.name}"? Senders in this folder will become uncategorized.
+          Are you sure you want to delete "{folder.name}"? Senders in this folder will become
+          uncategorized.
         </p>
         <form
           onSubmit={(e) => {
-            e.preventDefault()
-            form.handleSubmit()
+            e.preventDefault();
+            form.handleSubmit();
           }}
         >
           <div className="flex justify-end gap-2 mt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
             <form.Subscribe
               selector={(state) => state.isSubmitting}
@@ -269,7 +276,7 @@ function DeleteFolderDialog({ folder }: { folder: FolderData }) {
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 /**
@@ -280,10 +287,10 @@ function DeleteFolderDialog({ folder }: { folder: FolderData }) {
  */
 export function FolderManagement() {
   const { data: folders, isPending } = useQuery(
-    convexQuery(api.folders.listFoldersWithUnreadCounts, {})
-  )
+    convexQuery(api.folders.listFoldersWithUnreadCounts, {}),
+  );
 
-  const folderList = (folders ?? []) as FolderData[]
+  const folderList = (folders ?? []) as FolderData[];
 
   return (
     <div className="space-y-4">
@@ -324,5 +331,5 @@ export function FolderManagement() {
 
       <CreateFolderDialog />
     </div>
-  )
+  );
 }

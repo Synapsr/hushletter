@@ -1,10 +1,10 @@
-import { Link } from "@tanstack/react-router"
-import { Card, CardContent } from "~/components/ui/card"
-import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
-import { Checkbox } from "~/components/ui/checkbox"
-import { cn } from "~/lib/utils"
-import { Sparkles, Users, Lock, Download, Check } from "lucide-react"
+import { Link } from "@tanstack/react-router";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "~/lib/utils";
+import { Sparkles, Users, Lock, Download, Check } from "lucide-react";
 
 /**
  * Community newsletter data from listCommunityNewsletters query
@@ -15,14 +15,14 @@ import { Sparkles, Users, Lock, Download, Check } from "lucide-react"
  * No user-specific data (userId, isRead, isHidden, etc.) is ever included.
  */
 export interface CommunityNewsletterData {
-  _id: string
-  subject: string
-  senderEmail: string
-  senderName?: string
-  firstReceivedAt: number
-  readerCount: number
-  importCount?: number // Story 9.8: How many users imported from community
-  hasSummary: boolean
+  _id: string;
+  subject: string;
+  senderEmail: string;
+  senderName?: string;
+  firstReceivedAt: number;
+  readerCount: number;
+  importCount?: number; // Story 9.8: How many users imported from community
+  hasSummary: boolean;
 }
 
 /**
@@ -30,57 +30,57 @@ export interface CommunityNewsletterData {
  * Story 9.8 Task 3.3-3.4
  */
 export interface OwnershipStatus {
-  hasPrivate: boolean // User received this newsletter privately
-  hasImported: boolean // User imported this from community
+  hasPrivate: boolean; // User received this newsletter privately
+  hasImported: boolean; // User imported this from community
 }
 
 interface CommunityNewsletterCardProps {
-  newsletter: CommunityNewsletterData
-  ownershipStatus?: OwnershipStatus // Story 9.8 Task 3.3-3.4
-  onPreviewClick?: () => void // Story 9.8 Task 5.1: Click to preview
+  newsletter: CommunityNewsletterData;
+  ownershipStatus?: OwnershipStatus; // Story 9.8 Task 3.3-3.4
+  onPreviewClick?: () => void; // Story 9.8 Task 5.1: Click to preview
   // Story 9.9 Task 5.2, 6.1-6.4: Selection mode and quick import
-  selectionMode?: boolean
-  isSelected?: boolean
-  onSelectionChange?: (selected: boolean) => void
-  onQuickImport?: () => void
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onSelectionChange?: (selected: boolean) => void;
+  onQuickImport?: () => void;
 }
 
 /**
  * Format Unix timestamp for display using user's locale
  */
 function formatDate(timestamp: number): string {
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   // Show relative time for recent newsletters
   if (diffDays === 0) {
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours === 0) {
-      const diffMinutes = Math.floor(diffMs / (1000 * 60))
-      if (diffMinutes < 1) return "Just now"
-      return `${diffMinutes}m ago`
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      if (diffMinutes < 1) return "Just now";
+      return `${diffMinutes}m ago`;
     }
-    return `${diffHours}h ago`
+    return `${diffHours}h ago`;
   }
 
-  if (diffDays === 1) return "Yesterday"
-  if (diffDays < 7) return `${diffDays} days ago`
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
 
   // Show full date for older newsletters
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
-  })
+  });
 }
 
 /**
  * Get display name for sender (name or fallback to email)
  */
 function getSenderDisplay(newsletter: CommunityNewsletterData): string {
-  return newsletter.senderName || newsletter.senderEmail
+  return newsletter.senderName || newsletter.senderEmail;
 }
 
 /**
@@ -88,11 +88,11 @@ function getSenderDisplay(newsletter: CommunityNewsletterData): string {
  * Story 6.1: Task 2.2 - Shows "X readers" badge
  */
 function formatReaderCount(count: number): string {
-  if (count === 1) return "1 reader"
+  if (count === 1) return "1 reader";
   if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}k readers`
+    return `${(count / 1000).toFixed(1)}k readers`;
   }
-  return `${count} readers`
+  return `${count} readers`;
 }
 
 /**
@@ -100,12 +100,12 @@ function formatReaderCount(count: number): string {
  * Story 9.8 Task 6.2 - Shows "X imports" badge
  */
 function formatImportCount(count: number): string {
-  if (count === 0) return ""
-  if (count === 1) return "1 import"
+  if (count === 0) return "";
+  if (count === 1) return "1 import";
   if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}k imports`
+    return `${(count / 1000).toFixed(1)}k imports`;
   }
-  return `${count} imports`
+  return `${count} imports`;
 }
 
 /**
@@ -134,48 +134,50 @@ export function CommunityNewsletterCard({
   onSelectionChange,
   onQuickImport,
 }: CommunityNewsletterCardProps) {
-  const senderDisplay = getSenderDisplay(newsletter)
+  const senderDisplay = getSenderDisplay(newsletter);
 
   // Story 9.8: Determine if user already has this newsletter
-  const alreadyOwned = ownershipStatus?.hasPrivate || ownershipStatus?.hasImported
+  const alreadyOwned = ownershipStatus?.hasPrivate || ownershipStatus?.hasImported;
 
   // Story 9.8 Task 5.1: Handle card click for preview
   const handleClick = (e: React.MouseEvent) => {
     // Story 9.9 Task 5.2: In selection mode, toggle selection instead of preview
     if (selectionMode && onSelectionChange) {
-      e.preventDefault()
-      e.stopPropagation()
-      onSelectionChange(!isSelected)
-      return
+      e.preventDefault();
+      e.stopPropagation();
+      onSelectionChange(!isSelected);
+      return;
     }
     if (onPreviewClick) {
-      e.preventDefault()
-      onPreviewClick()
+      e.preventDefault();
+      onPreviewClick();
     }
-  }
+  };
 
   // Story 9.9 Task 5.2: Handle checkbox change
   const handleCheckboxChange = (checked: boolean | "indeterminate") => {
     if (onSelectionChange && typeof checked === "boolean") {
-      onSelectionChange(checked)
+      onSelectionChange(checked);
     }
-  }
+  };
 
   // Story 9.9 Task 6.1: Handle quick import
   const handleQuickImport = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     if (onQuickImport) {
-      onQuickImport()
+      onQuickImport();
     }
-  }
+  };
 
   const cardContent = (
-    <Card className={cn(
-      "transition-colors hover:bg-accent/50 cursor-pointer",
-      alreadyOwned && "opacity-80",
-      isSelected && "ring-2 ring-primary"
-    )}>
+    <Card
+      className={cn(
+        "transition-colors hover:bg-accent/50 cursor-pointer",
+        alreadyOwned && "opacity-80",
+        isSelected && "ring-2 ring-primary",
+      )}
+    >
       <CardContent className="py-4">
         <div className="flex items-start justify-between gap-4">
           {/* Story 9.9 Task 5.2: Selection checkbox */}
@@ -194,9 +196,7 @@ export function CommunityNewsletterCard({
           )}
           <div className="flex-1 min-w-0">
             {/* Sender name/email */}
-            <p className="text-sm text-muted-foreground truncate">
-              {senderDisplay}
-            </p>
+            <p className="text-sm text-muted-foreground truncate">{senderDisplay}</p>
             {/* Subject line */}
             <p className="text-base font-medium text-foreground truncate mt-1">
               {newsletter.subject}
@@ -272,9 +272,7 @@ export function CommunityNewsletterCard({
             <div
               className={cn(
                 "flex items-center gap-1 text-xs",
-                newsletter.readerCount > 10
-                  ? "text-primary"
-                  : "text-muted-foreground"
+                newsletter.readerCount > 10 ? "text-primary" : "text-muted-foreground",
               )}
               title={`${newsletter.readerCount} readers have this newsletter`}
             >
@@ -285,7 +283,7 @@ export function CommunityNewsletterCard({
         </div>
       </CardContent>
     </Card>
-  )
+  );
 
   // Story 9.8 Task 5.1: If preview click handler is provided, use button instead of Link
   if (onPreviewClick) {
@@ -297,7 +295,7 @@ export function CommunityNewsletterCard({
       >
         {cardContent}
       </button>
-    )
+    );
   }
 
   return (
@@ -308,5 +306,5 @@ export function CommunityNewsletterCard({
     >
       {cardContent}
     </Link>
-  )
+  );
 }

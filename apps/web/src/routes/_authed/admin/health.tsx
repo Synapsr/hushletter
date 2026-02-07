@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Badge } from "~/components/ui/badge"
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle,
   XCircle,
@@ -13,8 +13,8 @@ import {
   Mail,
   HardDrive,
   Sparkles,
-} from "lucide-react"
-import { cn } from "~/lib/utils"
+} from "lucide-react";
+import { cn } from "~/lib/utils";
 
 /**
  * Admin Health Details Page
@@ -28,41 +28,25 @@ import { cn } from "~/lib/utils"
  */
 export const Route = createFileRoute("/_authed/admin/health")({
   component: AdminHealthPage,
-})
+});
 
 /**
  * Health status card for a single service
  */
 interface HealthCardProps {
-  title: string
-  description: string
-  icon: React.ReactNode
-  healthy: boolean | null // null = unknown/loading
-  message: string
-  details?: React.ReactNode
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  healthy: boolean | null; // null = unknown/loading
+  message: string;
+  details?: React.ReactNode;
 }
 
-function HealthCard({
-  title,
-  description,
-  icon,
-  healthy,
-  message,
-  details,
-}: HealthCardProps) {
-  const StatusIcon =
-    healthy === null
-      ? AlertTriangle
-      : healthy
-        ? CheckCircle
-        : XCircle
+function HealthCard({ title, description, icon, healthy, message, details }: HealthCardProps) {
+  const StatusIcon = healthy === null ? AlertTriangle : healthy ? CheckCircle : XCircle;
 
   const statusColor =
-    healthy === null
-      ? "text-yellow-500"
-      : healthy
-        ? "text-green-500"
-        : "text-red-500"
+    healthy === null ? "text-yellow-500" : healthy ? "text-green-500" : "text-red-500";
 
   return (
     <Card>
@@ -78,21 +62,10 @@ function HealthCard({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <StatusIcon
-              className={cn("h-5 w-5", statusColor)}
-              aria-hidden="true"
-            />
+            <StatusIcon className={cn("h-5 w-5", statusColor)} aria-hidden="true" />
             <Badge
-              variant={
-                healthy === null
-                  ? "secondary"
-                  : healthy
-                    ? "default"
-                    : "destructive"
-              }
-              className={cn(
-                healthy === true && "bg-green-600 hover:bg-green-700 text-white"
-              )}
+              variant={healthy === null ? "secondary" : healthy ? "default" : "destructive"}
+              className={cn(healthy === true && "bg-green-600 hover:bg-green-700 text-white")}
             >
               {healthy === null ? "Unknown" : healthy ? "Healthy" : "Unhealthy"}
             </Badge>
@@ -104,14 +77,14 @@ function HealthCard({
         {details && <div className="mt-4">{details}</div>}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function AdminHealthPage() {
   // Fetch service status from Convex
   const { data: serviceStatus, isPending: statusLoading } = useQuery(
-    convexQuery(api.admin.getServiceStatus, {})
-  )
+    convexQuery(api.admin.getServiceStatus, {}),
+  );
 
   if (statusLoading) {
     return (
@@ -121,7 +94,7 @@ function AdminHealthPage() {
           <Skeleton key={i} className="h-[140px]" />
         ))}
       </div>
-    )
+    );
   }
 
   return (
@@ -154,13 +127,11 @@ function AdminHealthPage() {
             <div className="text-xs text-muted-foreground space-y-1">
               <p>
                 Last email received:{" "}
-                {new Date(
-                  serviceStatus.emailWorker.lastActivity
-                ).toLocaleString()}
+                {new Date(serviceStatus.emailWorker.lastActivity).toLocaleString()}
               </p>
               <p className="text-yellow-600 dark:text-yellow-400">
-                Note: Considered healthy if email received within 24 hours, or if
-                no emails have been received yet (new system).
+                Note: Considered healthy if email received within 24 hours, or if no emails have
+                been received yet (new system).
               </p>
             </div>
           )
@@ -176,9 +147,7 @@ function AdminHealthPage() {
         message="Status check not yet implemented"
         details={
           <div className="text-xs text-muted-foreground space-y-1">
-            <p>
-              R2 storage status requires an action (external API call) to check.
-            </p>
+            <p>R2 storage status requires an action (external API call) to check.</p>
             <p>Future enhancement: Display quota usage and remaining capacity.</p>
           </div>
         }
@@ -193,13 +162,8 @@ function AdminHealthPage() {
         message="Status check not yet implemented"
         details={
           <div className="text-xs text-muted-foreground space-y-1">
-            <p>
-              AI service status requires an action (external API call) to verify
-              availability.
-            </p>
-            <p>
-              Future enhancement: Display API quota usage and model availability.
-            </p>
+            <p>AI service status requires an action (external API call) to verify availability.</p>
+            <p>Future enhancement: Display API quota usage and model availability.</p>
           </div>
         }
       />
@@ -231,5 +195,5 @@ function AdminHealthPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

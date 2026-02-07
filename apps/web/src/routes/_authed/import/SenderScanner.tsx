@@ -6,50 +6,36 @@
  * Shows scan progress in real-time and displays detected senders.
  */
 
-import { useState, useRef, useEffect } from "react"
-import { useQuery, useAction } from "convex/react"
-import { api } from "@hushletter/backend"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Progress } from "~/components/ui/progress"
-import {
-  Search,
-  Loader2,
-  Mail,
-  RefreshCw,
-  AlertCircle,
-  CheckCircle2,
-  Inbox,
-} from "lucide-react"
-import { SenderReview } from "./SenderReview"
-import { ImportProgress } from "./ImportProgress"
+import { useState, useRef, useEffect } from "react";
+import { useQuery, useAction } from "convex/react";
+import { api } from "@hushletter/backend";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Search, Loader2, Mail, RefreshCw, AlertCircle, CheckCircle2, Inbox } from "lucide-react";
+import { SenderReview } from "./SenderReview";
+import { ImportProgress } from "./ImportProgress";
 
 /**
  * Types for scan progress and detected senders
  */
 type ScanProgress = {
-  status: "scanning" | "complete" | "error"
-  totalEmails: number
-  processedEmails: number
-  sendersFound: number
-  error?: string
-}
+  status: "scanning" | "complete" | "error";
+  totalEmails: number;
+  processedEmails: number;
+  sendersFound: number;
+  error?: string;
+};
 
 type DetectedSender = {
-  _id: string
-  email: string
-  name?: string
-  domain: string
-  emailCount: number
-  confidenceScore: number
-  sampleSubjects: string[]
-}
+  _id: string;
+  email: string;
+  name?: string;
+  domain: string;
+  emailCount: number;
+  confidenceScore: number;
+  sampleSubjects: string[];
+};
 
 /**
  * Loading skeleton for the component
@@ -66,20 +52,14 @@ function LoadingSkeleton() {
         <div className="h-10 bg-muted rounded animate-pulse" />
       </CardContent>
     </Card>
-  )
+  );
 }
 
 /**
  * Idle state - no scan started yet
  * Story 4.2: Task 4.2 - "Scan for Newsletters" button
  */
-function IdleState({
-  onStartScan,
-  isStarting,
-}: {
-  onStartScan: () => void
-  isStarting: boolean
-}) {
+function IdleState({ onStartScan, isStarting }: { onStartScan: () => void; isStarting: boolean }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900">
@@ -87,9 +67,7 @@ function IdleState({
           <Search className="h-5 w-5 text-blue-600 dark:text-blue-400" />
         </div>
         <div>
-          <p className="font-medium text-blue-800 dark:text-blue-200">
-            Find Your Newsletters
-          </p>
+          <p className="font-medium text-blue-800 dark:text-blue-200">Find Your Newsletters</p>
           <p className="text-sm text-blue-600 dark:text-blue-400">
             Scan your Gmail to discover newsletters you&apos;re subscribed to
           </p>
@@ -97,16 +75,11 @@ function IdleState({
       </div>
 
       <p className="text-sm text-muted-foreground">
-        We&apos;ll look for emails with newsletter characteristics like
-        unsubscribe links, known newsletter platforms, and mailing list headers.
+        We&apos;ll look for emails with newsletter characteristics like unsubscribe links, known
+        newsletter platforms, and mailing list headers.
       </p>
 
-      <Button
-        onClick={onStartScan}
-        disabled={isStarting}
-        className="w-full"
-        size="lg"
-      >
+      <Button onClick={onStartScan} disabled={isStarting} className="w-full" size="lg">
         {isStarting ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -120,7 +93,7 @@ function IdleState({
         )}
       </Button>
     </div>
-  )
+  );
 }
 
 /**
@@ -131,7 +104,7 @@ function ScanningState({ progress }: { progress: ScanProgress }) {
   const percentComplete =
     progress.totalEmails > 0
       ? Math.round((progress.processedEmails / progress.totalEmails) * 100)
-      : 0
+      : 0;
 
   return (
     <div className="space-y-4">
@@ -140,9 +113,7 @@ function ScanningState({ progress }: { progress: ScanProgress }) {
           <Loader2 className="h-5 w-5 text-yellow-600 dark:text-yellow-400 animate-spin" />
         </div>
         <div>
-          <p className="font-medium text-yellow-800 dark:text-yellow-200">
-            Scanning Your Gmail...
-          </p>
+          <p className="font-medium text-yellow-800 dark:text-yellow-200">Scanning Your Gmail...</p>
           <p className="text-sm text-yellow-600 dark:text-yellow-400">
             This may take a few moments depending on your inbox size
           </p>
@@ -168,20 +139,14 @@ function ScanningState({ progress }: { progress: ScanProgress }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /**
  * Empty state - scan complete but no newsletters found
  * Story 4.2: Task 4.5 - Empty state with rescan option
  */
-function EmptyState({
-  onRescan,
-  isRescanning,
-}: {
-  onRescan: () => void
-  isRescanning: boolean
-}) {
+function EmptyState({ onRescan, isRescanning }: { onRescan: () => void; isRescanning: boolean }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -197,18 +162,12 @@ function EmptyState({
       </div>
 
       <p className="text-sm text-muted-foreground">
-        This could happen if you don&apos;t have newsletters in your inbox, or
-        if they don&apos;t have standard newsletter headers. You can try
-        scanning again or use your dedicated email address to subscribe to
-        newsletters.
+        This could happen if you don&apos;t have newsletters in your inbox, or if they don&apos;t
+        have standard newsletter headers. You can try scanning again or use your dedicated email
+        address to subscribe to newsletters.
       </p>
 
-      <Button
-        onClick={onRescan}
-        disabled={isRescanning}
-        variant="outline"
-        className="w-full"
-      >
+      <Button onClick={onRescan} disabled={isRescanning} variant="outline" className="w-full">
         {isRescanning ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -222,7 +181,7 @@ function EmptyState({
         )}
       </Button>
     </div>
-  )
+  );
 }
 
 /**
@@ -234,9 +193,9 @@ function ErrorState({
   onRetry,
   isRetrying,
 }: {
-  error: string
-  onRetry: () => void
-  isRetrying: boolean
+  error: string;
+  onRetry: () => void;
+  isRetrying: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -245,19 +204,12 @@ function ErrorState({
           <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
         </div>
         <div>
-          <p className="font-medium text-red-800 dark:text-red-200">
-            Scan Failed
-          </p>
+          <p className="font-medium text-red-800 dark:text-red-200">Scan Failed</p>
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </div>
       </div>
 
-      <Button
-        onClick={onRetry}
-        disabled={isRetrying}
-        variant="outline"
-        className="w-full"
-      >
+      <Button onClick={onRetry} disabled={isRetrying} variant="outline" className="w-full">
         {isRetrying ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -271,7 +223,7 @@ function ErrorState({
         )}
       </Button>
     </div>
-  )
+  );
 }
 
 /**
@@ -286,11 +238,7 @@ function SenderItem({ sender }: { sender: DetectedSender }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">{sender.name || sender.email}</p>
-        {sender.name && (
-          <p className="text-sm text-muted-foreground truncate">
-            {sender.email}
-          </p>
-        )}
+        {sender.name && <p className="text-sm text-muted-foreground truncate">{sender.email}</p>}
         <p className="text-xs text-muted-foreground mt-1">
           {sender.emailCount} email{sender.emailCount !== 1 ? "s" : ""} found
         </p>
@@ -305,15 +253,11 @@ function SenderItem({ sender }: { sender: DetectedSender }) {
                 : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
           }`}
         >
-          {sender.confidenceScore >= 80
-            ? "High"
-            : sender.confidenceScore >= 50
-              ? "Medium"
-              : "Low"}
+          {sender.confidenceScore >= 80 ? "High" : sender.confidenceScore >= 50 ? "Medium" : "Low"}
         </span>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -327,10 +271,10 @@ function CompleteState({
   isRescanning,
   onReview,
 }: {
-  senders: DetectedSender[]
-  onRescan: () => void
-  isRescanning: boolean
-  onReview: () => void
+  senders: DetectedSender[];
+  onRescan: () => void;
+  isRescanning: boolean;
+  onReview: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -339,9 +283,7 @@ function CompleteState({
           <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
         </div>
         <div>
-          <p className="font-medium text-green-800 dark:text-green-200">
-            Scan Complete
-          </p>
+          <p className="font-medium text-green-800 dark:text-green-200">Scan Complete</p>
           <p className="text-sm text-green-600 dark:text-green-400">
             Found {senders.length} newsletter sender
             {senders.length !== 1 ? "s" : ""}
@@ -351,9 +293,7 @@ function CompleteState({
 
       {senders.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Detected Newsletter Senders
-          </h3>
+          <h3 className="text-sm font-medium text-muted-foreground">Detected Newsletter Senders</h3>
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
             {senders.map((sender) => (
               <SenderItem key={sender._id} sender={sender} />
@@ -385,7 +325,7 @@ function CompleteState({
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -393,7 +333,7 @@ function CompleteState({
  * Story 4.3: Added "review" view for sender review step
  * Story 4.4: Added "importing" view for import progress
  */
-type ScannerView = "scanner" | "review" | "importing"
+type ScannerView = "scanner" | "review" | "importing";
 
 /**
  * SenderScanner - Main component for scanning Gmail for newsletters
@@ -403,81 +343,72 @@ type ScannerView = "scanner" | "review" | "importing"
  */
 export function SenderScanner() {
   // Query scan progress (reactive - updates in real-time)
-  const scanProgress = useQuery(api.gmail.getScanProgress) as
-    | ScanProgress
-    | null
-    | undefined
+  const scanProgress = useQuery(api.gmail.getScanProgress) as ScanProgress | null | undefined;
 
   // Query detected senders
-  const detectedSenders = useQuery(api.gmail.getDetectedSenders) as
-    | DetectedSender[]
-    | undefined
+  const detectedSenders = useQuery(api.gmail.getDetectedSenders) as DetectedSender[] | undefined;
 
   // Story 4.4: Query import progress to check for active imports
   const importProgress = useQuery(api.gmail.getImportProgress) as
     | { status: string }
     | null
-    | undefined
+    | undefined;
 
   // Mutation to start scan
-  const startScan = useAction(api.gmail.startScan)
+  const startScan = useAction(api.gmail.startScan);
 
   // Local state for tracking if we're starting a scan
   // (action is async, need to track initiating state)
-  const [isStarting, setIsStarting] = useState(false)
-  const [localError, setLocalError] = useState<string | null>(null)
+  const [isStarting, setIsStarting] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   // Story 4.3: View state for scanner vs review
   // Story 4.4: Added "importing" view
-  const [currentView, setCurrentView] = useState<ScannerView>("scanner")
+  const [currentView, setCurrentView] = useState<ScannerView>("scanner");
 
   // Story 4.4: Check for active imports on mount and show import view if needed
   useEffect(() => {
     if (importProgress?.status === "importing") {
-      setCurrentView("importing")
+      setCurrentView("importing");
     }
-  }, [importProgress?.status])
+  }, [importProgress?.status]);
 
   // Track if component is mounted to prevent state updates after unmount
-  const isMountedRef = useRef(true)
+  const isMountedRef = useRef(true);
   useEffect(() => {
-    isMountedRef.current = true
+    isMountedRef.current = true;
     return () => {
-      isMountedRef.current = false
-    }
-  }, [])
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Handle start scan
   const handleStartScan = async () => {
-    setIsStarting(true)
-    setLocalError(null)
+    setIsStarting(true);
+    setLocalError(null);
 
     try {
-      const result = await startScan()
+      const result = await startScan();
       // Only update state if still mounted
       if (isMountedRef.current) {
         if (!result.success && result.error) {
-          setLocalError(result.error)
+          setLocalError(result.error);
         }
       }
     } catch (error) {
-      console.error("[SenderScanner] Failed to start scan:", error)
+      console.error("[SenderScanner] Failed to start scan:", error);
       if (isMountedRef.current) {
-        setLocalError("Failed to start scan. Please try again.")
+        setLocalError("Failed to start scan. Please try again.");
       }
     } finally {
       if (isMountedRef.current) {
-        setIsStarting(false)
+        setIsStarting(false);
       }
     }
-  }
+  };
 
   // Story 4.4: If in importing view, show the ImportProgress component
   if (currentView === "importing") {
-    return (
-      <ImportProgress
-        onBack={() => setCurrentView("scanner")}
-      />
-    )
+    return <ImportProgress onBack={() => setCurrentView("scanner")} />;
   }
 
   // Story 4.3: If in review view, show the SenderReview component
@@ -487,20 +418,20 @@ export function SenderScanner() {
         onBack={() => setCurrentView("scanner")}
         onStartImport={() => setCurrentView("importing")}
       />
-    )
+    );
   }
 
   // Show loading skeleton while fetching initial state
   if (scanProgress === undefined) {
-    return <LoadingSkeleton />
+    return <LoadingSkeleton />;
   }
 
   // Determine current state
-  const isScanning = scanProgress?.status === "scanning"
-  const isComplete = scanProgress?.status === "complete"
-  const hasError = scanProgress?.status === "error" || localError
-  const errorMessage = localError || scanProgress?.error || "An error occurred"
-  const isEmpty = isComplete && (detectedSenders?.length ?? 0) === 0
+  const isScanning = scanProgress?.status === "scanning";
+  const isComplete = scanProgress?.status === "complete";
+  const hasError = scanProgress?.status === "error" || localError;
+  const errorMessage = localError || scanProgress?.error || "An error occurred";
+  const isEmpty = isComplete && (detectedSenders?.length ?? 0) === 0;
 
   return (
     <Card>
@@ -509,17 +440,11 @@ export function SenderScanner() {
           <Search className="h-5 w-5" />
           Newsletter Scanner
         </CardTitle>
-        <CardDescription>
-          Scan your Gmail to find newsletters and import them
-        </CardDescription>
+        <CardDescription>Scan your Gmail to find newsletters and import them</CardDescription>
       </CardHeader>
       <CardContent>
         {hasError ? (
-          <ErrorState
-            error={errorMessage}
-            onRetry={handleStartScan}
-            isRetrying={isStarting}
-          />
+          <ErrorState error={errorMessage} onRetry={handleStartScan} isRetrying={isStarting} />
         ) : isScanning ? (
           <ScanningState progress={scanProgress} />
         ) : isComplete ? (
@@ -538,6 +463,5 @@ export function SenderScanner() {
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
-

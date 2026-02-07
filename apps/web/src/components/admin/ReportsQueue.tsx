@@ -1,8 +1,8 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { api } from "@hushletter/backend"
-import { useConvexMutation } from "@convex-dev/react-query"
-import { useState } from "react"
+import { convexQuery } from "@convex-dev/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@hushletter/backend";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -10,17 +10,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
-import { Button } from "~/components/ui/button"
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
-import { Badge } from "~/components/ui/badge"
-import { Skeleton } from "~/components/ui/skeleton"
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -28,32 +28,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog"
-import { Label } from "~/components/ui/label"
-import { Textarea } from "~/components/ui/textarea"
-import {
-  Flag,
-  Check,
-  X,
-  AlertTriangle,
-  Copyright,
-  Mail,
-  MessageSquareWarning,
-} from "lucide-react"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Flag, Check, X, AlertTriangle, Copyright, Mail, MessageSquareWarning } from "lucide-react";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 
 /** Report item returned from listContentReports */
 interface ReportItem {
-  id: Id<"contentReports">
-  contentId: Id<"newsletterContent">
-  subject: string
-  senderEmail: string
-  reason: "spam" | "inappropriate" | "copyright" | "misleading" | "other"
-  description: string | undefined
-  status: "pending" | "resolved" | "dismissed"
-  reporterEmail: string
-  createdAt: number
-  resolvedAt: number | undefined
+  id: Id<"contentReports">;
+  contentId: Id<"newsletterContent">;
+  subject: string;
+  senderEmail: string;
+  reason: "spam" | "inappropriate" | "copyright" | "misleading" | "other";
+  description: string | undefined;
+  status: "pending" | "resolved" | "dismissed";
+  reporterEmail: string;
+  createdAt: number;
+  resolvedAt: number | undefined;
 }
 
 /**
@@ -73,7 +65,7 @@ const reasonIcons: Record<string, React.ReactNode> = {
   copyright: <Copyright className="h-4 w-4" />,
   misleading: <MessageSquareWarning className="h-4 w-4" />,
   other: <Flag className="h-4 w-4" />,
-}
+};
 
 const reasonLabels: Record<string, string> = {
   spam: "Spam",
@@ -81,42 +73,38 @@ const reasonLabels: Record<string, string> = {
   copyright: "Copyright",
   misleading: "Misleading",
   other: "Other",
-}
+};
 
 export function ReportsQueue() {
-  const queryClient = useQueryClient()
-  const [statusFilter, setStatusFilter] = useState<
-    "pending" | "resolved" | "dismissed"
-  >("pending")
-  const [resolveDialogOpen, setResolveDialogOpen] = useState(false)
+  const queryClient = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<"pending" | "resolved" | "dismissed">("pending");
+  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<{
-    id: string
-    contentId: string
-    subject: string
-    reason: string
-    description?: string
-  } | null>(null)
-  const [resolution, setResolution] = useState<"resolved" | "dismissed">(
-    "resolved"
-  )
-  const [note, setNote] = useState("")
-  const [hideContent, setHideContent] = useState(false)
-  const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set())
+    id: string;
+    contentId: string;
+    subject: string;
+    reason: string;
+    description?: string;
+  } | null>(null);
+  const [resolution, setResolution] = useState<"resolved" | "dismissed">("resolved");
+  const [note, setNote] = useState("");
+  const [hideContent, setHideContent] = useState(false);
+  const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set());
 
   // Query
   const { data, isPending, isError } = useQuery(
     convexQuery(api.admin.listContentReports, {
       status: statusFilter,
       limit: 50,
-    })
-  )
+    }),
+  );
 
   // Mutations
-  const resolveReportFn = useConvexMutation(api.admin.resolveReport)
-  const resolveReportMutation = useMutation({ mutationFn: resolveReportFn })
+  const resolveReportFn = useConvexMutation(api.admin.resolveReport);
+  const resolveReportMutation = useMutation({ mutationFn: resolveReportFn });
 
-  const bulkResolveFn = useConvexMutation(api.admin.bulkResolveReports)
-  const bulkResolveMutation = useMutation({ mutationFn: bulkResolveFn })
+  const bulkResolveFn = useConvexMutation(api.admin.bulkResolveReports);
+  const bulkResolveMutation = useMutation({ mutationFn: bulkResolveFn });
 
   /** Invalidate reports-related queries */
   const invalidateReportsQueries = async () => {
@@ -129,78 +117,76 @@ export function ReportsQueue() {
             (key.includes("listContentReports") ||
               key.includes("getPendingReportsCount") ||
               key.includes("listModerationLog") ||
-              key.includes("getCommunityContentSummary"))
+              key.includes("getCommunityContentSummary")),
         ),
-    })
-  }
+    });
+  };
 
   const handleResolve = async () => {
-    if (!selectedReport) return
+    if (!selectedReport) return;
 
     await resolveReportMutation.mutateAsync({
       reportId: selectedReport.id as Id<"contentReports">,
       resolution,
       note: note.trim() || undefined,
       hideContent: resolution === "resolved" ? hideContent : undefined,
-    })
+    });
 
-    await invalidateReportsQueries()
+    await invalidateReportsQueries();
 
-    setResolveDialogOpen(false)
-    setSelectedReport(null)
-    setNote("")
-    setHideContent(false)
-  }
+    setResolveDialogOpen(false);
+    setSelectedReport(null);
+    setNote("");
+    setHideContent(false);
+  };
 
   const handleBulkResolve = async (resolution: "resolved" | "dismissed") => {
-    if (selectedReports.size === 0) return
+    if (selectedReports.size === 0) return;
 
     await bulkResolveMutation.mutateAsync({
       reportIds: Array.from(selectedReports) as Id<"contentReports">[],
       resolution,
-    })
+    });
 
-    await invalidateReportsQueries()
-    setSelectedReports(new Set())
-  }
+    await invalidateReportsQueries();
+    setSelectedReports(new Set());
+  };
 
   const openResolveDialog = (report: {
-    id: string
-    contentId: string
-    subject: string
-    reason: string
-    description?: string
+    id: string;
+    contentId: string;
+    subject: string;
+    reason: string;
+    description?: string;
   }) => {
-    setSelectedReport(report)
-    setResolution("resolved")
-    setNote("")
-    setHideContent(false)
-    setResolveDialogOpen(true)
-  }
+    setSelectedReport(report);
+    setResolution("resolved");
+    setNote("");
+    setHideContent(false);
+    setResolveDialogOpen(true);
+  };
 
   const toggleReportSelection = (reportId: string) => {
-    const newSelection = new Set(selectedReports)
+    const newSelection = new Set(selectedReports);
     if (newSelection.has(reportId)) {
-      newSelection.delete(reportId)
+      newSelection.delete(reportId);
     } else {
-      newSelection.add(reportId)
+      newSelection.add(reportId);
     }
-    setSelectedReports(newSelection)
-  }
+    setSelectedReports(newSelection);
+  };
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString()
-  }
+    return new Date(timestamp).toLocaleDateString();
+  };
 
   if (isError) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        Failed to load content reports
-      </div>
-    )
+      <div className="text-center py-8 text-muted-foreground">Failed to load content reports</div>
+    );
   }
 
-  const reports = (data ?? []) as ReportItem[]
+  const reports = (data ?? []) as ReportItem[];
 
   return (
     <div className="space-y-4">
@@ -208,9 +194,7 @@ export function ReportsQueue() {
       <div className="flex items-center justify-between">
         <Select
           value={statusFilter}
-          onValueChange={(v) =>
-            setStatusFilter(v as "pending" | "resolved" | "dismissed")
-          }
+          onValueChange={(v) => setStatusFilter(v as "pending" | "resolved" | "dismissed")}
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by status" />
@@ -278,9 +262,9 @@ export function ReportsQueue() {
                       checked={selectedReports.size === reports.length}
                       onChange={() => {
                         if (selectedReports.size === reports.length) {
-                          setSelectedReports(new Set())
+                          setSelectedReports(new Set());
                         } else {
-                          setSelectedReports(new Set(reports.map((r) => r.id)))
+                          setSelectedReports(new Set(reports.map((r) => r.id)));
                         }
                       }}
                       className="h-4 w-4 rounded border-gray-300"
@@ -312,19 +296,12 @@ export function ReportsQueue() {
                   )}
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium max-w-[250px] truncate">
-                        {report.subject}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {report.senderEmail}
-                      </span>
+                      <span className="font-medium max-w-[250px] truncate">{report.subject}</span>
+                      <span className="text-xs text-muted-foreground">{report.senderEmail}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className="flex items-center gap-1 w-fit"
-                    >
+                    <Badge variant="outline" className="flex items-center gap-1 w-fit">
                       {reasonIcons[report.reason]}
                       {reasonLabels[report.reason]}
                     </Badge>
@@ -337,9 +314,7 @@ export function ReportsQueue() {
                   <TableCell>{report.reporterEmail}</TableCell>
                   <TableCell>{formatDate(report.createdAt)}</TableCell>
                   {statusFilter !== "pending" && (
-                    <TableCell>
-                      {report.resolvedAt ? formatDate(report.resolvedAt) : "-"}
-                    </TableCell>
+                    <TableCell>{report.resolvedAt ? formatDate(report.resolvedAt) : "-"}</TableCell>
                   )}
                   <TableCell className="text-right">
                     {statusFilter === "pending" ? (
@@ -361,11 +336,7 @@ export function ReportsQueue() {
                         </Button>
                       </div>
                     ) : (
-                      <Badge
-                        variant={
-                          report.status === "resolved" ? "default" : "secondary"
-                        }
-                      >
+                      <Badge variant={report.status === "resolved" ? "default" : "secondary"}>
                         {report.status === "resolved" ? (
                           <Check className="h-3 w-3 mr-1" />
                         ) : (
@@ -387,39 +358,30 @@ export function ReportsQueue() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Review Report</DialogTitle>
-            <DialogDescription>
-              Review the report and take appropriate action.
-            </DialogDescription>
+            <DialogDescription>Review the report and take appropriate action.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <Label className="text-sm font-medium">Content</Label>
-              <p className="text-sm text-muted-foreground">
-                {selectedReport?.subject}
-              </p>
+              <p className="text-sm text-muted-foreground">{selectedReport?.subject}</p>
             </div>
             <div>
               <Label className="text-sm font-medium">Reason</Label>
               <Badge variant="outline" className="ml-2">
-                {selectedReport?.reason &&
-                  reasonLabels[selectedReport.reason]}
+                {selectedReport?.reason && reasonLabels[selectedReport.reason]}
               </Badge>
             </div>
             {selectedReport?.description && (
               <div>
                 <Label className="text-sm font-medium">Description</Label>
-                <p className="text-sm text-muted-foreground">
-                  {selectedReport.description}
-                </p>
+                <p className="text-sm text-muted-foreground">{selectedReport.description}</p>
               </div>
             )}
             <div className="space-y-2">
               <Label>Resolution</Label>
               <Select
                 value={resolution}
-                onValueChange={(v) =>
-                  setResolution(v as "resolved" | "dismissed")
-                }
+                onValueChange={(v) => setResolution(v as "resolved" | "dismissed")}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -460,17 +422,12 @@ export function ReportsQueue() {
                 id="resolution-note"
                 placeholder="Add a note about this resolution..."
                 value={note}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setNote(e.target.value)
-                }
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setResolveDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setResolveDialogOpen(false)}>
               Cancel
             </Button>
             <Button
@@ -488,5 +445,5 @@ export function ReportsQueue() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

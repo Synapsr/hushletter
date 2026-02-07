@@ -400,8 +400,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu"
-import { Button } from "~/components/ui/button"
+} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
 import { MoreHorizontal, Pencil, EyeOff, Merge } from "lucide-react"
 
 interface FolderActionsDropdownProps {
@@ -463,9 +463,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "~/components/ui/dialog"
-import { Input } from "~/components/ui/input"
-import { Button } from "~/components/ui/button"
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 interface RenameFolderDialogProps {
   open: boolean
@@ -536,15 +536,15 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "~/components/ui/dialog"
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
-import { Button } from "~/components/ui/button"
+} from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 
 interface MergeFolderDialogProps {

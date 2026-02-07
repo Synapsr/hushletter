@@ -1,20 +1,29 @@
-import { useState } from "react"
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { StatCard } from "~/components/admin/StatCard"
-import { ServiceStatusBadge } from "~/components/admin/ServiceStatusBadge"
-import { RecentActivityFeed } from "~/components/admin/RecentActivityFeed"
-import { TrendChart } from "~/components/admin/TrendChart"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Badge } from "~/components/ui/badge"
-import { Users, Mail, Building2, FileStack, Shield, CheckCircle, AlertTriangle, XCircle } from "lucide-react"
+import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { StatCard } from "@/components/admin/StatCard";
+import { ServiceStatusBadge } from "@/components/admin/ServiceStatusBadge";
+import { RecentActivityFeed } from "@/components/admin/RecentActivityFeed";
+import { TrendChart } from "@/components/admin/TrendChart";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Users,
+  Mail,
+  Building2,
+  FileStack,
+  Shield,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+} from "lucide-react";
 
 /** Date range options for trend chart - Story 7.1 Task 4.5 */
-type DateRange = 7 | 30 | 90
+type DateRange = 7 | 30 | 90;
 
 /**
  * Admin Dashboard Page
@@ -30,36 +39,36 @@ type DateRange = 7 | 30 | 90
  */
 export const Route = createFileRoute("/_authed/admin/")({
   component: AdminDashboard,
-})
+});
 
 function AdminDashboard() {
   // Story 7.1 Task 4.5: Date range selector state
-  const [dateRange, setDateRange] = useState<DateRange>(30)
+  const [dateRange, setDateRange] = useState<DateRange>(30);
 
   // Fetch system statistics
   const { data: stats, isPending: statsLoading } = useQuery(
-    convexQuery(api.admin.getSystemStats, {})
-  )
+    convexQuery(api.admin.getSystemStats, {}),
+  );
 
   // Fetch recent activity (last 24 hours)
   const { data: activity, isPending: activityLoading } = useQuery(
-    convexQuery(api.admin.getRecentActivity, { hoursAgo: 24 })
-  )
+    convexQuery(api.admin.getRecentActivity, { hoursAgo: 24 }),
+  );
 
   // Fetch service status
   const { data: serviceStatus, isPending: statusLoading } = useQuery(
-    convexQuery(api.admin.getServiceStatus, {})
-  )
+    convexQuery(api.admin.getServiceStatus, {}),
+  );
 
   // Fetch historical metrics for trend chart - respects dateRange selection
   const { data: history, isPending: historyLoading } = useQuery(
-    convexQuery(api.admin.getMetricsHistory, { days: dateRange })
-  )
+    convexQuery(api.admin.getMetricsHistory, { days: dateRange }),
+  );
 
   // Story 7.3: Fetch privacy audit status for summary badge
   const { data: privacyAudit, isPending: privacyLoading } = useQuery(
-    convexQuery(api.admin.runPrivacyAudit, {})
-  )
+    convexQuery(api.admin.runPrivacyAudit, {}),
+  );
 
   return (
     <div className="space-y-6">
@@ -74,14 +83,8 @@ function AdminDashboard() {
             </>
           ) : serviceStatus ? (
             <>
-              <ServiceStatusBadge
-                service="Convex Database"
-                status={serviceStatus.convex}
-              />
-              <ServiceStatusBadge
-                service="Email Worker"
-                status={serviceStatus.emailWorker}
-              />
+              <ServiceStatusBadge service="Convex Database" status={serviceStatus.convex} />
+              <ServiceStatusBadge service="Email Worker" status={serviceStatus.emailWorker} />
             </>
           ) : null}
 
@@ -89,17 +92,26 @@ function AdminDashboard() {
           {privacyLoading ? (
             <Skeleton className="h-8 w-40" />
           ) : privacyAudit ? (
-            <Link to="/admin/privacy" className="flex items-center gap-2 px-3 py-1 rounded-full border hover:bg-accent transition-colors">
+            <Link
+              to="/admin/privacy"
+              className="flex items-center gap-2 px-3 py-1 rounded-full border hover:bg-accent transition-colors"
+            >
               <Shield className="h-4 w-4" aria-hidden="true" />
               <span className="text-sm font-medium">Privacy:</span>
               {privacyAudit.status === "PASS" && (
-                <Badge variant="default" className="bg-green-600 hover:bg-green-700 flex items-center gap-1">
+                <Badge
+                  variant="default"
+                  className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
+                >
                   <CheckCircle className="h-3 w-3" aria-hidden="true" />
                   PASS
                 </Badge>
               )}
               {privacyAudit.status === "WARNING" && (
-                <Badge variant="default" className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-1">
+                <Badge
+                  variant="default"
+                  className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-1"
+                >
                   <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                   WARNING
                 </Badge>
@@ -120,18 +132,14 @@ function AdminDashboard() {
         <h2 className="text-lg font-medium mb-3">System Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {statsLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-[120px]" />
-            ))
+            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[120px]" />)
           ) : stats ? (
             <>
               <StatCard
                 title="Total Users"
                 value={stats.totalUsers}
                 icon={<Users className="h-4 w-4" />}
-                trend={
-                  activity ? `+${activity.newUsersCount} today` : undefined
-                }
+                trend={activity ? `+${activity.newUsersCount} today` : undefined}
               />
               <StatCard
                 title="Newsletters (Content)"
@@ -148,11 +156,7 @@ function AdminDashboard() {
                 title="User Newsletter Links"
                 value={stats.totalUserNewsletters}
                 icon={<FileStack className="h-4 w-4" />}
-                trend={
-                  activity
-                    ? `+${activity.newNewslettersCount} today`
-                    : undefined
-                }
+                trend={activity ? `+${activity.newNewslettersCount} today` : undefined}
               />
             </>
           ) : null}
@@ -164,11 +168,7 @@ function AdminDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>{dateRange}-Day Trends</CardTitle>
-            <div
-              className="flex gap-1"
-              role="group"
-              aria-label="Select date range"
-            >
+            <div className="flex gap-1" role="group" aria-label="Select date range">
               {([7, 30, 90] as const).map((days) => (
                 <Button
                   key={days}
@@ -216,5 +216,5 @@ function AdminDashboard() {
         </Card>
       </section>
     </div>
-  )
+  );
 }

@@ -1,22 +1,22 @@
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Lock, Unlock, Users, Database } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Lock, Unlock, Users, Database } from "lucide-react";
 
 /**
  * Privacy statistics from getPrivacyStats query
  */
 interface PrivacyStats {
-  publicNewsletters: number
-  privateNewsletters: number
-  totalNewsletters: number
-  privatePercentage: number
-  sharedContentCount: number
-  usersWithPrivateSenders: number
-  totalUsers: number
-  uniquePrivateSenders: number
+  publicNewsletters: number;
+  privateNewsletters: number;
+  totalNewsletters: number;
+  privatePercentage: number;
+  sharedContentCount: number;
+  usersWithPrivateSenders: number;
+  totalUsers: number;
+  uniquePrivateSenders: number;
 }
 
 interface PrivacyStatsCardProps {
-  stats: PrivacyStats
+  stats: PrivacyStats;
 }
 
 /**
@@ -34,43 +34,33 @@ export function PrivacyStatsCard({ stats }: PrivacyStatsCardProps) {
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">
-            Public Newsletters
-          </CardTitle>
+          <CardTitle className="text-sm font-medium">Public Newsletters</CardTitle>
           <Unlock className="h-4 w-4 text-green-600" aria-hidden="true" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-600">
             {stats.publicNewsletters.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {100 - stats.privatePercentage}% of total
-          </p>
+          <p className="text-xs text-muted-foreground">{100 - stats.privatePercentage}% of total</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">
-            Private Newsletters
-          </CardTitle>
+          <CardTitle className="text-sm font-medium">Private Newsletters</CardTitle>
           <Lock className="h-4 w-4 text-yellow-600" aria-hidden="true" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-yellow-600">
             {stats.privateNewsletters.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {stats.privatePercentage}% of total
-          </p>
+          <p className="text-xs text-muted-foreground">{stats.privatePercentage}% of total</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">
-            Users with Private Senders
-          </CardTitle>
+          <CardTitle className="text-sm font-medium">Users with Private Senders</CardTitle>
           <Users className="h-4 w-4 text-blue-600" aria-hidden="true" />
         </CardHeader>
         <CardContent>
@@ -85,9 +75,7 @@ export function PrivacyStatsCard({ stats }: PrivacyStatsCardProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">
-            Shared Content Entries
-          </CardTitle>
+          <CardTitle className="text-sm font-medium">Shared Content Entries</CardTitle>
           <Database className="h-4 w-4 text-purple-600" aria-hidden="true" />
         </CardHeader>
         <CardContent>
@@ -98,5 +86,5 @@ export function PrivacyStatsCard({ stats }: PrivacyStatsCardProps) {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

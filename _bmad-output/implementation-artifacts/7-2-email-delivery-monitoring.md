@@ -605,18 +605,18 @@ import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "~/convex/_generated/api"
 import { useState } from "react"
-import { DeliveryStatsCard } from "~/components/admin/DeliveryStatsCard"
-import { DeliveryLogTable } from "~/components/admin/DeliveryLogTable"
-import { AnomalyAlertBanner } from "~/components/admin/AnomalyAlertBanner"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { DeliveryStatsCard } from "@/components/admin/DeliveryStatsCard"
+import { DeliveryLogTable } from "@/components/admin/DeliveryLogTable"
+import { AnomalyAlertBanner } from "@/components/admin/AnomalyAlertBanner"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
+} from "@/components/ui/select"
 
 export const Route = createFileRoute("/_authed/admin/delivery")({
   component: DeliveryMonitoring,
@@ -752,7 +752,7 @@ function DeliveryMonitoring() {
 ```typescript
 // apps/web/src/components/admin/DeliveryStatsCard.tsx - NEW
 
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, AlertCircle, Clock, Download } from "lucide-react"
 
 interface DeliveryStats {
@@ -824,7 +824,7 @@ export function DeliveryStatsCard({ stats }: DeliveryStatsCardProps) {
 ```typescript
 // apps/web/src/components/admin/DeliveryStatusBadge.tsx - NEW
 
-import { Badge } from "~/components/ui/badge"
+import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Clock, Download, AlertCircle } from "lucide-react"
 import { cn } from "~/lib/utils"
 
@@ -892,8 +892,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
-import { Button } from "~/components/ui/button"
+} from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
 import type { Doc } from "packages/backend/convex/_generated/dataModel"
 
 type DeliveryLog = Doc<"emailDeliveryLogs">
@@ -997,8 +997,8 @@ function cn(...classes: (string | boolean | undefined)[]) {
 import { useMutation } from "@tanstack/react-query"
 import { useConvexMutation } from "@convex-dev/react-query"
 import { api } from "~/convex/_generated/api"
-import { Button } from "~/components/ui/button"
-import { Badge } from "~/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow, format } from "date-fns"
 import type { Doc } from "packages/backend/convex/_generated/dataModel"
 
@@ -1126,7 +1126,7 @@ export function DeliveryDetailPanel({ log }: DeliveryDetailPanelProps) {
 // apps/web/src/components/admin/AnomalyAlertBanner.tsx - NEW
 
 import { AlertTriangle, XCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface Anomaly {
   type: "high_failure_rate" | "no_deliveries" | "volume_spike"

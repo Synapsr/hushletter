@@ -1,19 +1,17 @@
-import { Link, createFileRoute } from "@tanstack/react-router"
-import { Button } from "~/components/ui/button"
-import { Card, CardContent } from "~/components/ui/card"
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
-})
+});
 
 function LandingPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
       {/* Header */}
       <header className="container mx-auto px-4 py-6 flex justify-between items-center">
-        <div className="text-2xl font-bold text-gray-900 dark:text-white">
-          Newsletter Manager
-        </div>
+        <div className="text-2xl font-bold text-gray-900 dark:text-white">Newsletter Manager</div>
         <nav className="flex gap-4">
           <Link to="/login">
             <Button variant="ghost">Sign In</Button>
@@ -30,8 +28,7 @@ function LandingPage() {
           Your Newsletters, Organized and Accessible
         </h1>
         <p className="text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto">
-          One dedicated email address. All your newsletters in one clean
-          interface.
+          One dedicated email address. All your newsletters in one clean interface.
         </p>
         <div className="flex gap-4 justify-center">
           <Link to="/signup">
@@ -80,19 +77,12 @@ function LandingPage() {
       <section className="container mx-auto px-4 py-20">
         <Card className="max-w-3xl mx-auto bg-gray-900 dark:bg-gray-800 text-white">
           <CardContent className="p-12 text-center">
-            <h3 className="text-3xl font-bold mb-4">
-              Ready to take control of your newsletters?
-            </h3>
+            <h3 className="text-3xl font-bold mb-4">Ready to take control of your newsletters?</h3>
             <p className="text-gray-300 mb-8">
-              Join thousands of readers who have simplified their newsletter
-              experience.
+              Join thousands of readers who have simplified their newsletter experience.
             </p>
             <Link to="/signup">
-              <Button
-                size="lg"
-                variant="secondary"
-                className="text-lg px-8 py-6"
-              >
+              <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
                 Start for Free
               </Button>
             </Link>
@@ -115,7 +105,7 @@ function LandingPage() {
         </div>
       </footer>
     </main>
-  )
+  );
 }
 
 function FeatureCard({
@@ -123,19 +113,17 @@ function FeatureCard({
   title,
   description,
 }: {
-  icon: string
-  title: string
-  description: string
+  icon: string;
+  title: string;
+  description: string;
 }) {
   return (
     <Card className="p-6 hover:shadow-lg transition-shadow">
       <CardContent className="p-0">
         <div className="text-4xl mb-4">{icon}</div>
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          {title}
-        </h3>
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{title}</h3>
         <p className="text-gray-600 dark:text-gray-300">{description}</p>
       </CardContent>
     </Card>
-  )
+  );
 }

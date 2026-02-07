@@ -578,13 +578,13 @@ import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "~/convex/_generated/api"
 import { useState } from "react"
-import { PrivacyStatsCard } from "~/components/admin/PrivacyStatsCard"
-import { PrivacyAuditPanel } from "~/components/admin/PrivacyAuditPanel"
-import { PrivacySenderTable } from "~/components/admin/PrivacySenderTable"
-import { NewsletterSearchPanel } from "~/components/admin/NewsletterSearchPanel"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
+import { PrivacyStatsCard } from "@/components/admin/PrivacyStatsCard"
+import { PrivacyAuditPanel } from "@/components/admin/PrivacyAuditPanel"
+import { PrivacySenderTable } from "@/components/admin/PrivacySenderTable"
+import { NewsletterSearchPanel } from "@/components/admin/NewsletterSearchPanel"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export const Route = createFileRoute("/_authed/admin/privacy")({
   component: PrivacyReview,
@@ -677,7 +677,7 @@ function PrivacyReview() {
 ```typescript
 // apps/web/src/components/admin/PrivacyStatsCard.tsx - NEW
 
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Lock, Unlock, Users, Database } from "lucide-react"
 
 interface PrivacyStats {
@@ -757,8 +757,8 @@ export function PrivacyStatsCard({ stats }: PrivacyStatsCardProps) {
 ```typescript
 // apps/web/src/components/admin/PrivacyAuditPanel.tsx - NEW
 
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
-import { Badge } from "~/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { CheckCircle, AlertTriangle, XCircle, Clock } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
@@ -860,9 +860,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
-import { Badge } from "~/components/ui/badge"
-import { Progress } from "~/components/ui/progress"
+} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 
 interface PrivateSender {
   senderId: string
@@ -937,18 +937,18 @@ import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "~/convex/_generated/api"
 import { useForm } from "@tanstack/react-form"
-import { Input } from "~/components/ui/input"
-import { Button } from "~/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Badge } from "~/components/ui/badge"
-import { Label } from "~/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -956,7 +956,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
+} from "@/components/ui/table"
 import { formatDistanceToNow } from "date-fns"
 import { Lock, Unlock, Search } from "lucide-react"
 

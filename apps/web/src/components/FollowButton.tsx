@@ -11,21 +11,21 @@
  * - Optimistic update for immediate feedback
  * - Visual feedback on follow/unfollow
  */
-import { useState } from "react"
-import { useMutation } from "convex/react"
-import { useQuery as useTanstackQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { Button } from "~/components/ui/button"
-import { UserPlus, UserCheck, Loader2 } from "lucide-react"
+import { useState } from "react";
+import { useMutation } from "convex/react";
+import { useQuery as useTanstackQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { Button } from "@/components/ui/button";
+import { UserPlus, UserCheck, Loader2 } from "lucide-react";
 
 interface FollowButtonProps {
-  senderEmail: string
-  senderName?: string
+  senderEmail: string;
+  senderName?: string;
   /** Variant for different display contexts */
-  variant?: "default" | "compact"
+  variant?: "default" | "compact";
   /** Callback when follow state changes */
-  onFollowChange?: (isFollowing: boolean) => void
+  onFollowChange?: (isFollowing: boolean) => void;
 }
 
 export function FollowButton({
@@ -34,55 +34,55 @@ export function FollowButton({
   variant = "default",
   onFollowChange,
 }: FollowButtonProps) {
-  const [isOptimisticFollowing, setIsOptimisticFollowing] = useState<boolean | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isOptimisticFollowing, setIsOptimisticFollowing] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Check current follow status
   const { data: isFollowingData, isPending: isLoadingStatus } = useTanstackQuery(
-    convexQuery(api.community.isFollowingSender, { senderEmail })
-  )
-  const isFollowing = isFollowingData as boolean | undefined
+    convexQuery(api.community.isFollowingSender, { senderEmail }),
+  );
+  const isFollowing = isFollowingData as boolean | undefined;
 
   // Follow/unfollow mutations
-  const followSender = useMutation(api.community.followSender)
-  const unfollowSender = useMutation(api.community.unfollowSender)
+  const followSender = useMutation(api.community.followSender);
+  const unfollowSender = useMutation(api.community.unfollowSender);
 
   // Determine displayed state (optimistic takes precedence)
-  const displayFollowing = isOptimisticFollowing ?? isFollowing ?? false
+  const displayFollowing = isOptimisticFollowing ?? isFollowing ?? false;
 
   const handleClick = async () => {
-    if (isLoading || isLoadingStatus) return
+    if (isLoading || isLoadingStatus) return;
 
-    setIsLoading(true)
-    const wasFollowing: boolean = displayFollowing
+    setIsLoading(true);
+    const wasFollowing: boolean = displayFollowing;
 
     // Optimistic update
-    setIsOptimisticFollowing(!wasFollowing)
+    setIsOptimisticFollowing(!wasFollowing);
 
     try {
       if (wasFollowing) {
-        const result = await unfollowSender({ senderEmail })
+        const result = await unfollowSender({ senderEmail });
 
         if (result.hasNewsletters) {
           // User has newsletters - can't fully unfollow, revert
-          setIsOptimisticFollowing(true)
+          setIsOptimisticFollowing(true);
         } else {
-          onFollowChange?.(false)
+          onFollowChange?.(false);
         }
       } else {
-        await followSender({ senderEmail })
-        onFollowChange?.(true)
+        await followSender({ senderEmail });
+        onFollowChange?.(true);
       }
     } catch (_error) {
       // Revert optimistic update on error
-      setIsOptimisticFollowing(wasFollowing)
+      setIsOptimisticFollowing(wasFollowing);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
       // Clear optimistic state - the query will update with the real value
       // We delay slightly to avoid flicker if query updates quickly
-      setTimeout(() => setIsOptimisticFollowing(null), 100)
+      setTimeout(() => setIsOptimisticFollowing(null), 100);
     }
-  }
+  };
 
   if (isLoadingStatus) {
     return (
@@ -95,7 +95,7 @@ export function FollowButton({
         <Loader2 className="h-4 w-4 animate-spin" />
         {variant === "default" && <span className="ml-2">Loading</span>}
       </Button>
-    )
+    );
   }
 
   return (
@@ -104,7 +104,11 @@ export function FollowButton({
       size={variant === "compact" ? "sm" : "default"}
       onClick={handleClick}
       disabled={isLoading}
-      aria-label={displayFollowing ? `Unfollow ${senderName || senderEmail}` : `Follow ${senderName || senderEmail}`}
+      aria-label={
+        displayFollowing
+          ? `Unfollow ${senderName || senderEmail}`
+          : `Follow ${senderName || senderEmail}`
+      }
       aria-pressed={displayFollowing ? "true" : "false"}
     >
       {isLoading ? (
@@ -118,5 +122,5 @@ export function FollowButton({
         <span className="ml-2">{displayFollowing ? "Following" : "Follow"}</span>
       )}
     </Button>
-  )
+  );
 }

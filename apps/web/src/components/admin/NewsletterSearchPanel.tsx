@@ -1,20 +1,20 @@
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { useForm } from "@tanstack/react-form"
-import { Input } from "~/components/ui/input"
-import { Button } from "~/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Badge } from "~/components/ui/badge"
-import { Label } from "~/components/ui/label"
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { useForm } from "@tanstack/react-form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -22,16 +22,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
-import { formatDistanceToNow } from "date-fns"
-import { Lock, Unlock, Search } from "lucide-react"
+} from "@/components/ui/table";
+import { formatDistanceToNow } from "date-fns";
+import { Lock, Unlock, Search } from "lucide-react";
 
-type PrivacyFilter = "all" | "private" | "public"
+type PrivacyFilter = "all" | "private" | "public";
 
 interface SearchParams {
-  senderEmail?: string
-  subjectContains?: string
-  isPrivate?: boolean
+  senderEmail?: string;
+  subjectContains?: string;
+  isPrivate?: boolean;
 }
 
 /**
@@ -44,8 +44,8 @@ interface SearchParams {
  * - Privacy status
  */
 export function NewsletterSearchPanel() {
-  const [searchParams, setSearchParams] = useState<SearchParams>({})
-  const [hasSearched, setHasSearched] = useState(false)
+  const [searchParams, setSearchParams] = useState<SearchParams>({});
+  const [hasSearched, setHasSearched] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -57,14 +57,11 @@ export function NewsletterSearchPanel() {
       setSearchParams({
         senderEmail: value.senderEmail || undefined,
         subjectContains: value.subjectContains || undefined,
-        isPrivate:
-          value.privacyFilter === "all"
-            ? undefined
-            : value.privacyFilter === "private",
-      })
-      setHasSearched(true)
+        isPrivate: value.privacyFilter === "all" ? undefined : value.privacyFilter === "private",
+      });
+      setHasSearched(true);
     },
-  })
+  });
 
   const { data: results, isPending } = useQuery({
     ...convexQuery(api.admin.searchNewsletters, {
@@ -72,7 +69,7 @@ export function NewsletterSearchPanel() {
       limit: 50,
     }),
     enabled: hasSearched,
-  })
+  });
 
   return (
     <div className="space-y-6">
@@ -86,8 +83,8 @@ export function NewsletterSearchPanel() {
         <CardContent>
           <form
             onSubmit={(e) => {
-              e.preventDefault()
-              form.handleSubmit()
+              e.preventDefault();
+              form.handleSubmit();
             }}
             className="grid grid-cols-1 md:grid-cols-4 gap-4"
           >
@@ -128,9 +125,7 @@ export function NewsletterSearchPanel() {
                   <Label htmlFor="privacyFilter">Privacy Status</Label>
                   <Select
                     value={field.state.value}
-                    onValueChange={(v) =>
-                      field.handleChange(v as PrivacyFilter)
-                    }
+                    onValueChange={(v) => field.handleChange(v as PrivacyFilter)}
                   >
                     <SelectTrigger id="privacyFilter" aria-label="Filter by privacy status">
                       <SelectValue />
@@ -149,11 +144,7 @@ export function NewsletterSearchPanel() {
               <form.Subscribe
                 selector={(state) => state.isSubmitting}
                 children={(isSubmitting) => (
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isSubmitting}
-                  >
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
                     {isSubmitting ? "Searching..." : "Search"}
                   </Button>
                 )}
@@ -190,26 +181,18 @@ export function NewsletterSearchPanel() {
                   <TableRow key={newsletter.id}>
                     <TableCell>
                       {newsletter.isPrivate ? (
-                        <Badge
-                          variant="secondary"
-                          className="flex items-center gap-1 w-fit"
-                        >
+                        <Badge variant="secondary" className="flex items-center gap-1 w-fit">
                           <Lock className="h-3 w-3" aria-hidden="true" />
                           Private
                         </Badge>
                       ) : (
-                        <Badge
-                          variant="outline"
-                          className="flex items-center gap-1 w-fit"
-                        >
+                        <Badge variant="outline" className="flex items-center gap-1 w-fit">
                           <Unlock className="h-3 w-3" aria-hidden="true" />
                           Public
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {newsletter.subject}
-                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate">{newsletter.subject}</TableCell>
                     <TableCell className="max-w-[150px] truncate">
                       {newsletter.senderName || newsletter.senderEmail}
                     </TableCell>
@@ -220,14 +203,10 @@ export function NewsletterSearchPanel() {
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={
-                          newsletter.hasPrivateR2Key ? "secondary" : "default"
-                        }
+                        variant={newsletter.hasPrivateR2Key ? "secondary" : "default"}
                         className="text-xs"
                       >
-                        {newsletter.hasPrivateR2Key
-                          ? "Private R2"
-                          : "Shared Content"}
+                        {newsletter.hasPrivateR2Key ? "Private R2" : "Shared Content"}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -250,5 +229,5 @@ export function NewsletterSearchPanel() {
         </p>
       )}
     </div>
-  )
+  );
 }

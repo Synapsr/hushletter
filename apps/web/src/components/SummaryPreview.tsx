@@ -1,26 +1,26 @@
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import { Link } from "@tanstack/react-router"
-import { Button } from "~/components/ui/button"
-import { Sparkles, ChevronDown, ChevronUp, Users } from "lucide-react"
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { Sparkles, ChevronDown, ChevronUp, Users } from "lucide-react";
 
 interface SummaryPreviewProps {
   /** userNewsletter document ID */
-  userNewsletterId: Id<"userNewsletters">
+  userNewsletterId: Id<"userNewsletters">;
 }
 
 /** Response type from getNewsletterSummary query */
 interface SummaryData {
-  summary: string | null
-  isShared: boolean
-  generatedAt: number | null
+  summary: string | null;
+  isShared: boolean;
+  generatedAt: number | null;
 }
 
 /** Max characters to show in preview before truncation */
-const PREVIEW_MAX_CHARS = 100
+const PREVIEW_MAX_CHARS = 100;
 
 /**
  * SummaryPreview - Compact expandable summary preview for newsletter cards
@@ -36,31 +36,31 @@ const PREVIEW_MAX_CHARS = 100
  * NOT auto-expand on hover.
  */
 export function SummaryPreview({ userNewsletterId }: SummaryPreviewProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Only fetch when expanded (lazy loading)
   const { data, isPending } = useQuery({
     ...convexQuery(api.ai.getNewsletterSummary, { userNewsletterId }),
     enabled: isExpanded,
-  })
+  });
 
   // Code review fix: Trust the query return type, avoid manual type guards
-  const summaryData = data as SummaryData | undefined
-  const summary = summaryData?.summary
-  const isShared = summaryData?.isShared ?? false
+  const summaryData = data as SummaryData | undefined;
+  const summary = summaryData?.summary;
+  const isShared = summaryData?.isShared ?? false;
 
   // Truncate summary for preview
   const truncatedSummary =
     summary && summary.length > PREVIEW_MAX_CHARS
       ? `${summary.slice(0, PREVIEW_MAX_CHARS).trim()}...`
-      : summary
+      : summary;
 
   const handleToggle = (e: React.MouseEvent) => {
     // Stop propagation to prevent card click (navigation)
-    e.preventDefault()
-    e.stopPropagation()
-    setIsExpanded(!isExpanded)
-  }
+    e.preventDefault();
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
 
   return (
     <div className="mt-2">
@@ -104,9 +104,7 @@ export function SummaryPreview({ userNewsletterId }: SummaryPreviewProps) {
                   Community
                 </span>
               )}
-              <p className="text-muted-foreground leading-relaxed">
-                {truncatedSummary}
-              </p>
+              <p className="text-muted-foreground leading-relaxed">{truncatedSummary}</p>
               {summary.length > PREVIEW_MAX_CHARS && (
                 <Link
                   to="/newsletters/$id"
@@ -129,5 +127,5 @@ export function SummaryPreview({ userNewsletterId }: SummaryPreviewProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

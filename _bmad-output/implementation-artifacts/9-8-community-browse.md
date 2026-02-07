@@ -303,7 +303,7 @@ export const checkUserHasNewsletters = query({
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
-import { Badge } from "~/components/ui/badge"
+import { Badge } from "@/components/ui/badge"
 import { Lock, Download } from "lucide-react"
 
 interface Props {
@@ -355,8 +355,8 @@ export function CommunityNewsletterCard({ newsletter, ownershipStatus }: Props) 
 import { useState } from "react"
 import { useAction, useMutation } from "convex/react"
 import { api } from "@newsletter-manager/backend"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "~/components/ui/dialog"
-import { Button } from "~/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { Loader2, Download, X } from "lucide-react"
 import { toast } from "sonner"
 import type { Id } from "@newsletter-manager/backend/convex/_generated/dataModel"

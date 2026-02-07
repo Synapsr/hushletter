@@ -441,12 +441,12 @@ import { createFileRoute } from "@tanstack/react-router"
 import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "~/convex/_generated/api"
-import { StatCard } from "~/components/admin/StatCard"
-import { ServiceStatusBadge } from "~/components/admin/ServiceStatusBadge"
-import { RecentActivityFeed } from "~/components/admin/RecentActivityFeed"
-import { TrendChart } from "~/components/admin/TrendChart"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { StatCard } from "@/components/admin/StatCard"
+import { ServiceStatusBadge } from "@/components/admin/ServiceStatusBadge"
+import { RecentActivityFeed } from "@/components/admin/RecentActivityFeed"
+import { TrendChart } from "@/components/admin/TrendChart"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, Mail, Building2, FileStack } from "lucide-react"
 
 export const Route = createFileRoute("/_authed/admin/")({
@@ -583,7 +583,7 @@ function AdminDashboard() {
 ```typescript
 // apps/web/src/components/admin/StatCard.tsx - NEW
 
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "~/lib/utils"
 
 interface StatCardProps {
@@ -626,12 +626,12 @@ export function StatCard({
 ```typescript
 // apps/web/src/components/admin/ServiceStatusBadge.tsx - NEW
 
-import { Badge } from "~/components/ui/badge"
+import { Badge } from "@/components/ui/badge"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "~/components/ui/tooltip"
+} from "@/components/ui/tooltip"
 import { CheckCircle, AlertCircle, XCircle } from "lucide-react"
 import { cn } from "~/lib/utils"
 

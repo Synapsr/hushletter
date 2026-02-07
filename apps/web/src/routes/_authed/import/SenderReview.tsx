@@ -17,9 +17,9 @@
  * - Added detected date information (partial AC#3 fix - full date range requires schema changes)
  */
 
-import { useState, useCallback, useMemo } from "react"
-import { useQuery, useMutation, useAction } from "convex/react"
-import { api } from "@hushletter/backend"
+import { useState, useCallback, useMemo } from "react";
+import { useQuery, useMutation, useAction } from "convex/react";
+import { api } from "@hushletter/backend";
 import {
   Card,
   CardContent,
@@ -27,35 +27,28 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Checkbox } from "~/components/ui/checkbox"
-import { Badge } from "~/components/ui/badge"
-import {
-  ChevronDown,
-  Mail,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  Calendar,
-} from "lucide-react"
-import { cn } from "~/lib/utils"
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { ChevronDown, Mail, Loader2, CheckCircle2, AlertCircle, Calendar } from "lucide-react";
+import { cn } from "~/lib/utils";
 
 /**
  * Types for detected senders
  */
 type DetectedSender = {
-  _id: string
-  email: string
-  name?: string
-  domain: string
-  emailCount: number
-  confidenceScore: number
-  sampleSubjects: string[]
-  detectedAt: number
-  isSelected: boolean
-  isApproved: boolean
-}
+  _id: string;
+  email: string;
+  name?: string;
+  domain: string;
+  emailCount: number;
+  confidenceScore: number;
+  sampleSubjects: string[];
+  detectedAt: number;
+  isSelected: boolean;
+  isApproved: boolean;
+};
 
 /**
  * Loading skeleton for the component
@@ -76,7 +69,7 @@ function LoadingSkeleton() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 /**
@@ -87,7 +80,7 @@ function formatDate(timestamp: number): string {
     year: "numeric",
     month: "short",
     day: "numeric",
-  })
+  });
 }
 
 /**
@@ -101,21 +94,21 @@ function SenderRow({
   optimisticSelected,
   onSelectionChange,
 }: {
-  sender: DetectedSender
-  optimisticSelected?: boolean
-  onSelectionChange: (isSelected: boolean) => void
+  sender: DetectedSender;
+  optimisticSelected?: boolean;
+  onSelectionChange: (isSelected: boolean) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Use optimistic value if available, otherwise use server state
-  const isSelected = optimisticSelected ?? sender.isSelected
+  const isSelected = optimisticSelected ?? sender.isSelected;
 
   return (
     <div
       className={cn(
         "border rounded-lg transition-colors",
         !isSelected && "opacity-60 bg-muted/50",
-        isSelected && "bg-card"
+        isSelected && "bg-card",
       )}
     >
       {/* Main row - clickable to expand */}
@@ -126,18 +119,15 @@ function SenderRow({
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            setIsExpanded(!isExpanded)
+            e.preventDefault();
+            setIsExpanded(!isExpanded);
           }
         }}
         aria-expanded={isExpanded}
         aria-label={`${sender.name || sender.email}, ${sender.emailCount} emails. Click to ${isExpanded ? "collapse" : "expand"} details.`}
       >
         {/* Checkbox - AC#1 */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
+        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <Checkbox
             checked={isSelected}
             onCheckedChange={(checked) => onSelectionChange(checked === true)}
@@ -153,11 +143,7 @@ function SenderRow({
         {/* Sender info */}
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{sender.name || sender.email}</p>
-          {sender.name && (
-            <p className="text-sm text-muted-foreground truncate">
-              {sender.email}
-            </p>
-          )}
+          {sender.name && <p className="text-sm text-muted-foreground truncate">{sender.email}</p>}
         </div>
 
         {/* Email count */}
@@ -177,7 +163,7 @@ function SenderRow({
         <ChevronDown
           className={cn(
             "h-4 w-4 text-muted-foreground transition-transform flex-shrink-0",
-            isExpanded && "rotate-180"
+            isExpanded && "rotate-180",
           )}
         />
       </div>
@@ -191,12 +177,8 @@ function SenderRow({
               <span>{sender.domain}</span>
             </div>
             <div>
-              <span className="font-medium text-muted-foreground">
-                Confidence:
-              </span>{" "}
-              <Badge
-                variant={sender.confidenceScore >= 50 ? "default" : "secondary"}
-              >
+              <span className="font-medium text-muted-foreground">Confidence:</span>{" "}
+              <Badge variant={sender.confidenceScore >= 50 ? "default" : "secondary"}>
                 {sender.confidenceScore >= 80
                   ? "High"
                   : sender.confidenceScore >= 50
@@ -216,9 +198,7 @@ function SenderRow({
 
           {sender.sampleSubjects.length > 0 && (
             <div>
-              <p className="font-medium text-muted-foreground mb-1">
-                Sample subjects:
-              </p>
+              <p className="font-medium text-muted-foreground mb-1">Sample subjects:</p>
               <ul className="list-disc pl-4 space-y-1">
                 {sender.sampleSubjects.slice(0, 3).map((subject, i) => (
                   <li key={i} className="truncate text-muted-foreground">
@@ -231,28 +211,20 @@ function SenderRow({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 /**
  * Inline error alert component
  */
-function ErrorAlert({
-  message,
-  onDismiss,
-}: {
-  message: string
-  onDismiss: () => void
-}) {
+function ErrorAlert({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (
     <div
       role="alert"
       className="flex items-center gap-2 p-3 mb-4 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-900"
     >
       <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
-      <span className="text-sm text-red-700 dark:text-red-300 flex-1">
-        {message}
-      </span>
+      <span className="text-sm text-red-700 dark:text-red-300 flex-1">{message}</span>
       <button
         onClick={onDismiss}
         className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-sm font-medium"
@@ -261,7 +233,7 @@ function ErrorAlert({
         Dismiss
       </button>
     </div>
-  )
+  );
 }
 
 /**
@@ -274,10 +246,10 @@ function ConfirmImportView({
   onCancel,
   isApproving,
 }: {
-  selectedCount: number
-  onConfirm: () => void
-  onCancel: () => void
-  isApproving: boolean
+  selectedCount: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isApproving: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -286,9 +258,7 @@ function ConfirmImportView({
           <CheckCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
         </div>
         <div>
-          <p className="font-medium text-blue-800 dark:text-blue-200">
-            Confirm Import
-          </p>
+          <p className="font-medium text-blue-800 dark:text-blue-200">Confirm Import</p>
           <p className="text-sm text-blue-600 dark:text-blue-400">
             You&apos;re about to import newsletters from {selectedCount} sender
             {selectedCount !== 1 ? "s" : ""}
@@ -297,25 +267,15 @@ function ConfirmImportView({
       </div>
 
       <p className="text-sm text-muted-foreground">
-        After confirmation, we&apos;ll start importing historical emails from the
-        selected senders. This may take some time depending on the number of
-        emails.
+        After confirmation, we&apos;ll start importing historical emails from the selected senders.
+        This may take some time depending on the number of emails.
       </p>
 
       <div className="flex gap-3">
-        <Button
-          variant="outline"
-          onClick={onCancel}
-          disabled={isApproving}
-          className="flex-1"
-        >
+        <Button variant="outline" onClick={onCancel} disabled={isApproving} className="flex-1">
           Go Back
         </Button>
-        <Button
-          onClick={onConfirm}
-          disabled={isApproving}
-          className="flex-1"
-        >
+        <Button onClick={onConfirm} disabled={isApproving} className="flex-1">
           {isApproving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -330,7 +290,7 @@ function ConfirmImportView({
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -344,10 +304,10 @@ function ApprovalSuccessView({
   isStartingImport,
   importError,
 }: {
-  approvedCount: number
-  onStartImport: () => void
-  isStartingImport: boolean
-  importError: string | null
+  approvedCount: number;
+  onStartImport: () => void;
+  isStartingImport: boolean;
+  importError: string | null;
 }) {
   return (
     <div className="space-y-4">
@@ -356,20 +316,16 @@ function ApprovalSuccessView({
           <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
         </div>
         <div>
-          <p className="font-medium text-green-800 dark:text-green-200">
-            Senders Approved!
-          </p>
+          <p className="font-medium text-green-800 dark:text-green-200">Senders Approved!</p>
           <p className="text-sm text-green-600 dark:text-green-400">
-            {approvedCount} sender{approvedCount !== 1 ? "s" : ""} ready for
-            import
+            {approvedCount} sender{approvedCount !== 1 ? "s" : ""} ready for import
           </p>
         </div>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Click the button below to start importing historical emails from your
-        approved senders. This may take a few minutes depending on the number
-        of emails.
+        Click the button below to start importing historical emails from your approved senders. This
+        may take a few minutes depending on the number of emails.
       </p>
 
       {importError && (
@@ -378,11 +334,7 @@ function ApprovalSuccessView({
         </div>
       )}
 
-      <Button
-        onClick={onStartImport}
-        disabled={isStartingImport}
-        className="w-full"
-      >
+      <Button onClick={onStartImport} disabled={isStartingImport} className="w-full">
         {isStartingImport ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -396,7 +348,7 @@ function ApprovalSuccessView({
         )}
       </Button>
     </div>
-  )
+  );
 }
 
 /**
@@ -410,186 +362,185 @@ export function SenderReview({
   onBack,
   onStartImport,
 }: {
-  onBack?: () => void
-  onStartImport?: () => void
+  onBack?: () => void;
+  onStartImport?: () => void;
 }) {
   // State for view management
-  const [view, setView] = useState<"review" | "confirm" | "success">("review")
-  const [approvedCount, setApprovedCount] = useState(0)
-  const [error, setError] = useState<string | null>(null)
-  const [isApproving, setIsApproving] = useState(false)
-  const [isStartingImport, setIsStartingImport] = useState(false)
-  const [importError, setImportError] = useState<string | null>(null)
+  const [view, setView] = useState<"review" | "confirm" | "success">("review");
+  const [approvedCount, setApprovedCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isStartingImport, setIsStartingImport] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Optimistic updates map for instant feedback
   // Key: senderId, Value: optimistic isSelected state
-  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, boolean>>(
-    new Map()
-  )
+  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, boolean>>(new Map());
 
   // Queries
-  const detectedSenders = useQuery(api.gmail.getDetectedSenders) as
-    | DetectedSender[]
-    | undefined
-  const senderCounts = useQuery(api.gmail.getSelectedSendersCount)
+  const detectedSenders = useQuery(api.gmail.getDetectedSenders) as DetectedSender[] | undefined;
+  const senderCounts = useQuery(api.gmail.getSelectedSendersCount);
 
   // Mutations
-  const updateSelection = useMutation(api.gmail.updateSenderSelection)
-  const selectAll = useMutation(api.gmail.selectAllSenders)
-  const deselectAll = useMutation(api.gmail.deselectAllSenders)
-  const approveSelected = useMutation(api.gmail.approveSelectedSenders)
+  const updateSelection = useMutation(api.gmail.updateSenderSelection);
+  const selectAll = useMutation(api.gmail.selectAllSenders);
+  const deselectAll = useMutation(api.gmail.deselectAllSenders);
+  const approveSelected = useMutation(api.gmail.approveSelectedSenders);
 
   // Action for starting import (Story 4.4)
-  const startHistoricalImport = useAction(api.gmail.startHistoricalImport)
+  const startHistoricalImport = useAction(api.gmail.startHistoricalImport);
 
   // Calculate optimistic counts
   const { selectedCount, totalCount } = useMemo(() => {
     if (!detectedSenders) {
-      return { selectedCount: senderCounts?.selectedCount ?? 0, totalCount: senderCounts?.totalCount ?? 0 }
+      return {
+        selectedCount: senderCounts?.selectedCount ?? 0,
+        totalCount: senderCounts?.totalCount ?? 0,
+      };
     }
 
     // If we have optimistic updates, calculate counts including them
     if (optimisticUpdates.size > 0) {
       const optimisticCount = detectedSenders.filter((sender) => {
-        const optimistic = optimisticUpdates.get(sender._id)
-        return optimistic ?? sender.isSelected
-      }).length
-      return { selectedCount: optimisticCount, totalCount: detectedSenders.length }
+        const optimistic = optimisticUpdates.get(sender._id);
+        return optimistic ?? sender.isSelected;
+      }).length;
+      return { selectedCount: optimisticCount, totalCount: detectedSenders.length };
     }
 
     return {
       selectedCount: senderCounts?.selectedCount ?? 0,
       totalCount: senderCounts?.totalCount ?? 0,
-    }
-  }, [detectedSenders, senderCounts, optimisticUpdates])
+    };
+  }, [detectedSenders, senderCounts, optimisticUpdates]);
 
   // Handle individual selection change with optimistic update
   const handleSelectionChange = useCallback(
     async (senderId: string, isSelected: boolean) => {
       // Clear any previous error
-      setError(null)
+      setError(null);
 
       // Apply optimistic update immediately for instant feedback
       setOptimisticUpdates((prev) => {
-        const next = new Map(prev)
-        next.set(senderId, isSelected)
-        return next
-      })
+        const next = new Map(prev);
+        next.set(senderId, isSelected);
+        return next;
+      });
 
       try {
         await updateSelection({
           senderId: senderId as Parameters<typeof updateSelection>[0]["senderId"],
           isSelected,
-        })
+        });
         // Success - clear optimistic state, server state will take over via query subscription
         setOptimisticUpdates((prev) => {
-          const next = new Map(prev)
-          next.delete(senderId)
-          return next
-        })
+          const next = new Map(prev);
+          next.delete(senderId);
+          return next;
+        });
       } catch (err) {
-        console.error("[SenderReview] Failed to update selection:", err)
+        console.error("[SenderReview] Failed to update selection:", err);
         // Revert optimistic update on failure
         setOptimisticUpdates((prev) => {
-          const next = new Map(prev)
-          next.delete(senderId)
-          return next
-        })
-        setError("Failed to update selection. Please try again.")
+          const next = new Map(prev);
+          next.delete(senderId);
+          return next;
+        });
+        setError("Failed to update selection. Please try again.");
       }
     },
-    [updateSelection]
-  )
+    [updateSelection],
+  );
 
   // Handle select all - AC#2
   const handleSelectAll = useCallback(async () => {
-    setError(null)
+    setError(null);
     // Apply optimistic update for all senders
     if (detectedSenders) {
       setOptimisticUpdates((prev) => {
-        const next = new Map(prev)
+        const next = new Map(prev);
         for (const sender of detectedSenders) {
-          next.set(sender._id, true)
+          next.set(sender._id, true);
         }
-        return next
-      })
+        return next;
+      });
     }
 
     try {
-      await selectAll()
+      await selectAll();
       // Clear all optimistic updates
-      setOptimisticUpdates(new Map())
+      setOptimisticUpdates(new Map());
     } catch (err) {
-      console.error("[SenderReview] Failed to select all:", err)
-      setOptimisticUpdates(new Map())
-      setError("Failed to select all senders. Please try again.")
+      console.error("[SenderReview] Failed to select all:", err);
+      setOptimisticUpdates(new Map());
+      setError("Failed to select all senders. Please try again.");
     }
-  }, [selectAll, detectedSenders])
+  }, [selectAll, detectedSenders]);
 
   // Handle deselect all - AC#2
   const handleDeselectAll = useCallback(async () => {
-    setError(null)
+    setError(null);
     // Apply optimistic update for all senders
     if (detectedSenders) {
       setOptimisticUpdates((prev) => {
-        const next = new Map(prev)
+        const next = new Map(prev);
         for (const sender of detectedSenders) {
-          next.set(sender._id, false)
+          next.set(sender._id, false);
         }
-        return next
-      })
+        return next;
+      });
     }
 
     try {
-      await deselectAll()
+      await deselectAll();
       // Clear all optimistic updates
-      setOptimisticUpdates(new Map())
+      setOptimisticUpdates(new Map());
     } catch (err) {
-      console.error("[SenderReview] Failed to deselect all:", err)
-      setOptimisticUpdates(new Map())
-      setError("Failed to deselect all senders. Please try again.")
+      console.error("[SenderReview] Failed to deselect all:", err);
+      setOptimisticUpdates(new Map());
+      setError("Failed to deselect all senders. Please try again.");
     }
-  }, [deselectAll, detectedSenders])
+  }, [deselectAll, detectedSenders]);
 
   // Handle approve selected - AC#4
   const handleApprove = useCallback(async () => {
-    setIsApproving(true)
-    setError(null)
+    setIsApproving(true);
+    setError(null);
     try {
-      const result = await approveSelected()
-      setApprovedCount(result.approvedCount)
-      setView("success")
+      const result = await approveSelected();
+      setApprovedCount(result.approvedCount);
+      setView("success");
     } catch (err) {
-      console.error("[SenderReview] Failed to approve senders:", err)
-      setError("Failed to approve senders. Please try again.")
+      console.error("[SenderReview] Failed to approve senders:", err);
+      setError("Failed to approve senders. Please try again.");
     } finally {
-      setIsApproving(false)
+      setIsApproving(false);
     }
-  }, [approveSelected])
+  }, [approveSelected]);
 
   // Handle start import - Story 4.4: Task 7.2
   const handleStartImport = useCallback(async () => {
-    setIsStartingImport(true)
-    setImportError(null)
+    setIsStartingImport(true);
+    setImportError(null);
     try {
-      const result = await startHistoricalImport()
+      const result = await startHistoricalImport();
       if (result.success) {
         // Notify parent to show import progress
-        onStartImport?.()
+        onStartImport?.();
       } else {
-        setImportError(result.error || "Failed to start import.")
+        setImportError(result.error || "Failed to start import.");
       }
     } catch (err) {
-      console.error("[SenderReview] Failed to start import:", err)
-      setImportError("Failed to start import. Please try again.")
+      console.error("[SenderReview] Failed to start import:", err);
+      setImportError("Failed to start import. Please try again.");
     } finally {
-      setIsStartingImport(false)
+      setIsStartingImport(false);
     }
-  }, [startHistoricalImport, onStartImport])
+  }, [startHistoricalImport, onStartImport]);
 
   // Show loading skeleton while fetching
   if (detectedSenders === undefined) {
-    return <LoadingSkeleton />
+    return <LoadingSkeleton />;
   }
 
   // No senders to review
@@ -602,8 +553,7 @@ export function SenderReview({
             No Senders to Review
           </CardTitle>
           <CardDescription>
-            No newsletter senders have been detected yet. Please scan your Gmail
-            first.
+            No newsletter senders have been detected yet. Please scan your Gmail first.
           </CardDescription>
         </CardHeader>
         {onBack && (
@@ -614,7 +564,7 @@ export function SenderReview({
           </CardFooter>
         )}
       </Card>
-    )
+    );
   }
 
   return (
@@ -667,9 +617,7 @@ export function SenderReview({
                   key={sender._id}
                   sender={sender}
                   optimisticSelected={optimisticUpdates.get(sender._id)}
-                  onSelectionChange={(isSelected) =>
-                    handleSelectionChange(sender._id, isSelected)
-                  }
+                  onSelectionChange={(isSelected) => handleSelectionChange(sender._id, isSelected)}
                 />
               ))}
             </div>
@@ -712,5 +660,5 @@ export function SenderReview({
         </CardFooter>
       )}
     </Card>
-  )
+  );
 }

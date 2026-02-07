@@ -1,74 +1,74 @@
-import { useState } from "react"
-import { Link } from "@tanstack/react-router"
-import { useMutation } from "convex/react"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import { Card, CardContent } from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { cn } from "~/lib/utils"
-import { EyeOff, Eye, Sparkles, Lock, Mail, Globe } from "lucide-react"
-import { Tooltip } from "~/components/ui/tooltip"
-import { SummaryPreview } from "./SummaryPreview"
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { useMutation } from "convex/react";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "~/lib/utils";
+import { EyeOff, Eye, Sparkles, Lock, Mail, Globe } from "lucide-react";
+import { Tooltip } from "@/components/ui/tooltip";
+import { SummaryPreview } from "./SummaryPreview";
 
 /** Newsletter data from listUserNewsletters query */
 export interface NewsletterData {
-  _id: Id<"userNewsletters">
-  subject: string
-  senderEmail: string
-  senderName?: string
-  receivedAt: number
-  isRead: boolean
-  isHidden: boolean
-  isPrivate: boolean
-  readProgress?: number
+  _id: Id<"userNewsletters">;
+  subject: string;
+  senderEmail: string;
+  senderName?: string;
+  receivedAt: number;
+  isRead: boolean;
+  isHidden: boolean;
+  isPrivate: boolean;
+  readProgress?: number;
   /** Story 5.2: Indicates if AI summary is available */
-  hasSummary?: boolean
+  hasSummary?: boolean;
   /** Story 9.10: Newsletter source for unified folder view display */
-  source?: "email" | "gmail" | "manual" | "community"
+  source?: "email" | "gmail" | "manual" | "community";
 }
 
 interface NewsletterCardProps {
-  newsletter: NewsletterData
+  newsletter: NewsletterData;
   /** Story 3.5: Whether to show "Unhide" instead of "Hide" action */
-  showUnhide?: boolean
+  showUnhide?: boolean;
 }
 
 /**
  * Format Unix timestamp for display using user's locale
  */
 function formatDate(timestamp: number): string {
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   // Show relative time for recent newsletters
   if (diffDays === 0) {
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours === 0) {
-      const diffMinutes = Math.floor(diffMs / (1000 * 60))
-      if (diffMinutes < 1) return "Just now"
-      return `${diffMinutes}m ago`
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      if (diffMinutes < 1) return "Just now";
+      return `${diffMinutes}m ago`;
     }
-    return `${diffHours}h ago`
+    return `${diffHours}h ago`;
   }
 
-  if (diffDays === 1) return "Yesterday"
-  if (diffDays < 7) return `${diffDays} days ago`
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
 
   // Show full date for older newsletters
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
-  })
+  });
 }
 
 /**
  * Get display name for sender (name or fallback to email)
  */
 function getSenderDisplay(newsletter: NewsletterData): string {
-  return newsletter.senderName || newsletter.senderEmail
+  return newsletter.senderName || newsletter.senderEmail;
 }
 
 /**
@@ -83,7 +83,7 @@ function getSourceIndicatorInfo(source?: NewsletterData["source"]) {
       label: "From community",
       tooltip: "This newsletter was imported from the community library",
       className: "text-blue-500",
-    }
+    };
   }
   // Default to private indicator for email/gmail/manual/undefined
   return {
@@ -91,7 +91,7 @@ function getSourceIndicatorInfo(source?: NewsletterData["source"]) {
     label: "Private",
     tooltip: "This newsletter is in your private collection",
     className: "text-muted-foreground",
-  }
+  };
 }
 
 /**
@@ -101,56 +101,56 @@ function getSourceIndicatorInfo(source?: NewsletterData["source"]) {
  * Story 5.2: Task 1-3 - Summary indicator and preview
  */
 export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCardProps) {
-  const senderDisplay = getSenderDisplay(newsletter)
+  const senderDisplay = getSenderDisplay(newsletter);
   // Story 9.10 (code review fix): Extract source info computation from IIFE in JSX
-  const sourceInfo = getSourceIndicatorInfo(newsletter.source)
+  const sourceInfo = getSourceIndicatorInfo(newsletter.source);
 
   // Code review fix (HIGH-1): Track feedback state for AC1 confirmation
-  const [feedback, setFeedback] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null);
   // Story 5.2: Track summary preview expansion state
-  const [showSummaryPreview, setShowSummaryPreview] = useState(false)
+  const [showSummaryPreview, setShowSummaryPreview] = useState(false);
 
   // Story 3.5: Hide/unhide mutations
-  const hideNewsletter = useMutation(api.newsletters.hideNewsletter)
-  const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter)
+  const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
+  const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
 
   // Story 3.4 AC5: Show progress for partially read newsletters (0 < progress < 100)
   const isPartiallyRead =
     newsletter.readProgress !== undefined &&
     newsletter.readProgress > 0 &&
-    newsletter.readProgress < 100
+    newsletter.readProgress < 100;
 
   // Story 3.5: Handle hide/unhide with event stopping to prevent navigation
   // Code review fix (HIGH-1): Added feedback for AC1 confirmation requirement
   const handleHideClick = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     try {
-      setFeedback("Hiding...")
-      await hideNewsletter({ userNewsletterId: newsletter._id })
+      setFeedback("Hiding...");
+      await hideNewsletter({ userNewsletterId: newsletter._id });
       // Note: Item will disappear from list due to Convex reactivity - that's the primary feedback
       // The "Hiding..." text provides immediate feedback before the item disappears
     } catch (error) {
-      console.error("[NewsletterCard] Failed to hide newsletter:", error)
-      setFeedback("Failed")
-      setTimeout(() => setFeedback(null), 2000)
+      console.error("[NewsletterCard] Failed to hide newsletter:", error);
+      setFeedback("Failed");
+      setTimeout(() => setFeedback(null), 2000);
     }
-  }
+  };
 
   const handleUnhideClick = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     try {
-      setFeedback("Restoring...")
-      await unhideNewsletter({ userNewsletterId: newsletter._id })
-      setFeedback("Restored!")
-      setTimeout(() => setFeedback(null), 1500)
+      setFeedback("Restoring...");
+      await unhideNewsletter({ userNewsletterId: newsletter._id });
+      setFeedback("Restored!");
+      setTimeout(() => setFeedback(null), 1500);
     } catch (error) {
-      console.error("[NewsletterCard] Failed to unhide newsletter:", error)
-      setFeedback("Failed")
-      setTimeout(() => setFeedback(null), 2000)
+      console.error("[NewsletterCard] Failed to unhide newsletter:", error);
+      setFeedback("Failed");
+      setTimeout(() => setFeedback(null), 2000);
     }
-  }
+  };
 
   return (
     <Link
@@ -161,7 +161,7 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
       <Card
         className={cn(
           "transition-colors hover:bg-accent/50 cursor-pointer",
-          !newsletter.isRead && "border-l-4 border-l-primary"
+          !newsletter.isRead && "border-l-4 border-l-primary",
         )}
       >
         <CardContent className="py-4">
@@ -176,9 +176,7 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
                 <p
                   className={cn(
                     "text-sm truncate",
-                    newsletter.isRead
-                      ? "text-muted-foreground"
-                      : "font-semibold text-foreground"
+                    newsletter.isRead ? "text-muted-foreground" : "font-semibold text-foreground",
                   )}
                 >
                   {senderDisplay}
@@ -187,9 +185,7 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
                 <p
                   className={cn(
                     "text-base truncate mt-1",
-                    newsletter.isRead
-                      ? "text-muted-foreground"
-                      : "font-medium text-foreground"
+                    newsletter.isRead ? "text-muted-foreground" : "font-medium text-foreground",
                   )}
                 >
                   {newsletter.subject}
@@ -223,12 +219,14 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
                       type="button"
                       className="flex items-center text-amber-500 hover:text-amber-400 transition-colors"
                       title="Click to preview AI summary"
-                      aria-label={showSummaryPreview ? "Hide summary preview" : "Show summary preview"}
+                      aria-label={
+                        showSummaryPreview ? "Hide summary preview" : "Show summary preview"
+                      }
                       aria-expanded={showSummaryPreview}
                       onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setShowSummaryPreview(!showSummaryPreview)
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowSummaryPreview(!showSummaryPreview);
                       }}
                     >
                       <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
@@ -283,12 +281,10 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
           </div>
           {/* Story 5.2: Summary preview - shown when user clicks indicator */}
           {showSummaryPreview && newsletter.hasSummary && (
-            <SummaryPreview
-              userNewsletterId={newsletter._id as Id<"userNewsletters">}
-            />
+            <SummaryPreview userNewsletterId={newsletter._id as Id<"userNewsletters">} />
           )}
         </CardContent>
       </Card>
     </Link>
-  )
+  );
 }

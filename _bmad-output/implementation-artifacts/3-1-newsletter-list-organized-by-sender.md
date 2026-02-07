@@ -491,8 +491,8 @@ function NewslettersPage() {
 // Mobile: Sidebar collapses to bottom drawer or top dropdown
 // Use shadcn/ui Sheet component for mobile drawer
 
-import { Sheet, SheetContent, SheetTrigger } from "~/components/ui/sheet"
-import { Button } from "~/components/ui/button"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
 
 function NewslettersPage() {

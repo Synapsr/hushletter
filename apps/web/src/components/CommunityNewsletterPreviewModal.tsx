@@ -1,29 +1,29 @@
-import { useState, useEffect } from "react"
-import { useAction, useMutation } from "convex/react"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
+import { useState, useEffect } from "react";
+import { useAction, useMutation } from "convex/react";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "~/components/ui/dialog"
-import { Button } from "~/components/ui/button"
-import { Loader2, Download, X, Sparkles, FolderOpen, Check } from "lucide-react"
-import { toast } from "sonner"
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Loader2, Download, X, Sparkles, FolderOpen, Check } from "lucide-react";
+import { toast } from "sonner";
 
 /**
  * Props for CommunityNewsletterPreviewModal
  * Story 9.8 Task 5.1-5.4
  */
 interface CommunityNewsletterPreviewModalProps {
-  contentId: Id<"newsletterContent">
-  subject: string
-  senderName?: string
-  senderEmail: string
-  onClose: () => void
-  alreadyOwned?: boolean
+  contentId: Id<"newsletterContent">;
+  subject: string;
+  senderName?: string;
+  senderEmail: string;
+  onClose: () => void;
+  alreadyOwned?: boolean;
 }
 
 /**
@@ -44,85 +44,83 @@ export function CommunityNewsletterPreviewModal({
   onClose,
   alreadyOwned,
 }: CommunityNewsletterPreviewModalProps) {
-  const [isLoading, setIsLoading] = useState(true)
-  const [contentUrl, setContentUrl] = useState<string | null>(null)
-  const [summary, setSummary] = useState<string | undefined>()
-  const [isImporting, setIsImporting] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true);
+  const [contentUrl, setContentUrl] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string | undefined>();
+  const [isImporting, setIsImporting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const getContent = useAction(api.community.getCommunityNewsletterContent)
-  const addToCollection = useMutation(api.community.addToCollection)
+  const getContent = useAction(api.community.getCommunityNewsletterContent);
+  const addToCollection = useMutation(api.community.addToCollection);
 
   // Load content on mount
   useEffect(() => {
-    let isMounted = true
+    let isMounted = true;
 
     async function loadContent() {
       try {
-        const result = await getContent({ contentId })
-        if (!isMounted) return
+        const result = await getContent({ contentId });
+        if (!isMounted) return;
 
         if (result.contentStatus === "available" && result.contentUrl) {
-          setContentUrl(result.contentUrl)
+          setContentUrl(result.contentUrl);
         } else if (result.contentStatus === "error") {
-          setLoadError("Failed to load newsletter content")
+          setLoadError("Failed to load newsletter content");
         } else {
-          setLoadError("Content not available")
+          setLoadError("Content not available");
         }
-        setSummary(result.summary)
+        setSummary(result.summary);
       } catch (error) {
-        if (!isMounted) return
-        console.error("[preview] Failed to load content:", error)
-        setLoadError("Failed to load newsletter content")
+        if (!isMounted) return;
+        console.error("[preview] Failed to load content:", error);
+        setLoadError("Failed to load newsletter content");
       } finally {
         if (isMounted) {
-          setIsLoading(false)
+          setIsLoading(false);
         }
       }
     }
 
-    loadContent()
+    loadContent();
 
     return () => {
-      isMounted = false
-    }
-  }, [contentId, getContent])
+      isMounted = false;
+    };
+  }, [contentId, getContent]);
 
   // Handle import action
   // Story 9.9 Task 4.1-4.3: Enhanced import flow with folder confirmation
   const handleImport = async () => {
-    setIsImporting(true)
+    setIsImporting(true);
     try {
-      const result = await addToCollection({ contentId })
+      const result = await addToCollection({ contentId });
       if (result.alreadyExists) {
         // Story 9.9 Task 4.3: Show info toast with folder name
         toast.info("Newsletter already in your collection", {
           description: result.folderName ? `In folder: ${result.folderName}` : undefined,
-        })
+        });
       } else {
         // Story 9.9 Task 4.2: Show success toast with folder name
         toast.success("Newsletter added to your collection", {
           description: result.folderName ? `Added to folder: ${result.folderName}` : undefined,
           icon: <FolderOpen className="h-4 w-4" />,
-        })
+        });
       }
-      onClose()
+      onClose();
     } catch (error) {
-      console.error("[preview] Failed to import:", error)
-      toast.error("Failed to import newsletter")
+      console.error("[preview] Failed to import:", error);
+      toast.error("Failed to import newsletter");
     } finally {
-      setIsImporting(false)
+      setIsImporting(false);
     }
-  }
+  };
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="pr-8">{subject}</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            From: {senderName || senderEmail}
-          </p>
+          <p className="text-sm text-muted-foreground">From: {senderName || senderEmail}</p>
         </DialogHeader>
 
         {/* Summary section - Story 9.8 Task 5.4 */}
@@ -191,5 +189,5 @@ export function CommunityNewsletterPreviewModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

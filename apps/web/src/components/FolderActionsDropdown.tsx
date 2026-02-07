@@ -1,19 +1,19 @@
-import { useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useConvexMutation } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { toast } from "sonner"
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu"
-import { Button } from "~/components/ui/button"
-import { MoreHorizontal, Pencil, EyeOff, Merge } from "lucide-react"
-import { RenameFolderDialog } from "./RenameFolderDialog"
-import { MergeFolderDialog } from "./MergeFolderDialog"
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { MoreHorizontal, Pencil, EyeOff, Merge } from "lucide-react";
+import { RenameFolderDialog } from "./RenameFolderDialog";
+import { MergeFolderDialog } from "./MergeFolderDialog";
 
 /**
  * FolderActionsDropdown - Dropdown menu for folder actions
@@ -26,9 +26,9 @@ import { MergeFolderDialog } from "./MergeFolderDialog"
  */
 
 interface FolderActionsDropdownProps {
-  folderId: string
-  folderName: string
-  onHideSuccess?: () => void
+  folderId: string;
+  folderName: string;
+  onHideSuccess?: () => void;
 }
 
 export function FolderActionsDropdown({
@@ -36,27 +36,29 @@ export function FolderActionsDropdown({
   folderName,
   onHideSuccess,
 }: FolderActionsDropdownProps) {
-  const [isRenameOpen, setIsRenameOpen] = useState(false)
-  const [isMergeOpen, setIsMergeOpen] = useState(false)
-  const queryClient = useQueryClient()
+  const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   // Code Review Fix MEDIUM-1: Use specific query keys for invalidation
   const hideMutation = useMutation({
     mutationFn: useConvexMutation(api.folders.hideFolder),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["folders"] })
-      queryClient.invalidateQueries({ queryKey: ["newsletters"] })
-      toast.success(`"${folderName}" hidden from sidebar`)
-      onHideSuccess?.()
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+      queryClient.invalidateQueries({ queryKey: ["newsletters"] });
+      toast.success(`"${folderName}" hidden from sidebar`);
+      onHideSuccess?.();
     },
     onError: () => {
-      toast.error("Failed to hide folder")
+      toast.error("Failed to hide folder");
     },
-  })
+  });
 
   const handleHide = () => {
-    hideMutation.mutate({ folderId: folderId as Parameters<typeof hideMutation.mutate>[0]["folderId"] })
-  }
+    hideMutation.mutate({
+      folderId: folderId as Parameters<typeof hideMutation.mutate>[0]["folderId"],
+    });
+  };
 
   return (
     <>
@@ -103,5 +105,5 @@ export function FolderActionsDropdown({
         sourceFolderName={folderName}
       />
     </>
-  )
+  );
 }

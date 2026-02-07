@@ -1,12 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { convexQuery } from "@convex-dev/react-query"
-import { useQuery } from "@tanstack/react-query"
-import { api } from "@hushletter/backend"
-import { ModerationQueueTable } from "~/components/admin/ModerationQueueTable"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
-import { AlertCircle, Inbox } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router";
+import { convexQuery } from "@convex-dev/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@hushletter/backend";
+import { ModerationQueueTable } from "@/components/admin/ModerationQueueTable";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, Inbox } from "lucide-react";
 
 /**
  * Admin Moderation Queue Page
@@ -22,7 +22,7 @@ import { AlertCircle, Inbox } from "lucide-react"
  */
 export const Route = createFileRoute("/_authed/admin/moderation")({
   component: ModerationPage,
-})
+});
 
 function ModerationPage() {
   const {
@@ -30,12 +30,11 @@ function ModerationPage() {
     isPending: countLoading,
     isError: countError,
     error: countErrorMessage,
-  } = useQuery(convexQuery(api.admin.getModerationQueueCount, {}))
+  } = useQuery(convexQuery(api.admin.getModerationQueueCount, {}));
 
   // Show error alert if count query failed
-  const hasError = countError
-  const errorMessage =
-    countErrorMessage?.message || "An error occurred loading moderation data"
+  const hasError = countError;
+  const errorMessage = countErrorMessage?.message || "An error occurred loading moderation data";
 
   return (
     <div className="space-y-6">
@@ -70,12 +69,8 @@ function ModerationPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">
-                {queueCount?.count ?? 0}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                newsletters awaiting moderation
-              </p>
+              <p className="text-3xl font-bold">{queueCount?.count ?? 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">newsletters awaiting moderation</p>
             </CardContent>
           </Card>
         )}
@@ -86,5 +81,5 @@ function ModerationPage() {
         <ModerationQueueTable />
       </section>
     </div>
-  )
+  );
 }

@@ -1,18 +1,18 @@
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { useMutation } from "convex/react"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import { useForm } from "@tanstack/react-form"
-import { Button } from "~/components/ui/button"
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { useForm } from "@tanstack/react-form";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -20,22 +20,22 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
-} from "~/components/ui/dialog"
-import { FolderIcon, CheckIcon } from "lucide-react"
+} from "@/components/ui/dialog";
+import { FolderIcon, CheckIcon } from "lucide-react";
 
 /**
  * Folder data type (minimal for folder selection)
  */
 interface FolderData {
-  _id: Id<"folders">
-  name: string
+  _id: Id<"folders">;
+  name: string;
 }
 
 interface SenderFolderAssignmentProps {
-  senderId: Id<"senders">
-  senderName: string
-  currentFolderId?: Id<"folders">
-  trigger?: React.ReactNode
+  senderId: Id<"senders">;
+  senderName: string;
+  currentFolderId?: Id<"folders">;
+  trigger?: React.ReactNode;
 }
 
 /**
@@ -51,18 +51,16 @@ export function SenderFolderAssignment({
   currentFolderId,
   trigger,
 }: SenderFolderAssignmentProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<Id<"folders"> | undefined>(
-    currentFolderId
-  )
+    currentFolderId,
+  );
 
-  const { data: folders } = useQuery(
-    convexQuery(api.folders.listFolders, {})
-  )
+  const { data: folders } = useQuery(convexQuery(api.folders.listFolders, {}));
 
-  const updateSenderSettings = useMutation(api.senders.updateSenderSettings)
+  const updateSenderSettings = useMutation(api.senders.updateSenderSettings);
 
-  const folderList = (folders ?? []) as FolderData[]
+  const folderList = (folders ?? []) as FolderData[];
 
   // Using TanStack Form for isSubmitting state (project-context.md pattern)
   const form = useForm({
@@ -72,12 +70,12 @@ export function SenderFolderAssignment({
       await updateSenderSettings({
         senderId,
         folderId: selectedFolderId,
-      })
-      setOpen(false)
+      });
+      setOpen(false);
     },
-  })
+  });
 
-  const currentFolder = folderList.find((f) => f._id === currentFolderId)
+  const currentFolder = folderList.find((f) => f._id === currentFolderId);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -95,8 +93,8 @@ export function SenderFolderAssignment({
         </DialogHeader>
         <form
           onSubmit={(e) => {
-            e.preventDefault()
-            form.handleSubmit()
+            e.preventDefault();
+            form.handleSubmit();
           }}
         >
           <div className="space-y-4 py-4">
@@ -132,7 +130,9 @@ export function SenderFolderAssignment({
           </div>
           <div className="flex justify-end gap-2">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
             <form.Subscribe
               selector={(state) => state.isSubmitting}
@@ -146,7 +146,7 @@ export function SenderFolderAssignment({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 /**
@@ -159,16 +159,14 @@ export function SenderFolderDropdown({
   senderId,
   currentFolderId,
 }: {
-  senderId: Id<"senders">
-  currentFolderId?: Id<"folders">
+  senderId: Id<"senders">;
+  currentFolderId?: Id<"folders">;
 }) {
-  const { data: folders } = useQuery(
-    convexQuery(api.folders.listFolders, {})
-  )
+  const { data: folders } = useQuery(convexQuery(api.folders.listFolders, {}));
 
-  const updateSenderSettings = useMutation(api.senders.updateSenderSettings)
+  const updateSenderSettings = useMutation(api.senders.updateSenderSettings);
 
-  const folderList = (folders ?? []) as FolderData[]
+  const folderList = (folders ?? []) as FolderData[];
 
   // Using TanStack Form for isSubmitting state
   const form = useForm({
@@ -177,17 +175,17 @@ export function SenderFolderDropdown({
       await updateSenderSettings({
         senderId,
         folderId: value.folderId,
-      })
+      });
     },
-  })
+  });
 
   const handleChange = (value: string) => {
-    const newFolderId = value === "none" ? undefined : (value as Id<"folders">)
-    form.setFieldValue("folderId", newFolderId)
-    form.handleSubmit()
-  }
+    const newFolderId = value === "none" ? undefined : (value as Id<"folders">);
+    form.setFieldValue("folderId", newFolderId);
+    form.handleSubmit();
+  };
 
-  const currentFolder = folderList.find((f) => f._id === currentFolderId)
+  const currentFolder = folderList.find((f) => f._id === currentFolderId);
 
   return (
     <form.Subscribe
@@ -201,9 +199,7 @@ export function SenderFolderDropdown({
           <SelectTrigger className="w-[180px]">
             <div className="flex items-center gap-2">
               <FolderIcon className="h-4 w-4 text-muted-foreground" />
-              <SelectValue>
-                {currentFolder?.name ?? "No folder"}
-              </SelectValue>
+              <SelectValue>{currentFolder?.name ?? "No folder"}</SelectValue>
             </div>
           </SelectTrigger>
           <SelectContent>
@@ -213,9 +209,7 @@ export function SenderFolderDropdown({
             {folderList.map((folder) => (
               <SelectItem key={folder._id} value={folder._id}>
                 <div className="flex items-center gap-2">
-                  {folder._id === currentFolderId && (
-                    <CheckIcon className="h-4 w-4" />
-                  )}
+                  {folder._id === currentFolderId && <CheckIcon className="h-4 w-4" />}
                   {folder.name}
                 </div>
               </SelectItem>
@@ -224,5 +218,5 @@ export function SenderFolderDropdown({
         </Select>
       )}
     />
-  )
+  );
 }

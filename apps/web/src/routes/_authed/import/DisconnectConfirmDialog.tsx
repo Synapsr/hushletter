@@ -13,21 +13,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog"
-import { Button } from "~/components/ui/button"
-import { AlertTriangle, Loader2 } from "lucide-react"
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 interface DisconnectConfirmDialogProps {
   /** Whether the dialog is open */
-  open: boolean
+  open: boolean;
   /** Callback when dialog open state changes */
-  onOpenChange: (open: boolean) => void
+  onOpenChange: (open: boolean) => void;
   /** Callback when user confirms disconnect */
-  onConfirm: () => void
+  onConfirm: () => void;
   /** Whether disconnect is in progress */
-  isPending: boolean
+  isPending: boolean;
   /** The connected Gmail address */
-  gmailAddress: string
+  gmailAddress: string;
 }
 
 /**
@@ -81,18 +81,10 @@ export function DisconnectConfirmDialog({
         </DialogHeader>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isPending}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
             Cancel
           </Button>
-          <Button
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={isPending}
-          >
+          <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -105,5 +97,5 @@ export function DisconnectConfirmDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -1,9 +1,9 @@
-import { useState } from "react"
-import { Link } from "@tanstack/react-router"
-import { useMutation } from "convex/react"
-import { useQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { useMutation } from "convex/react";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
 import {
   Dialog,
   DialogContent,
@@ -11,9 +11,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog"
-import { Button } from "~/components/ui/button"
-import { Globe, Lock, Users } from "lucide-react"
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Globe, Lock, Users } from "lucide-react";
 
 /**
  * SharingOnboardingModal - Explains community sharing to new users
@@ -28,29 +28,27 @@ import { Globe, Lock, Users } from "lucide-react"
  * Dismissing updates the user record to prevent future display.
  */
 export function SharingOnboardingModal() {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(true);
 
   // Check if user has already seen this onboarding
-  const { data: hasSeen } = useQuery(
-    convexQuery(api.community.hasSeenSharingOnboarding, {})
-  )
+  const { data: hasSeen } = useQuery(convexQuery(api.community.hasSeenSharingOnboarding, {}));
 
   // Mutation to mark onboarding as seen
-  const dismissOnboarding = useMutation(api.community.dismissSharingOnboarding)
+  const dismissOnboarding = useMutation(api.community.dismissSharingOnboarding);
 
   // Handle dismiss - update user record and close modal
   const handleDismiss = async () => {
     try {
-      await dismissOnboarding()
+      await dismissOnboarding();
     } catch (error) {
-      console.error("[SharingOnboardingModal] Failed to dismiss:", error)
+      console.error("[SharingOnboardingModal] Failed to dismiss:", error);
     }
-    setIsOpen(false)
-  }
+    setIsOpen(false);
+  };
 
   // Don't render if already seen or still loading
   if (hasSeen === undefined || hasSeen === true) {
-    return null
+    return null;
   }
 
   return (
@@ -75,9 +73,8 @@ export function SharingOnboardingModal() {
             <div>
               <p className="font-medium text-sm">Shared by Default</p>
               <p className="text-sm text-muted-foreground">
-                Newsletters you receive are shared with the community,
-                helping everyone discover great content from publishers
-                they might not know about.
+                Newsletters you receive are shared with the community, helping everyone discover
+                great content from publishers they might not know about.
               </p>
             </div>
           </div>
@@ -90,8 +87,8 @@ export function SharingOnboardingModal() {
             <div>
               <p className="font-medium text-sm">You're in Control</p>
               <p className="text-sm text-muted-foreground">
-                You can mark specific senders as private anytime.
-                Private newsletters are never shared and only you can see them.
+                You can mark specific senders as private anytime. Private newsletters are never
+                shared and only you can see them.
               </p>
             </div>
           </div>
@@ -99,8 +96,8 @@ export function SharingOnboardingModal() {
           {/* Privacy note */}
           <div className="bg-muted/50 rounded-lg p-3">
             <p className="text-xs text-muted-foreground">
-              Your identity is never revealed. Community members can see
-              newsletter content but not who contributed it.
+              Your identity is never revealed. Community members can see newsletter content but not
+              who contributed it.
             </p>
           </div>
         </div>
@@ -118,5 +115,5 @@ export function SharingOnboardingModal() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

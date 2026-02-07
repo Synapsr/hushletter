@@ -1,10 +1,10 @@
-import { Link } from "@tanstack/react-router"
-import { Button } from "~/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ErrorFallbackProps {
-  error: Error
-  resetErrorBoundary?: () => void
+  error: Error;
+  resetErrorBoundary?: () => void;
 }
 
 /**
@@ -13,7 +13,7 @@ interface ErrorFallbackProps {
  */
 export function ErrorFallback({ error, resetErrorBoundary }: ErrorFallbackProps) {
   // Log error for debugging (server-side or dev tools)
-  console.error("Application error:", error)
+  console.error("Application error:", error);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 flex items-center justify-center p-4">
@@ -42,18 +42,16 @@ export function ErrorFallback({ error, resetErrorBoundary }: ErrorFallbackProps)
           </div>
 
           {/* Show error ID for support - NOT the actual error message */}
-          <p className="text-xs text-gray-400 mt-4">
-            Error ID: {Date.now().toString(36)}
-          </p>
+          <p className="text-xs text-gray-400 mt-4">Error ID: {Date.now().toString(36)}</p>
         </CardContent>
       </Card>
     </main>
-  )
+  );
 }
 
 /**
  * Simple inline error component for router errors.
  */
 export function RouterErrorComponent({ error }: { error: Error }) {
-  return <ErrorFallback error={error} />
+  return <ErrorFallback error={error} />;
 }

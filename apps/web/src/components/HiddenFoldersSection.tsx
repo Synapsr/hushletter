@@ -1,11 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { toast } from "sonner"
-import { Link } from "@tanstack/react-router"
-import { Button } from "~/components/ui/button"
-import { Skeleton } from "~/components/ui/skeleton"
-import { FolderIcon, Eye, AlertCircle, ExternalLink } from "lucide-react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FolderIcon, Eye, AlertCircle, ExternalLink } from "lucide-react";
 
 /**
  * HiddenFoldersSection - Settings component for managing hidden folders
@@ -19,50 +19,49 @@ import { FolderIcon, Eye, AlertCircle, ExternalLink } from "lucide-react"
 
 /** Type for hidden folder data */
 interface HiddenFolderData {
-  _id: string
-  name: string
-  color?: string
-  newsletterCount: number
-  senderCount: number
+  _id: string;
+  name: string;
+  color?: string;
+  newsletterCount: number;
+  senderCount: number;
 }
 
 /** Type guard for hidden folder data */
 function isHiddenFolderData(item: unknown): item is HiddenFolderData {
-  if (typeof item !== "object" || item === null) return false
-  const obj = item as Record<string, unknown>
+  if (typeof item !== "object" || item === null) return false;
+  const obj = item as Record<string, unknown>;
   return (
     typeof obj._id === "string" &&
     typeof obj.name === "string" &&
     typeof obj.newsletterCount === "number" &&
     typeof obj.senderCount === "number"
-  )
+  );
 }
 
 export function HiddenFoldersSection() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   const {
     data: hiddenFoldersRaw,
     isPending,
     isError,
-  } = useQuery(convexQuery(api.folders.listHiddenFolders, {}))
+  } = useQuery(convexQuery(api.folders.listHiddenFolders, {}));
 
-  const hiddenFolders = (hiddenFoldersRaw as unknown[] | undefined)?.filter(
-    isHiddenFolderData
-  ) ?? []
+  const hiddenFolders =
+    (hiddenFoldersRaw as unknown[] | undefined)?.filter(isHiddenFolderData) ?? [];
 
   // Code Review Fix MEDIUM-1: Use specific query keys for invalidation
   const unhideMutation = useMutation({
     mutationFn: useConvexMutation(api.folders.unhideFolder),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["folders"] })
-      queryClient.invalidateQueries({ queryKey: ["newsletters"] })
-      toast.success("Folder restored to sidebar")
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+      queryClient.invalidateQueries({ queryKey: ["newsletters"] });
+      toast.success("Folder restored to sidebar");
     },
     onError: () => {
-      toast.error("Failed to unhide folder")
+      toast.error("Failed to unhide folder");
     },
-  })
+  });
 
   if (isPending) {
     return (
@@ -70,7 +69,7 @@ export function HiddenFoldersSection() {
         <Skeleton className="h-16 w-full rounded-lg" />
         <Skeleton className="h-16 w-full rounded-lg" />
       </div>
-    )
+    );
   }
 
   if (isError) {
@@ -79,7 +78,7 @@ export function HiddenFoldersSection() {
         <AlertCircle className="h-4 w-4" aria-hidden="true" />
         <span>Failed to load hidden folders</span>
       </div>
-    )
+    );
   }
 
   if (hiddenFolders.length === 0) {
@@ -87,27 +86,21 @@ export function HiddenFoldersSection() {
       <p className="text-muted-foreground text-sm">
         No hidden folders. Hidden folders will appear here.
       </p>
-    )
+    );
   }
 
   return (
     <ul className="space-y-2" role="list" aria-label="Hidden folders">
       {hiddenFolders.map((folder) => (
-        <li
-          key={folder._id}
-          className="flex items-center justify-between p-3 border rounded-lg"
-        >
+        <li key={folder._id} className="flex items-center justify-between p-3 border rounded-lg">
           <div className="flex items-center gap-3">
-            <FolderIcon
-              className="h-5 w-5 text-muted-foreground"
-              aria-hidden="true"
-            />
+            <FolderIcon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
             <div>
               <p className="font-medium">{folder.name}</p>
               <p className="text-sm text-muted-foreground">
                 {folder.newsletterCount} newsletter
-                {folder.newsletterCount !== 1 ? "s" : ""}, {folder.senderCount}{" "}
-                sender{folder.senderCount !== 1 ? "s" : ""}
+                {folder.newsletterCount !== 1 ? "s" : ""}, {folder.senderCount} sender
+                {folder.senderCount !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
@@ -140,5 +133,5 @@ export function HiddenFoldersSection() {
         </li>
       ))}
     </ul>
-  )
+  );
 }

@@ -448,7 +448,7 @@ export const hasAnyNewsletters = query({
 
 - Follow TanStack Router file-based routing: `/_authed/` prefix for authenticated routes
 - Colocate tests with source files (`.test.tsx` next to `.tsx`)
-- Components in `~/components/` for shared UI
+- Components in `@/components/` for shared UI
 - Use `useMutation` from convex/react for mutations
 - Use `useQuery` with `convexQuery` for reactive queries
 

@@ -1,90 +1,95 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
-import { useAction } from "convex/react"
-import { api } from "@hushletter/backend"
-import { useForm } from "@tanstack/react-form"
-import { z } from "zod"
-import { useState, useEffect, useRef } from "react"
-import { DedicatedEmailDisplay } from "~/components/DedicatedEmailDisplay"
-import { HiddenFoldersSection } from "~/components/HiddenFoldersSection"
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
+import { useAction } from "convex/react";
+import { api } from "@hushletter/backend";
+import { useForm } from "@tanstack/react-form";
+import { z } from "zod";
+import { useState, useEffect, useRef } from "react";
+import { DedicatedEmailDisplay } from "@/components/DedicatedEmailDisplay";
+import { HiddenFoldersSection } from "@/components/HiddenFoldersSection";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
-import { Pencil, X, Check, Mail, AlertCircle, Shield, ChevronRight, FolderIcon } from "lucide-react"
-import { DisconnectConfirmDialog } from "~/routes/_authed/import/DisconnectConfirmDialog"
+  Pencil,
+  X,
+  Check,
+  Mail,
+  AlertCircle,
+  Shield,
+  ChevronRight,
+  FolderIcon,
+} from "lucide-react";
+import { DisconnectConfirmDialog } from "~/routes/_authed/import/DisconnectConfirmDialog";
 
 export const Route = createFileRoute("/_authed/settings/")({
   component: SettingsPage,
-})
+});
 
 // Zod schema for profile name validation
 const profileNameSchema = z.object({
   name: z.string().max(100, "Name must be 100 characters or less"),
-})
+});
 
 // Type for getCurrentUser query response
 // Note: convexQuery doesn't properly infer return types, so we define it explicitly
 // This matches the return type from packages/backend/convex/auth.ts getCurrentUser
 type CurrentUserData = {
-  id: string
-  email: string
-  name: string | null
-  dedicatedEmail: string | null
-} | null
+  id: string;
+  email: string;
+  name: string | null;
+  dedicatedEmail: string | null;
+} | null;
 
 // Type for Gmail account data
-type GmailAccountData = { email: string; connectedAt: number } | null
+type GmailAccountData = { email: string; connectedAt: number } | null;
 
 /**
  * Gmail Integration Settings Section
  * Story 4.5: Task 4 (AC #1) - Disconnect option in settings
  */
 function GmailSettingsSection() {
-  const queryClient = useQueryClient()
-  const disconnectGmail = useAction(api.gmail.disconnectGmail)
+  const queryClient = useQueryClient();
+  const disconnectGmail = useAction(api.gmail.disconnectGmail);
 
   // Note: useState for isDisconnecting is required because Convex useAction doesn't
   // provide isPending like useMutation does. This is an accepted exception per
   // ReaderView.tsx:104-113 pattern in the codebase.
-  const [isDisconnecting, setIsDisconnecting] = useState(false)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Query Gmail connection status
-  const { data, isPending, error: queryError } = useQuery(
-    convexQuery(api.gmail.getGmailAccount, {})
-  )
-  const gmailAccount = data as GmailAccountData | undefined
+  const {
+    data,
+    isPending,
+    error: queryError,
+  } = useQuery(convexQuery(api.gmail.getGmailAccount, {}));
+  const gmailAccount = data as GmailAccountData | undefined;
 
-  const isConnected = gmailAccount !== null && gmailAccount !== undefined
+  const isConnected = gmailAccount !== null && gmailAccount !== undefined;
 
   const handleConfirmDisconnect = async () => {
-    setIsDisconnecting(true)
-    setError(null)
+    setIsDisconnecting(true);
+    setError(null);
 
     try {
-      await disconnectGmail({})
-      await queryClient.invalidateQueries()
+      await disconnectGmail({});
+      await queryClient.invalidateQueries();
       // Clear any previous error and close dialog on success
-      setError(null)
-      setIsDialogOpen(false)
+      setError(null);
+      setIsDialogOpen(false);
     } catch (err) {
       if (err instanceof Error) {
-        setError(err.message)
+        setError(err.message);
       } else {
-        setError("Failed to disconnect Gmail. Please try again.")
+        setError("Failed to disconnect Gmail. Please try again.");
       }
     } finally {
-      setIsDisconnecting(false)
+      setIsDisconnecting(false);
     }
-  }
+  };
 
   if (isPending) {
     return (
@@ -97,7 +102,7 @@ function GmailSettingsSection() {
           <div className="h-16 bg-muted rounded animate-pulse" />
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -108,9 +113,7 @@ function GmailSettingsSection() {
             <Mail className="h-5 w-5" />
             Gmail Integration
           </CardTitle>
-          <CardDescription>
-            Import newsletters directly from your Gmail inbox
-          </CardDescription>
+          <CardDescription>Import newsletters directly from your Gmail inbox</CardDescription>
         </CardHeader>
         <CardContent>
           {queryError ? (
@@ -125,17 +128,11 @@ function GmailSettingsSection() {
                   <p className="font-medium text-green-700 dark:text-green-400">Connected</p>
                   <p className="text-sm text-muted-foreground">{gmailAccount.email}</p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsDialogOpen(true)}
-                >
+                <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)}>
                   Disconnect
                 </Button>
               </div>
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
               <p className="text-sm text-muted-foreground">
                 Go to the{" "}
                 <Link to="/import" className="text-primary hover:underline">
@@ -147,8 +144,8 @@ function GmailSettingsSection() {
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Gmail is not connected. Connect your Gmail to scan and import
-                your existing newsletters.
+                Gmail is not connected. Connect your Gmail to scan and import your existing
+                newsletters.
               </p>
               <Button asChild variant="outline">
                 <Link to="/import">Connect Gmail</Link>
@@ -168,7 +165,7 @@ function GmailSettingsSection() {
         />
       )}
     </>
-  )
+  );
 }
 
 // Profile Edit Form Component
@@ -177,12 +174,12 @@ function ProfileNameEditForm({
   onSuccess,
   onCancel,
 }: {
-  currentName: string | null
-  onSuccess: () => void
-  onCancel: () => void
+  currentName: string | null;
+  onSuccess: () => void;
+  onCancel: () => void;
 }) {
-  const queryClient = useQueryClient()
-  const updateProfile = useConvexMutation(api.users.updateProfile)
+  const queryClient = useQueryClient();
+  const updateProfile = useConvexMutation(api.users.updateProfile);
 
   const form = useForm({
     defaultValues: { name: currentName ?? "" },
@@ -190,31 +187,31 @@ function ProfileNameEditForm({
       onChange: profileNameSchema,
       onSubmitAsync: async () => {
         // Return submission errors via TanStack Form's built-in error handling
-        return undefined
+        return undefined;
       },
     },
     onSubmit: async ({ value }) => {
       try {
         await updateProfile({
           name: value.name || undefined,
-        })
+        });
         // Invalidate the user query to refetch updated data
-        queryClient.invalidateQueries()
-        onSuccess()
+        queryClient.invalidateQueries();
+        onSuccess();
       } catch {
         // Use form's error state instead of useState
         return {
           form: "Failed to save. Please try again.",
-        }
+        };
       }
     },
-  })
+  });
 
   return (
     <form
       onSubmit={(e) => {
-        e.preventDefault()
-        form.handleSubmit()
+        e.preventDefault();
+        form.handleSubmit();
       }}
       className="flex items-center gap-2"
     >
@@ -273,34 +270,34 @@ function ProfileNameEditForm({
         )}
       />
     </form>
-  )
+  );
 }
 
 function SettingsPage() {
-  const { data, isPending } = useQuery(convexQuery(api.auth.getCurrentUser, {}))
-  const user = data as CurrentUserData
-  const [isEditingName, setIsEditingName] = useState(false)
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
-  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { data, isPending } = useQuery(convexQuery(api.auth.getCurrentUser, {}));
+  const user = data as CurrentUserData;
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup timeout on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (successTimeoutRef.current) {
-        clearTimeout(successTimeoutRef.current)
+        clearTimeout(successTimeoutRef.current);
       }
-    }
-  }, [])
+    };
+  }, []);
 
   const handleEditSuccess = () => {
-    setIsEditingName(false)
-    setShowSuccessMessage(true)
+    setIsEditingName(false);
+    setShowSuccessMessage(true);
     // Clear any existing timeout
     if (successTimeoutRef.current) {
-      clearTimeout(successTimeoutRef.current)
+      clearTimeout(successTimeoutRef.current);
     }
-    successTimeoutRef.current = setTimeout(() => setShowSuccessMessage(false), 3000)
-  }
+    successTimeoutRef.current = setTimeout(() => setShowSuccessMessage(false), 3000);
+  };
 
   if (isPending) {
     return (
@@ -310,16 +307,14 @@ function SettingsPage() {
           <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded" />
         </div>
       </div>
-    )
+    );
   }
 
-  const dedicatedEmail = user?.dedicatedEmail
+  const dedicatedEmail = user?.dedicatedEmail;
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-        Settings
-      </h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Settings</h1>
 
       {/* Privacy Settings Section - Story 6.2: Task 5 */}
       <Card className="mb-6">
@@ -355,9 +350,7 @@ function SettingsPage() {
             <FolderIcon className="h-5 w-5" />
             Hidden Folders
           </CardTitle>
-          <CardDescription>
-            Manage folders you've hidden from the sidebar
-          </CardDescription>
+          <CardDescription>Manage folders you've hidden from the sidebar</CardDescription>
         </CardHeader>
         <CardContent>
           <HiddenFoldersSection />
@@ -372,8 +365,8 @@ function SettingsPage() {
         <CardHeader>
           <CardTitle>Your Newsletter Email</CardTitle>
           <CardDescription>
-            This is your dedicated email address for receiving newsletters.
-            Forward newsletters here or share with newsletter services.
+            This is your dedicated email address for receiving newsletters. Forward newsletters here
+            or share with newsletter services.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -385,22 +378,16 @@ function SettingsPage() {
                   <strong>How to use:</strong>
                 </p>
                 <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>
-                    Subscribe to newsletters using this email address
-                  </li>
-                  <li>
-                    Forward existing newsletters from your personal inbox
-                  </li>
-                  <li>
-                    Set up email forwarding rules in your email client
-                  </li>
+                  <li>Subscribe to newsletters using this email address</li>
+                  <li>Forward existing newsletters from your personal inbox</li>
+                  <li>Set up email forwarding rules in your email client</li>
                 </ul>
               </div>
             </div>
           ) : (
             <p className="text-muted-foreground">
-              Your dedicated email address is being set up. Please refresh the
-              page or contact support if this persists.
+              Your dedicated email address is being set up. Please refresh the page or contact
+              support if this persists.
             </p>
           )}
         </CardContent>
@@ -415,15 +402,11 @@ function SettingsPage() {
         <CardContent>
           <dl className="space-y-4">
             <div>
-              <dt className="text-sm font-medium text-muted-foreground">
-                Email
-              </dt>
+              <dt className="text-sm font-medium text-muted-foreground">Email</dt>
               <dd className="text-base">{user?.email ?? "—"}</dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-muted-foreground mb-1">
-                Display Name
-              </dt>
+              <dt className="text-sm font-medium text-muted-foreground mb-1">Display Name</dt>
               <dd>
                 {isEditingName ? (
                   <ProfileNameEditForm
@@ -455,5 +438,5 @@ function SettingsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,40 +1,40 @@
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
-import { Badge } from "~/components/ui/badge"
-import { CheckCircle, AlertTriangle, XCircle, Clock } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, AlertTriangle, XCircle, Clock } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 /**
  * Privacy violation from runPrivacyAudit query
  */
 interface Violation {
-  type: string
-  severity: "warning" | "critical"
-  message: string
-  details: Record<string, unknown>
+  type: string;
+  severity: "warning" | "critical";
+  message: string;
+  details: Record<string, unknown>;
 }
 
 /** Valid audit status values */
-type AuditStatus = "PASS" | "WARNING" | "FAIL"
+type AuditStatus = "PASS" | "WARNING" | "FAIL";
 
 /**
  * Audit result from runPrivacyAudit query
  */
 interface AuditResult {
-  status: string // Convex returns string, we validate below
-  auditedAt: number
-  totalPrivateNewsletters: number
-  totalPublicNewsletters: number
-  violations: Violation[]
-  checks: Array<{ name: string; passed: boolean }>
+  status: string; // Convex returns string, we validate below
+  auditedAt: number;
+  totalPrivateNewsletters: number;
+  totalPublicNewsletters: number;
+  violations: Violation[];
+  checks: Array<{ name: string; passed: boolean }>;
 }
 
 /** Type guard to validate audit status */
 function isValidAuditStatus(status: string): status is AuditStatus {
-  return status === "PASS" || status === "WARNING" || status === "FAIL"
+  return status === "PASS" || status === "WARNING" || status === "FAIL";
 }
 
 interface PrivacyAuditPanelProps {
-  audit: AuditResult
+  audit: AuditResult;
 }
 
 /**
@@ -70,12 +70,12 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
       borderColor: "border-red-500",
       title: "Privacy Compliance: FAIL",
     },
-  }
+  };
 
   // Validate and get status, defaulting to FAIL for unknown values
-  const status: AuditStatus = isValidAuditStatus(audit.status) ? audit.status : "FAIL"
-  const config = statusConfig[status]
-  const Icon = config.icon
+  const status: AuditStatus = isValidAuditStatus(audit.status) ? audit.status : "FAIL";
+  const config = statusConfig[status];
+  const Icon = config.icon;
 
   return (
     <Alert className={`${config.bgColor} ${config.borderColor}`}>
@@ -86,10 +86,7 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
           <Badge variant={config.variant}>{status}</Badge>
           <span className="text-sm text-muted-foreground flex items-center gap-1">
             <Clock className="h-3 w-3" aria-hidden="true" />
-            <span>
-              Audited{" "}
-              {formatDistanceToNow(audit.auditedAt, { addSuffix: true })}
-            </span>
+            <span>Audited {formatDistanceToNow(audit.auditedAt, { addSuffix: true })}</span>
           </span>
         </div>
 
@@ -100,17 +97,10 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
               {audit.violations.map((violation, index) => (
                 <li
                   key={`${violation.type}-${violation.severity}-${index}`}
-                  className={
-                    violation.severity === "critical"
-                      ? "text-red-600"
-                      : "text-yellow-600"
-                  }
+                  className={violation.severity === "critical" ? "text-red-600" : "text-yellow-600"}
                 >
                   {violation.message}
-                  <span className="sr-only">
-                    {" "}
-                    - severity: {violation.severity}
-                  </span>
+                  <span className="sr-only"> - severity: {violation.severity}</span>
                 </li>
               ))}
             </ul>
@@ -119,11 +109,10 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
 
         {status === "PASS" && (
           <p className="mt-2 text-green-700 dark:text-green-300">
-            All privacy checks passed. Private content is properly isolated from
-            community database.
+            All privacy checks passed. Private content is properly isolated from community database.
           </p>
         )}
       </AlertDescription>
     </Alert>
-  )
+  );
 }

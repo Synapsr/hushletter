@@ -12,11 +12,11 @@
  * - Expandable failure details
  */
 
-import { useState, useEffect, useRef } from "react"
-import { parseEmlFile, type ParsedEml, type EmlParseResult } from "@hushletter/shared"
-import { useAction } from "convex/react"
-import { api } from "@hushletter/backend"
-import { Link } from "@tanstack/react-router"
+import { useState, useEffect, useRef } from "react";
+import { parseEmlFile, type ParsedEml, type EmlParseResult } from "@hushletter/shared";
+import { useAction } from "convex/react";
+import { api } from "@hushletter/backend";
+import { Link } from "@tanstack/react-router";
 import {
   Card,
   CardContent,
@@ -24,9 +24,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Progress } from "~/components/ui/progress"
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Loader2,
   CheckCircle2,
@@ -35,31 +35,31 @@ import {
   ChevronDown,
   Mail,
   ArrowRight,
-} from "lucide-react"
-import { cn } from "~/lib/utils"
-import { readFileAsArrayBuffer, getParserErrorMessage } from "./emlUtils"
+} from "lucide-react";
+import { cn } from "~/lib/utils";
+import { readFileAsArrayBuffer, getParserErrorMessage } from "./emlUtils";
 
 interface BulkImportProgressProps {
   /** Files to import */
-  files: File[]
+  files: File[];
   /** Callback when import completes */
-  onComplete: () => void
+  onComplete: () => void;
   /** Callback to cancel/go back */
-  onCancel: () => void
+  onCancel: () => void;
 }
 
 /** Result of processing a single file */
 interface FileImportResult {
-  filename: string
-  status: "importing" | "success" | "duplicate" | "skipped" | "error"
-  error?: string
-  userNewsletterId?: string
+  filename: string;
+  status: "importing" | "success" | "duplicate" | "skipped" | "error";
+  error?: string;
+  userNewsletterId?: string;
   /** Story 8.4: Duplicate detection reason (when status is "duplicate") */
-  duplicateReason?: "message_id" | "content_hash"
+  duplicateReason?: "message_id" | "content_hash";
 }
 
 /** Concurrency limit for parallel processing */
-const CONCURRENCY_LIMIT = 3
+const CONCURRENCY_LIMIT = 3;
 
 /**
  * Individual file status row
@@ -88,63 +88,59 @@ function FileStatusRow({ result }: { result: FileImportResult }) {
         <span className="text-xs text-yellow-600 dark:text-yellow-400">Duplicate</span>
       )}
     </div>
-  )
+  );
 }
 
 /**
  * Bulk import progress component with concurrency control
  */
-export function BulkImportProgress({
-  files,
-  onComplete,
-  onCancel,
-}: BulkImportProgressProps) {
+export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportProgressProps) {
   const [results, setResults] = useState<FileImportResult[]>(
-    files.map((f) => ({ filename: f.name, status: "importing" as const }))
-  )
-  const [isProcessing, setIsProcessing] = useState(true)
-  const [showFailures, setShowFailures] = useState(false)
+    files.map((f) => ({ filename: f.name, status: "importing" as const })),
+  );
+  const [isProcessing, setIsProcessing] = useState(true);
+  const [showFailures, setShowFailures] = useState(false);
 
   // Track cancellation to prevent state updates after unmount
-  const cancelledRef = useRef(false)
+  const cancelledRef = useRef(false);
 
-  const importAction = useAction(api.manualImport.importEmlNewsletter)
+  const importAction = useAction(api.manualImport.importEmlNewsletter);
 
   // Calculate counts
   // Story 8.4: Add duplicate count, separate from skipped (parse errors)
-  const imported = results.filter((r) => r.status === "success").length
-  const duplicates = results.filter((r) => r.status === "duplicate").length
-  const skipped = results.filter((r) => r.status === "skipped").length
-  const failed = results.filter((r) => r.status === "error").length
-  const processed = imported + duplicates + skipped + failed
-  const percentage = Math.round((processed / files.length) * 100)
+  const imported = results.filter((r) => r.status === "success").length;
+  const duplicates = results.filter((r) => r.status === "duplicate").length;
+  const skipped = results.filter((r) => r.status === "skipped").length;
+  const failed = results.filter((r) => r.status === "error").length;
+  const processed = imported + duplicates + skipped + failed;
+  const percentage = Math.round((processed / files.length) * 100);
 
   // Process files with concurrency limit
   useEffect(() => {
     // Reset cancellation flag on mount
-    cancelledRef.current = false
+    cancelledRef.current = false;
 
     const processFiles = async () => {
       // Create a queue using shift() for thread-safe consumption
-      const queue = [...files]
+      const queue = [...files];
       // Map filenames to indices for accurate result updates
-      const filenameToIndex = new Map(files.map((f, i) => [f.name, i]))
+      const filenameToIndex = new Map(files.map((f, i) => [f.name, i]));
 
       const processNext = async (): Promise<void> => {
         while (!cancelledRef.current) {
           // Thread-safe: shift() removes and returns first element atomically
-          const file = queue.shift()
-          if (!file) return
+          const file = queue.shift();
+          if (!file) return;
 
-          const fileIndex = filenameToIndex.get(file.name) ?? -1
-          if (fileIndex === -1) continue
+          const fileIndex = filenameToIndex.get(file.name) ?? -1;
+          if (fileIndex === -1) continue;
 
           try {
             // 1. Parse the file client-side
-            const buffer = await readFileAsArrayBuffer(file)
-            const parseResult: EmlParseResult = await parseEmlFile(buffer)
+            const buffer = await readFileAsArrayBuffer(file);
+            const parseResult: EmlParseResult = await parseEmlFile(buffer);
 
-            if (cancelledRef.current) return
+            if (cancelledRef.current) return;
 
             if (!parseResult.success) {
               // Parser error
@@ -156,13 +152,13 @@ export function BulkImportProgress({
                         status: "error",
                         error: getParserErrorMessage(parseResult.error.code),
                       }
-                    : r
-                )
-              )
-              continue
+                    : r,
+                ),
+              );
+              continue;
             }
 
-            const parsed: ParsedEml = parseResult.data
+            const parsed: ParsedEml = parseResult.data;
 
             // 2. Import via Convex action
             const result = await importAction({
@@ -173,9 +169,9 @@ export function BulkImportProgress({
               htmlContent: parsed.htmlContent ?? undefined,
               textContent: parsed.textContent ?? undefined,
               messageId: parsed.messageId ?? undefined,
-            })
+            });
 
-            if (cancelledRef.current) return
+            if (cancelledRef.current) return;
 
             // 3. Story 8.4: Handle duplicate detection (AC #6)
             if (result.skipped) {
@@ -188,10 +184,10 @@ export function BulkImportProgress({
                         duplicateReason: result.duplicateReason,
                         userNewsletterId: result.existingId,
                       }
-                    : r
-                )
-              )
-              continue
+                    : r,
+                ),
+              );
+              continue;
             }
 
             // 4. Mark as success
@@ -203,17 +199,15 @@ export function BulkImportProgress({
                       status: "success",
                       userNewsletterId: result.userNewsletterId,
                     }
-                  : r
-              )
-            )
+                  : r,
+              ),
+            );
           } catch (error) {
-            if (cancelledRef.current) return
+            if (cancelledRef.current) return;
 
             // Import error
             const errorMessage =
-              error instanceof Error
-                ? error.message
-                : "Failed to import newsletter"
+              error instanceof Error ? error.message : "Failed to import newsletter";
 
             setResults((prev) =>
               prev.map((r, i) =>
@@ -223,34 +217,34 @@ export function BulkImportProgress({
                       status: "error",
                       error: errorMessage,
                     }
-                  : r
-              )
-            )
+                  : r,
+              ),
+            );
           }
         }
-      }
+      };
 
       // Start concurrent workers
       await Promise.all(
         Array(Math.min(CONCURRENCY_LIMIT, files.length))
           .fill(null)
-          .map(() => processNext())
-      )
+          .map(() => processNext()),
+      );
 
       if (!cancelledRef.current) {
-        setIsProcessing(false)
+        setIsProcessing(false);
       }
-    }
+    };
 
-    processFiles()
+    processFiles();
 
     // Cleanup: prevent state updates after unmount
     return () => {
-      cancelledRef.current = true
-    }
-  }, [files, importAction])
+      cancelledRef.current = true;
+    };
+  }, [files, importAction]);
 
-  const failedResults = results.filter((r) => r.status === "error")
+  const failedResults = results.filter((r) => r.status === "error");
 
   return (
     <Card>
@@ -328,19 +322,14 @@ export function BulkImportProgress({
                   <ChevronDown
                     className={cn(
                       "ml-1 h-3 w-3 transition-transform",
-                      showFailures && "rotate-180"
+                      showFailures && "rotate-180",
                     )}
                   />
                 </Button>
               )}
             </div>
             <div className="max-h-[300px] overflow-y-auto space-y-1">
-              {(isProcessing
-                ? results
-                : showFailures
-                  ? failedResults
-                  : []
-              ).map((result) => (
+              {(isProcessing ? results : showFailures ? failedResults : []).map((result) => (
                 <FileStatusRow key={result.filename} result={result} />
               ))}
             </div>
@@ -350,17 +339,14 @@ export function BulkImportProgress({
         {/* Failure details */}
         {!isProcessing && failedResults.length > 0 && showFailures && (
           <div className="space-y-2 pt-2 border-t">
-            <p className="text-sm font-medium text-red-600 dark:text-red-400">
-              Error Details
-            </p>
+            <p className="text-sm font-medium text-red-600 dark:text-red-400">Error Details</p>
             {failedResults.map((result) => (
-              <div key={result.filename} className="p-2 bg-red-50 dark:bg-red-950/30 rounded text-sm">
-                <p className="font-medium text-red-800 dark:text-red-200">
-                  {result.filename}
-                </p>
-                <p className="text-red-600 dark:text-red-400 text-xs mt-1">
-                  {result.error}
-                </p>
+              <div
+                key={result.filename}
+                className="p-2 bg-red-50 dark:bg-red-950/30 rounded text-sm"
+              >
+                <p className="font-medium text-red-800 dark:text-red-200">{result.filename}</p>
+                <p className="text-red-600 dark:text-red-400 text-xs mt-1">{result.error}</p>
               </div>
             ))}
           </div>
@@ -373,9 +359,7 @@ export function BulkImportProgress({
               <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="font-medium text-green-800 dark:text-green-200">
-                Import Successful!
-              </p>
+              <p className="font-medium text-green-800 dark:text-green-200">Import Successful!</p>
               <p className="text-sm text-green-600 dark:text-green-400">
                 {imported} newsletter{imported !== 1 ? "s" : ""} imported successfully
               </p>
@@ -406,5 +390,5 @@ export function BulkImportProgress({
         )}
       </CardFooter>
     </Card>
-  )
+  );
 }

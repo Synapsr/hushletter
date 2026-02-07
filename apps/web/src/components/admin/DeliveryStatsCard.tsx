@@ -1,18 +1,18 @@
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { CheckCircle, AlertCircle, Clock, Download } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle, AlertCircle, Clock, Download } from "lucide-react";
 
 /**
  * Delivery statistics shape from getDeliveryStats query
  * Story 7.2: Task 4.2
  */
 interface DeliveryStats {
-  received: number
-  processing: number
-  stored: number
-  failed: number
-  total: number
-  successRate: number
-  periodHours: number
+  received: number;
+  processing: number;
+  stored: number;
+  failed: number;
+  total: number;
+  successRate: number;
+  periodHours: number;
 }
 
 /**
@@ -20,7 +20,7 @@ interface DeliveryStats {
  */
 interface DeliveryStatsCardProps {
   /** The delivery statistics to display */
-  stats: DeliveryStats
+  stats: DeliveryStats;
 }
 
 /**
@@ -52,9 +52,7 @@ export function DeliveryStatsCard({ stats }: DeliveryStatsCardProps) {
           >
             {stats.total.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">
-            emails in {stats.periodHours}h
-          </p>
+          <p className="text-xs text-muted-foreground">emails in {stats.periodHours}h</p>
         </CardContent>
       </Card>
 
@@ -71,9 +69,7 @@ export function DeliveryStatsCard({ stats }: DeliveryStatsCardProps) {
           >
             {stats.stored.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {stats.successRate}% success rate
-          </p>
+          <p className="text-xs text-muted-foreground">{stats.successRate}% success rate</p>
         </CardContent>
       </Card>
 
@@ -111,5 +107,5 @@ export function DeliveryStatsCard({ stats }: DeliveryStatsCardProps) {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

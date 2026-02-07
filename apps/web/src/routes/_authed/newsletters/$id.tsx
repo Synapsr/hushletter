@@ -1,17 +1,27 @@
-import { useState } from "react"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
-import { useMutation } from "convex/react"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
-import { ReaderView, clearCacheEntry } from "~/components/ReaderView"
-import { SummaryPanel } from "~/components/SummaryPanel"
-import { Button } from "~/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { ArrowLeft, BookOpen, BookMarked, EyeOff, Eye, RefreshCw, Trash2, Mail, Globe } from "lucide-react"
-import { Badge } from "~/components/ui/badge"
+import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
+import { ReaderView, clearCacheEntry } from "@/components/ReaderView";
+import { SummaryPanel } from "@/components/SummaryPanel";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ArrowLeft,
+  BookOpen,
+  BookMarked,
+  EyeOff,
+  Eye,
+  RefreshCw,
+  Trash2,
+  Mail,
+  Globe,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,26 +32,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "~/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authed/newsletters/$id")({
   component: NewsletterDetailPage,
-})
+});
 
 /** Newsletter metadata from getUserNewsletter query */
 interface NewsletterMetadata {
-  _id: string
-  subject: string
-  senderEmail: string
-  senderName?: string
-  receivedAt: number
-  isRead: boolean
-  isHidden: boolean
-  isPrivate: boolean
-  readProgress?: number
-  contentStatus: "available" | "missing" | "error"
+  _id: string;
+  subject: string;
+  senderEmail: string;
+  senderName?: string;
+  receivedAt: number;
+  isRead: boolean;
+  isHidden: boolean;
+  isPrivate: boolean;
+  readProgress?: number;
+  contentStatus: "available" | "missing" | "error";
   /** Story 9.10: Newsletter source for unified folder view display */
-  source?: "email" | "gmail" | "manual" | "community"
+  source?: "email" | "gmail" | "manual" | "community";
 }
 
 /**
@@ -70,7 +80,7 @@ function DetailSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -78,7 +88,7 @@ function DetailSkeleton() {
  * More specific than the global ErrorFallback - focused on content issues
  */
 function ContentErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
-  console.error("[NewsletterDetail] Content error:", error)
+  console.error("[NewsletterDetail] Content error:", error);
 
   return (
     <Card className="text-center">
@@ -92,7 +102,7 @@ function ContentErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
         <Button onClick={resetErrorBoundary}>Try Again</Button>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 /**
@@ -105,17 +115,12 @@ function SummaryErrorFallback({ resetErrorBoundary }: FallbackProps) {
       <span className="text-sm text-muted-foreground">
         AI summary feature is temporarily unavailable.
       </span>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={resetErrorBoundary}
-        className="gap-1"
-      >
+      <Button variant="ghost" size="sm" onClick={resetErrorBoundary} className="gap-1">
         <RefreshCw className="h-3 w-3" />
         Retry
       </Button>
     </div>
-  )
+  );
 }
 
 /**
@@ -137,7 +142,7 @@ function PageError({ message }: { message: string }) {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 /**
@@ -163,31 +168,30 @@ function NewsletterHeader({
   onDelete,
   isUpdating,
 }: {
-  subject: string
-  senderName?: string
-  senderEmail: string
-  receivedAt: number
-  readProgress?: number
-  isRead: boolean
-  isHidden: boolean
-  source?: "email" | "gmail" | "manual" | "community"
-  onResumeClick?: () => void
-  onMarkRead: () => void
-  onMarkUnread: () => void
-  onHide: () => void
-  onUnhide: () => void
-  onDelete: () => void
-  isUpdating: boolean
+  subject: string;
+  senderName?: string;
+  senderEmail: string;
+  receivedAt: number;
+  readProgress?: number;
+  isRead: boolean;
+  isHidden: boolean;
+  source?: "email" | "gmail" | "manual" | "community";
+  onResumeClick?: () => void;
+  onMarkRead: () => void;
+  onMarkUnread: () => void;
+  onHide: () => void;
+  onUnhide: () => void;
+  onDelete: () => void;
+  isUpdating: boolean;
 }) {
-  const senderDisplay = senderName || senderEmail
-  const date = new Date(receivedAt)
+  const senderDisplay = senderName || senderEmail;
+  const date = new Date(receivedAt);
 
   // Show resume button for partially read newsletters (0 < progress < 100)
-  const showResumeButton =
-    readProgress !== undefined && readProgress > 0 && readProgress < 100
+  const showResumeButton = readProgress !== undefined && readProgress > 0 && readProgress < 100;
 
   // Story 9.10: Determine if this is a community import
-  const isCommunity = source === "community"
+  const isCommunity = source === "community";
 
   return (
     <header className="border-b pb-6 mb-6">
@@ -209,9 +213,7 @@ function NewsletterHeader({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-2 text-muted-foreground">
           <span className="font-medium text-foreground">{senderDisplay}</span>
-          {senderName && (
-            <span className="text-sm">&lt;{senderEmail}&gt;</span>
-          )}
+          {senderName && <span className="text-sm">&lt;{senderEmail}&gt;</span>}
           <span className="text-sm">
             {" \u2022 "}
             <time dateTime={date.toISOString()}>
@@ -230,19 +232,12 @@ function NewsletterHeader({
         <div className="flex items-center gap-2">
           {/* Progress indicator for partially read (AC5) */}
           {showResumeButton && (
-            <span className="text-sm text-muted-foreground">
-              {readProgress}% read
-            </span>
+            <span className="text-sm text-muted-foreground">{readProgress}% read</span>
           )}
 
           {/* Resume reading button (AC2) */}
           {showResumeButton && onResumeClick && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onResumeClick}
-              className="gap-1"
-            >
+            <Button variant="outline" size="sm" onClick={onResumeClick} className="gap-1">
               <BookOpen className="h-4 w-4" />
               Resume
             </Button>
@@ -309,9 +304,7 @@ function NewsletterHeader({
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  {isCommunity
-                    ? "Remove from collection?"
-                    : "Delete newsletter?"}
+                  {isCommunity ? "Remove from collection?" : "Delete newsletter?"}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {isCommunity
@@ -324,7 +317,11 @@ function NewsletterHeader({
                 {/* Story 9.10 (code review fix): Destructive styling for permanent delete, default for community remove */}
                 <AlertDialogAction
                   onClick={onDelete}
-                  className={isCommunity ? undefined : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+                  className={
+                    isCommunity
+                      ? undefined
+                      : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  }
                 >
                   {isCommunity ? "Remove" : "Delete"}
                 </AlertDialogAction>
@@ -334,7 +331,7 @@ function NewsletterHeader({
         </div>
       </div>
     </header>
-  )
+  );
 }
 
 /**
@@ -347,75 +344,72 @@ function NewsletterContent({
   initialProgress,
   onReadingComplete,
 }: {
-  newsletterId: Id<"userNewsletters">
-  initialProgress?: number
-  onReadingComplete?: () => void
+  newsletterId: Id<"userNewsletters">;
+  initialProgress?: number;
+  onReadingComplete?: () => void;
 }) {
   const handleReset = () => {
     // Clear cached content for this newsletter to force refetch
-    clearCacheEntry(newsletterId)
-  }
+    clearCacheEntry(newsletterId);
+  };
 
   return (
-    <ErrorBoundary
-      FallbackComponent={ContentErrorFallback}
-      onReset={handleReset}
-    >
+    <ErrorBoundary FallbackComponent={ContentErrorFallback} onReset={handleReset}>
       <ReaderView
         userNewsletterId={newsletterId}
         initialProgress={initialProgress}
         onReadingComplete={onReadingComplete}
       />
     </ErrorBoundary>
-  )
+  );
 }
 
 function NewsletterDetailPage() {
-  const { id } = Route.useParams()
-  const navigate = useNavigate()
+  const { id } = Route.useParams();
+  const navigate = useNavigate();
 
   // Story 3.4: Track if user wants to resume from saved position
-  const [shouldResume, setShouldResume] = useState(false)
+  const [shouldResume, setShouldResume] = useState(false);
 
   // Code review fix (HIGH-1): Track hide/unhide feedback state for AC1 confirmation
-  const [hideConfirmation, setHideConfirmation] = useState<string | null>(null)
+  const [hideConfirmation, setHideConfirmation] = useState<string | null>(null);
 
   // Story 3.4: Mutations for mark read/unread
-  const markRead = useMutation(api.newsletters.markNewsletterRead)
-  const markUnread = useMutation(api.newsletters.markNewsletterUnread)
+  const markRead = useMutation(api.newsletters.markNewsletterRead);
+  const markUnread = useMutation(api.newsletters.markNewsletterUnread);
 
   // Story 3.5: Mutations for hide/unhide
-  const hideNewsletter = useMutation(api.newsletters.hideNewsletter)
-  const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter)
+  const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
+  const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
 
   // Story 9.10: Delete newsletter mutation
-  const deleteNewsletter = useMutation(api.newsletters.deleteUserNewsletter)
+  const deleteNewsletter = useMutation(api.newsletters.deleteUserNewsletter);
 
   // Validate route param before using - prevents invalid ID errors
   if (!id || typeof id !== "string" || id.trim() === "") {
-    return <PageError message="Invalid newsletter ID" />
+    return <PageError message="Invalid newsletter ID" />;
   }
 
   // Type assertion: Route params come as strings, but Convex expects Id<"userNewsletters">
   // This is safe because: 1) we validated id is a non-empty string above
   // 2) Convex validates the ID format server-side and returns null/error for invalid IDs
-  const userNewsletterId = id as Id<"userNewsletters">
+  const userNewsletterId = id as Id<"userNewsletters">;
 
   // Get newsletter metadata with real-time subscription
   const { data, isPending, error } = useQuery(
-    convexQuery(api.newsletters.getUserNewsletter, { userNewsletterId })
-  )
-  const newsletter = data as NewsletterMetadata | null | undefined
+    convexQuery(api.newsletters.getUserNewsletter, { userNewsletterId }),
+  );
+  const newsletter = data as NewsletterMetadata | null | undefined;
 
   // Show loading skeleton while fetching metadata
   if (isPending) {
-    return <DetailSkeleton />
+    return <DetailSkeleton />;
   }
 
   // Handle errors
   if (error) {
-    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred"
-    return <PageError message={errorMessage} />
+    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+    return <PageError message={errorMessage} />;
   }
 
   // Handle not found
@@ -427,74 +421,72 @@ function NewsletterDetailPage() {
           Back to newsletters
         </Button>
         <div className="text-center py-12">
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            Newsletter not found
-          </h2>
+          <h2 className="text-xl font-semibold text-foreground mb-2">Newsletter not found</h2>
           <p className="text-muted-foreground">
             This newsletter may have been deleted or you don&apos;t have access to it.
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   // Story 3.4: Handlers for mark read/unread (AC4)
   const handleMarkRead = () => {
-    markRead({ userNewsletterId, readProgress: 100 })
-  }
+    markRead({ userNewsletterId, readProgress: 100 });
+  };
 
   const handleMarkUnread = () => {
-    markUnread({ userNewsletterId })
-  }
+    markUnread({ userNewsletterId });
+  };
 
   // Story 3.4: Handler for resume button (AC2)
   const handleResumeClick = () => {
-    setShouldResume(true)
-  }
+    setShouldResume(true);
+  };
 
   // Story 3.5: Handlers for hide/unhide (AC1, AC4)
   // Code review fix (HIGH-1): Added confirmation feedback per AC1 requirement
   const handleHide = async () => {
     try {
-      await hideNewsletter({ userNewsletterId })
+      await hideNewsletter({ userNewsletterId });
       // Show confirmation briefly before navigating (AC1: "confirmation is briefly shown")
-      setHideConfirmation("Newsletter hidden")
+      setHideConfirmation("Newsletter hidden");
       // Brief delay to show confirmation, then navigate
       setTimeout(() => {
-        navigate({ to: "/newsletters" })
-      }, 800)
+        navigate({ to: "/newsletters" });
+      }, 800);
     } catch (error) {
-      console.error("[NewsletterDetail] Failed to hide newsletter:", error)
-      setHideConfirmation("Failed to hide newsletter")
-      setTimeout(() => setHideConfirmation(null), 2000)
+      console.error("[NewsletterDetail] Failed to hide newsletter:", error);
+      setHideConfirmation("Failed to hide newsletter");
+      setTimeout(() => setHideConfirmation(null), 2000);
     }
-  }
+  };
 
   const handleUnhide = async () => {
     try {
-      await unhideNewsletter({ userNewsletterId })
+      await unhideNewsletter({ userNewsletterId });
       // Show confirmation (AC1)
-      setHideConfirmation("Newsletter restored")
-      setTimeout(() => setHideConfirmation(null), 2000)
+      setHideConfirmation("Newsletter restored");
+      setTimeout(() => setHideConfirmation(null), 2000);
     } catch (error) {
-      console.error("[NewsletterDetail] Failed to unhide newsletter:", error)
-      setHideConfirmation("Failed to restore newsletter")
-      setTimeout(() => setHideConfirmation(null), 2000)
+      console.error("[NewsletterDetail] Failed to unhide newsletter:", error);
+      setHideConfirmation("Failed to restore newsletter");
+      setTimeout(() => setHideConfirmation(null), 2000);
     }
-  }
+  };
 
   // Story 9.10: Handler for delete (AC6)
   const handleDelete = async () => {
     try {
-      await deleteNewsletter({ userNewsletterId })
+      await deleteNewsletter({ userNewsletterId });
       // Navigate back after delete
-      navigate({ to: "/newsletters" })
+      navigate({ to: "/newsletters" });
     } catch (error) {
-      console.error("[NewsletterDetail] Failed to delete newsletter:", error)
-      setHideConfirmation("Failed to delete newsletter")
-      setTimeout(() => setHideConfirmation(null), 2000)
+      console.error("[NewsletterDetail] Failed to delete newsletter:", error);
+      setHideConfirmation("Failed to delete newsletter");
+      setTimeout(() => setHideConfirmation(null), 2000);
     }
-  }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -550,5 +542,5 @@ function NewsletterDetailPage() {
         initialProgress={shouldResume ? newsletter.readProgress : undefined}
       />
     </div>
-  )
+  );
 }

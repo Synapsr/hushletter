@@ -1,8 +1,8 @@
-import { useState } from "react"
-import { formatDistanceToNow } from "date-fns"
-import { DeliveryStatusBadge } from "./DeliveryStatusBadge"
-import { DeliveryDetailPanel } from "./DeliveryDetailPanel"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { useState } from "react";
+import { formatDistanceToNow } from "date-fns";
+import { DeliveryStatusBadge } from "./DeliveryStatusBadge";
+import { DeliveryDetailPanel } from "./DeliveryDetailPanel";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -10,10 +10,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
-import { Button } from "~/components/ui/button"
-import { cn } from "~/lib/utils"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { cn } from "~/lib/utils";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 
 /**
  * Delivery log item type from listDeliveryLogs query
@@ -21,24 +21,24 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
  * Exported for reuse in DeliveryDetailPanel
  */
 export interface DeliveryLog {
-  _id: Id<"emailDeliveryLogs">
-  recipientEmail: string
-  senderEmail: string
-  senderName?: string
-  subject: string
-  messageId: string
-  userId?: Id<"users">
-  status: "received" | "processing" | "stored" | "failed"
-  receivedAt: number
-  processingStartedAt?: number
-  completedAt?: number
-  errorMessage?: string
-  errorCode?: string
-  contentSizeBytes?: number
-  hasHtmlContent?: boolean
-  hasPlainTextContent?: boolean
-  retryCount: number
-  isAcknowledged: boolean
+  _id: Id<"emailDeliveryLogs">;
+  recipientEmail: string;
+  senderEmail: string;
+  senderName?: string;
+  subject: string;
+  messageId: string;
+  userId?: Id<"users">;
+  status: "received" | "processing" | "stored" | "failed";
+  receivedAt: number;
+  processingStartedAt?: number;
+  completedAt?: number;
+  errorMessage?: string;
+  errorCode?: string;
+  contentSizeBytes?: number;
+  hasHtmlContent?: boolean;
+  hasPlainTextContent?: boolean;
+  retryCount: number;
+  isAcknowledged: boolean;
 }
 
 /**
@@ -46,9 +46,9 @@ export interface DeliveryLog {
  */
 interface DeliveryLogTableProps {
   /** Array of delivery log items to display */
-  logs: DeliveryLog[]
+  logs: DeliveryLog[];
   /** Whether more items exist for pagination */
-  hasMore: boolean
+  hasMore: boolean;
 }
 
 /**
@@ -65,14 +65,10 @@ interface DeliveryLogTableProps {
  * <DeliveryLogTable logs={deliveryLogs} hasMore={true} />
  */
 export function DeliveryLogTable({ logs, hasMore }: DeliveryLogTableProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (logs.length === 0) {
-    return (
-      <p className="text-center text-muted-foreground py-8">
-        No delivery logs found
-      </p>
-    )
+    return <p className="text-center text-muted-foreground py-8">No delivery logs found</p>;
   }
 
   return (
@@ -92,7 +88,7 @@ export function DeliveryLogTable({ logs, hasMore }: DeliveryLogTableProps) {
         </TableHeader>
         <TableBody>
           {logs.map((log) => {
-            const isExpanded = expandedId === log._id
+            const isExpanded = expandedId === log._id;
             return (
               <TableRowWithDetail
                 key={log._id}
@@ -100,7 +96,7 @@ export function DeliveryLogTable({ logs, hasMore }: DeliveryLogTableProps) {
                 isExpanded={isExpanded}
                 onToggle={() => setExpandedId(isExpanded ? null : log._id)}
               />
-            )
+            );
           })}
         </TableBody>
       </Table>
@@ -111,7 +107,7 @@ export function DeliveryLogTable({ logs, hasMore }: DeliveryLogTableProps) {
         </div>
       )}
     </>
-  )
+  );
 }
 
 /**
@@ -122,16 +118,16 @@ function TableRowWithDetail({
   isExpanded,
   onToggle,
 }: {
-  log: DeliveryLog
-  isExpanded: boolean
-  onToggle: () => void
+  log: DeliveryLog;
+  isExpanded: boolean;
+  onToggle: () => void;
 }) {
   return (
     <>
       <TableRow
         className={cn(
           "cursor-pointer hover:bg-muted/50",
-          log.status === "failed" && "bg-red-50 dark:bg-red-950/20"
+          log.status === "failed" && "bg-red-50 dark:bg-red-950/20",
         )}
         onClick={onToggle}
         aria-expanded={isExpanded}
@@ -174,5 +170,5 @@ function TableRowWithDetail({
         </TableRow>
       )}
     </>
-  )
+  );
 }

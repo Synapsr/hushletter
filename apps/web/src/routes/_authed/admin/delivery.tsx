@@ -1,20 +1,20 @@
-import { useState } from "react"
-import { createFileRoute } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { DeliveryStatsCard } from "~/components/admin/DeliveryStatsCard"
-import { DeliveryLogTable } from "~/components/admin/DeliveryLogTable"
-import { AnomalyAlertBanner } from "~/components/admin/AnomalyAlertBanner"
-import { Skeleton } from "~/components/ui/skeleton"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { DeliveryStatsCard } from "@/components/admin/DeliveryStatsCard";
+import { DeliveryLogTable } from "@/components/admin/DeliveryLogTable";
+import { AnomalyAlertBanner } from "@/components/admin/AnomalyAlertBanner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
+} from "@/components/ui/select";
 
 /**
  * Email Delivery Monitoring Page
@@ -28,41 +28,41 @@ import {
  */
 export const Route = createFileRoute("/_authed/admin/delivery")({
   component: DeliveryMonitoring,
-})
+});
 
 /** Delivery status filter type */
-type DeliveryStatusFilter = "all" | "received" | "processing" | "stored" | "failed"
+type DeliveryStatusFilter = "all" | "received" | "processing" | "stored" | "failed";
 
 function DeliveryMonitoring() {
-  const [statusFilter, setStatusFilter] = useState<DeliveryStatusFilter>("all")
+  const [statusFilter, setStatusFilter] = useState<DeliveryStatusFilter>("all");
 
   // Fetch delivery statistics (24h)
   const { data: stats, isPending: statsLoading } = useQuery(
-    convexQuery(api.admin.getDeliveryStats, { hoursAgo: 24 })
-  )
+    convexQuery(api.admin.getDeliveryStats, { hoursAgo: 24 }),
+  );
 
   // Fetch success rates by period
   const { data: rateStats, isPending: rateStatsLoading } = useQuery(
-    convexQuery(api.admin.getDeliveryRateStats, {})
-  )
+    convexQuery(api.admin.getDeliveryRateStats, {}),
+  );
 
   // Fetch delivery logs with status filter
   const { data: logs, isPending: logsLoading } = useQuery(
     convexQuery(api.admin.listDeliveryLogs, {
       status: statusFilter === "all" ? undefined : statusFilter,
       limit: 50,
-    })
-  )
+    }),
+  );
 
   // Fetch anomalies for alert banner
   const { data: anomalies, isPending: anomaliesLoading } = useQuery(
-    convexQuery(api.admin.getDeliveryAnomalies, {})
-  )
+    convexQuery(api.admin.getDeliveryAnomalies, {}),
+  );
 
   // Fetch failed count for badge in header
   const { data: failedDeliveries } = useQuery(
-    convexQuery(api.admin.getFailedDeliveries, { includeAcknowledged: false })
-  )
+    convexQuery(api.admin.getFailedDeliveries, { includeAcknowledged: false }),
+  );
 
   return (
     <div className="space-y-6">
@@ -163,5 +163,5 @@ function DeliveryMonitoring() {
         </Card>
       </section>
     </div>
-  )
+  );
 }

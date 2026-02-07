@@ -174,7 +174,7 @@ const handleDisconnect = async () => {
 **DisconnectConfirmDialog.tsx Pattern:**
 ```tsx
 import { Dialog } from "@base-ui-components/react/dialog"
-import { Button } from "~/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { AlertTriangle } from "lucide-react"
 
 interface DisconnectConfirmDialogProps {

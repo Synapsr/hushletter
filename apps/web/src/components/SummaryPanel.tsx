@@ -1,25 +1,25 @@
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { useAction } from "convex/react"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import { Button } from "~/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Sparkles, RefreshCw, ChevronDown, ChevronUp, Users } from "lucide-react"
-import { ConvexError } from "convex/values"
-import { useSummaryPreferences } from "~/hooks/useSummaryPreferences"
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAction } from "convex/react";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sparkles, RefreshCw, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { ConvexError } from "convex/values";
+import { useSummaryPreferences } from "~/hooks/useSummaryPreferences";
 
 interface SummaryPanelProps {
   /** userNewsletter document ID - typed for Convex safety */
-  userNewsletterId: Id<"userNewsletters">
+  userNewsletterId: Id<"userNewsletters">;
 }
 
 /** Summary data from Convex query */
 interface SummaryData {
-  summary: string | null
-  isShared: boolean
-  generatedAt: number | null
+  summary: string | null;
+  isShared: boolean;
+  generatedAt: number | null;
 }
 
 /**
@@ -40,42 +40,40 @@ interface SummaryData {
  */
 export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
   // Story 5.2: Use persisted preference for collapse state
-  const { isCollapsed, toggleCollapsed } = useSummaryPreferences()
+  const { isCollapsed, toggleCollapsed } = useSummaryPreferences();
   // Exception: useAction doesn't provide isPending, manual state required
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Query for existing summary (resolves shared vs private automatically)
   // Returns: { summary: string | null, isShared: boolean, generatedAt: number | null }
-  const { data } = useQuery(
-    convexQuery(api.ai.getNewsletterSummary, { userNewsletterId })
-  )
+  const { data } = useQuery(convexQuery(api.ai.getNewsletterSummary, { userNewsletterId }));
   // Code review fix: Trust the query return type, avoid manual type guards
-  const summaryData = data as SummaryData | undefined
+  const summaryData = data as SummaryData | undefined;
 
-  const generateSummaryAction = useAction(api.ai.generateSummary)
+  const generateSummaryAction = useAction(api.ai.generateSummary);
 
   const handleGenerate = async (forceRegenerate = false) => {
-    setIsGenerating(true)
-    setError(null)
+    setIsGenerating(true);
+    setError(null);
 
     try {
-      await generateSummaryAction({ userNewsletterId, forceRegenerate })
+      await generateSummaryAction({ userNewsletterId, forceRegenerate });
       // Summary will appear via real-time subscription from useQuery
     } catch (err) {
       if (err instanceof ConvexError) {
-        const data = err.data as { message?: string; code?: string }
-        setError(data.message ?? "Failed to generate summary")
+        const data = err.data as { message?: string; code?: string };
+        setError(data.message ?? "Failed to generate summary");
       } else {
-        setError("Failed to generate summary. Please try again.")
+        setError("Failed to generate summary. Please try again.");
       }
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
-  }
+  };
 
-  const hasSummary = Boolean(summaryData?.summary)
-  const isSharedSummary = summaryData?.isShared ?? false
+  const hasSummary = Boolean(summaryData?.summary);
+  const isSharedSummary = summaryData?.isShared ?? false;
 
   return (
     <Card className="mb-6">
@@ -140,14 +138,13 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
                 </div>
               )}
               <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="text-muted-foreground whitespace-pre-wrap">
-                  {summaryData.summary}
-                </p>
+                <p className="text-muted-foreground whitespace-pre-wrap">{summaryData.summary}</p>
               </div>
               {/* Story 5.2 Task 4.4: Generated date metadata */}
               {summaryData.generatedAt && (
                 <p className="text-xs text-muted-foreground/70 pt-2">
-                  Generated on {new Date(summaryData.generatedAt).toLocaleDateString(undefined, {
+                  Generated on{" "}
+                  {new Date(summaryData.generatedAt).toLocaleDateString(undefined, {
                     year: "numeric",
                     month: "short",
                     day: "numeric",
@@ -191,5 +188,5 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
         </CardContent>
       )}
     </Card>
-  )
+  );
 }

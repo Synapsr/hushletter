@@ -103,9 +103,9 @@ so that **I can access my newsletters securely**.
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useForm } from "@tanstack/react-form"
 import { z } from "zod"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { signIn } from "~/lib/auth-client"
 import { getErrorMessage } from "~/lib/utils/error"
 
@@ -262,7 +262,7 @@ function LoginPage() {
 ```typescript
 // Update apps/web/src/routes/_authed.tsx to include logout
 import { signOut } from "~/lib/auth-client"
-import { Button } from "~/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { useNavigate } from "@tanstack/react-router"
 
 function AuthedLayout() {

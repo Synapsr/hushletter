@@ -1,42 +1,42 @@
-import { useState, useEffect, useRef } from "react"
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { useAction, useMutation } from "convex/react"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import DOMPurify from "dompurify"
-import { Button } from "~/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { ArrowLeft, Plus, Users, Check, Sparkles, Loader2, AlertCircle } from "lucide-react"
+import { useState, useEffect, useRef } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useAction, useMutation } from "convex/react";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import DOMPurify from "dompurify";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Plus, Users, Check, Sparkles, Loader2, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authed/community/$contentId")({
   component: CommunityReaderPage,
-})
+});
 
 /**
  * Simple LRU cache for community content HTML.
  * Newsletter content is immutable, so caching is safe.
  * Limited to MAX_CACHE_SIZE entries to prevent memory leaks in long sessions.
  */
-const MAX_CACHE_SIZE = 20
-const contentCache = new Map<string, string | null>()
+const MAX_CACHE_SIZE = 20;
+const contentCache = new Map<string, string | null>();
 
 function getFromCache(key: string): string | null | undefined {
-  const value = contentCache.get(key)
+  const value = contentCache.get(key);
   if (value !== undefined) {
     // Move to end (most recently used)
-    contentCache.delete(key)
-    contentCache.set(key, value)
+    contentCache.delete(key);
+    contentCache.set(key, value);
   }
-  return value
+  return value;
 }
 
 function setInCache(key: string, value: string | null): void {
   // Evict oldest entry if at capacity
   if (contentCache.size >= MAX_CACHE_SIZE) {
-    const oldestKey = contentCache.keys().next().value
-    if (oldestKey) contentCache.delete(oldestKey)
+    const oldestKey = contentCache.keys().next().value;
+    if (oldestKey) contentCache.delete(oldestKey);
   }
-  contentCache.set(key, value)
+  contentCache.set(key, value);
 }
 
 /**
@@ -51,7 +51,7 @@ function ContentSkeleton() {
       <div className="h-4 bg-muted rounded w-full" />
       <div className="h-32 bg-muted rounded w-full mt-6" />
     </div>
-  )
+  );
 }
 
 /**
@@ -63,7 +63,7 @@ function ContentError({ message }: { message: string }) {
       <p className="text-destructive font-medium mb-2">Failed to load content</p>
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
-  )
+  );
 }
 
 /**
@@ -80,61 +80,61 @@ function ContentError({ message }: { message: string }) {
  * Those require adding to personal collection first.
  */
 function CommunityReaderPage() {
-  const { contentId } = Route.useParams()
-  const navigate = useNavigate()
+  const { contentId } = Route.useParams();
+  const navigate = useNavigate();
 
   // Content state
-  const [contentHtml, setContentHtml] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [contentHtml, setContentHtml] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Newsletter metadata state
   const [metadata, setMetadata] = useState<{
-    subject: string
-    senderEmail: string
-    senderName?: string
-    firstReceivedAt: number
-    readerCount: number
-    hasSummary: boolean
-    summary?: string
-  } | null>(null)
+    subject: string;
+    senderEmail: string;
+    senderName?: string;
+    firstReceivedAt: number;
+    readerCount: number;
+    hasSummary: boolean;
+    summary?: string;
+  } | null>(null);
 
   // Add to collection state
-  const [isAdding, setIsAdding] = useState(false)
-  const [alreadyInCollection, setAlreadyInCollection] = useState(false)
-  const [addError, setAddError] = useState<string | null>(null)
+  const [isAdding, setIsAdding] = useState(false);
+  const [alreadyInCollection, setAlreadyInCollection] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   // Ref for scroll container
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Action to get content with signed URL
-  const getCommunityContent = useAction(api.community.getCommunityNewsletterContent)
+  const getCommunityContent = useAction(api.community.getCommunityNewsletterContent);
 
   // Mutation to add to collection
-  const addToCollection = useMutation(api.community.addToCollection)
+  const addToCollection = useMutation(api.community.addToCollection);
 
   // Fetch content on mount
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
 
     async function fetchContent() {
       // Check LRU cache first
-      const cached = getFromCache(contentId)
+      const cached = getFromCache(contentId);
       if (cached !== undefined) {
-        setContentHtml(cached)
-        setIsLoading(false)
-        return
+        setContentHtml(cached);
+        setIsLoading(false);
+        return;
       }
 
       try {
-        setIsLoading(true)
-        setError(null)
+        setIsLoading(true);
+        setError(null);
 
         const result = await getCommunityContent({
           contentId: contentId as Id<"newsletterContent">,
-        })
+        });
 
-        if (cancelled) return
+        if (cancelled) return;
 
         // Store metadata
         setMetadata({
@@ -145,88 +145,120 @@ function CommunityReaderPage() {
           readerCount: result.readerCount,
           hasSummary: result.hasSummary,
           summary: result.summary,
-        })
+        });
 
         // Fetch and sanitize HTML content
         if (result.contentUrl && result.contentStatus === "available") {
-          const response = await fetch(result.contentUrl)
+          const response = await fetch(result.contentUrl);
           if (!response.ok) {
-            throw new Error(`Failed to fetch content: ${response.status}`)
+            throw new Error(`Failed to fetch content: ${response.status}`);
           }
-          const html = await response.text()
+          const html = await response.text();
 
           // Sanitize HTML with DOMPurify
           const sanitized = DOMPurify.sanitize(html, {
             ALLOWED_TAGS: [
-              "p", "div", "span", "a", "img", "h1", "h2", "h3", "h4", "h5", "h6",
-              "ul", "ol", "li", "br", "hr", "strong", "em", "b", "i", "u",
-              "blockquote", "pre", "code", "table", "thead", "tbody", "tr", "th", "td",
-              "figure", "figcaption", "section", "article", "header", "footer",
+              "p",
+              "div",
+              "span",
+              "a",
+              "img",
+              "h1",
+              "h2",
+              "h3",
+              "h4",
+              "h5",
+              "h6",
+              "ul",
+              "ol",
+              "li",
+              "br",
+              "hr",
+              "strong",
+              "em",
+              "b",
+              "i",
+              "u",
+              "blockquote",
+              "pre",
+              "code",
+              "table",
+              "thead",
+              "tbody",
+              "tr",
+              "th",
+              "td",
+              "figure",
+              "figcaption",
+              "section",
+              "article",
+              "header",
+              "footer",
             ],
             ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "style", "target", "rel"],
             ALLOW_DATA_ATTR: false,
             ADD_ATTR: ["target", "rel"],
-          })
+          });
 
           // Add target="_blank" and rel="noopener noreferrer" to links
-          const parser = new DOMParser()
-          const doc = parser.parseFromString(sanitized, "text/html")
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(sanitized, "text/html");
           doc.querySelectorAll("a").forEach((link) => {
-            link.setAttribute("target", "_blank")
-            link.setAttribute("rel", "noopener noreferrer")
-          })
-          const finalHtml = doc.body.innerHTML
+            link.setAttribute("target", "_blank");
+            link.setAttribute("rel", "noopener noreferrer");
+          });
+          const finalHtml = doc.body.innerHTML;
 
-          setInCache(contentId, finalHtml)
-          setContentHtml(finalHtml)
+          setInCache(contentId, finalHtml);
+          setContentHtml(finalHtml);
         } else {
-          setContentHtml(null)
-          setError("Content not available")
+          setContentHtml(null);
+          setError("Content not available");
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : "Unknown error"
-          setError(message)
-          console.error("[CommunityReader] Failed to fetch content:", err)
+          const message = err instanceof Error ? err.message : "Unknown error";
+          setError(message);
+          console.error("[CommunityReader] Failed to fetch content:", err);
         }
       } finally {
         if (!cancelled) {
-          setIsLoading(false)
+          setIsLoading(false);
         }
       }
     }
 
-    fetchContent()
+    fetchContent();
     return () => {
-      cancelled = true
-    }
-  }, [contentId, getCommunityContent])
+      cancelled = true;
+    };
+  }, [contentId, getCommunityContent]);
 
   // Handle add to collection
   const handleAddToCollection = async () => {
     try {
-      setIsAdding(true)
-      setAddError(null)
+      setIsAdding(true);
+      setAddError(null);
       const result = await addToCollection({
         contentId: contentId as Id<"newsletterContent">,
-      })
+      });
 
       if (result.alreadyExists) {
-        setAlreadyInCollection(true)
+        setAlreadyInCollection(true);
       } else {
         // Redirect to personal reader view after success
         navigate({
           to: "/newsletters/$id",
           params: { id: result.userNewsletterId },
-        })
+        });
       }
     } catch (err) {
-      console.error("[CommunityReader] Failed to add to collection:", err)
-      setAddError("Could not add this newsletter to your collection.")
+      console.error("[CommunityReader] Failed to add to collection:", err);
+      setAddError("Could not add this newsletter to your collection.");
     } finally {
-      setIsAdding(false)
+      setIsAdding(false);
     }
-  }
+  };
 
   // Format date
   const formatDate = (timestamp: number) => {
@@ -234,14 +266,17 @@ function CommunityReaderPage() {
       year: "numeric",
       month: "long",
       day: "numeric",
-    })
-  }
+    });
+  };
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
       {/* Back button */}
       <div className="mb-4">
-        <Link to="/community" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link
+          to="/community"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-4 w-4" />
           Back to Community
         </Link>
@@ -266,7 +301,8 @@ function CommunityReaderPage() {
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
                   <span>
-                    {metadata.readerCount} {metadata.readerCount === 1 ? "reader has" : "readers have"} this
+                    {metadata.readerCount}{" "}
+                    {metadata.readerCount === 1 ? "reader has" : "readers have"} this
                   </span>
                 </div>
                 {/* Add to collection button */}
@@ -315,9 +351,7 @@ function CommunityReaderPage() {
                 AI Summary
               </span>
             </div>
-            <p className="text-sm text-amber-900 dark:text-amber-100">
-              {metadata.summary}
-            </p>
+            <p className="text-sm text-amber-900 dark:text-amber-100">{metadata.summary}</p>
           </CardContent>
         </Card>
       )}
@@ -349,5 +383,5 @@ function CommunityReaderPage() {
         Add to your collection to mark as read, hide, or track reading progress.
       </p>
     </div>
-  )
+  );
 }

@@ -1,8 +1,8 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { api } from "@hushletter/backend"
-import { useConvexMutation } from "@convex-dev/react-query"
-import { useState, useDeferredValue } from "react"
+import { convexQuery } from "@convex-dev/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@hushletter/backend";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { useState, useDeferredValue } from "react";
 import {
   Table,
   TableBody,
@@ -10,18 +10,18 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "~/components/ui/table"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select"
-import { Badge } from "~/components/ui/badge"
-import { Skeleton } from "~/components/ui/skeleton"
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -29,25 +29,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog"
-import { Label } from "~/components/ui/label"
-import { Textarea } from "~/components/ui/textarea"
-import { Eye, EyeOff, Ban, Search, Users, Calendar } from "lucide-react"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Eye, EyeOff, Ban, Search, Users, Calendar } from "lucide-react";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 
 /** Content item returned from listCommunityContent */
 interface ContentItem {
-  id: Id<"newsletterContent">
-  senderId: Id<"senders"> | undefined
-  subject: string
-  senderEmail: string
-  senderName: string | undefined
-  domain: string
-  readerCount: number
-  firstReceivedAt: number
-  moderationStatus: "active" | "hidden" | "blocked_sender"
-  isHiddenFromCommunity: boolean
-  hiddenAt: number | undefined
+  id: Id<"newsletterContent">;
+  senderId: Id<"senders"> | undefined;
+  subject: string;
+  senderEmail: string;
+  senderName: string | undefined;
+  domain: string;
+  readerCount: number;
+  firstReceivedAt: number;
+  moderationStatus: "active" | "hidden" | "blocked_sender";
+  isHiddenFromCommunity: boolean;
+  hiddenAt: number | undefined;
 }
 
 /**
@@ -62,23 +62,23 @@ interface ContentItem {
  * - Block sender action
  */
 export function CommunityContentTable() {
-  const queryClient = useQueryClient()
-  const [searchEmail, setSearchEmail] = useState("")
-  const deferredSearchEmail = useDeferredValue(searchEmail)
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "active" | "hidden" | "blocked_sender"
-  >("all")
+  const queryClient = useQueryClient();
+  const [searchEmail, setSearchEmail] = useState("");
+  const deferredSearchEmail = useDeferredValue(searchEmail);
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "hidden" | "blocked_sender">(
+    "all",
+  );
 
   // Dialog state
-  const [hideDialogOpen, setHideDialogOpen] = useState(false)
-  const [blockDialogOpen, setBlockDialogOpen] = useState(false)
+  const [hideDialogOpen, setHideDialogOpen] = useState(false);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [selectedContent, setSelectedContent] = useState<{
-    id: string
-    senderId: string | undefined
-    subject: string
-    senderEmail: string
-  } | null>(null)
-  const [reason, setReason] = useState("")
+    id: string;
+    senderId: string | undefined;
+    subject: string;
+    senderEmail: string;
+  } | null>(null);
+  const [reason, setReason] = useState("");
 
   // Queries - use deferred value for debounced search
   const { data, isPending, isError } = useQuery(
@@ -88,23 +88,23 @@ export function CommunityContentTable() {
       sortBy: "firstReceivedAt",
       sortOrder: "desc",
       limit: 50,
-    })
-  )
+    }),
+  );
 
   // Mutations - wrap with useMutation
-  const hideContentFn = useConvexMutation(api.admin.hideContentFromCommunity)
-  const hideContentMutation = useMutation({ mutationFn: hideContentFn })
+  const hideContentFn = useConvexMutation(api.admin.hideContentFromCommunity);
+  const hideContentMutation = useMutation({ mutationFn: hideContentFn });
 
-  const restoreContentFn = useConvexMutation(api.admin.restoreContentToCommunity)
-  const restoreContentMutation = useMutation({ mutationFn: restoreContentFn })
+  const restoreContentFn = useConvexMutation(api.admin.restoreContentToCommunity);
+  const restoreContentMutation = useMutation({ mutationFn: restoreContentFn });
 
-  const blockSenderFn = useConvexMutation(api.admin.blockSenderFromCommunity)
-  const blockSenderMutation = useMutation({ mutationFn: blockSenderFn })
+  const blockSenderFn = useConvexMutation(api.admin.blockSenderFromCommunity);
+  const blockSenderMutation = useMutation({ mutationFn: blockSenderFn });
 
   /** Invalidate community content queries */
   const invalidateCommunityQueries = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({
+    [
+      await queryClient.invalidateQueries({
         predicate: (query) =>
           Array.isArray(query.queryKey) &&
           query.queryKey.some(
@@ -112,85 +112,83 @@ export function CommunityContentTable() {
               typeof key === "string" &&
               (key.includes("listCommunityContent") ||
                 key.includes("getCommunityContentSummary") ||
-                key.includes("listBlockedSenders"))
+                key.includes("listBlockedSenders")),
           ),
       }),
-    ])
-  }
+    ];
+  };
 
   const handleHide = async () => {
-    if (!selectedContent || !reason.trim()) return
+    if (!selectedContent || !reason.trim()) return;
 
     await hideContentMutation.mutateAsync({
       contentId: selectedContent.id as Id<"newsletterContent">,
       reason: reason.trim(),
-    })
+    });
 
-    await invalidateCommunityQueries()
+    await invalidateCommunityQueries();
 
-    setHideDialogOpen(false)
-    setSelectedContent(null)
-    setReason("")
-  }
+    setHideDialogOpen(false);
+    setSelectedContent(null);
+    setReason("");
+  };
 
   const handleRestore = async (contentId: string) => {
     await restoreContentMutation.mutateAsync({
       contentId: contentId as Id<"newsletterContent">,
-    })
-    await invalidateCommunityQueries()
-  }
+    });
+    await invalidateCommunityQueries();
+  };
 
   const handleBlockSender = async () => {
-    if (!selectedContent || !reason.trim() || !selectedContent.senderId) return
+    if (!selectedContent || !reason.trim() || !selectedContent.senderId) return;
 
     await blockSenderMutation.mutateAsync({
       senderId: selectedContent.senderId as Id<"senders">,
       reason: reason.trim(),
-    })
+    });
 
-    await invalidateCommunityQueries()
+    await invalidateCommunityQueries();
 
-    setBlockDialogOpen(false)
-    setSelectedContent(null)
-    setReason("")
-  }
+    setBlockDialogOpen(false);
+    setSelectedContent(null);
+    setReason("");
+  };
 
   const openHideDialog = (content: {
-    id: string
-    senderId: string | undefined
-    subject: string
-    senderEmail: string
+    id: string;
+    senderId: string | undefined;
+    subject: string;
+    senderEmail: string;
   }) => {
-    setSelectedContent(content)
-    setReason("")
-    setHideDialogOpen(true)
-  }
+    setSelectedContent(content);
+    setReason("");
+    setHideDialogOpen(true);
+  };
 
   const openBlockDialog = (content: {
-    id: string
-    senderId: string | undefined
-    subject: string
-    senderEmail: string
+    id: string;
+    senderId: string | undefined;
+    subject: string;
+    senderEmail: string;
   }) => {
-    setSelectedContent(content)
-    setReason("")
-    setBlockDialogOpen(true)
-  }
+    setSelectedContent(content);
+    setReason("");
+    setBlockDialogOpen(true);
+  };
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString()
-  }
+    return new Date(timestamp).toLocaleDateString();
+  };
 
   if (isError) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        Failed to load community content
-      </div>
-    )
+      <div className="text-center py-8 text-muted-foreground">Failed to load community content</div>
+    );
   }
 
-  const dataTyped = data as { items?: ContentItem[] } | undefined
-  const items = dataTyped?.items ?? []
+  const dataTyped = data as { items?: ContentItem[] } | undefined;
+  const items = dataTyped?.items ?? [];
 
   return (
     <div className="space-y-4">
@@ -202,9 +200,7 @@ export function CommunityContentTable() {
             type="search"
             placeholder="Search by sender email..."
             value={searchEmail}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setSearchEmail(e.target.value)
-            }
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchEmail(e.target.value)}
             className="pl-8"
           />
         </div>
@@ -317,10 +313,7 @@ export function CommunityContentTable() {
                               }
                               aria-label={`Hide ${content.subject}`}
                             >
-                              <EyeOff
-                                className="h-4 w-4 mr-1"
-                                aria-hidden="true"
-                              />
+                              <EyeOff className="h-4 w-4 mr-1" aria-hidden="true" />
                               Hide
                             </Button>
                             {content.senderId && (
@@ -371,16 +364,14 @@ export function CommunityContentTable() {
           <DialogHeader>
             <DialogTitle>Hide Content from Community</DialogTitle>
             <DialogDescription>
-              This will remove the newsletter from community visibility. Users
-              who have added it to their collection will not be affected.
+              This will remove the newsletter from community visibility. Users who have added it to
+              their collection will not be affected.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <Label className="text-sm font-medium">Newsletter</Label>
-              <p className="text-sm text-muted-foreground">
-                {selectedContent?.subject}
-              </p>
+              <p className="text-sm text-muted-foreground">{selectedContent?.subject}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="hide-reason">Reason for hiding</Label>
@@ -388,23 +379,15 @@ export function CommunityContentTable() {
                 id="hide-reason"
                 placeholder="Enter reason for moderation action..."
                 value={reason}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setReason(e.target.value)
-                }
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReason(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setHideDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setHideDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleHide}
-              disabled={!reason.trim() || hideContentMutation.isPending}
-            >
+            <Button onClick={handleHide} disabled={!reason.trim() || hideContentMutation.isPending}>
               {hideContentMutation.isPending ? "Hiding..." : "Hide Content"}
             </Button>
           </DialogFooter>
@@ -417,16 +400,14 @@ export function CommunityContentTable() {
           <DialogHeader>
             <DialogTitle>Block Sender from Community</DialogTitle>
             <DialogDescription>
-              This will hide ALL newsletters from this sender. Users' personal
-              copies will not be affected.
+              This will hide ALL newsletters from this sender. Users' personal copies will not be
+              affected.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <Label className="text-sm font-medium">Sender</Label>
-              <p className="text-sm text-muted-foreground">
-                {selectedContent?.senderEmail}
-              </p>
+              <p className="text-sm text-muted-foreground">{selectedContent?.senderEmail}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="block-reason">Reason for blocking</Label>
@@ -434,26 +415,19 @@ export function CommunityContentTable() {
                 id="block-reason"
                 placeholder="Enter reason for blocking this sender..."
                 value={reason}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setReason(e.target.value)
-                }
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReason(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setBlockDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setBlockDialogOpen(false)}>
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleBlockSender}
               disabled={
-                !reason.trim() ||
-                !selectedContent?.senderId ||
-                blockSenderMutation.isPending
+                !reason.trim() || !selectedContent?.senderId || blockSenderMutation.isPending
               }
             >
               {blockSenderMutation.isPending ? "Blocking..." : "Block Sender"}
@@ -462,5 +436,5 @@ export function CommunityContentTable() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

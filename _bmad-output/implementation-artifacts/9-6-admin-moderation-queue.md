@@ -55,7 +55,7 @@ So that **I can curate community content**.
 
 - [x] **Task 3: Create Moderation Queue Page** (AC: #1, #2, #3)
   - [x] 3.1 Create `apps/web/src/routes/_authed/admin/moderation.tsx` route
-  - [x] 3.2 Create `ModerationQueueTable` component in `~/components/admin/`
+  - [x] 3.2 Create `ModerationQueueTable` component in `@/components/admin/`
     - Lists senders with newsletter counts
     - Expandable rows to show individual newsletters
     - Click to open newsletter detail modal
@@ -64,7 +64,7 @@ So that **I can curate community content**.
   - [x] 3.5 Add pagination controls
 
 - [x] **Task 4: Create Newsletter Detail Modal** (AC: #4, #5, #6)
-  - [x] 4.1 Create `ModerationNewsletterModal` component in `~/components/admin/`
+  - [x] 4.1 Create `ModerationNewsletterModal` component in `@/components/admin/`
   - [x] 4.2 Display newsletter metadata (subject, sender, received date)
   - [x] 4.3 Display user info (email) with "Audit Only" label
   - [x] 4.4 Render newsletter HTML content in sandboxed iframe
@@ -358,9 +358,9 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { ChevronDown, ChevronRight, Search } from "lucide-react"
 import { ModerationNewsletterModal } from "./ModerationNewsletterModal"
 
@@ -524,9 +524,9 @@ function SenderNewsletterRows({
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog"
-import { Badge } from "~/components/ui/badge"
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertTriangle, User } from "lucide-react"
 
 interface Props {

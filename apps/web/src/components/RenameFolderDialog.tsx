@@ -1,19 +1,19 @@
-import { useEffect } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useConvexMutation } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { useForm } from "@tanstack/react-form"
-import { z } from "zod"
-import { toast } from "sonner"
+import { useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { useForm } from "@tanstack/react-form";
+import { z } from "zod";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "~/components/ui/dialog"
-import { Input } from "~/components/ui/input"
-import { Button } from "~/components/ui/button"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 /**
  * RenameFolderDialog - Dialog for renaming a folder
@@ -29,13 +29,13 @@ const folderNameSchema = z.object({
     .string()
     .min(1, "Folder name is required")
     .max(100, "Folder name must be 100 characters or less"),
-})
+});
 
 interface RenameFolderDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  folderId: string
-  currentName: string
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  folderId: string;
+  currentName: string;
 }
 
 export function RenameFolderDialog({
@@ -44,24 +44,24 @@ export function RenameFolderDialog({
   folderId,
   currentName,
 }: RenameFolderDialogProps) {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   // Type for rename mutation result
-  type RenameResult = { name: string }
+  type RenameResult = { name: string };
 
   // Code Review Fix MEDIUM-1: Use specific query keys for invalidation
   const renameMutation = useMutation({
     mutationFn: useConvexMutation(api.folders.renameFolder),
     onSuccess: (data) => {
-      const result = data as RenameResult
-      queryClient.invalidateQueries({ queryKey: ["folders"] })
-      toast.success(`Folder renamed to "${result.name}"`)
-      onOpenChange(false)
+      const result = data as RenameResult;
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+      toast.success(`Folder renamed to "${result.name}"`);
+      onOpenChange(false);
     },
     onError: () => {
-      toast.error("Failed to rename folder")
+      toast.error("Failed to rename folder");
     },
-  })
+  });
 
   const form = useForm({
     defaultValues: { name: currentName },
@@ -69,28 +69,28 @@ export function RenameFolderDialog({
       onChange: folderNameSchema,
     },
     onSubmit: async ({ value }) => {
-      const trimmedName = value.name.trim()
+      const trimmedName = value.name.trim();
       if (trimmedName && trimmedName !== currentName) {
         renameMutation.mutate({
           folderId: folderId as Parameters<typeof renameMutation.mutate>[0]["folderId"],
           newName: trimmedName,
-        })
+        });
       } else if (trimmedName === currentName) {
         // No change, just close
-        onOpenChange(false)
+        onOpenChange(false);
       }
     },
-  })
+  });
 
   // Reset form when dialog opens with new name
   // Code Review Fix MEDIUM-2: Exclude form from deps (stable reference)
   // Using form.reset is safe as TanStack Form's reset is stable
   useEffect(() => {
     if (open) {
-      form.reset({ name: currentName })
+      form.reset({ name: currentName });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, currentName])
+  }, [open, currentName]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,8 +100,8 @@ export function RenameFolderDialog({
         </DialogHeader>
         <form
           onSubmit={(e) => {
-            e.preventDefault()
-            form.handleSubmit()
+            e.preventDefault();
+            form.handleSubmit();
           }}
         >
           <form.Field
@@ -114,16 +114,10 @@ export function RenameFolderDialog({
                   placeholder="Folder name"
                   autoFocus
                   aria-invalid={field.state.meta.errors.length > 0}
-                  aria-describedby={
-                    field.state.meta.errors.length > 0 ? "name-error" : undefined
-                  }
+                  aria-describedby={field.state.meta.errors.length > 0 ? "name-error" : undefined}
                 />
                 {field.state.meta.errors.map((err, i) => (
-                  <p
-                    key={i}
-                    id="name-error"
-                    className="text-sm text-destructive mt-1"
-                  >
+                  <p key={i} id="name-error" className="text-sm text-destructive mt-1">
                     {typeof err === "object" && err !== null && "message" in err
                       ? (err as { message: string }).message
                       : String(err)}
@@ -133,11 +127,7 @@ export function RenameFolderDialog({
             )}
           />
           <DialogFooter className="mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <form.Subscribe
@@ -158,5 +148,5 @@ export function RenameFolderDialog({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

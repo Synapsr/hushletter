@@ -1,29 +1,23 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { useForm } from "@tanstack/react-form"
-import { z } from "zod"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card"
-import { signIn } from "~/lib/auth-client"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useForm } from "@tanstack/react-form";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { signIn } from "~/lib/auth-client";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
-})
+});
 
 // Zod schema for form validation - simpler than signup (just needs non-empty values)
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
-})
+});
 
 function LoginPage() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   const form = useForm({
     defaultValues: {
@@ -38,18 +32,18 @@ function LoginPage() {
       const result = await signIn.email({
         email: value.email,
         password: value.password,
-      })
+      });
 
       // Check for error in result - Better Auth returns { error } on failure
       if (result.error) {
         // Always use generic message for security - prevents user enumeration
-        throw new Error("Invalid email or password")
+        throw new Error("Invalid email or password");
       }
 
       // Success - navigate to newsletters
-      navigate({ to: "/newsletters" })
+      navigate({ to: "/newsletters" });
     },
-  })
+  });
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 flex items-center justify-center p-4">
@@ -61,8 +55,8 @@ function LoginPage() {
         <CardContent>
           <form
             onSubmit={(e) => {
-              e.preventDefault()
-              form.handleSubmit()
+              e.preventDefault();
+              form.handleSubmit();
             }}
             className="space-y-4"
           >
@@ -70,8 +64,8 @@ function LoginPage() {
             <form.Field
               name="email"
               children={(field) => {
-                const hasErrors = field.state.meta.errors.length > 0
-                const errorId = `${field.name}-error`
+                const hasErrors = field.state.meta.errors.length > 0;
+                const errorId = `${field.name}-error`;
                 return (
                   <div className="space-y-2">
                     <label
@@ -91,9 +85,7 @@ function LoginPage() {
                       aria-invalid={hasErrors}
                       aria-describedby={hasErrors ? errorId : undefined}
                       className={
-                        hasErrors
-                          ? "border-destructive focus-visible:ring-destructive"
-                          : ""
+                        hasErrors ? "border-destructive focus-visible:ring-destructive" : ""
                       }
                     />
                     {field.state.meta.errors.map((error, i) => (
@@ -107,7 +99,7 @@ function LoginPage() {
                       </p>
                     ))}
                   </div>
-                )
+                );
               }}
             />
 
@@ -115,8 +107,8 @@ function LoginPage() {
             <form.Field
               name="password"
               children={(field) => {
-                const hasErrors = field.state.meta.errors.length > 0
-                const errorId = `${field.name}-error`
+                const hasErrors = field.state.meta.errors.length > 0;
+                const errorId = `${field.name}-error`;
                 return (
                   <div className="space-y-2">
                     <label
@@ -136,9 +128,7 @@ function LoginPage() {
                       aria-invalid={hasErrors}
                       aria-describedby={hasErrors ? errorId : undefined}
                       className={
-                        hasErrors
-                          ? "border-destructive focus-visible:ring-destructive"
-                          : ""
+                        hasErrors ? "border-destructive focus-visible:ring-destructive" : ""
                       }
                     />
                     {field.state.meta.errors.map((error, i) => (
@@ -152,7 +142,7 @@ function LoginPage() {
                       </p>
                     ))}
                   </div>
-                )
+                );
               }}
             />
 
@@ -175,11 +165,7 @@ function LoginPage() {
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
               children={([canSubmit, isSubmitting]) => (
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={!canSubmit || isSubmitting}
-                >
+                <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
                   {isSubmitting ? "Signing in..." : "Sign In"}
                 </Button>
               )}
@@ -203,15 +189,12 @@ function LoginPage() {
           {/* Sign up link */}
           <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-6">
             Don't have an account?{" "}
-            <Link
-              to="/signup"
-              className="text-primary hover:underline font-medium"
-            >
+            <Link to="/signup" className="text-primary hover:underline font-medium">
               Sign Up
             </Link>
           </p>
         </CardContent>
       </Card>
     </main>
-  )
+  );
 }

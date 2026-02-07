@@ -1,15 +1,15 @@
-import { AlertTriangle, XCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
+import { AlertTriangle, XCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 /**
  * Anomaly type from getDeliveryAnomalies query
  * Story 7.2: Task 6.3
  */
 interface Anomaly {
-  type: "high_failure_rate" | "no_deliveries" | "volume_spike"
-  severity: "warning" | "critical"
-  message: string
-  details: Record<string, unknown>
+  type: "high_failure_rate" | "no_deliveries" | "volume_spike";
+  severity: "warning" | "critical";
+  message: string;
+  details: Record<string, unknown>;
 }
 
 /**
@@ -17,7 +17,7 @@ interface Anomaly {
  */
 interface AnomalyAlertBannerProps {
   /** Array of anomalies to display */
-  anomalies: Anomaly[]
+  anomalies: Anomaly[];
 }
 
 /**
@@ -33,8 +33,8 @@ interface AnomalyAlertBannerProps {
  * ]} />
  */
 export function AnomalyAlertBanner({ anomalies }: AnomalyAlertBannerProps) {
-  const criticalAnomalies = anomalies.filter((a) => a.severity === "critical")
-  const warningAnomalies = anomalies.filter((a) => a.severity === "warning")
+  const criticalAnomalies = anomalies.filter((a) => a.severity === "critical");
+  const warningAnomalies = anomalies.filter((a) => a.severity === "warning");
 
   return (
     <div className="space-y-2" role="region" aria-label="System alerts">
@@ -52,14 +52,12 @@ export function AnomalyAlertBanner({ anomalies }: AnomalyAlertBannerProps) {
           className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20"
         >
           <AlertTriangle className="h-4 w-4 text-yellow-600" aria-hidden="true" />
-          <AlertTitle className="text-yellow-800 dark:text-yellow-200">
-            Warning
-          </AlertTitle>
+          <AlertTitle className="text-yellow-800 dark:text-yellow-200">Warning</AlertTitle>
           <AlertDescription className="text-yellow-700 dark:text-yellow-300">
             {anomaly.message}
           </AlertDescription>
         </Alert>
       ))}
     </div>
-  )
+  );
 }

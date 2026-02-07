@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { SenderScanner } from "./SenderScanner"
+import { SenderScanner } from "./-SenderScanner"
 
 // Track what queries return - accessible via globalThis for hoisted mocks
 let scanProgressReturn: unknown = undefined

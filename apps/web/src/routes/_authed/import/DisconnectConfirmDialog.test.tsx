@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, act } from "@testing-library/react"
-import { DisconnectConfirmDialog } from "./DisconnectConfirmDialog"
+import { DisconnectConfirmDialog } from "./-DisconnectConfirmDialog"
 
 describe("DisconnectConfirmDialog (Story 4.5)", () => {
   const defaultProps = {

@@ -13,8 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Search, Loader2, Mail, RefreshCw, AlertCircle, CheckCircle2, Inbox } from "lucide-react";
-import { SenderReview } from "./SenderReview";
-import { ImportProgress } from "./ImportProgress";
+import { SenderReview } from "./-SenderReview";
+import { ImportProgress } from "./-ImportProgress";
 
 /**
  * Types for scan progress and detected senders

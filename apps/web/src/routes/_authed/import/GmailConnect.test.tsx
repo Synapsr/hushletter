@@ -54,7 +54,7 @@ vi.mock("@tanstack/react-query", async () => {
 });
 
 // Import after mocks are set up
-import { GmailConnect } from "./GmailConnect";
+import { GmailConnect } from "./-GmailConnect";
 
 // Helper to render with providers
 function renderWithProviders(

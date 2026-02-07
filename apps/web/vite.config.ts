@@ -19,7 +19,11 @@ export default defineConfig({
     tsConfigPaths({
       projects: ['./tsconfig.json'],
     }),
-    tanstackStart(),
+    tanstackStart({
+      router: {
+        routeFileIgnorePattern: '\\.test\\.(tsx?|jsx?)$',
+      },
+    }),
     nitro({
       preset: 'node-server',
     }),

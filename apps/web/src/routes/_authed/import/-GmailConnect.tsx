@@ -17,7 +17,7 @@ import { authClient } from "@/lib/auth-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mail, Check, AlertCircle, Loader2, RefreshCw } from "lucide-react";
-import { DisconnectConfirmDialog } from "./DisconnectConfirmDialog";
+import { DisconnectConfirmDialog } from "./-DisconnectConfirmDialog";
 
 // Search params type for this route
 type ImportSearchParams = {

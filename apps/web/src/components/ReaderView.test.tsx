@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 import { ReaderView, clearContentCache } from "./ReaderView"
+
+/** Helper to cast test strings to Convex Id type */
+const testId = (id: string) => id as Id<"userNewsletters">
 
 // Mock convex/react useAction and useMutation
 const mockGetNewsletterWithContent = vi.fn()
@@ -38,7 +42,7 @@ describe("ReaderView", () => {
     it("shows skeleton while loading content", () => {
       mockGetNewsletterWithContent.mockImplementation(() => new Promise(() => {}))
 
-      render(<ReaderView userNewsletterId="test-id" />)
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       // Should show animated skeleton
       expect(document.querySelector(".animate-pulse")).toBeInTheDocument()
@@ -58,7 +62,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Newsletter content here</p>"),
       })
 
-      render(<ReaderView userNewsletterId="test-id" />)
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText("Newsletter content here")).toBeInTheDocument()
@@ -78,7 +82,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<h1>Public Newsletter</h1>"),
       })
 
-      render(<ReaderView userNewsletterId="test-id" />)
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
@@ -100,7 +104,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Private content</p>"),
       })
 
-      render(<ReaderView userNewsletterId="test-id" />)
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText("Private content")).toBeInTheDocument()
@@ -116,7 +120,7 @@ describe("ReaderView", () => {
         contentStatus: "missing",
       })
 
-      render(<ReaderView userNewsletterId="test-id" />)
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(
@@ -134,7 +138,7 @@ describe("ReaderView", () => {
         contentStatus: "error",
       })
 
-      render(<ReaderView userNewsletterId="test-id" />)
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(
@@ -155,7 +159,7 @@ describe("ReaderView", () => {
         status: 500,
       })
 
-      render(<ReaderView userNewsletterId="test-id" />)
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to load content/i)).toBeInTheDocument()
@@ -165,7 +169,7 @@ describe("ReaderView", () => {
     it("shows error when action throws", async () => {
       mockGetNewsletterWithContent.mockRejectedValue(new Error("Network error"))
 
-      render(<ReaderView userNewsletterId="test-id" />)
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to load content/i)).toBeInTheDocument()
@@ -189,7 +193,7 @@ describe("ReaderView", () => {
           ),
       })
 
-      render(<ReaderView userNewsletterId="test-id" />)
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText("Safe content")).toBeInTheDocument()
@@ -212,7 +216,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>First newsletter</p>"),
       })
 
-      const { rerender } = render(<ReaderView userNewsletterId="test-id-1" />)
+      const { rerender } = render(<ReaderView userNewsletterId={testId("test-id-1")} />)
 
       await waitFor(() => {
         expect(screen.getByText("First newsletter")).toBeInTheDocument()
@@ -230,7 +234,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Second newsletter</p>"),
       })
 
-      rerender(<ReaderView userNewsletterId="test-id-2" />)
+      rerender(<ReaderView userNewsletterId={testId("test-id-2")} />)
 
       await waitFor(() => {
         expect(screen.getByText("Second newsletter")).toBeInTheDocument()
@@ -252,7 +256,7 @@ describe("ReaderView", () => {
       })
 
       // First render - fetches content
-      const { unmount } = render(<ReaderView userNewsletterId="cached-test-id" />)
+      const { unmount } = render(<ReaderView userNewsletterId={testId("cached-test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText("Cached content")).toBeInTheDocument()
@@ -268,7 +272,7 @@ describe("ReaderView", () => {
       mockGetNewsletterWithContent.mockClear()
       mockFetch.mockClear()
 
-      render(<ReaderView userNewsletterId="cached-test-id" />)
+      render(<ReaderView userNewsletterId={testId("cached-test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText("Cached content")).toBeInTheDocument()
@@ -287,7 +291,7 @@ describe("ReaderView", () => {
         contentStatus: "error",
       })
 
-      const { unmount } = render(<ReaderView userNewsletterId="error-test-id" />)
+      const { unmount } = render(<ReaderView userNewsletterId={testId("error-test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText(/temporarily unavailable/i)).toBeInTheDocument()
@@ -311,7 +315,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Retry succeeded</p>"),
       })
 
-      render(<ReaderView userNewsletterId="error-test-id" />)
+      render(<ReaderView userNewsletterId={testId("error-test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText("Retry succeeded")).toBeInTheDocument()
@@ -335,7 +339,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Scrollable content</p>"),
       })
 
-      render(<ReaderView userNewsletterId="scroll-test-id" />)
+      render(<ReaderView userNewsletterId={testId("scroll-test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText("Scrollable content")).toBeInTheDocument()
@@ -359,7 +363,7 @@ describe("ReaderView", () => {
       })
 
       // Should not throw when initialProgress is provided
-      render(<ReaderView userNewsletterId="resume-test-id" initialProgress={45} />)
+      render(<ReaderView userNewsletterId={testId("resume-test-id")} initialProgress={45} />)
 
       await waitFor(() => {
         expect(screen.getByText("Resume content")).toBeInTheDocument()
@@ -383,7 +387,7 @@ describe("ReaderView", () => {
       // Should not throw when onReadingComplete is provided
       render(
         <ReaderView
-          userNewsletterId="complete-test-id"
+          userNewsletterId={testId("complete-test-id")}
           onReadingComplete={mockOnReadingComplete}
         />
       )
@@ -405,7 +409,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Progress tracking content</p>"),
       })
 
-      render(<ReaderView userNewsletterId="progress-test-id" />)
+      render(<ReaderView userNewsletterId={testId("progress-test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText("Progress tracking content")).toBeInTheDocument()

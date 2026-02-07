@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor, fireEvent } from "@testing-library/react"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 import { SummaryPanel } from "./SummaryPanel"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
@@ -76,7 +77,7 @@ describe("SummaryPanel", () => {
     })
 
     it("shows guidance text when no summary exists (Task 5.2)", () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -86,7 +87,7 @@ describe("SummaryPanel", () => {
     })
 
     it("shows 'Summarize' button when no summary exists (Task 5.2)", () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -94,7 +95,7 @@ describe("SummaryPanel", () => {
     })
 
     it("does not show collapse button when no summary (Task 5.5)", () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -114,7 +115,7 @@ describe("SummaryPanel", () => {
     })
 
     it("displays summary content when available (Task 5.4)", () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -124,7 +125,7 @@ describe("SummaryPanel", () => {
     })
 
     it("shows 'Regenerate' button when summary exists (Task 5.5)", () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -132,7 +133,7 @@ describe("SummaryPanel", () => {
     })
 
     it("shows collapse button when summary exists", () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -142,7 +143,7 @@ describe("SummaryPanel", () => {
     })
 
     it("does not show empty state guidance when summary exists", () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -160,7 +161,7 @@ describe("SummaryPanel", () => {
         generatedAt: Date.now(),
       })
 
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -174,7 +175,7 @@ describe("SummaryPanel", () => {
         generatedAt: Date.now(),
       })
 
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -195,7 +196,7 @@ describe("SummaryPanel", () => {
       // Make generateSummary hang to simulate loading
       mockGenerateSummary.mockImplementation(() => new Promise(() => {}))
 
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -218,7 +219,7 @@ describe("SummaryPanel", () => {
       })
       mockGenerateSummary.mockResolvedValue({ summary: "New summary" })
 
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -240,7 +241,7 @@ describe("SummaryPanel", () => {
       })
       mockGenerateSummary.mockResolvedValue({ summary: "Regenerated summary" })
 
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -281,7 +282,7 @@ describe("SummaryPanel", () => {
         },
       }))
 
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -297,7 +298,7 @@ describe("SummaryPanel", () => {
     it("error state has alert role for accessibility", async () => {
       mockGenerateSummary.mockRejectedValue(new Error("Network error"))
 
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -319,7 +320,7 @@ describe("SummaryPanel", () => {
     })
 
     it("can collapse summary content", async () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -340,7 +341,7 @@ describe("SummaryPanel", () => {
     })
 
     it("can expand collapsed summary", async () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -366,7 +367,7 @@ describe("SummaryPanel", () => {
     })
 
     it("has proper aria-expanded attribute for accessibility", () => {
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 
@@ -390,7 +391,7 @@ describe("SummaryPanel", () => {
         generatedAt: null,
       })
 
-      render(<SummaryPanel userNewsletterId="test-id" />, {
+      render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
         wrapper: createWrapper(),
       })
 

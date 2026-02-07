@@ -18,7 +18,11 @@ describe("NewslettersPage validateSearch (Story 3.1 Task 4)", () => {
    */
   const getValidateSearch = async () => {
     const { Route } = await import("./index")
-    return Route.options.validateSearch!
+    const validateSearch = Route.options.validateSearch
+    if (typeof validateSearch !== "function") {
+      throw new Error("Expected validateSearch to be a function")
+    }
+    return validateSearch as (search: Record<string, unknown>) => Record<string, unknown>
   }
 
   describe("URL Search Params Validation", () => {

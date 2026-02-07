@@ -520,10 +520,10 @@ describe("SenderReview", () => {
       expect(onBack).toHaveBeenCalled()
     })
 
-    it("calls onComplete when Done button is clicked after approval", async () => {
-      const onComplete = vi.fn()
+    it("calls onStartImport when Done button is clicked after approval", async () => {
+      const onStartImport = vi.fn()
       const user = userEvent.setup()
-      render(<SenderReview onComplete={onComplete} />)
+      render(<SenderReview onStartImport={onStartImport} />)
 
       // Go through the flow
       const importButton = screen.getByRole("button", { name: /import 2 senders/i })
@@ -539,7 +539,7 @@ describe("SenderReview", () => {
       const doneButton = screen.getByRole("button", { name: /done/i })
       await user.click(doneButton)
 
-      expect(onComplete).toHaveBeenCalled()
+      expect(onStartImport).toHaveBeenCalled()
     })
   })
 

@@ -221,21 +221,6 @@ describe("FolderSidebar (Story 9.4)", () => {
 
   describe("Hidden Folders Filtered (AC #3)", () => {
     it("excludes hidden folders from sidebar (AC #3)", () => {
-      const foldersWithHidden = [
-        ...mockFolders,
-        {
-          _id: "folder-private",
-          userId: "user-1",
-          name: "Private",
-          isHidden: true, // This folder is hidden
-          createdAt: 1700000000000,
-          updatedAt: 1700000000000,
-          newsletterCount: 10,
-          unreadCount: 2,
-          senderCount: 1,
-        },
-      ]
-
       // Note: The query already filters out hidden folders on the backend
       // So we just test that we display what we receive
       mockUseQuery.mockImplementation((options) => {

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import React, { useState } from "react"
+import { useState } from "react"
 
 // Mock modules before importing components
 let mockGmailQueryData: { email: string; connectedAt: number } | null = null

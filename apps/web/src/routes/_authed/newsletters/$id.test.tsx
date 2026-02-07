@@ -48,7 +48,7 @@ describe("NewsletterDetailPage (Story 3.2)", () => {
 
       // Read the source to verify implementation pattern
       // This is a static analysis test - we verify the code structure
-      const componentSource = routeModule.Route.options.component.toString()
+      const componentSource = routeModule.Route.options.component!.toString()
 
       // The component should reference history.back (minified or not)
       // This verifies the implementation uses the correct pattern

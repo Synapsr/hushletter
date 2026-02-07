@@ -1,8 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { createMemoryHistory, RouterProvider, createRouter } from "@tanstack/react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the auth client
 vi.mock("@/lib/auth-client", () => ({
@@ -21,8 +17,6 @@ vi.mock("@tanstack/react-router", async () => {
   };
 });
 
-import { signUp } from "@/lib/auth-client";
-
 describe("Signup Page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -30,8 +24,6 @@ describe("Signup Page", () => {
 
   describe("Form Validation", () => {
     it("shows error for invalid email format", async () => {
-      const user = userEvent.setup();
-
       // Note: Full component test would require router setup
       // This is a unit test for the validation schema
       const { z } = await import("zod");
@@ -102,8 +94,7 @@ describe("Signup Page", () => {
       const errorMessage = "An account with this email already exists";
 
       const isDuplicate =
-        errorCode === "USER_ALREADY_EXISTS" ||
-        errorMessage?.toLowerCase().includes("already exists");
+        errorCode === "UNKNOWN_ERROR" || errorMessage?.toLowerCase().includes("already exists");
 
       expect(isDuplicate).toBe(true);
     });

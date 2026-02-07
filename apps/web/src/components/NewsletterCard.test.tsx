@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 import { NewsletterCard, type NewsletterData } from "./NewsletterCard"
 
 // Mock TanStack Router's Link component
@@ -45,7 +46,7 @@ vi.mock("convex/react", () => ({
 
 describe("NewsletterCard", () => {
   const mockNewsletter: NewsletterData = {
-    _id: "test-id-123",
+    _id: "test-id-123" as Id<"userNewsletters">,
     subject: "Weekly Tech Digest",
     senderEmail: "newsletter@example.com",
     senderName: "Tech Weekly",

@@ -93,9 +93,9 @@ vi.mock("@convex-dev/react-query", () => ({
 }))
 
 describe("SenderSidebar", () => {
-  let mockOnSenderSelect: ReturnType<typeof vi.fn>
-  let mockOnFolderSelect: ReturnType<typeof vi.fn>
-  let mockOnFilterSelect: ReturnType<typeof vi.fn>
+  let mockOnSenderSelect: (senderId: string | null) => void
+  let mockOnFolderSelect: (folderId: string | null) => void
+  let mockOnFilterSelect: (filter: string | null) => void
 
   beforeEach(() => {
     vi.clearAllMocks()

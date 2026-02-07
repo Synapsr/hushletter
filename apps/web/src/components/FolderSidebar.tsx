@@ -1,10 +1,10 @@
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { convexQuery } from "@convex-dev/react-query"
-import { api } from "@hushletter/backend"
-import { cn } from "~/lib/utils"
-import { FolderIcon, EyeOff, AlertCircle } from "lucide-react"
-import { FolderActionsDropdown } from "./FolderActionsDropdown"
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { cn } from "@/lib/utils";
+import { FolderIcon, EyeOff, AlertCircle } from "lucide-react";
+import { FolderActionsDropdown } from "./FolderActionsDropdown";
 
 /**
  * Folder data from listVisibleFoldersWithUnreadCounts query
@@ -15,39 +15,39 @@ import { FolderActionsDropdown } from "./FolderActionsDropdown"
  * aren't directly exported. Keep in sync with folders.ts.
  */
 export interface FolderData {
-  _id: string
-  userId: string
-  name: string
-  color?: string
-  isHidden: boolean
-  createdAt: number
-  updatedAt: number
-  newsletterCount: number
-  unreadCount: number
-  senderCount: number
+  _id: string;
+  userId: string;
+  name: string;
+  color?: string;
+  isHidden: boolean;
+  createdAt: number;
+  updatedAt: number;
+  newsletterCount: number;
+  unreadCount: number;
+  senderCount: number;
 }
 
 /** Type guard to validate folder data at runtime */
 function isFolderData(item: unknown): item is FolderData {
-  if (typeof item !== "object" || item === null) return false
-  const obj = item as Record<string, unknown>
+  if (typeof item !== "object" || item === null) return false;
+  const obj = item as Record<string, unknown>;
   return (
     typeof obj._id === "string" &&
     typeof obj.name === "string" &&
     typeof obj.newsletterCount === "number" &&
     typeof obj.unreadCount === "number"
-  )
+  );
 }
 
 /** Filter type constant */
-const FILTER_HIDDEN = "hidden" as const
-type FilterType = typeof FILTER_HIDDEN
+const FILTER_HIDDEN = "hidden" as const;
+type FilterType = typeof FILTER_HIDDEN;
 
 interface FolderSidebarProps {
-  selectedFolderId: string | null
-  selectedFilter: FilterType | null // "hidden" for hidden newsletters
-  onFolderSelect: (folderId: string | null) => void
-  onFilterSelect: (filter: FilterType | null) => void
+  selectedFolderId: string | null;
+  selectedFilter: FilterType | null; // "hidden" for hidden newsletters
+  onFolderSelect: (folderId: string | null) => void;
+  onFilterSelect: (filter: FilterType | null) => void;
 }
 
 /**
@@ -63,7 +63,7 @@ export function FolderSidebarSkeleton() {
         <div key={i} className="h-10 bg-muted rounded-lg animate-pulse" />
       ))}
     </aside>
-  )
+  );
 }
 
 /**
@@ -93,19 +93,19 @@ export function FolderSidebar({
     data: folders,
     isPending: foldersPending,
     isError: foldersError,
-  } = useQuery(convexQuery(api.folders.listVisibleFoldersWithUnreadCounts, {}))
+  } = useQuery(convexQuery(api.folders.listVisibleFoldersWithUnreadCounts, {}));
 
   // Fetch hidden newsletter count (for "Hidden" section)
   // Story 9.4 Task 2.3
   const { data: hiddenCount, isPending: hiddenPending } = useQuery(
-    convexQuery(api.newsletters.getHiddenNewsletterCount, {})
-  )
+    convexQuery(api.newsletters.getHiddenNewsletterCount, {}),
+  );
 
   // Code review fix: Validate folder data at runtime to ensure type safety
   const folderList = useMemo(() => {
-    if (!folders) return []
-    return (folders as unknown[]).filter(isFolderData)
-  }, [folders])
+    if (!folders) return [];
+    return (folders as unknown[]).filter(isFolderData);
+  }, [folders]);
 
   // Calculate totals for "All Newsletters" (across visible folders only)
   const { totalNewsletterCount, totalUnreadCount } = useMemo(() => {
@@ -114,9 +114,9 @@ export function FolderSidebar({
         totalNewsletterCount: acc.totalNewsletterCount + folder.newsletterCount,
         totalUnreadCount: acc.totalUnreadCount + folder.unreadCount,
       }),
-      { totalNewsletterCount: 0, totalUnreadCount: 0 }
-    )
-  }, [folderList])
+      { totalNewsletterCount: 0, totalUnreadCount: 0 },
+    );
+  }, [folderList]);
 
   // Code review fix: Handle error state
   if (foldersError) {
@@ -131,30 +131,30 @@ export function FolderSidebar({
           <span>Failed to load folders</span>
         </div>
       </aside>
-    )
+    );
   }
 
-  if (foldersPending) return <FolderSidebarSkeleton />
+  if (foldersPending) return <FolderSidebarSkeleton />;
 
-  const isAllSelected = !selectedFolderId && !selectedFilter
+  const isAllSelected = !selectedFolderId && !selectedFilter;
 
   // Handle "All Newsletters" click - clear all filters
   const handleAllClick = () => {
-    onFolderSelect(null)
-    onFilterSelect(null)
-  }
+    onFolderSelect(null);
+    onFilterSelect(null);
+  };
 
   // Handle folder click - clear special filters, set folder filter
   const handleFolderClick = (folderId: string) => {
-    onFilterSelect(null)
-    onFolderSelect(folderId)
-  }
+    onFilterSelect(null);
+    onFolderSelect(folderId);
+  };
 
   // Handle "Hidden" filter click
   const handleHiddenClick = () => {
-    onFolderSelect(null)
-    onFilterSelect(FILTER_HIDDEN)
-  }
+    onFolderSelect(null);
+    onFilterSelect(FILTER_HIDDEN);
+  };
 
   return (
     <aside
@@ -169,7 +169,7 @@ export function FolderSidebar({
         className={cn(
           "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
           "hover:bg-accent transition-colors",
-          isAllSelected && "bg-accent font-medium"
+          isAllSelected && "bg-accent font-medium",
         )}
       >
         <span>All Newsletters</span>
@@ -182,9 +182,7 @@ export function FolderSidebar({
               aria-label={`${totalUnreadCount} unread`}
             />
           )}
-          <span className="text-muted-foreground text-xs">
-            {totalNewsletterCount}
-          </span>
+          <span className="text-muted-foreground text-xs">{totalNewsletterCount}</span>
         </div>
       </button>
 
@@ -199,7 +197,7 @@ export function FolderSidebar({
               className={cn(
                 "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
                 "hover:bg-accent transition-colors text-left cursor-pointer",
-                selectedFolderId === folder._id && "bg-accent font-medium"
+                selectedFolderId === folder._id && "bg-accent font-medium",
               )}
             >
               {/* Main clickable area - triggers folder selection */}
@@ -234,7 +232,7 @@ export function FolderSidebar({
                   onHideSuccess={() => {
                     // If hidden folder was selected, clear selection
                     if (selectedFolderId === folder._id) {
-                      onFolderSelect(null)
+                      onFolderSelect(null);
                     }
                   }}
                 />
@@ -247,8 +245,7 @@ export function FolderSidebar({
       {/* Empty state when no folders - Story 9.4 Task 6.1 */}
       {folderList.length === 0 && (
         <p className="text-muted-foreground text-sm text-center py-4">
-          No folders yet. Folders are created automatically when you receive
-          newsletters.
+          No folders yet. Folders are created automatically when you receive newsletters.
         </p>
       )}
 
@@ -264,22 +261,17 @@ export function FolderSidebar({
             className={cn(
               "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
               "hover:bg-accent transition-colors text-left",
-              selectedFilter === "hidden" && "bg-accent font-medium"
+              selectedFilter === "hidden" && "bg-accent font-medium",
             )}
           >
             <div className="flex items-center gap-2 truncate flex-1 mr-2">
-              <EyeOff
-                className="h-4 w-4 flex-shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
+              <EyeOff className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="truncate">Hidden</span>
             </div>
-            <span className="text-muted-foreground text-xs flex-shrink-0">
-              {hiddenCount}
-            </span>
+            <span className="text-muted-foreground text-xs flex-shrink-0">{hiddenCount}</span>
           </button>
         </>
       ) : null}
     </aside>
-  )
+  );
 }

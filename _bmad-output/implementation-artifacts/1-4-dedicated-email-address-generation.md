@@ -78,7 +78,7 @@ so that **I have a place to receive my newsletters separately from my personal i
 
 **Key Learnings:**
 1. TanStack Form + Zod is MANDATORY for all forms
-2. Better Auth client is at `~/lib/auth-client.ts`
+2. Better Auth client is at `@/lib/auth-client.ts`
 3. Auth guard in `_authed.tsx` uses `beforeLoad` with session check
 4. Error handling uses `errorMap.onSubmit` in TanStack Form (not useState)
 5. signOut() is available from auth-client for logout

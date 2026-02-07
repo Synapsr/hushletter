@@ -603,7 +603,7 @@ export const acknowledgeFailedDelivery = mutation({
 import { createFileRoute } from "@tanstack/react-router"
 import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
-import { api } from "~/convex/_generated/api"
+import { api } from "@/convex/_generated/api"
 import { useState } from "react"
 import { DeliveryStatsCard } from "@/components/admin/DeliveryStatsCard"
 import { DeliveryLogTable } from "@/components/admin/DeliveryLogTable"
@@ -826,7 +826,7 @@ export function DeliveryStatsCard({ stats }: DeliveryStatsCardProps) {
 
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Clock, Download, AlertCircle } from "lucide-react"
-import { cn } from "~/lib/utils"
+import { cn } from "@/lib/utils"
 
 type DeliveryStatus = "received" | "processing" | "stored" | "failed"
 
@@ -996,7 +996,7 @@ function cn(...classes: (string | boolean | undefined)[]) {
 
 import { useMutation } from "@tanstack/react-query"
 import { useConvexMutation } from "@convex-dev/react-query"
-import { api } from "~/convex/_generated/api"
+import { api } from "@/convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow, format } from "date-fns"

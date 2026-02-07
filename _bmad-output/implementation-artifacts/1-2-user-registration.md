@@ -148,7 +148,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { signUp } from "~/lib/auth-client"
+import { signUp } from "@/lib/auth-client"
 
 // Zod schema for validation
 const signupSchema = z.object({
@@ -303,7 +303,7 @@ function SignupForm() {
 ```tsx
 // apps/web/src/routes/_authed.tsx
 import { createFileRoute, redirect, Outlet } from "@tanstack/react-router"
-import { useSession } from "~/lib/auth-client"
+import { useSession } from "@/lib/auth-client"
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ context }) => {
@@ -494,7 +494,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 | 7 | MEDIUM | Story file path documentation mismatch | Corrected in this review |
 | 8 | LOW | Missing env var validation | Added explicit validation with clear error messages |
 | 9 | LOW | Naive email name extraction | Created `extractNameFromEmail()` utility with edge case handling |
-| 10 | LOW | Helper function not shared | Created `~/lib/utils/error.ts` with shared utilities |
+| 10 | LOW | Helper function not shared | Created `@/lib/utils/error.ts` with shared utilities |
 | 11 | LOW | Minimal HTTP router | Added CORS config and fallback route |
 
 ### Files Created During Review

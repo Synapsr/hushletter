@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles, RefreshCw, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { ConvexError } from "convex/values";
-import { useSummaryPreferences } from "~/hooks/useSummaryPreferences";
+import { useSummaryPreferences } from "@/hooks/useSummaryPreferences";
 
 interface SummaryPanelProps {
   /** userNewsletter document ID - typed for Convex safety */

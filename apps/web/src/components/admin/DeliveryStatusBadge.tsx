@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Clock, Download, AlertCircle } from "lucide-react";
-import { cn } from "~/lib/utils";
+import { cn } from "@/lib/utils";
 
 /**
  * Valid delivery status values

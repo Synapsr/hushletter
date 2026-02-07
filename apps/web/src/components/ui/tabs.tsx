@@ -1,40 +1,40 @@
-import * as React from "react"
-import { cn } from "~/lib/utils"
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
 interface TabsContextValue {
-  value: string
-  onValueChange: (value: string) => void
-  tabValues: string[]
-  registerTab: (value: string) => void
+  value: string;
+  onValueChange: (value: string) => void;
+  tabValues: string[];
+  registerTab: (value: string) => void;
 }
 
-const TabsContext = React.createContext<TabsContextValue | undefined>(undefined)
+const TabsContext = React.createContext<TabsContextValue | undefined>(undefined);
 
 function useTabsContext() {
-  const context = React.useContext(TabsContext)
+  const context = React.useContext(TabsContext);
   if (!context) {
-    throw new Error("Tabs components must be used within a Tabs provider")
+    throw new Error("Tabs components must be used within a Tabs provider");
   }
-  return context
+  return context;
 }
 
 interface TabsProps {
-  value: string
-  onValueChange: (value: string) => void
-  children: React.ReactNode
-  className?: string
+  value: string;
+  onValueChange: (value: string) => void;
+  children: React.ReactNode;
+  className?: string;
 }
 
 const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
   ({ value, onValueChange, children, className, ...props }, ref) => {
-    const [tabValues, setTabValues] = React.useState<string[]>([])
+    const [tabValues, setTabValues] = React.useState<string[]>([]);
 
     const registerTab = React.useCallback((tabValue: string) => {
       setTabValues((prev) => {
-        if (prev.includes(tabValue)) return prev
-        return [...prev, tabValue]
-      })
-    }, [])
+        if (prev.includes(tabValue)) return prev;
+        return [...prev, tabValue];
+      });
+    }, []);
 
     return (
       <TabsContext.Provider value={{ value, onValueChange, tabValues, registerTab }}>
@@ -42,72 +42,73 @@ const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
           {children}
         </div>
       </TabsContext.Provider>
-    )
-  }
-)
-Tabs.displayName = "Tabs"
+    );
+  },
+);
+Tabs.displayName = "Tabs";
 
-const TabsList = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    role="tablist"
-    className={cn(
-      "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
-      className
-    )}
-    {...props}
-  />
-))
-TabsList.displayName = "TabsList"
+const TabsList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      role="tablist"
+      className={cn(
+        "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+        className,
+      )}
+      {...props}
+    />
+  ),
+);
+TabsList.displayName = "TabsList";
 
 interface TabsTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  value: string
+  value: string;
 }
 
 const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
   ({ className, value, ...props }, ref) => {
-    const { value: selectedValue, onValueChange, tabValues, registerTab } = useTabsContext()
-    const isSelected = selectedValue === value
+    const { value: selectedValue, onValueChange, tabValues, registerTab } = useTabsContext();
+    const isSelected = selectedValue === value;
 
     // Register this tab value on mount
     React.useEffect(() => {
-      registerTab(value)
-    }, [value, registerTab])
+      registerTab(value);
+    }, [value, registerTab]);
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-      const currentIndex = tabValues.indexOf(value)
-      if (currentIndex === -1) return
+      const currentIndex = tabValues.indexOf(value);
+      if (currentIndex === -1) return;
 
-      let nextIndex: number | null = null
+      let nextIndex: number | null = null;
 
       switch (event.key) {
         case "ArrowLeft":
-          nextIndex = currentIndex > 0 ? currentIndex - 1 : tabValues.length - 1
-          break
+          nextIndex = currentIndex > 0 ? currentIndex - 1 : tabValues.length - 1;
+          break;
         case "ArrowRight":
-          nextIndex = currentIndex < tabValues.length - 1 ? currentIndex + 1 : 0
-          break
+          nextIndex = currentIndex < tabValues.length - 1 ? currentIndex + 1 : 0;
+          break;
         case "Home":
-          nextIndex = 0
-          break
+          nextIndex = 0;
+          break;
         case "End":
-          nextIndex = tabValues.length - 1
-          break
+          nextIndex = tabValues.length - 1;
+          break;
         default:
-          return
+          return;
       }
 
       if (nextIndex !== null) {
-        event.preventDefault()
-        onValueChange(tabValues[nextIndex])
+        event.preventDefault();
+        onValueChange(tabValues[nextIndex]);
         // Focus the next tab - find by data attribute
-        const nextTab = document.querySelector(`[role="tab"][data-value="${tabValues[nextIndex]}"]`) as HTMLElement
-        nextTab?.focus()
+        const nextTab = document.querySelector(
+          `[role="tab"][data-value="${tabValues[nextIndex]}"]`,
+        ) as HTMLElement;
+        nextTab?.focus();
       }
-    }
+    };
 
     return (
       <button
@@ -126,25 +127,25 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
           isSelected
             ? "bg-background text-foreground shadow-sm"
             : "hover:bg-background/50 hover:text-foreground",
-          className
+          className,
         )}
         {...props}
       />
-    )
-  }
-)
-TabsTrigger.displayName = "TabsTrigger"
+    );
+  },
+);
+TabsTrigger.displayName = "TabsTrigger";
 
 interface TabsContentProps extends React.HTMLAttributes<HTMLDivElement> {
-  value: string
+  value: string;
 }
 
 const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(
   ({ className, value, children, ...props }, ref) => {
-    const { value: selectedValue } = useTabsContext()
+    const { value: selectedValue } = useTabsContext();
 
     if (selectedValue !== value) {
-      return null
+      return null;
     }
 
     return (
@@ -157,15 +158,15 @@ const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(
         data-state="active"
         className={cn(
           "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          className
+          className,
         )}
         {...props}
       >
         {children}
       </div>
-    )
-  }
-)
-TabsContent.displayName = "TabsContent"
+    );
+  },
+);
+TabsContent.displayName = "TabsContent";
 
-export { Tabs, TabsList, TabsTrigger, TabsContent }
+export { Tabs, TabsList, TabsTrigger, TabsContent };

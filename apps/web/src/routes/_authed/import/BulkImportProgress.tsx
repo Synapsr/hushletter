@@ -36,7 +36,7 @@ import {
   Mail,
   ArrowRight,
 } from "lucide-react";
-import { cn } from "~/lib/utils";
+import { cn } from "@/lib/utils";
 import { readFileAsArrayBuffer, getParserErrorMessage } from "./emlUtils";
 
 interface BulkImportProgressProps {

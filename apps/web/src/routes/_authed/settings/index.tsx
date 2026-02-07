@@ -21,7 +21,7 @@ import {
   ChevronRight,
   FolderIcon,
 } from "lucide-react";
-import { DisconnectConfirmDialog } from "~/routes/_authed/import/DisconnectConfirmDialog";
+import { DisconnectConfirmDialog } from "@/routes/_authed/import/DisconnectConfirmDialog";
 
 export const Route = createFileRoute("/_authed/settings/")({
   component: SettingsPage,

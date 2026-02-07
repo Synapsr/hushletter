@@ -3,16 +3,16 @@
  * Story 6.2: Privacy toggle switch for sender settings
  */
 
-import { Switch as BaseSwitch } from "@base-ui-components/react/switch"
+import { Switch as BaseSwitch } from "@base-ui-components/react/switch";
 
-import { cn } from "~/lib/utils"
+import { cn } from "@/lib/utils";
 
 interface SwitchProps {
-  checked?: boolean
-  onCheckedChange?: (checked: boolean) => void
-  disabled?: boolean
-  className?: string
-  "aria-label"?: string
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+  "aria-label"?: string;
 }
 
 function Switch({
@@ -36,7 +36,7 @@ function Switch({
         "data-[checked]:bg-primary",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        className
+        className,
       )}
       {...props}
     >
@@ -44,11 +44,11 @@ function Switch({
         className={cn(
           "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
           "data-[checked]:translate-x-4",
-          "data-[unchecked]:translate-x-0"
+          "data-[unchecked]:translate-x-0",
         )}
       />
     </BaseSwitch.Root>
-  )
+  );
 }
 
-export { Switch }
+export { Switch };

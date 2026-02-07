@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { cn } from "~/lib/utils";
+import { cn } from "@/lib/utils";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 
 /**

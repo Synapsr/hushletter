@@ -2,8 +2,8 @@ import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import type { RouterContext } from "~/router";
-import { signOut } from "~/lib/auth-client";
+import type { RouterContext } from "@/router";
+import { signOut } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Settings, Download, Globe, Shield } from "lucide-react";
 

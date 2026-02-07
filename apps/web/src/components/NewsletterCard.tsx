@@ -5,7 +5,7 @@ import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { cn } from "~/lib/utils";
+import { cn } from "@/lib/utils";
 import { EyeOff, Eye, Sparkles, Lock, Mail, Globe } from "lucide-react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { SummaryPreview } from "./SummaryPreview";

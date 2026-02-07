@@ -144,7 +144,7 @@ import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { api } from "@newsletter-manager/backend"
-import { cn } from "~/lib/utils"
+import { cn } from "@/lib/utils"
 import { FolderIcon, EyeOff } from "lucide-react"
 
 export interface FolderData {

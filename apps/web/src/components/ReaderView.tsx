@@ -1,17 +1,17 @@
-import { useState, useEffect, useRef } from "react"
-import { useAction, useMutation } from "convex/react"
-import { api } from "@hushletter/backend"
-import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
-import DOMPurify from "dompurify"
-import { useScrollProgress } from "~/hooks/useScrollProgress"
+import { useState, useEffect, useRef } from "react";
+import { useAction, useMutation } from "convex/react";
+import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import DOMPurify from "dompurify";
+import { useScrollProgress } from "@/hooks/useScrollProgress";
 
 interface ReaderViewProps {
   /** userNewsletter document ID */
-  userNewsletterId: Id<"userNewsletters">
+  userNewsletterId: Id<"userNewsletters">;
   /** Initial reading progress percentage (0-100) for resume feature */
-  initialProgress?: number
+  initialProgress?: number;
   /** Callback when reading is complete (100% scrolled) */
-  onReadingComplete?: () => void
+  onReadingComplete?: () => void;
 }
 
 /**
@@ -20,17 +20,17 @@ interface ReaderViewProps {
  * Stores sanitized HTML to avoid re-sanitization on cache hits.
  * Limited to MAX_CACHE_SIZE entries to prevent memory leaks.
  */
-const MAX_CACHE_SIZE = 50
-const contentCache = new Map<string, string | null>()
+const MAX_CACHE_SIZE = 50;
+const contentCache = new Map<string, string | null>();
 
 /** Clear the content cache (exported for testing) */
 export function clearContentCache(): void {
-  contentCache.clear()
+  contentCache.clear();
 }
 
 /** Clear a specific entry from the cache (for error boundary reset) */
 export function clearCacheEntry(userNewsletterId: string): void {
-  contentCache.delete(userNewsletterId)
+  contentCache.delete(userNewsletterId);
 }
 
 /**
@@ -40,16 +40,16 @@ export function clearCacheEntry(userNewsletterId: string): void {
 function setCacheEntry(key: string, value: string | null): void {
   // If key exists, delete it first so it moves to the end (most recent)
   if (contentCache.has(key)) {
-    contentCache.delete(key)
+    contentCache.delete(key);
   }
   // Evict oldest entry if at capacity
   if (contentCache.size >= MAX_CACHE_SIZE) {
-    const oldestKey = contentCache.keys().next().value
+    const oldestKey = contentCache.keys().next().value;
     if (oldestKey !== undefined) {
-      contentCache.delete(oldestKey)
+      contentCache.delete(oldestKey);
     }
   }
-  contentCache.set(key, value)
+  contentCache.set(key, value);
 }
 
 /**
@@ -67,7 +67,7 @@ function ContentSkeleton() {
       <div className="h-4 bg-muted rounded w-full" />
       <div className="h-4 bg-muted rounded w-3/4" />
     </div>
-  )
+  );
 }
 
 /**
@@ -79,7 +79,7 @@ function ContentError({ message }: { message: string }) {
       <p className="text-destructive font-medium mb-2">Failed to load content</p>
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
-  )
+  );
 }
 
 /**
@@ -88,11 +88,9 @@ function ContentError({ message }: { message: string }) {
 function ContentEmpty() {
   return (
     <div className="text-center py-12 border rounded-lg bg-muted/50">
-      <p className="text-muted-foreground">
-        This newsletter has no content available.
-      </p>
+      <p className="text-muted-foreground">This newsletter has no content available.</p>
     </div>
-  )
+  );
 }
 
 /**
@@ -110,173 +108,215 @@ export function ReaderView({
   initialProgress,
   onReadingComplete,
 }: ReaderViewProps) {
-  const [contentHtml, setContentHtml] = useState<string | null>(null)
+  const [contentHtml, setContentHtml] = useState<string | null>(null);
   // Exception: useAction doesn't have isPending, manual loading state required
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Ref for scrollable container (Story 3.4: AC1)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Use action for content retrieval (generates signed R2 URL)
-  const getNewsletterWithContent = useAction(api.newsletters.getUserNewsletterWithContent)
+  const getNewsletterWithContent = useAction(api.newsletters.getUserNewsletterWithContent);
 
   // Story 3.4: Mutation for updating read progress
-  const updateReadProgress = useMutation(api.newsletters.updateNewsletterReadProgress)
+  const updateReadProgress = useMutation(api.newsletters.updateNewsletterReadProgress);
 
   // Story 3.4: Track scroll progress with debounce
   useScrollProgress({
     containerRef: scrollContainerRef,
     onProgress: (progress) => {
       // Update progress in database
-      updateReadProgress({ userNewsletterId, readProgress: progress })
+      updateReadProgress({ userNewsletterId, readProgress: progress });
 
       // Notify parent when reading is complete (AC3)
       if (progress === 100 && onReadingComplete) {
-        onReadingComplete()
+        onReadingComplete();
       }
     },
     debounceMs: 2000,
     thresholdPercent: 5,
-  })
+  });
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
 
     async function fetchContent() {
       // Check cache first - newsletter content is immutable
       if (contentCache.has(userNewsletterId)) {
-        const cached = contentCache.get(userNewsletterId)
-        setContentHtml(cached ?? null)
-        setIsLoading(false)
-        return
+        const cached = contentCache.get(userNewsletterId);
+        setContentHtml(cached ?? null);
+        setIsLoading(false);
+        return;
       }
 
-      setIsLoading(true)
-      setError(null)
+      setIsLoading(true);
+      setError(null);
 
       try {
         // Get newsletter with signed content URL
-        const result = await getNewsletterWithContent({ userNewsletterId })
+        const result = await getNewsletterWithContent({ userNewsletterId });
 
-        if (cancelled) return
+        if (cancelled) return;
 
         // Check content status
         if (result.contentStatus === "missing") {
-          setCacheEntry(userNewsletterId, null)
-          setContentHtml(null)
-          setIsLoading(false)
-          return
+          setCacheEntry(userNewsletterId, null);
+          setContentHtml(null);
+          setIsLoading(false);
+          return;
         }
 
         if (result.contentStatus === "error" || !result.contentUrl) {
           // Don't cache errors - allow retry
-          setError("Content is temporarily unavailable. Please try again later.")
-          setIsLoading(false)
-          return
+          setError("Content is temporarily unavailable. Please try again later.");
+          setIsLoading(false);
+          return;
         }
 
         // Fetch HTML content from signed R2 URL
-        const response = await fetch(result.contentUrl)
+        const response = await fetch(result.contentUrl);
 
-        if (cancelled) return
+        if (cancelled) return;
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch content: ${response.status}`)
+          throw new Error(`Failed to fetch content: ${response.status}`);
         }
 
-        const rawHtml = await response.text()
+        const rawHtml = await response.text();
 
-        if (cancelled) return
+        if (cancelled) return;
 
         // Configure DOMPurify hook to add safe link attributes
         // This is more robust than regex post-processing
         // Use try/finally to ensure hook cleanup even if sanitization fails
-        let sanitizedHtml: string
+        let sanitizedHtml: string;
         try {
           DOMPurify.addHook("afterSanitizeAttributes", (node) => {
             if (node.tagName === "A") {
-              node.setAttribute("target", "_blank")
-              node.setAttribute("rel", "noopener noreferrer")
+              node.setAttribute("target", "_blank");
+              node.setAttribute("rel", "noopener noreferrer");
             }
-          })
+          });
 
           // Sanitize HTML to prevent XSS attacks
           sanitizedHtml = DOMPurify.sanitize(rawHtml, {
             ALLOWED_TAGS: [
-              "p", "div", "span", "a", "img", "h1", "h2", "h3", "h4", "h5", "h6",
-              "ul", "ol", "li", "strong", "em", "b", "i", "u", "br", "hr",
-              "table", "thead", "tbody", "tfoot", "tr", "td", "th",
-              "blockquote", "pre", "code", "sup", "sub",
+              "p",
+              "div",
+              "span",
+              "a",
+              "img",
+              "h1",
+              "h2",
+              "h3",
+              "h4",
+              "h5",
+              "h6",
+              "ul",
+              "ol",
+              "li",
+              "strong",
+              "em",
+              "b",
+              "i",
+              "u",
+              "br",
+              "hr",
+              "table",
+              "thead",
+              "tbody",
+              "tfoot",
+              "tr",
+              "td",
+              "th",
+              "blockquote",
+              "pre",
+              "code",
+              "sup",
+              "sub",
             ],
-            ALLOWED_ATTR: ["href", "src", "alt", "class", "style", "width", "height", "target", "rel"],
+            ALLOWED_ATTR: [
+              "href",
+              "src",
+              "alt",
+              "class",
+              "style",
+              "width",
+              "height",
+              "target",
+              "rel",
+            ],
             FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input"],
             FORBID_ATTR: ["onerror", "onclick", "onload", "onmouseover"],
-          })
+          });
         } finally {
           // Remove hook to prevent memory leaks (hooks are global)
-          DOMPurify.removeHook("afterSanitizeAttributes")
+          DOMPurify.removeHook("afterSanitizeAttributes");
         }
 
         // Cache the sanitized content (LRU eviction if at capacity)
-        setCacheEntry(userNewsletterId, sanitizedHtml)
-        setContentHtml(sanitizedHtml)
+        setCacheEntry(userNewsletterId, sanitizedHtml);
+        setContentHtml(sanitizedHtml);
       } catch (err) {
-        if (cancelled) return
-        const message = err instanceof Error ? err.message : "Unknown error occurred"
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Unknown error occurred";
         // Don't cache errors - allow retry
-        setError(message)
-        console.error("[ReaderView] Failed to load content:", err)
+        setError(message);
+        console.error("[ReaderView] Failed to load content:", err);
       } finally {
         if (!cancelled) {
-          setIsLoading(false)
+          setIsLoading(false);
         }
       }
     }
 
-    fetchContent()
+    fetchContent();
 
     return () => {
-      cancelled = true
-    }
-  // Note: getNewsletterWithContent is excluded from deps intentionally.
-  // useAction returns a stable function reference that doesn't need to trigger re-fetches.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userNewsletterId])
+      cancelled = true;
+    };
+    // Note: getNewsletterWithContent is excluded from deps intentionally.
+    // useAction returns a stable function reference that doesn't need to trigger re-fetches.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userNewsletterId]);
 
   // Story 3.4 AC2: Scroll to saved position when content loads and initialProgress is provided
   useEffect(() => {
-    if (!isLoading && contentHtml && initialProgress && initialProgress > 0 && initialProgress < 100) {
+    if (
+      !isLoading &&
+      contentHtml &&
+      initialProgress &&
+      initialProgress > 0 &&
+      initialProgress < 100
+    ) {
       // Small delay to ensure content is rendered and measured
       const timeoutId = setTimeout(() => {
-        scrollToProgress(scrollContainerRef, initialProgress)
-      }, 100)
+        scrollToProgress(scrollContainerRef, initialProgress);
+      }, 100);
 
-      return () => clearTimeout(timeoutId)
+      return () => clearTimeout(timeoutId);
     }
-  }, [isLoading, contentHtml, initialProgress])
+  }, [isLoading, contentHtml, initialProgress]);
 
   // Loading state
   if (isLoading) {
-    return <ContentSkeleton />
+    return <ContentSkeleton />;
   }
 
   // Error state
   if (error) {
-    return <ContentError message={error} />
+    return <ContentError message={error} />;
   }
 
   // Empty content state
   if (contentHtml === null) {
-    return <ContentEmpty />
+    return <ContentEmpty />;
   }
 
   // Render sanitized HTML content in scrollable container for progress tracking
   return (
-    <div
-      ref={scrollContainerRef}
-      className="overflow-y-auto max-h-[calc(100vh-200px)]"
-    >
+    <div ref={scrollContainerRef} className="overflow-y-auto max-h-[calc(100vh-200px)]">
       <article
         className="prose prose-gray dark:prose-invert max-w-none
           prose-a:text-primary prose-a:no-underline hover:prose-a:underline
@@ -286,7 +326,7 @@ export function ReaderView({
         dangerouslySetInnerHTML={{ __html: contentHtml }}
       />
     </div>
-  )
+  );
 }
 
 /**
@@ -295,17 +335,17 @@ export function ReaderView({
  */
 function scrollToProgress(
   containerRef: React.RefObject<HTMLElement | null>,
-  progress: number
+  progress: number,
 ): void {
-  const container = containerRef.current
-  if (!container) return
+  const container = containerRef.current;
+  if (!container) return;
 
-  const { scrollHeight, clientHeight } = container
-  const scrollableHeight = scrollHeight - clientHeight
-  const targetScroll = (progress / 100) * scrollableHeight
+  const { scrollHeight, clientHeight } = container;
+  const scrollableHeight = scrollHeight - clientHeight;
+  const targetScroll = (progress / 100) * scrollableHeight;
 
   container.scrollTo({
     top: targetScroll,
     behavior: "smooth",
-  })
+  });
 }

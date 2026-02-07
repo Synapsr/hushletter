@@ -3,18 +3,18 @@
  * Story 4.3 Code Review Fix: Updated from Radix to Base UI per architecture requirements
  */
 
-import { Checkbox as BaseCheckbox } from "@base-ui-components/react/checkbox"
-import { CheckIcon } from "lucide-react"
+import { Checkbox as BaseCheckbox } from "@base-ui-components/react/checkbox";
+import { CheckIcon } from "lucide-react";
 
-import { cn } from "~/lib/utils"
+import { cn } from "@/lib/utils";
 
 interface CheckboxProps {
-  checked?: boolean
-  indeterminate?: boolean
-  onCheckedChange?: (checked: boolean) => void
-  disabled?: boolean
-  className?: string
-  "aria-label"?: string
+  checked?: boolean;
+  indeterminate?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+  "aria-label"?: string;
 }
 
 function Checkbox({
@@ -42,7 +42,7 @@ function Checkbox({
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "hover:border-primary/50",
-        className
+        className,
       )}
       {...props}
     >
@@ -54,7 +54,7 @@ function Checkbox({
         )}
       </BaseCheckbox.Indicator>
     </BaseCheckbox.Root>
-  )
+  );
 }
 
-export { Checkbox }
+export { Checkbox };

@@ -14,7 +14,7 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText } from "lucide-react";
-import { cn } from "~/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface EmlDropZoneProps {
   /** Callback when valid .eml files are selected */

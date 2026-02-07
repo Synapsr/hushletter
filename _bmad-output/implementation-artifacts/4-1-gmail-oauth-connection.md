@@ -112,7 +112,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 **Client OAuth Flow:**
 ```typescript
 // In GmailConnect.tsx
-import { authClient } from "~/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 const handleConnectGmail = async () => {
   await authClient.signIn.social({

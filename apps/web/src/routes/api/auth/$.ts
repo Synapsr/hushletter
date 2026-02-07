@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { handler } from "~/lib/auth-server"
+import { createFileRoute } from "@tanstack/react-router";
+import { handler } from "@/lib/auth-server";
 
 // Catch-all route for Better Auth API endpoints
 // Proxies all /api/auth/* requests to the Better Auth handler
@@ -10,4 +10,4 @@ export const Route = createFileRoute("/api/auth/$")({
       POST: ({ request }) => handler(request),
     },
   },
-})
+});

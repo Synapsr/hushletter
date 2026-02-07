@@ -48,10 +48,10 @@ jobs:
         id: npm-cache
         with:
           path: |
-            ~/.npm
+            @/.npm
             node_modules
-            ~/.cache/Cypress
-            ~/.cache/ms-playwright
+            @/.cache/Cypress
+            @/.cache/ms-playwright
           key: ${{ env.CACHE_KEY }}
           restore-keys: |
             ${{ runner.os }}-node-
@@ -85,9 +85,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.npm
+            @/.npm
             node_modules
-            ~/.cache/ms-playwright
+            @/.cache/ms-playwright
           key: ${{ env.CACHE_KEY }}
 
       - name: Detect changed test files
@@ -145,9 +145,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.npm
+            @/.npm
             node_modules
-            ~/.cache/ms-playwright
+            @/.cache/ms-playwright
           key: ${{ env.CACHE_KEY }}
 
       - name: Run E2E tests (shard ${{ matrix.shard }})

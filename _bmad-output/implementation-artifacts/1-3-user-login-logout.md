@@ -77,7 +77,7 @@ so that **I can access my newsletters securely**.
 1. TanStack Form + Zod is the MANDATORY pattern - never use useState for form fields
 2. Use `form.Subscribe` for derived state (canSubmit, isSubmitting)
 3. Error handling uses `errorMap.onSubmit` in TanStack Form (not useState)
-4. Better Auth client is at `~/lib/auth-client.ts` with `signIn.email()` available
+4. Better Auth client is at `@/lib/auth-client.ts` with `signIn.email()` available
 5. Auth guard in `_authed.tsx` uses `beforeLoad` with context.auth.getSession()
 6. Typed RouterContext interface exists in `router.tsx`
 
@@ -91,7 +91,7 @@ so that **I can access my newsletters securely**.
 **Code Review Fixes Applied in Story 1.2:**
 - Type-safe auth context with RouterContext interface
 - Removed useState anti-pattern for errors (use errorMap.onSubmit)
-- Created shared error utilities at `~/lib/utils/error.ts`
+- Created shared error utilities at `@/lib/utils/error.ts`
 - User-friendly ErrorFallback component created
 
 ### Login Form Implementation
@@ -106,8 +106,8 @@ import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { signIn } from "~/lib/auth-client"
-import { getErrorMessage } from "~/lib/utils/error"
+import { signIn } from "@/lib/auth-client"
+import { getErrorMessage } from "@/lib/utils/error"
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -261,7 +261,7 @@ function LoginPage() {
 
 ```typescript
 // Update apps/web/src/routes/_authed.tsx to include logout
-import { signOut } from "~/lib/auth-client"
+import { signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { useNavigate } from "@tanstack/react-router"
 
@@ -452,7 +452,7 @@ Signup page has link to /login
 
 **From Story 1.2:**
 - Better Auth configured with email/password
-- Auth client at `~/lib/auth-client.ts`
+- Auth client at `@/lib/auth-client.ts`
 - Auth guard in `_authed.tsx`
 - TanStack Form + Zod installed
 - Form pattern established

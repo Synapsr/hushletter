@@ -388,7 +388,7 @@ export const recordDailyMetrics = internalMutation({
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
-import { api } from "~/convex/_generated/api"
+import { api } from "@/convex/_generated/api"
 
 export const Route = createFileRoute("/_authed/admin")({
   component: AdminLayout,
@@ -440,7 +440,7 @@ function AdminLayout() {
 import { createFileRoute } from "@tanstack/react-router"
 import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
-import { api } from "~/convex/_generated/api"
+import { api } from "@/convex/_generated/api"
 import { StatCard } from "@/components/admin/StatCard"
 import { ServiceStatusBadge } from "@/components/admin/ServiceStatusBadge"
 import { RecentActivityFeed } from "@/components/admin/RecentActivityFeed"
@@ -584,7 +584,7 @@ function AdminDashboard() {
 // apps/web/src/components/admin/StatCard.tsx - NEW
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { cn } from "~/lib/utils"
+import { cn } from "@/lib/utils"
 
 interface StatCardProps {
   title: string
@@ -633,7 +633,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { CheckCircle, AlertCircle, XCircle } from "lucide-react"
-import { cn } from "~/lib/utils"
+import { cn } from "@/lib/utils"
 
 interface ServiceStatus {
   healthy: boolean

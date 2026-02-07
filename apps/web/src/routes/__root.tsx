@@ -4,20 +4,20 @@ import {
   Scripts,
   createRootRouteWithContext,
   useRouteContext,
-} from "@tanstack/react-router"
-import * as React from "react"
-import { createServerFn } from "@tanstack/react-start"
-import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react"
-import { Toaster } from "sonner"
-import appCss from "~/styles/app.css?url"
-import { authClient } from "~/lib/auth-client"
-import { getToken } from "~/lib/auth-server"
-import type { RouterContext } from "~/router"
+} from "@tanstack/react-router";
+import * as React from "react";
+import { createServerFn } from "@tanstack/react-start";
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
+import { Toaster } from "sonner";
+import appCss from "@/styles/app.css?url";
+import { authClient } from "@/lib/auth-client";
+import { getToken } from "@/lib/auth-server";
+import type { RouterContext } from "@/router";
 
 // Server function to get auth token for SSR
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
-  return await getToken()
-})
+  return await getToken();
+});
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
@@ -34,8 +34,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
       {
         name: "description",
-        content:
-          "One dedicated email address. All your newsletters in one clean interface.",
+        content: "One dedicated email address. All your newsletters in one clean interface.",
       },
     ],
     links: [
@@ -62,20 +61,20 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     ],
   }),
   beforeLoad: async (ctx) => {
-    const token = await getAuth()
+    const token = await getAuth();
 
     if (token) {
-      ctx.context.convexQueryClient.serverHttpClient?.setAuth(token)
+      ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);
     }
 
-    return { isAuthenticated: !!token, token }
+    return { isAuthenticated: !!token, token };
   },
   notFoundComponent: () => <div>Route not found</div>,
   component: RootComponent,
-})
+});
 
 function RootComponent() {
-  const context = useRouteContext({ from: Route.id })
+  const context = useRouteContext({ from: Route.id });
 
   return (
     <ConvexBetterAuthProvider
@@ -87,7 +86,7 @@ function RootComponent() {
         <Outlet />
       </RootDocument>
     </ConvexBetterAuthProvider>
-  )
+  );
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
@@ -103,5 +102,5 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
-  )
+  );
 }

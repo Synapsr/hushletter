@@ -182,7 +182,7 @@ Note: This is typically a one-time setup per repo; run it any time after the tes
    - name: Cache dependencies
      uses: actions/cache@v4
      with:
-       path: ~/.npm
+       path: @/.npm
        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
        restore-keys: |
          ${{ runner.os }}-node-
@@ -194,7 +194,7 @@ Note: This is typically a one-time setup per repo; run it any time after the tes
    - name: Cache Playwright browsers
      uses: actions/cache@v4
      with:
-       path: ~/.cache/ms-playwright
+       path: @/.cache/ms-playwright
        key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
    ```
 

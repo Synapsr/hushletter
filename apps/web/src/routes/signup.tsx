@@ -4,8 +4,8 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { signUp } from "~/lib/auth-client";
-import { getErrorMessage, extractNameFromEmail } from "~/lib/utils/error";
+import { signUp } from "@/lib/auth-client";
+import { getErrorMessage, extractNameFromEmail } from "@/lib/utils/error";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,

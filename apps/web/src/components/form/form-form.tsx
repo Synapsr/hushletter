@@ -12,7 +12,7 @@ export const FormForm = ({ children, ...props }: PropsWithChildren<Props>) => {
       {...props}
       onSubmit={(e) => {
         e.preventDefault();
-        e.stopPropagation();
+        //e.stopPropagation();
         form.handleSubmit();
       }}
     >

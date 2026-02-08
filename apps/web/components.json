@@ -15,8 +15,8 @@
   "menuAccent": "subtle",
   "aliases": {
     "components": "@/components",
-    "utils": "@art-behind/ui/lib/utils",
-    "ui": "@art-behind/ui/components/ui",
+    "utils": "@hushletter/ui/lib/utils",
+    "ui": "@hushletter/ui/components",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },

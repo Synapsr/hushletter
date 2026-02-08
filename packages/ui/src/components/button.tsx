@@ -3,6 +3,7 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
+
 import type * as React from "react";
 
 import { cn } from "@hushletter/ui/lib/utils";
@@ -44,18 +45,21 @@ const buttonVariants = cva(
         secondary:
           "border-transparent bg-secondary text-secondary-foreground [:active,[data-pressed]]:bg-secondary/80 [:hover,[data-pressed]]:bg-secondary/90",
       },
+      isPending: {
+        true: "cursor-not-allowed opacity-50",
+      },
     },
-  }
+  },
 );
 
-interface ButtonProps extends useRender.ComponentProps<"button"> {
-  variant?: VariantProps<typeof buttonVariants>["variant"];
-  size?: VariantProps<typeof buttonVariants>["size"];
-}
+type ButtonVariants = VariantProps<typeof buttonVariants>;
+
+interface ButtonProps extends useRender.ComponentProps<"button">, ButtonVariants {}
 
 function Button({ className, variant, size, render, ...props }: ButtonProps) {
-  const typeValue: React.ButtonHTMLAttributes<HTMLButtonElement>["type"] =
-    render ? undefined : "button";
+  const typeValue: React.ButtonHTMLAttributes<HTMLButtonElement>["type"] = render
+    ? undefined
+    : "button";
 
   const defaultProps = {
     className: cn(buttonVariants({ className, size, variant })),
@@ -70,4 +74,4 @@ function Button({ className, variant, size, render, ...props }: ButtonProps) {
   });
 }
 
-export { Button, buttonVariants };
+export { Button, buttonVariants, type ButtonProps };

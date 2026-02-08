@@ -1,3 +1,17 @@
 {
-  "ignorePatterns": []
+  "ignorePatterns": [],
+  "experimentalTailwindcss": {
+    "stylesheet": "./packages/ui/src/styles.css",
+    "attributes": [
+      "class",
+      "className"
+    ],
+    "functions": [
+      "clsx",
+      "cn",
+      "twMerge",
+      "tv"
+    ],
+    "preserveWhitespace": true
+  }
 }

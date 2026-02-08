@@ -1,8 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from "@hushletter/ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+} from "@hushletter/ui";
 import { signIn } from "@/lib/auth-client";
+import { useAppForm } from "@/hooks/form/form";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -10,14 +19,14 @@ export const Route = createFileRoute("/login")({
 
 // Zod schema for form validation - simpler than signup (just needs non-empty values)
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  email: z.email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
 });
 
 function LoginPage() {
   const navigate = useNavigate();
 
-  const form = useForm({
+  const form = useAppForm({
     defaultValues: {
       email: "",
       password: "",
@@ -44,14 +53,14 @@ function LoginPage() {
   });
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 flex items-center justify-center p-4">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-50 to-white p-4 dark:from-gray-950 dark:to-gray-900">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
           <CardDescription>Sign in to access your newsletters</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form
+        <CardContent render={<form.AppForm />}>
+          <form.Form
             onSubmit={(e) => {
               e.preventDefault();
               form.handleSubmit();
@@ -82,9 +91,9 @@ function LoginPage() {
                       required
                       aria-invalid={hasErrors}
                       aria-describedby={hasErrors ? errorId : undefined}
-                      className={
+                      /* className={
                         hasErrors ? "border-destructive focus-visible:ring-destructive" : ""
-                      }
+                      } */
                     />
                     {field.state.meta.errors.map((error, i) => (
                       <p
@@ -150,7 +159,7 @@ function LoginPage() {
               children={(submitError) =>
                 submitError ? (
                   <div
-                    className="text-sm text-destructive bg-destructive/10 p-3 rounded-md"
+                    className="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
                     role="alert"
                   >
                     {String(submitError)}
@@ -168,13 +177,13 @@ function LoginPage() {
                 </Button>
               )}
             />
-          </form>
+          </form.Form>
 
           {/* Forgot password placeholder - non-functional, for future story */}
-          <div className="text-center mt-4">
+          <div className="mt-4 text-center">
             <button
               type="button"
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="text-sm text-muted-foreground transition-colors hover:text-primary"
               onClick={() => {
                 // Placeholder for future password reset story
                 // Will navigate to /forgot-password when implemented
@@ -185,9 +194,9 @@ function LoginPage() {
           </div>
 
           {/* Sign up link */}
-          <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-6">
+          <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
             Don't have an account?{" "}
-            <Link to="/signup" className="text-primary hover:underline font-medium">
+            <Link to="/signup" className="font-medium text-primary hover:underline">
               Sign Up
             </Link>
           </p>

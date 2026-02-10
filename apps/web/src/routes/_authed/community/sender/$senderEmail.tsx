@@ -24,6 +24,7 @@ import {
 import { FollowButton } from "@/components/FollowButton";
 import { SubscribeInfo } from "@/components/SubscribeInfo";
 import { ArrowLeft, Users, Mail, Loader2 } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/community/sender/$senderEmail")({
   component: SenderDetailPage,
@@ -81,9 +82,9 @@ function EmptySenderState({ senderEmail }: { senderEmail: string }) {
   return (
     <div className="text-center py-12">
       <Mail className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-      <p className="text-lg font-medium mb-2">No newsletters yet</p>
+      <p className="text-lg font-medium mb-2">{m.communitySender_noNewsletters()}</p>
       <p className="text-muted-foreground">
-        No newsletters from {senderEmail} have been shared to the community.
+        {m.communitySender_noNewslettersDesc({ email: senderEmail })}
       </p>
     </div>
   );
@@ -95,16 +96,16 @@ function EmptySenderState({ senderEmail }: { senderEmail: string }) {
 function SenderNotFound({ senderEmail }: { senderEmail: string }) {
   return (
     <div className="text-center py-12">
-      <p className="text-lg font-medium mb-2">Sender not found</p>
+      <p className="text-lg font-medium mb-2">{m.communitySender_senderNotFound()}</p>
       <p className="text-muted-foreground">
-        No sender with email {senderEmail} was found in the community.
+        {m.communitySender_senderNotFoundDesc({ email: senderEmail })}
       </p>
       <Link
         to="/community"
         className="inline-flex items-center gap-1 mt-4 text-sm text-primary hover:underline"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Community
+        {m.communityDetail_backToCommunity()}
       </Link>
     </div>
   );
@@ -207,13 +208,13 @@ function SenderDetailPage() {
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Browse by Sender
+            {m.communitySender_backToBrowse()}
           </Link>
         </div>
         <div className="text-center py-12">
-          <p className="text-lg font-medium mb-2 text-destructive">Something went wrong</p>
+          <p className="text-lg font-medium mb-2 text-destructive">{m.communitySender_somethingWentWrong()}</p>
           <p className="text-muted-foreground">
-            Failed to load sender details. Please try again later.
+            {m.communitySender_loadError()}
           </p>
         </div>
       </div>
@@ -231,7 +232,7 @@ function SenderDetailPage() {
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Browse by Sender
+            {m.communitySender_backToBrowse()}
           </Link>
         </div>
         <SenderDetailSkeleton />
@@ -250,7 +251,7 @@ function SenderDetailPage() {
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Browse by Sender
+            {m.communitySender_backToBrowse()}
           </Link>
         </div>
         <SenderNotFound senderEmail={decodedEmail} />
@@ -268,7 +269,7 @@ function SenderDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Browse by Sender
+          {m.communitySender_backToBrowse()}
         </Link>
       </div>
 
@@ -287,14 +288,12 @@ function SenderDetailPage() {
           <div className="flex items-center gap-1.5">
             <Users className="h-4 w-4" />
             <span>
-              {senderData.subscriberCount}{" "}
-              {senderData.subscriberCount === 1 ? "user subscribes" : "users subscribe"} to this
+              {m.communitySender_subscriberCount({ count: senderData.subscriberCount })}
             </span>
           </div>
           <span>|</span>
           <span>
-            {senderData.newsletterCount}{" "}
-            {senderData.newsletterCount === 1 ? "newsletter" : "newsletters"}
+            {m.communitySender_newsletterCount({ count: senderData.newsletterCount })}
           </span>
         </div>
       </div>
@@ -328,11 +327,11 @@ function SenderDetailPage() {
             {isFetchingNextPage && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Loading more...</span>
+                <span>{m.community_loadingMore()}</span>
               </div>
             )}
             {!hasNextPage && newsletters.length > 0 && (
-              <p className="text-sm text-muted-foreground">You've reached the end</p>
+              <p className="text-sm text-muted-foreground">{m.community_reachedEnd()}</p>
             )}
           </div>
         </div>

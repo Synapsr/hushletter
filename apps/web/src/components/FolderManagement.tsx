@@ -17,6 +17,7 @@ import {
 } from "@hushletter/ui";
 import { FolderIcon, PencilIcon, TrashIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Folder data type from listFoldersWithUnreadCounts query
@@ -37,7 +38,7 @@ interface FolderData {
  * Story 3.3 Task 3.3
  */
 const folderNameSchema = z.object({
-  name: z.string().min(1, "Folder name is required").max(50, "Folder name too long"),
+  name: z.string().min(1, m.folderMgmt_nameRequired()).max(50, m.folderMgmt_nameTooLong()),
 });
 
 /**
@@ -61,7 +62,7 @@ function CreateFolderDialog() {
         if (error instanceof Error && error.message.includes("DUPLICATE")) {
           form.setFieldMeta("name", (prev) => ({
             ...prev,
-            errors: ["A folder with this name already exists"],
+            errors: [m.folderMgmt_duplicateError()],
           }));
         } else {
           throw error;
@@ -74,11 +75,11 @@ function CreateFolderDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button variant="outline" size="sm" className="w-full" />}>
           <PlusIcon className="h-4 w-4 mr-2" />
-          Create Folder
+          {m.folderMgmt_createFolder()}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New Folder</DialogTitle>
+          <DialogTitle>{m.folderMgmt_createNewFolder()}</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -92,7 +93,7 @@ function CreateFolderDialog() {
             children={(field) => (
               <div className="space-y-2">
                 <Input
-                  placeholder="Folder name"
+                  placeholder={m.folderMgmt_folderNamePlaceholder()}
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   autoFocus
@@ -107,13 +108,13 @@ function CreateFolderDialog() {
           />
           <div className="flex justify-end gap-2">
             <DialogClose render={<Button type="button" variant="outline" />}>
-                Cancel
+                {m.folderMgmt_cancel()}
             </DialogClose>
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
               children={([canSubmit, isSubmitting]) => (
                 <Button type="submit" disabled={!canSubmit || isSubmitting}>
-                  {isSubmitting ? "Creating..." : "Create"}
+                  {isSubmitting ? m.folderMgmt_creating() : m.folderMgmt_create()}
                 </Button>
               )}
             />
@@ -143,7 +144,7 @@ function EditFolderDialog({ folder }: { folder: FolderData }) {
         if (error instanceof Error && error.message.includes("DUPLICATE")) {
           form.setFieldMeta("name", (prev) => ({
             ...prev,
-            errors: ["A folder with this name already exists"],
+            errors: [m.folderMgmt_duplicateError()],
           }));
         } else {
           throw error;
@@ -159,7 +160,7 @@ function EditFolderDialog({ folder }: { folder: FolderData }) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Folder</DialogTitle>
+          <DialogTitle>{m.folderMgmt_editFolder()}</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -173,7 +174,7 @@ function EditFolderDialog({ folder }: { folder: FolderData }) {
             children={(field) => (
               <div className="space-y-2">
                 <Input
-                  placeholder="Folder name"
+                  placeholder={m.folderMgmt_folderNamePlaceholder()}
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   autoFocus
@@ -188,13 +189,13 @@ function EditFolderDialog({ folder }: { folder: FolderData }) {
           />
           <div className="flex justify-end gap-2">
             <DialogClose render={<Button type="button" variant="outline" />}>
-                Cancel
+                {m.folderMgmt_cancel()}
             </DialogClose>
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
               children={([canSubmit, isSubmitting]) => (
                 <Button type="submit" disabled={!canSubmit || isSubmitting}>
-                  {isSubmitting ? "Saving..." : "Save"}
+                  {isSubmitting ? m.folderMgmt_saving() : m.folderMgmt_save()}
                 </Button>
               )}
             />
@@ -232,11 +233,10 @@ function DeleteFolderDialog({ folder }: { folder: FolderData }) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Folder</DialogTitle>
+          <DialogTitle>{m.folderMgmt_deleteFolder()}</DialogTitle>
         </DialogHeader>
         <p className="text-muted-foreground">
-          Are you sure you want to delete "{folder.name}"? Senders in this folder will become
-          uncategorized.
+          {m.folderMgmt_deleteConfirmation({ folderName: folder.name })}
         </p>
         <form
           onSubmit={(e) => {
@@ -246,13 +246,13 @@ function DeleteFolderDialog({ folder }: { folder: FolderData }) {
         >
           <div className="flex justify-end gap-2 mt-4">
             <DialogClose render={<Button type="button" variant="outline" />}>
-                Cancel
+                {m.folderMgmt_cancel()}
             </DialogClose>
             <form.Subscribe
               selector={(state) => state.isSubmitting}
               children={(isSubmitting) => (
                 <Button type="submit" variant="destructive" disabled={isSubmitting}>
-                  {isSubmitting ? "Deleting..." : "Delete"}
+                  {isSubmitting ? m.folderMgmt_deleting() : m.folderMgmt_delete()}
                 </Button>
               )}
             />
@@ -279,7 +279,7 @@ export function FolderManagement() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">Manage Folders</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">{m.folderMgmt_manageFolders()}</h3>
       </div>
 
       {isPending ? (
@@ -289,7 +289,7 @@ export function FolderManagement() {
           ))}
         </div>
       ) : folderList.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-2">No folders yet</p>
+        <p className="text-sm text-muted-foreground py-2">{m.folderMgmt_noFolders()}</p>
       ) : (
         <div className="space-y-1">
           {folderList.map((folder) => (
@@ -301,7 +301,7 @@ export function FolderManagement() {
                 <FolderIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 <span className="text-sm truncate">{folder.name}</span>
                 <span className="text-xs text-muted-foreground">
-                  ({folder.senderCount} senders)
+                  {m.folderMgmt_senderCount({ count: folder.senderCount })}
                 </span>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">

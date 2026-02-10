@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@hushletter/ui";
 import { Check, Copy, X } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 interface DedicatedEmailDisplayProps {
   email: string;
@@ -32,24 +33,24 @@ export function DedicatedEmailDisplay({ email }: DedicatedEmailDisplayProps) {
   const getButtonLabel = () => {
     switch (copyState) {
       case "copied":
-        return "Copied!";
+        return m.dedicatedEmail_copied();
       case "error":
-        return "Failed to copy";
+        return m.dedicatedEmail_failedToCopy();
       default:
-        return "Copy email address";
+        return m.dedicatedEmail_copyEmailAddress();
     }
   };
 
   return (
     <div className="flex items-center gap-2 p-4 bg-muted rounded-lg">
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-muted-foreground">Your Newsletter Email</p>
+        <p className="text-sm text-muted-foreground">{m.dedicatedEmail_yourNewsletterEmail()}</p>
         <p className="text-lg font-mono font-medium truncate">{email}</p>
       </div>
       <div className="flex items-center gap-2">
         {copyState === "error" && (
           <span className="text-sm text-destructive" role="alert">
-            Copy failed
+            {m.dedicatedEmail_copyFailed()}
           </span>
         )}
         <Button variant="outline" size="icon" onClick={handleCopy} aria-label={getButtonLabel()}>

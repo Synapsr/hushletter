@@ -13,6 +13,8 @@ import appCss from "@/styles/app.css?url";
 import { authClient } from "@/lib/auth-client";
 import { getToken } from "@/lib/auth-server";
 import type { RouterContext } from "@/router";
+import { getLocale } from "@/paraglide/runtime.js";
+import { m } from "@/paraglide/messages.js";
 
 // Server function to get auth token for SSR
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
@@ -30,11 +32,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "Newsletter Manager - Your Newsletters, Organized",
+        title: `${m.common_brandName()} - ${m.landing_subtitle()}`,
       },
       {
         name: "description",
-        content: "One dedicated email address. All your newsletters in one clean interface.",
+        content: m.landing_subtitle(),
       },
     ],
     links: [
@@ -69,7 +71,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
     return { isAuthenticated: !!token, token };
   },
-  notFoundComponent: () => <div>Route not found</div>,
+  notFoundComponent: () => <div>{m.common_routeNotFound()}</div>,
   component: RootComponent,
 });
 
@@ -91,7 +93,7 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html>
+    <html lang={getLocale()}>
       <head>
         <HeadContent />
       </head>

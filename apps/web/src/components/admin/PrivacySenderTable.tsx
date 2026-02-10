@@ -1,4 +1,5 @@
 import { Badge, Progress, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hushletter/ui";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Private sender from listPrivateSenders query
@@ -28,7 +29,7 @@ export function PrivacySenderTable({ senders }: PrivacySenderTableProps) {
   if (senders.length === 0) {
     return (
       <p className="text-center text-muted-foreground py-8" role="status">
-        No senders have been marked private by any user
+        {m.privacySender_noSendersMessage()}
       </p>
     );
   }
@@ -37,10 +38,10 @@ export function PrivacySenderTable({ senders }: PrivacySenderTableProps) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Sender</TableHead>
-          <TableHead>Domain</TableHead>
-          <TableHead>Users Marked Private</TableHead>
-          <TableHead>Privacy Ratio</TableHead>
+          <TableHead>{m.privacySender_columnSender()}</TableHead>
+          <TableHead>{m.privacySender_columnDomain()}</TableHead>
+          <TableHead>{m.privacySender_columnUsersMarkedPrivate()}</TableHead>
+          <TableHead>{m.privacySender_columnPrivacyRatio()}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -64,7 +65,7 @@ export function PrivacySenderTable({ senders }: PrivacySenderTableProps) {
                 <Progress
                   value={sender.privatePercentage}
                   className="w-[60px]"
-                  aria-label={`${sender.privatePercentage}% of users marked private`}
+                  aria-label={m.privacySender_progressLabel({ percentage: sender.privatePercentage })}
                 />
                 <span className="text-sm">{sender.privatePercentage}%</span>
               </div>

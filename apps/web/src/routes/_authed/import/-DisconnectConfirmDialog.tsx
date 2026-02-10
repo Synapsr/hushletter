@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@hushletter/ui";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 interface DisconnectConfirmDialogProps {
   /** Whether the dialog is open */
@@ -47,49 +48,49 @@ export function DisconnectConfirmDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
-            Disconnect Gmail?
+            {m.disconnect_title()}
           </DialogTitle>
           <DialogDescription render={<div className="space-y-4 pt-2" />}>
               <p>
-                You&apos;re about to disconnect <strong>{gmailAddress}</strong>.
+                {m.disconnect_description({ email: gmailAddress })}
               </p>
 
               <div className="space-y-2">
-                <p className="font-medium text-foreground">What will be removed:</p>
+                <p className="font-medium text-foreground">{m.disconnect_removedTitle()}</p>
                 <ul className="list-disc pl-5 text-sm space-y-1">
-                  <li>Gmail connection and access</li>
-                  <li>Scan progress and detected senders</li>
-                  <li>Pending import queue</li>
+                  <li>{m.disconnect_removed1()}</li>
+                  <li>{m.disconnect_removed2()}</li>
+                  <li>{m.disconnect_removed3()}</li>
                 </ul>
               </div>
 
               <div className="space-y-2">
-                <p className="font-medium text-foreground">What will be preserved:</p>
+                <p className="font-medium text-foreground">{m.disconnect_preservedTitle()}</p>
                 <ul className="list-disc pl-5 text-sm space-y-1">
-                  <li>All newsletters already imported</li>
-                  <li>Your reading history and preferences</li>
-                  <li>All other account data</li>
+                  <li>{m.disconnect_preserved1()}</li>
+                  <li>{m.disconnect_preserved2()}</li>
+                  <li>{m.disconnect_preserved3()}</li>
                 </ul>
               </div>
 
               <p className="text-sm">
-                You can reconnect Gmail at any time to scan and import again.
+                {m.disconnect_reconnectNote()}
               </p>
           </DialogDescription>
         </DialogHeader>
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancel
+            {m.common_cancel()}
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Disconnecting...
+                {m.disconnect_disconnecting()}
               </>
             ) : (
-              "Disconnect"
+              m.disconnect_disconnect()
             )}
           </Button>
         </DialogFooter>

@@ -9,6 +9,7 @@ import { ReportsQueue } from "@/components/admin/ReportsQueue";
 import { ModerationLogTable } from "@/components/admin/ModerationLogTable";
 import { Alert, AlertDescription, AlertTitle, Badge, Card, CardContent, CardHeader, CardTitle, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from "@hushletter/ui";
 import { AlertCircle, Eye, EyeOff, Ban, Flag } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /** Community content summary type */
 interface CommunitySummary {
@@ -48,19 +49,19 @@ function CommunityManagement() {
 
   // Show error alert if summary query failed
   const hasError = summaryError;
-  const errorMessage = summaryErrorMessage?.message || "An error occurred loading community data";
+  const errorMessage = summaryErrorMessage?.message || m.adminCommunity_loadError();
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Community Content</h2>
+        <h2 className="text-2xl font-bold">{m.adminCommunity_title()}</h2>
       </div>
 
       {/* Error Alert */}
       {hasError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" aria-hidden="true" />
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>{m.common_error()}</AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       )}
@@ -80,17 +81,17 @@ function CommunityManagement() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="blocked">Blocked Senders</TabsTrigger>
+          <TabsTrigger value="content">{m.adminCommunity_contentTab()}</TabsTrigger>
+          <TabsTrigger value="blocked">{m.adminCommunity_blockedTab()}</TabsTrigger>
           <TabsTrigger value="reports">
-            Reports
+            {m.adminCommunity_reportsTab()}
             {typeof pendingReportsCount === "number" && pendingReportsCount > 0 && (
               <Badge variant="destructive" className="ml-2">
                 {pendingReportsCount}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="log">Audit Log</TabsTrigger>
+          <TabsTrigger value="log">{m.adminCommunity_auditLogTab()}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content" className="space-y-4">
@@ -127,7 +128,7 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Total Content</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">{m.adminCommunity_totalContent()}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-2xl font-bold">{summary.totalContent}</p>
@@ -138,7 +139,7 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
             <Eye className="h-4 w-4" aria-hidden="true" />
-            Active
+            {m.adminCommunity_active()}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -150,7 +151,7 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
             <EyeOff className="h-4 w-4" aria-hidden="true" />
-            Hidden
+            {m.adminCommunity_hidden()}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -162,7 +163,7 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
             <Ban className="h-4 w-4" aria-hidden="true" />
-            Blocked Senders
+            {m.adminCommunity_blockedSenders()}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -174,7 +175,7 @@ function SummaryCards({ summary }: { summary: CommunitySummary }) {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
             <Flag className="h-4 w-4" aria-hidden="true" />
-            Pending Reports
+            {m.adminCommunity_pendingReports()}
           </CardTitle>
         </CardHeader>
         <CardContent>

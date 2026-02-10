@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { readFileAsArrayBuffer, getParserErrorMessage } from "./-emlUtils";
+import { m } from "@/paraglide/messages.js";
 
 interface BulkImportProgressProps {
   /** Files to import */
@@ -85,7 +86,7 @@ function FileStatusRow({ result }: { result: FileImportResult }) {
       )}
       <span className="text-sm truncate flex-1">{result.filename}</span>
       {result.status === "duplicate" && (
-        <span className="text-xs text-yellow-600 dark:text-yellow-400">Duplicate</span>
+        <span className="text-xs text-yellow-600 dark:text-yellow-400">{m.bulkProgress_duplicateStatus()}</span>
       )}
     </div>
   );
@@ -251,12 +252,12 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Mail className="h-5 w-5" />
-          {isProcessing ? "Importing Newsletters" : "Import Complete"}
+          {isProcessing ? m.bulkProgress_importingTitle() : m.bulkProgress_completeTitle()}
         </CardTitle>
         <CardDescription>
           {isProcessing
-            ? `Processing ${processed} of ${files.length} files...`
-            : `Imported ${imported} of ${files.length} newsletters`}
+            ? m.bulkProgress_processingDesc({ processed, total: files.length })
+            : m.bulkProgress_completeDesc({ imported, total: files.length })}
         </CardDescription>
       </CardHeader>
 
@@ -272,8 +273,8 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
         {isProcessing && (
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium">{percentage}%</span>
+              <span className="text-muted-foreground">{m.bulkProgress_progressLabel()}</span>
+              <span className="font-medium">{m.bulkProgress_progressPercent({ percent: percentage })}</span>
             </div>
             <Progress value={percentage} />
           </div>
@@ -286,21 +287,21 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
               <CheckCircle2 className="h-4 w-4" />
               <span className="text-xl font-bold">{imported}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Imported</p>
+            <p className="text-xs text-muted-foreground mt-1">{m.bulkProgress_importedLabel()}</p>
           </div>
           <div className="p-3 bg-muted rounded-lg">
             <div className="flex items-center justify-center gap-1 text-yellow-600 dark:text-yellow-400">
               <AlertCircle className="h-4 w-4" />
               <span className="text-xl font-bold">{duplicates}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Duplicates</p>
+            <p className="text-xs text-muted-foreground mt-1">{m.bulkProgress_duplicatesLabel()}</p>
           </div>
           <div className="p-3 bg-muted rounded-lg">
             <div className="flex items-center justify-center gap-1 text-red-600 dark:text-red-400">
               <XCircle className="h-4 w-4" />
               <span className="text-xl font-bold">{failed}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Failed</p>
+            <p className="text-xs text-muted-foreground mt-1">{m.bulkProgress_failedLabel()}</p>
           </div>
         </div>
 
@@ -318,7 +319,7 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
                   onClick={() => setShowFailures(!showFailures)}
                   className="text-xs"
                 >
-                  {showFailures ? "Hide" : "Show"} failures
+                  {showFailures ? m.bulkProgress_hideFailures() : m.bulkProgress_showFailures()}
                   <ChevronDown
                     className={cn(
                       "ml-1 h-3 w-3 transition-transform",
@@ -339,7 +340,7 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
         {/* Failure details */}
         {!isProcessing && failedResults.length > 0 && showFailures && (
           <div className="space-y-2 pt-2 border-t">
-            <p className="text-sm font-medium text-red-600 dark:text-red-400">Error Details</p>
+            <p className="text-sm font-medium text-red-600 dark:text-red-400">{m.bulkProgress_errorDetails()}</p>
             {failedResults.map((result) => (
               <div
                 key={result.filename}
@@ -359,9 +360,9 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
               <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="font-medium text-green-800 dark:text-green-200">Import Successful!</p>
+              <p className="font-medium text-green-800 dark:text-green-200">{m.bulkProgress_successTitle()}</p>
               <p className="text-sm text-green-600 dark:text-green-400">
-                {imported} newsletter{imported !== 1 ? "s" : ""} imported successfully
+                {m.bulkProgress_successDesc({ count: imported })}
               </p>
             </div>
           </div>
@@ -371,16 +372,16 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
       <CardFooter className="flex gap-3">
         {isProcessing ? (
           <Button variant="outline" onClick={onCancel} className="flex-1">
-            Cancel
+            {m.common_cancel()}
           </Button>
         ) : (
           <>
             <Button variant="outline" onClick={onComplete} className="flex-1">
-              Import More
+              {m.bulkProgress_importMore()}
             </Button>
             {imported > 0 && (
               <Button render={<Link to="/newsletters" />} className="flex-1">
-                  View Newsletters
+                  {m.bulkProgress_viewNewsletters()}
                   <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}

@@ -8,6 +8,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@hushletter/ui
 import { Sparkles, RefreshCw, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { ConvexError } from "convex/values";
 import { useSummaryPreferences } from "@/hooks/useSummaryPreferences";
+import { m } from "@/paraglide/messages.js";
 
 interface SummaryPanelProps {
   /** userNewsletter document ID - typed for Convex safety */
@@ -62,9 +63,9 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
     } catch (err) {
       if (err instanceof ConvexError) {
         const data = err.data as { message?: string; code?: string };
-        setError(data.message ?? "Failed to generate summary");
+        setError(data.message ?? m.summaryPanel_failedToGenerate());
       } else {
-        setError("Failed to generate summary. Please try again.");
+        setError(m.summaryPanel_failedToGenerateTryAgain());
       }
     } finally {
       setIsGenerating(false);
@@ -80,7 +81,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-medium flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-amber-500" />
-            AI Summary
+            {m.summaryPanel_aiSummary()}
           </CardTitle>
 
           <div className="flex items-center gap-2">
@@ -90,7 +91,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
                 variant="ghost"
                 size="icon-sm"
                 onClick={toggleCollapsed}
-                aria-label={isCollapsed ? "Expand summary" : "Collapse summary"}
+                aria-label={isCollapsed ? m.summaryPanel_expandSummary() : m.summaryPanel_collapseSummary()}
                 aria-expanded={!isCollapsed}
               >
                 {isCollapsed ? (
@@ -112,14 +113,14 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
               className="text-sm text-destructive mb-4 p-3 bg-destructive/10 rounded-lg"
               role="alert"
             >
-              <p className="font-medium">Summary generation encountered an issue</p>
+              <p className="font-medium">{m.summaryPanel_errorTitle()}</p>
               <p className="text-xs mt-1 opacity-80">{error}</p>
             </div>
           )}
 
           {/* Loading state - animated skeleton */}
           {isGenerating && (
-            <div className="space-y-2 animate-pulse" aria-label="Generating summary...">
+            <div className="space-y-2 animate-pulse" aria-label={m.summaryPanel_generatingSummary()}>
               <div className="h-4 bg-muted rounded w-full" />
               <div className="h-4 bg-muted rounded w-5/6" />
               <div className="h-4 bg-muted rounded w-4/5" />
@@ -133,7 +134,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
               {isSharedSummary && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Users className="h-3 w-3" aria-hidden="true" />
-                  <span>Community summary</span>
+                  <span>{m.summaryPanel_communitySummary()}</span>
                 </div>
               )}
               <div className="prose prose-sm dark:prose-invert max-w-none">
@@ -142,11 +143,12 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
               {/* Story 5.2 Task 4.4: Generated date metadata */}
               {summaryData.generatedAt && (
                 <p className="text-xs text-muted-foreground/70 pt-2">
-                  Generated on{" "}
-                  {new Date(summaryData.generatedAt).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
+                  {m.summaryPanel_generatedOn({
+                    date: new Date(summaryData.generatedAt).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    }),
                   })}
                 </p>
               )}
@@ -166,12 +168,12 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
                 {hasSummary ? (
                   <>
                     <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                    Regenerate
+                    {m.summaryPanel_regenerate()}
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" aria-hidden="true" />
-                    Summarize
+                    {m.summaryPanel_summarize()}
                   </>
                 )}
               </Button>
@@ -181,7 +183,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
           {/* Empty state guidance - only when no summary and not generating */}
           {!isGenerating && !hasSummary && !error && (
             <p className="text-sm text-muted-foreground mb-4">
-              Generate an AI summary to quickly understand the key points of this newsletter.
+              {m.summaryPanel_emptyStateGuidance()}
             </p>
           )}
         </CardContent>

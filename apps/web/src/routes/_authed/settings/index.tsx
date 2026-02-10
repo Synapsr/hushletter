@@ -19,7 +19,8 @@ import {
   ChevronRight,
   FolderIcon,
 } from "lucide-react";
-import { DisconnectConfirmDialog } from "@/routes/_authed/import/-DisconnectConfirmDialog";
+import { DisconnectConfirmDialog } from "../import/-DisconnectConfirmDialog";
+import { m } from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/settings/")({
   component: SettingsPage,
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/_authed/settings/")({
 
 // Zod schema for profile name validation
 const profileNameSchema = z.object({
-  name: z.string().max(100, "Name must be 100 characters or less"),
+  name: z.string().max(100, m.settings_nameMaxLength()),
 });
 
 // Type for getCurrentUser query response
@@ -82,7 +83,7 @@ function GmailSettingsSection() {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Failed to disconnect Gmail. Please try again.");
+        setError(m.settings_gmailDisconnectError());
       }
     } finally {
       setIsDisconnecting(false);
@@ -109,9 +110,9 @@ function GmailSettingsSection() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Gmail Integration
+            {m.settings_gmailIntegration()}
           </CardTitle>
-          <CardDescription>Import newsletters directly from your Gmail inbox</CardDescription>
+          <CardDescription>{m.settings_gmailDescription()}</CardDescription>
         </CardHeader>
         <CardContent>
           {queryError ? (
@@ -123,29 +124,24 @@ function GmailSettingsSection() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-green-700 dark:text-green-400">Connected</p>
+                  <p className="font-medium text-green-700 dark:text-green-400">{m.settings_gmailConnected()}</p>
                   <p className="text-sm text-muted-foreground">{gmailAccount.email}</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)}>
-                  Disconnect
+                  {m.settings_gmailDisconnect()}
                 </Button>
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <p className="text-sm text-muted-foreground">
-                Go to the{" "}
-                <Link to="/import" className="text-primary hover:underline">
-                  Import page
-                </Link>{" "}
-                to scan and import newsletters.
+                {m.settings_gmailGoToImport()}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Gmail is not connected. Connect your Gmail to scan and import your existing
-                newsletters.
+                {m.settings_gmailNotConnected()}
               </p>
-              <Button render={<Link to="/import" />} variant="outline">Connect Gmail</Button>
+              <Button render={<Link to="/import" />} variant="outline">{m.settings_gmailConnectButton()}</Button>
             </div>
           )}
         </CardContent>
@@ -197,7 +193,7 @@ function ProfileNameEditForm({
       } catch {
         // Use form's error state instead of useState
         return {
-          form: "Failed to save. Please try again.",
+          form: m.settings_nameSaveError(),
         };
       }
     },
@@ -218,7 +214,7 @@ function ProfileNameEditForm({
             <Input
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
-              placeholder="Enter your display name"
+              placeholder={m.settings_enterDisplayName()}
               aria-invalid={field.state.meta.errors.length > 0}
               className="max-w-xs"
             />
@@ -245,7 +241,7 @@ function ProfileNameEditForm({
               type="submit"
               size="icon-sm"
               disabled={!canSubmit || isSubmitting}
-              aria-label="Save"
+              aria-label={m.common_save()}
             >
               <Check className="h-4 w-4" />
             </Button>
@@ -255,7 +251,7 @@ function ProfileNameEditForm({
               size="icon-sm"
               onClick={onCancel}
               disabled={isSubmitting}
-              aria-label="Cancel"
+              aria-label={m.common_cancel()}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -310,17 +306,17 @@ function SettingsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Settings</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">{m.settings_title()}</h1>
 
       {/* Privacy Settings Section - Story 6.2: Task 5 */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            Privacy Settings
+            {m.settings_privacySettings()}
           </CardTitle>
           <CardDescription>
-            Control which senders' newsletters are shared with the community
+            {m.settings_privacyDescription()}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -329,9 +325,9 @@ function SettingsPage() {
             className="flex items-center justify-between p-3 -mx-3 rounded-lg hover:bg-muted/50 transition-colors group"
           >
             <div>
-              <p className="font-medium">Manage Sender Privacy</p>
+              <p className="font-medium">{m.settings_privacySettings()}</p>
               <p className="text-sm text-muted-foreground">
-                Choose which senders' newsletters are private
+                {m.settings_privacyDescription()}
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -344,9 +340,9 @@ function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FolderIcon className="h-5 w-5" />
-            Hidden Folders
+            {m.settings_hiddenFolders()}
           </CardTitle>
-          <CardDescription>Manage folders you've hidden from the sidebar</CardDescription>
+          <CardDescription>{m.settings_hiddenFoldersDescription()}</CardDescription>
         </CardHeader>
         <CardContent>
           <HiddenFoldersSection />
@@ -359,10 +355,9 @@ function SettingsPage() {
       {/* Email Settings Section */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Your Newsletter Email</CardTitle>
+          <CardTitle>{m.settings_yourNewsletterEmail()}</CardTitle>
           <CardDescription>
-            This is your dedicated email address for receiving newsletters. Forward newsletters here
-            or share with newsletter services.
+            {m.settings_emailInfo()}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -371,19 +366,18 @@ function SettingsPage() {
               <DedicatedEmailDisplay email={dedicatedEmail} />
               <div className="text-sm text-muted-foreground space-y-2">
                 <p>
-                  <strong>How to use:</strong>
+                  <strong>{m.settings_emailHowToUse()}</strong>
                 </p>
                 <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>Subscribe to newsletters using this email address</li>
-                  <li>Forward existing newsletters from your personal inbox</li>
-                  <li>Set up email forwarding rules in your email client</li>
+                  <li>{m.settings_emailStep1()}</li>
+                  <li>{m.settings_emailStep2()}</li>
+                  <li>{m.settings_emailStep3()}</li>
                 </ul>
               </div>
             </div>
           ) : (
             <p className="text-muted-foreground">
-              Your dedicated email address is being set up. Please refresh the page or contact
-              support if this persists.
+              {m.settings_emailInfo()}
             </p>
           )}
         </CardContent>
@@ -392,17 +386,17 @@ function SettingsPage() {
       {/* Account Info Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Account Information</CardTitle>
-          <CardDescription>Your account details</CardDescription>
+          <CardTitle>{m.settings_accountInfo()}</CardTitle>
+          <CardDescription>{m.settings_accountInfo()}</CardDescription>
         </CardHeader>
         <CardContent>
           <dl className="space-y-4">
             <div>
-              <dt className="text-sm font-medium text-muted-foreground">Email</dt>
+              <dt className="text-sm font-medium text-muted-foreground">{m.settings_accountEmail()}</dt>
               <dd className="text-base">{user?.email ?? "—"}</dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-muted-foreground mb-1">Display Name</dt>
+              <dt className="text-sm font-medium text-muted-foreground mb-1">{m.settings_accountDisplayName()}</dt>
               <dd>
                 {isEditingName ? (
                   <ProfileNameEditForm
@@ -412,12 +406,12 @@ function SettingsPage() {
                   />
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{user?.name || "Not set"}</span>
+                    <span className="text-base">{user?.name || m.settings_accountNotSet()}</span>
                     <Button
                       variant="ghost"
                       size="icon-xs"
                       onClick={() => setIsEditingName(true)}
-                      aria-label="Edit display name"
+                      aria-label={m.settings_editDisplayName()}
                     >
                       <Pencil className="h-3 w-3" />
                     </Button>
@@ -425,7 +419,7 @@ function SettingsPage() {
                 )}
                 {showSuccessMessage && (
                   <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                    Name updated successfully!
+                    {m.settings_nameUpdated()}
                   </p>
                 )}
               </dd>

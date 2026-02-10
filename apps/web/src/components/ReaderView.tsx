@@ -4,6 +4,7 @@ import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import DOMPurify from "dompurify";
 import { useScrollProgress } from "@/hooks/useScrollProgress";
+import { m } from "@/paraglide/messages.js";
 
 interface ReaderViewProps {
   /** userNewsletter document ID */
@@ -76,7 +77,7 @@ function ContentSkeleton() {
 function ContentError({ message }: { message: string }) {
   return (
     <div className="text-center py-12 border rounded-lg bg-destructive/5">
-      <p className="text-destructive font-medium mb-2">Failed to load content</p>
+      <p className="text-destructive font-medium mb-2">{m.reader_failedToLoad()}</p>
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
@@ -88,7 +89,7 @@ function ContentError({ message }: { message: string }) {
 function ContentEmpty() {
   return (
     <div className="text-center py-12 border rounded-lg bg-muted/50">
-      <p className="text-muted-foreground">This newsletter has no content available.</p>
+      <p className="text-muted-foreground">{m.reader_noContent()}</p>
     </div>
   );
 }
@@ -169,7 +170,7 @@ export function ReaderView({
 
         if (result.contentStatus === "error" || !result.contentUrl) {
           // Don't cache errors - allow retry
-          setError("Content is temporarily unavailable. Please try again later.");
+          setError(m.reader_contentUnavailable());
           setIsLoading(false);
           return;
         }

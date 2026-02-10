@@ -4,6 +4,7 @@ import { routerWithQueryClient } from "@tanstack/react-router-with-query"
 import { ConvexQueryClient } from "@convex-dev/react-query"
 import { routeTree } from "./routeTree.gen"
 import { RouterErrorComponent } from "./components/ErrorFallback"
+import { m } from "@/paraglide/messages.js"
 
 // Define the router context type for type safety across routes
 export interface RouterContext {
@@ -52,9 +53,9 @@ export function getRouter() {
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              404
+              {m.common_404()}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">Page not found</p>
+            <p className="text-gray-600 dark:text-gray-400">{m.common_pageNotFound()}</p>
           </div>
         </div>
       ),

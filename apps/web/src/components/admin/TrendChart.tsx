@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { m } from "@/paraglide/messages.js"
 
 /**
  * Metrics history item data structure
@@ -38,7 +39,7 @@ function TrendItem({ label, value }: { label: string; value: number }) {
         className={`text-lg font-semibold ${
           isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
         }`}
-        aria-label={`${label} growth: ${isPositive ? "+" : ""}${value}`}
+        aria-label={m.trendChart_growthLabel({ label, sign: isPositive ? "+" : "", value })}
       >
         {isPositive ? "+" : ""}
         {value}
@@ -80,24 +81,24 @@ export function TrendChart({ data }: TrendChartProps) {
   if (!summary) {
     return (
       <p className="text-muted-foreground text-center py-4">
-        Not enough data for trend analysis (need at least 2 data points)
+        {m.trendChart_notEnoughData()}
       </p>
     )
   }
 
   return (
-    <div className="space-y-4" role="region" aria-label="Trend analysis">
+    <div className="space-y-4" role="region" aria-label={m.trendChart_regionLabel()}>
       <div className="grid grid-cols-3 gap-4">
-        <TrendItem label="Users" value={summary.userGrowth} />
-        <TrendItem label="Newsletters" value={summary.newsletterGrowth} />
-        <TrendItem label="Senders" value={summary.senderGrowth} />
+        <TrendItem label={m.trendChart_labelUsers()} value={summary.userGrowth} />
+        <TrendItem label={m.trendChart_labelNewsletters()} value={summary.newsletterGrowth} />
+        <TrendItem label={m.trendChart_labelSenders()} value={summary.senderGrowth} />
       </div>
 
       <div className="text-xs text-muted-foreground border-t pt-3">
         <p>
-          Data range: {data[0].date} to {data[data.length - 1].date}
+          {m.trendChart_dataRange({ start: data[0].date, end: data[data.length - 1].date })}
         </p>
-        <p>Data points: {data.length}</p>
+        <p>{m.trendChart_dataPoints({ count: data.length })}</p>
       </div>
     </div>
   )

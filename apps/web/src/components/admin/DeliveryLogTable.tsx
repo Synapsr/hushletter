@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Delivery log item type from listDeliveryLogs query
@@ -60,7 +61,7 @@ export function DeliveryLogTable({ logs, hasMore }: DeliveryLogTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (logs.length === 0) {
-    return <p className="text-center text-muted-foreground py-8">No delivery logs found</p>;
+    return <p className="text-center text-muted-foreground py-8">{m.deliveryLog_noLogsFound()}</p>;
   }
 
   return (
@@ -69,13 +70,13 @@ export function DeliveryLogTable({ logs, hasMore }: DeliveryLogTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead className="w-[40px]">
-              <span className="sr-only">Expand row</span>
+              <span className="sr-only">{m.deliveryLog_expandRowLabel()}</span>
             </TableHead>
-            <TableHead>Subject</TableHead>
-            <TableHead>Sender</TableHead>
-            <TableHead>Recipient</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Received</TableHead>
+            <TableHead>{m.deliveryLog_columnSubject()}</TableHead>
+            <TableHead>{m.deliveryLog_columnSender()}</TableHead>
+            <TableHead>{m.deliveryLog_columnRecipient()}</TableHead>
+            <TableHead>{m.deliveryLog_columnStatus()}</TableHead>
+            <TableHead>{m.deliveryLog_columnReceived()}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -95,7 +96,7 @@ export function DeliveryLogTable({ logs, hasMore }: DeliveryLogTableProps) {
 
       {hasMore && (
         <div className="text-center py-4 text-sm text-muted-foreground">
-          Showing first 50 results. Use status filter to narrow results.
+          {m.deliveryLog_showingFirstResults()}
         </div>
       )}
     </>
@@ -129,7 +130,7 @@ function TableRowWithDetail({
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0"
-            aria-label={isExpanded ? "Collapse row" : "Expand row"}
+            aria-label={isExpanded ? m.deliveryLog_collapseRowLabel() : m.deliveryLog_expandRowLabel()}
           >
             {isExpanded ? (
               <ChevronDown className="h-4 w-4" aria-hidden="true" />

@@ -14,6 +14,7 @@ import {
 import { MoreHorizontal, Pencil, EyeOff, Merge } from "lucide-react";
 import { RenameFolderDialog } from "./RenameFolderDialog";
 import { MergeFolderDialog } from "./MergeFolderDialog";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * FolderActionsDropdown - Dropdown menu for folder actions
@@ -46,11 +47,11 @@ export function FolderActionsDropdown({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["newsletters"] });
-      toast.success(`"${folderName}" hidden from sidebar`);
+      toast.success(m.folderActions_hiddenSuccess({ folderName }));
       onHideSuccess?.();
     },
     onError: () => {
-      toast.error("Failed to hide folder");
+      toast.error(m.folderActions_hiddenError());
     },
   });
 
@@ -63,22 +64,22 @@ export function FolderActionsDropdown({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" aria-label={`Actions for ${folderName}`} onClick={(e) => e.stopPropagation()} />}>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" aria-label={m.folderActions_ariaLabel({ folderName })} onClick={(e) => e.stopPropagation()} />}>
             <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onClick={() => setIsRenameOpen(true)}>
             <Pencil className="mr-2 h-4 w-4" />
-            Rename
+            {m.folderActions_rename()}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleHide} disabled={hideMutation.isPending}>
             <EyeOff className="mr-2 h-4 w-4" />
-            Hide
+            {m.folderActions_hide()}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setIsMergeOpen(true)}>
             <Merge className="mr-2 h-4 w-4" />
-            Merge into...
+            {m.folderActions_mergeInto()}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

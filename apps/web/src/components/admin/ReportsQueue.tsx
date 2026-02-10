@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@hushletter/backend";
 import { useConvexMutation } from "@convex-dev/react-query";
 import { useState } from "react";
+import { m } from "@/paraglide/messages.js";
 import {
   Badge,
   Button,
@@ -63,12 +64,21 @@ const reasonIcons: Record<string, React.ReactNode> = {
   other: <Flag className="h-4 w-4" />,
 };
 
-const reasonLabels: Record<string, string> = {
-  spam: "Spam",
-  inappropriate: "Inappropriate",
-  copyright: "Copyright",
-  misleading: "Misleading",
-  other: "Other",
+const getReasonLabel = (reason: string): string => {
+  switch (reason) {
+    case "spam":
+      return m.reports_reasonSpam();
+    case "inappropriate":
+      return m.reports_reasonInappropriate();
+    case "copyright":
+      return m.reports_reasonCopyright();
+    case "misleading":
+      return m.reports_reasonMisleading();
+    case "other":
+      return m.reports_reasonOther();
+    default:
+      return reason;
+  }
 };
 
 export function ReportsQueue() {
@@ -178,7 +188,7 @@ export function ReportsQueue() {
 
   if (isError) {
     return (
-      <div className="text-center py-8 text-muted-foreground">Failed to load content reports</div>
+      <div className="text-center py-8 text-muted-foreground">{m.reports_errorLoadFailed()}</div>
     );
   }
 
@@ -193,12 +203,12 @@ export function ReportsQueue() {
           onValueChange={(v) => setStatusFilter(v as "pending" | "resolved" | "dismissed")}
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder={m.reports_filterByStatus()} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
-            <SelectItem value="dismissed">Dismissed</SelectItem>
+            <SelectItem value="pending">{m.reports_statusPending()}</SelectItem>
+            <SelectItem value="resolved">{m.reports_statusResolved()}</SelectItem>
+            <SelectItem value="dismissed">{m.reports_statusDismissed()}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -212,8 +222,8 @@ export function ReportsQueue() {
             >
               <X className="h-4 w-4 mr-1" aria-hidden="true" />
               {bulkResolveMutation.isPending
-                ? "Processing..."
-                : `Dismiss Selected (${selectedReports.size})`}
+                ? m.reports_processing()
+                : m.reports_dismissSelected({ count: selectedReports.size })}
             </Button>
             <Button
               size="sm"
@@ -222,8 +232,8 @@ export function ReportsQueue() {
             >
               <Check className="h-4 w-4 mr-1" aria-hidden="true" />
               {bulkResolveMutation.isPending
-                ? "Processing..."
-                : `Resolve Selected (${selectedReports.size})`}
+                ? m.reports_processing()
+                : m.reports_resolveSelected({ count: selectedReports.size })}
             </Button>
           </div>
         )}
@@ -239,11 +249,11 @@ export function ReportsQueue() {
       ) : reports.length === 0 ? (
         <div className="text-center py-12">
           <Flag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium">No Reports</h3>
+          <h3 className="text-lg font-medium">{m.reports_noReportsTitle()}</h3>
           <p className="text-muted-foreground">
             {statusFilter === "pending"
-              ? "No content reports awaiting review."
-              : `No ${statusFilter} reports found.`}
+              ? m.reports_noReportsMessagePending()
+              : m.reports_noReportsMessageFiltered({ status: statusFilter })}
           </p>
         </div>
       ) : (
@@ -264,16 +274,16 @@ export function ReportsQueue() {
                         }
                       }}
                       className="h-4 w-4 rounded border-gray-300"
-                      aria-label="Select all reports"
+                      aria-label={m.reports_selectAllLabel()}
                     />
                   </TableHead>
                 )}
-                <TableHead>Content</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Reporter</TableHead>
-                <TableHead>Reported At</TableHead>
-                {statusFilter !== "pending" && <TableHead>Resolved</TableHead>}
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{m.reports_columnContent()}</TableHead>
+                <TableHead>{m.reports_columnReason()}</TableHead>
+                <TableHead>{m.reports_columnReporter()}</TableHead>
+                <TableHead>{m.reports_columnReportedAt()}</TableHead>
+                {statusFilter !== "pending" && <TableHead>{m.reports_columnResolved()}</TableHead>}
+                <TableHead className="text-right">{m.reports_columnActions()}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -286,7 +296,7 @@ export function ReportsQueue() {
                         checked={selectedReports.has(report.id)}
                         onChange={() => toggleReportSelection(report.id)}
                         className="h-4 w-4 rounded border-gray-300"
-                        aria-label={`Select report for ${report.subject}`}
+                        aria-label={m.reports_selectReportLabel({ subject: report.subject })}
                       />
                     </TableCell>
                   )}
@@ -299,7 +309,7 @@ export function ReportsQueue() {
                   <TableCell>
                     <Badge variant="outline" className="flex items-center gap-1 w-fit">
                       {reasonIcons[report.reason]}
-                      {reasonLabels[report.reason]}
+                      {getReasonLabel(report.reason)}
                     </Badge>
                     {report.description && (
                       <p className="text-xs text-muted-foreground mt-1 max-w-[200px] truncate">
@@ -328,7 +338,7 @@ export function ReportsQueue() {
                             })
                           }
                         >
-                          Review
+                          {m.reports_buttonReview()}
                         </Button>
                       </div>
                     ) : (
@@ -353,28 +363,28 @@ export function ReportsQueue() {
       <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Review Report</DialogTitle>
-            <DialogDescription>Review the report and take appropriate action.</DialogDescription>
+            <DialogTitle>{m.reports_reviewDialogTitle()}</DialogTitle>
+            <DialogDescription>{m.reports_reviewDialogDescription()}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label className="text-sm font-medium">Content</Label>
+              <Label className="text-sm font-medium">{m.reports_labelContent()}</Label>
               <p className="text-sm text-muted-foreground">{selectedReport?.subject}</p>
             </div>
             <div>
-              <Label className="text-sm font-medium">Reason</Label>
+              <Label className="text-sm font-medium">{m.reports_labelReason()}</Label>
               <Badge variant="outline" className="ml-2">
-                {selectedReport?.reason && reasonLabels[selectedReport.reason]}
+                {selectedReport?.reason && getReasonLabel(selectedReport.reason)}
               </Badge>
             </div>
             {selectedReport?.description && (
               <div>
-                <Label className="text-sm font-medium">Description</Label>
+                <Label className="text-sm font-medium">{m.reports_labelDescription()}</Label>
                 <p className="text-sm text-muted-foreground">{selectedReport.description}</p>
               </div>
             )}
             <div className="space-y-2">
-              <Label>Resolution</Label>
+              <Label>{m.reports_labelResolution()}</Label>
               <Select
                 value={resolution}
                 onValueChange={(v) => setResolution(v as "resolved" | "dismissed")}
@@ -386,13 +396,13 @@ export function ReportsQueue() {
                   <SelectItem value="resolved">
                     <div className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-green-600" />
-                      Resolve (take action)
+                      {m.reports_resolutionResolve()}
                     </div>
                   </SelectItem>
                   <SelectItem value="dismissed">
                     <div className="flex items-center gap-2">
                       <X className="h-4 w-4 text-muted-foreground" />
-                      Dismiss (no action needed)
+                      {m.reports_resolutionDismiss()}
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -408,15 +418,15 @@ export function ReportsQueue() {
                   className="h-4 w-4 rounded border-gray-300"
                 />
                 <Label htmlFor="hide-content" className="text-sm">
-                  Hide this content from community
+                  {m.reports_hideContentCheckbox()}
                 </Label>
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="resolution-note">Note (optional)</Label>
+              <Label htmlFor="resolution-note">{m.reports_labelNote()}</Label>
               <Textarea
                 id="resolution-note"
-                placeholder="Add a note about this resolution..."
+                placeholder={m.reports_notePlaceholder()}
                 value={note}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
               />
@@ -424,7 +434,7 @@ export function ReportsQueue() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setResolveDialogOpen(false)}>
-              Cancel
+              {m.reports_buttonCancel()}
             </Button>
             <Button
               onClick={handleResolve}
@@ -432,10 +442,10 @@ export function ReportsQueue() {
               disabled={resolveReportMutation.isPending}
             >
               {resolveReportMutation.isPending
-                ? "Processing..."
+                ? m.reports_processing()
                 : resolution === "resolved"
-                  ? "Resolve Report"
-                  : "Dismiss Report"}
+                  ? m.reports_buttonResolveReport()
+                  : m.reports_buttonDismissReport()}
             </Button>
           </DialogFooter>
         </DialogContent>

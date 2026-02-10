@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { DedicatedEmailDisplay } from "@/components/DedicatedEmailDisplay";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
 import { Inbox, Compass } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 interface EmptyNewsletterStateProps {
   dedicatedEmail: string | null;
@@ -21,9 +22,9 @@ export function EmptyNewsletterState({ dedicatedEmail }: EmptyNewsletterStatePro
             <Inbox className="h-8 w-8 text-muted-foreground" />
           </div>
         </div>
-        <CardTitle>No newsletters yet</CardTitle>
+        <CardTitle>{m.emptyState_noNewslettersYet()}</CardTitle>
         <CardDescription>
-          Discover newsletters shared by the community or subscribe to your favorites
+          {m.emptyState_discoverDescription()}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -32,11 +33,11 @@ export function EmptyNewsletterState({ dedicatedEmail }: EmptyNewsletterStatePro
           <Link to="/community">
             <Button size="lg" className="gap-2">
               <Compass className="h-5 w-5" />
-              Discover Newsletters
+              {m.emptyState_discoverNewsletters()}
             </Button>
           </Link>
           <p className="text-sm text-muted-foreground">
-            Browse newsletters shared by the community
+            {m.emptyState_browseNewsletters()}
           </p>
         </div>
 
@@ -45,7 +46,7 @@ export function EmptyNewsletterState({ dedicatedEmail }: EmptyNewsletterStatePro
             <span className="w-full border-t" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">or subscribe</span>
+            <span className="bg-card px-2 text-muted-foreground">{m.emptyState_orSubscribe()}</span>
           </div>
         </div>
 
@@ -56,14 +57,14 @@ export function EmptyNewsletterState({ dedicatedEmail }: EmptyNewsletterStatePro
         )}
 
         <div className="text-sm text-muted-foreground text-left max-w-md mx-auto space-y-3">
-          <p className="font-medium text-foreground">How to subscribe:</p>
+          <p className="font-medium text-foreground">{m.emptyState_howToSubscribe()}</p>
           <ol className="list-decimal list-inside space-y-2 ml-2">
-            <li>Copy your dedicated email address above</li>
-            <li>Subscribe to newsletters using this address</li>
-            <li>New newsletters will appear here automatically</li>
+            <li>{m.emptyState_step1()}</li>
+            <li>{m.emptyState_step2()}</li>
+            <li>{m.emptyState_step3()}</li>
           </ol>
           <p className="mt-4 text-xs">
-            You can also forward existing newsletters from your personal inbox to this address.
+            {m.emptyState_forwardingTip()}
           </p>
         </div>
       </CardContent>

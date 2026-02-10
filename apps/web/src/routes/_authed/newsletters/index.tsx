@@ -9,6 +9,7 @@ import { EmptyNewsletterState } from "@/components/EmptyNewsletterState";
 import { FolderSidebar, FolderSidebarSkeleton, type FolderData } from "@/components/FolderSidebar";
 import { Button, Sheet, SheetContent, SheetTitle, SheetTrigger } from "@hushletter/ui";
 import { Menu } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Sender data returned by listSendersInFolder query
@@ -137,9 +138,9 @@ function FolderHeader({ folderId }: { folderId: string }) {
       {/* Story 9.4 AC5: Show which senders are in this folder */}
       {senderList.length > 0 && (
         <p className="text-sm text-muted-foreground mt-1">
-          {senderList.length === 1
-            ? `From ${senderList[0].displayName}`
-            : `From ${senderList.map((s) => s.displayName).join(", ")}`}
+          {m.newsletters_fromSender({ displayName: senderList.length === 1
+            ? senderList[0].displayName
+            : senderList.map((s) => s.displayName).join(", ") })}
         </p>
       )}
     </div>
@@ -256,54 +257,52 @@ function NewslettersPage() {
       <div className="hidden md:block">
         <FolderSidebar {...sidebarProps} />
       </div>
-
       {/* Mobile sidebar trigger + drawer */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetTrigger render={<Button variant="outline" size="icon" aria-label="Open folder menu" />}>
+          <SheetTrigger render={<Button variant="outline" size="icon" aria-label={m.newsletters_openFolderMenu()} />}>
               <Menu className="h-4 w-4" />
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72" showCloseButton={false}>
-            <SheetTitle className="sr-only">Folder Navigation</SheetTitle>
+            <SheetTitle className="sr-only">{m.newsletters_folderNavigation()}</SheetTitle>
             <FolderSidebar {...sidebarProps} />
           </SheetContent>
         </Sheet>
       </div>
-
       {/* Main content area */}
       <main className="flex-1 p-6 md:p-8">
         {/* Story 9.4: Dynamic header based on folder selection */}
         {isFilteringByHidden ? (
-          <h1 className="text-3xl font-bold text-foreground mb-6">Hidden Newsletters</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-6">{m.newsletters_hiddenNewsletters()}</h1>
         ) : selectedFolder && folderIdParam ? (
           /* Story 9.4 AC4, AC5: Folder header with sender list */
-          <FolderHeader folderId={folderIdParam} />
+          (<FolderHeader folderId={folderIdParam} />)
         ) : (
-          <h1 className="text-3xl font-bold text-foreground mb-6">All Newsletters</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-6">{m.newsletters_allNewsletters()}</h1>
         )}
 
         {/* Empty state when no newsletters */}
         {newsletterList.length === 0 ? (
           isFilteringByHidden ? (
             // Story 3.5: Empty state for hidden newsletters view
-            <div className="text-center py-12">
+            (<div className="text-center py-12">
               <p className="text-muted-foreground">
-                No hidden newsletters. Newsletters you hide will appear here.
+                {m.newsletters_noHiddenNewsletters()}
               </p>
-            </div>
+            </div>)
           ) : selectedFolder ? (
             // Story 9.4 Task 6.2: Empty state for folder-filtered view
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No newsletters in {selectedFolder.name}.</p>
-            </div>
+            (<div className="text-center py-12">
+              <p className="text-muted-foreground">{m.newsletters_noNewslettersInFolder({ folderName: selectedFolder.name })}</p>
+            </div>)
           ) : (
             // Global empty state
-            <EmptyNewsletterState dedicatedEmail={dedicatedEmail} />
+            (<EmptyNewsletterState dedicatedEmail={dedicatedEmail} />)
           )
         ) : (
           /* Story 9.4 AC4: Newsletter list - sorted by date (newest first) */
           /* Story 9.4 AC7: Each newsletter shows sender name via NewsletterCard */
-          <div className="space-y-3">
+          (<div className="space-y-3">
             {newsletterList.map((newsletter) => (
               <NewsletterCard
                 key={newsletter._id}
@@ -311,9 +310,9 @@ function NewslettersPage() {
                 showUnhide={isFilteringByHidden}
               />
             ))}
-          </div>
+          </div>)
         )}
       </main>
     </div>
-  );
+  )
 }

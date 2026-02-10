@@ -4,6 +4,7 @@ import { api } from "@hushletter/backend";
 import { Badge, Button } from "@hushletter/ui";
 import { format } from "date-fns";
 import type { DeliveryLog } from "./DeliveryLogTable";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Props for the DeliveryDetailPanel component
@@ -39,43 +40,43 @@ export function DeliveryDetailPanel({ log }: DeliveryDetailPanelProps) {
       {/* Email Details */}
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div>
-          <p className="text-muted-foreground">Message ID</p>
+          <p className="text-muted-foreground">{m.deliveryDetail_messageIdLabel()}</p>
           <p className="font-mono text-xs break-all">{log.messageId}</p>
         </div>
         <div>
-          <p className="text-muted-foreground">Recipient</p>
+          <p className="text-muted-foreground">{m.deliveryDetail_recipientLabel()}</p>
           <p>{log.recipientEmail}</p>
         </div>
         <div>
-          <p className="text-muted-foreground">Sender</p>
+          <p className="text-muted-foreground">{m.deliveryDetail_senderLabel()}</p>
           <p>{log.senderName ? `${log.senderName} <${log.senderEmail}>` : log.senderEmail}</p>
         </div>
         <div>
-          <p className="text-muted-foreground">Subject</p>
+          <p className="text-muted-foreground">{m.deliveryDetail_subjectLabel()}</p>
           <p className="break-words">{log.subject}</p>
         </div>
       </div>
 
       {/* Timeline */}
       <div className="border-t pt-4">
-        <p className="font-medium mb-2">Processing Timeline</p>
+        <p className="font-medium mb-2">{m.deliveryDetail_timelineTitle()}</p>
         <div className="space-y-1 text-sm">
           <p>
-            <span className="text-muted-foreground">Received:</span>{" "}
+            <span className="text-muted-foreground">{m.deliveryDetail_receivedLabel()}:</span>{" "}
             {format(log.receivedAt, "PPpp")}
           </p>
           {log.processingStartedAt && (
             <p>
-              <span className="text-muted-foreground">Processing started:</span>{" "}
+              <span className="text-muted-foreground">{m.deliveryDetail_processingStartedLabel()}:</span>{" "}
               {format(log.processingStartedAt, "PPpp")}
             </p>
           )}
           {log.completedAt && (
             <p>
-              <span className="text-muted-foreground">Completed:</span>{" "}
+              <span className="text-muted-foreground">{m.deliveryDetail_completedLabel()}:</span>{" "}
               {format(log.completedAt, "PPpp")}{" "}
               <span className="text-muted-foreground">
-                ({log.completedAt - log.receivedAt}ms total)
+                {m.deliveryDetail_totalTime({ ms: log.completedAt - log.receivedAt })}
               </span>
             </p>
           )}
@@ -87,13 +88,13 @@ export function DeliveryDetailPanel({ log }: DeliveryDetailPanelProps) {
         log.hasHtmlContent !== undefined ||
         log.hasPlainTextContent !== undefined) && (
         <div className="border-t pt-4">
-          <p className="font-medium mb-2">Content Info</p>
+          <p className="font-medium mb-2">{m.deliveryDetail_contentInfoTitle()}</p>
           <div className="flex gap-2">
             {log.contentSizeBytes !== undefined && (
-              <Badge variant="outline">{Math.round(log.contentSizeBytes / 1024)} KB</Badge>
+              <Badge variant="outline">{m.deliveryDetail_contentSizeKb({ kb: Math.round(log.contentSizeBytes / 1024) })}</Badge>
             )}
-            {log.hasHtmlContent && <Badge variant="outline">HTML</Badge>}
-            {log.hasPlainTextContent && <Badge variant="outline">Plain Text</Badge>}
+            {log.hasHtmlContent && <Badge variant="outline">{m.deliveryDetail_htmlBadge()}</Badge>}
+            {log.hasPlainTextContent && <Badge variant="outline">{m.deliveryDetail_plainTextBadge()}</Badge>}
           </div>
         </div>
       )}
@@ -101,14 +102,14 @@ export function DeliveryDetailPanel({ log }: DeliveryDetailPanelProps) {
       {/* Error Info (for failed) */}
       {log.status === "failed" && (
         <div className="border-t pt-4">
-          <p className="font-medium mb-2 text-red-600 dark:text-red-400">Error Details</p>
+          <p className="font-medium mb-2 text-red-600 dark:text-red-400">{m.deliveryDetail_errorDetailsTitle()}</p>
           {log.errorCode && (
             <Badge variant="destructive" className="mb-2">
               {log.errorCode}
             </Badge>
           )}
           <pre className="bg-red-50 dark:bg-red-950/30 p-3 rounded text-sm text-red-800 dark:text-red-200 overflow-auto max-h-[200px]">
-            {log.errorMessage || "Unknown error"}
+            {log.errorMessage || m.deliveryDetail_unknownError()}
           </pre>
 
           <div className="mt-4 flex gap-2">
@@ -122,10 +123,10 @@ export function DeliveryDetailPanel({ log }: DeliveryDetailPanelProps) {
                 }}
                 disabled={acknowledgeMutation.isPending}
               >
-                {acknowledgeMutation.isPending ? "..." : "Acknowledge"}
+                {acknowledgeMutation.isPending ? m.deliveryDetail_acknowledgingButton() : m.deliveryDetail_acknowledgeButton()}
               </Button>
             )}
-            {log.isAcknowledged && <Badge variant="secondary">Acknowledged</Badge>}
+            {log.isAcknowledged && <Badge variant="secondary">{m.deliveryDetail_acknowledgedBadge()}</Badge>}
           </div>
         </div>
       )}
@@ -134,7 +135,7 @@ export function DeliveryDetailPanel({ log }: DeliveryDetailPanelProps) {
       {log.userId && (
         <div className="border-t pt-4">
           <p className="text-muted-foreground text-sm">
-            User ID: <span className="font-mono">{log.userId}</span>
+            {m.deliveryDetail_userIdLabel()}: <span className="font-mono">{log.userId}</span>
           </p>
         </div>
       )}
@@ -143,7 +144,7 @@ export function DeliveryDetailPanel({ log }: DeliveryDetailPanelProps) {
       {log.retryCount > 0 && (
         <div className="border-t pt-4">
           <p className="text-muted-foreground text-sm">
-            Retry attempts: <span className="font-medium">{log.retryCount}</span>
+            {m.deliveryDetail_retryAttemptsLabel()}: <span className="font-medium">{log.retryCount}</span>
           </p>
         </div>
       )}

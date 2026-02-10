@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Badge, Button, Card, CardContent, Checkbox } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import { Sparkles, Users, Lock, Download, Check } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Community newsletter data from listCommunityNewsletters query
@@ -56,14 +57,14 @@ function formatDate(timestamp: number): string {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours === 0) {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      if (diffMinutes < 1) return "Just now";
-      return `${diffMinutes}m ago`;
+      if (diffMinutes < 1) return m.communityCard_timeJustNow();
+      return m.communityCard_timeMinutesAgo({ minutes: diffMinutes });
     }
-    return `${diffHours}h ago`;
+    return m.communityCard_timeHoursAgo({ hours: diffHours });
   }
 
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays === 1) return m.communityCard_timeYesterday();
+  if (diffDays < 7) return m.communityCard_timeDaysAgo({ days: diffDays });
 
   // Show full date for older newsletters
   return date.toLocaleDateString(undefined, {
@@ -85,11 +86,11 @@ function getSenderDisplay(newsletter: CommunityNewsletterData): string {
  * Story 6.1: Task 2.2 - Shows "X readers" badge
  */
 function formatReaderCount(count: number): string {
-  if (count === 1) return "1 reader";
+  if (count === 1) return m.communityCard_readersSingular();
   if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}k readers`;
+    return m.communityCard_readersThousands({ count: (count / 1000).toFixed(1) });
   }
-  return `${count} readers`;
+  return m.communityCard_readersPlural({ count });
 }
 
 /**
@@ -98,11 +99,11 @@ function formatReaderCount(count: number): string {
  */
 function formatImportCount(count: number): string {
   if (count === 0) return "";
-  if (count === 1) return "1 import";
+  if (count === 1) return m.communityCard_importsSingular();
   if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}k imports`;
+    return m.communityCard_importsThousands({ count: (count / 1000).toFixed(1) });
   }
-  return `${count} imports`;
+  return m.communityCard_importsPlural({ count });
 }
 
 /**
@@ -180,14 +181,14 @@ export function CommunityNewsletterCard({
           {/* Story 9.9 Task 5.2: Selection checkbox */}
           {selectionMode && !alreadyOwned && (
             <div
-              className="flex-shrink-0 pt-1"
+              className="shrink-0 pt-1"
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
               onKeyDown={(e: React.KeyboardEvent) => e.stopPropagation()}
             >
               <Checkbox
                 checked={isSelected}
                 onCheckedChange={handleCheckboxChange}
-                aria-label={`Select ${newsletter.subject}`}
+                aria-label={m.communityCard_ariaSelectNewsletter({ subject: newsletter.subject })}
               />
             </div>
           )}
@@ -204,13 +205,13 @@ export function CommunityNewsletterCard({
               {ownershipStatus?.hasPrivate && (
                 <Badge variant="secondary" className="text-xs py-0 h-5">
                   <Lock className="h-3 w-3 mr-1" aria-hidden="true" />
-                  In your collection
+                  {m.communityCard_badgeInCollection()}
                 </Badge>
               )}
               {ownershipStatus?.hasImported && !ownershipStatus?.hasPrivate && (
                 <Badge variant="outline" className="text-xs py-0 h-5">
                   <Download className="h-3 w-3 mr-1" aria-hidden="true" />
-                  Already imported
+                  {m.communityCard_badgeAlreadyImported()}
                 </Badge>
               )}
 
@@ -224,14 +225,14 @@ export function CommunityNewsletterCard({
             </div>
           </div>
           {/* Date, reader count, actions, and summary indicator */}
-          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <div className="flex flex-col items-end gap-1 shrink-0">
             {/* Story 9.9 Task 6.1-6.2: Quick import button or "In Collection" badge */}
             {!selectionMode && (
               <div className="mb-1">
                 {alreadyOwned ? (
                   <Badge variant="secondary" className="text-xs py-0.5 px-2">
                     <Check className="h-3 w-3 mr-1" aria-hidden="true" />
-                    In Collection
+                    {m.communityCard_badgeInCollectionShort()}
                   </Badge>
                 ) : onQuickImport ? (
                   <Button
@@ -241,7 +242,7 @@ export function CommunityNewsletterCard({
                     onClick={handleQuickImport}
                   >
                     <Download className="h-3 w-3 mr-1" aria-hidden="true" />
-                    Import
+                    {m.communityCard_buttonImport()}
                   </Button>
                 ) : null}
               </div>
@@ -251,8 +252,8 @@ export function CommunityNewsletterCard({
               {newsletter.hasSummary && (
                 <span
                   className="flex items-center text-amber-500"
-                  title="AI summary available"
-                  aria-label="Has AI summary"
+                  title={m.communityCard_summaryAvailableTitle()}
+                  aria-label={m.communityCard_summaryAvailableAria()}
                 >
                   <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                 </span>
@@ -271,7 +272,7 @@ export function CommunityNewsletterCard({
                 "flex items-center gap-1 text-xs",
                 newsletter.readerCount > 10 ? "text-primary" : "text-muted-foreground",
               )}
-              title={`${newsletter.readerCount} readers have this newsletter`}
+              title={m.communityCard_readersTooltip({ count: newsletter.readerCount })}
             >
               <Users className="h-3 w-3" aria-hidden="true" />
               <span>{formatReaderCount(newsletter.readerCount)}</span>

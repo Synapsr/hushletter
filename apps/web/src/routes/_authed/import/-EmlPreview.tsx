@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@hushletter/ui";
 import { Mail, User, Calendar, Loader2, CheckCircle2, X } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 interface EmlPreviewProps {
   /** Parsed EML data to display */
@@ -51,15 +52,15 @@ export function EmlPreview({ parsedEml, onConfirm, onCancel, isImporting }: EmlP
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Mail className="h-5 w-5" />
-          Preview Newsletter
+          {m.emlPreview_title()}
         </CardTitle>
-        <CardDescription>Review the newsletter details before importing</CardDescription>
+        <CardDescription>{m.emlPreview_description()}</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
         {/* Subject */}
         <div>
-          <p className="text-sm font-medium text-muted-foreground mb-1">Subject</p>
+          <p className="text-sm font-medium text-muted-foreground mb-1">{m.emlPreview_subjectLabel()}</p>
           <p className="text-base font-medium text-gray-900 dark:text-white">{parsedEml.subject}</p>
         </div>
 
@@ -67,7 +68,7 @@ export function EmlPreview({ parsedEml, onConfirm, onCancel, isImporting }: EmlP
         <div>
           <p className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
             <User className="h-3.5 w-3.5" />
-            Sender
+            {m.emlPreview_senderLabel()}
           </p>
           <div className="text-base">
             {parsedEml.senderName && (
@@ -89,7 +90,7 @@ export function EmlPreview({ parsedEml, onConfirm, onCancel, isImporting }: EmlP
         <div>
           <p className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5" />
-            Received
+            {m.emlPreview_receivedLabel()}
           </p>
           <p className="text-base text-gray-900 dark:text-white">
             {formatDate(parsedEml.receivedAt)}
@@ -99,17 +100,18 @@ export function EmlPreview({ parsedEml, onConfirm, onCancel, isImporting }: EmlP
         {/* Content preview indicator */}
         <div className="pt-2 border-t">
           <p className="text-sm text-muted-foreground">
-            Content type:{" "}
-            {parsedEml.htmlContent ? "HTML" : parsedEml.textContent ? "Plain text" : "Empty"}
+            {m.emlPreview_contentType({
+              type: parsedEml.htmlContent ? m.emlPreview_htmlType() : parsedEml.textContent ? m.emlPreview_textType() : m.emlPreview_emptyType()
+            })}
           </p>
           {parsedEml.inlineImages.length > 0 && (
             <p className="text-sm text-muted-foreground">
-              Inline images: {parsedEml.inlineImages.length}
+              {m.emlPreview_inlineImages({ count: parsedEml.inlineImages.length })}
             </p>
           )}
           {parsedEml.attachments.length > 0 && (
             <p className="text-sm text-muted-foreground">
-              Attachments: {parsedEml.attachments.length}
+              {m.emlPreview_attachments({ count: parsedEml.attachments.length })}
             </p>
           )}
         </div>
@@ -118,18 +120,18 @@ export function EmlPreview({ parsedEml, onConfirm, onCancel, isImporting }: EmlP
       <CardFooter className="flex gap-3">
         <Button variant="outline" onClick={onCancel} disabled={isImporting} className="flex-1">
           <X className="mr-2 h-4 w-4" />
-          Cancel
+          {m.common_cancel()}
         </Button>
         <Button onClick={onConfirm} disabled={isImporting} className="flex-1">
           {isImporting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Importing...
+              {m.emlPreview_importing()}
             </>
           ) : (
             <>
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              Import Newsletter
+              {m.emlPreview_importButton()}
             </>
           )}
         </Button>

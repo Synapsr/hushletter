@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { Button, Skeleton } from "@hushletter/ui";
 import { FolderIcon, Eye, AlertCircle, ExternalLink } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * HiddenFoldersSection - Settings component for managing hidden folders
@@ -55,16 +56,16 @@ export function HiddenFoldersSection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["newsletters"] });
-      toast.success("Folder restored to sidebar");
+      toast.success(m.hiddenFolders_unhideSuccess());
     },
     onError: () => {
-      toast.error("Failed to unhide folder");
+      toast.error(m.hiddenFolders_unhideError());
     },
   });
 
   if (isPending) {
     return (
-      <div className="space-y-2" role="status" aria-label="Loading hidden folders">
+      <div className="space-y-2" role="status" aria-label={m.hiddenFolders_loadingAriaLabel()}>
         <Skeleton className="h-16 w-full rounded-lg" />
         <Skeleton className="h-16 w-full rounded-lg" />
       </div>
@@ -75,7 +76,7 @@ export function HiddenFoldersSection() {
     return (
       <div className="flex items-center gap-2 text-destructive text-sm">
         <AlertCircle className="h-4 w-4" aria-hidden="true" />
-        <span>Failed to load hidden folders</span>
+        <span>{m.hiddenFolders_loadError()}</span>
       </div>
     );
   }
@@ -83,13 +84,13 @@ export function HiddenFoldersSection() {
   if (hiddenFolders.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
-        No hidden folders. Hidden folders will appear here.
+        {m.hiddenFolders_noHiddenFolders()}
       </p>
     );
   }
 
   return (
-    <ul className="space-y-2" role="list" aria-label="Hidden folders">
+    <ul className="space-y-2" role="list" aria-label={m.hiddenFolders_listAriaLabel()}>
       {hiddenFolders.map((folder) => (
         <li key={folder._id} className="flex items-center justify-between p-3 border rounded-lg">
           <div className="flex items-center gap-3">
@@ -97,9 +98,10 @@ export function HiddenFoldersSection() {
             <div>
               <p className="font-medium">{folder.name}</p>
               <p className="text-sm text-muted-foreground">
-                {folder.newsletterCount} newsletter
-                {folder.newsletterCount !== 1 ? "s" : ""}, {folder.senderCount} sender
-                {folder.senderCount !== 1 ? "s" : ""}
+                {m.hiddenFolders_counts({
+                  newsletterCount: folder.newsletterCount,
+                  senderCount: folder.senderCount,
+                })}
               </p>
             </div>
           </div>
@@ -109,10 +111,10 @@ export function HiddenFoldersSection() {
               to="/newsletters"
               search={{ folder: folder._id }}
               className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
-              aria-label={`View contents of ${folder.name}`}
+              aria-label={m.hiddenFolders_viewAriaLabel({ folderName: folder.name })}
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              View
+              {m.hiddenFolders_view()}
             </Link>
             <Button
               variant="outline"
@@ -123,10 +125,10 @@ export function HiddenFoldersSection() {
                 })
               }
               disabled={unhideMutation.isPending}
-              aria-label={`Unhide ${folder.name}`}
+              aria-label={m.hiddenFolders_unhideAriaLabel({ folderName: folder.name })}
             >
               <Eye className="h-4 w-4 mr-1" aria-hidden="true" />
-              Unhide
+              {m.hiddenFolders_unhide()}
             </Button>
           </div>
         </li>

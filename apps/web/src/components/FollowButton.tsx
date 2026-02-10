@@ -18,6 +18,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { Button } from "@hushletter/ui";
 import { UserPlus, UserCheck, Loader2 } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 interface FollowButtonProps {
   senderEmail: string;
@@ -90,10 +91,10 @@ export function FollowButton({
         variant="outline"
         size={variant === "compact" ? "sm" : "default"}
         disabled
-        aria-label="Loading follow status"
+        aria-label={m.follow_ariaLoadingStatus()}
       >
         <Loader2 className="h-4 w-4 animate-spin" />
-        {variant === "default" && <span className="ml-2">Loading</span>}
+        {variant === "default" && <span className="ml-2">{m.follow_loading()}</span>}
       </Button>
     );
   }
@@ -106,8 +107,8 @@ export function FollowButton({
       disabled={isLoading}
       aria-label={
         displayFollowing
-          ? `Unfollow ${senderName || senderEmail}`
-          : `Follow ${senderName || senderEmail}`
+          ? m.follow_ariaUnfollow({ sender: senderName || senderEmail })
+          : m.follow_ariaFollow({ sender: senderName || senderEmail })
       }
       aria-pressed={displayFollowing ? "true" : "false"}
     >
@@ -119,7 +120,7 @@ export function FollowButton({
         <UserPlus className="h-4 w-4" />
       )}
       {variant === "default" && (
-        <span className="ml-2">{displayFollowing ? "Following" : "Follow"}</span>
+        <span className="ml-2">{displayFollowing ? m.follow_buttonFollowing() : m.follow_buttonFollow()}</span>
       )}
     </Button>
   );

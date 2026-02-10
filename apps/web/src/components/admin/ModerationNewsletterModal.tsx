@@ -5,6 +5,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { useState, useEffect } from "react";
+import { m } from "@/paraglide/messages.js";
 import {
   Alert,
   AlertDescription,
@@ -113,8 +114,8 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
       const result = await publishAction({ userNewsletterId });
       toast.success(
         result.reusedExisting
-          ? "Newsletter linked to existing community content"
-          : "Newsletter published to community",
+          ? m.modNewsletter_successLinkedExisting()
+          : m.modNewsletter_successPublished(),
       );
       // Invalidate all queries to ensure moderation queue and related data refreshes
       // convexQuery generates keys based on function reference, broad invalidation is safest
@@ -122,7 +123,7 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
       onActionComplete?.();
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to publish");
+      toast.error(error instanceof Error ? error.message : m.modNewsletter_errorPublishFailed());
     } finally {
       setIsPublishing(false);
     }
@@ -130,7 +131,7 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      toast.error("Please provide a reason for rejection");
+      toast.error(m.modNewsletter_errorRejectReasonRequired());
       return;
     }
 
@@ -140,13 +141,13 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
         userNewsletterId,
         reason: rejectReason,
       });
-      toast.success("Newsletter rejected");
+      toast.success(m.modNewsletter_successRejected());
       // Invalidate all queries to ensure moderation queue and related data refreshes
       await queryClient.invalidateQueries();
       onActionComplete?.();
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to reject");
+      toast.error(error instanceof Error ? error.message : m.modNewsletter_errorRejectFailed());
     } finally {
       setIsRejecting(false);
       setShowRejectDialog(false);
@@ -162,7 +163,7 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
               {detailLoading ? (
                 <Skeleton className="h-6 w-64" />
               ) : (
-                (detail?.subject ?? "Newsletter")
+                (detail?.subject ?? m.modNewsletter_defaultSubject())
               )}
             </DialogTitle>
           </DialogHeader>
@@ -178,22 +179,22 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
               <div className="grid grid-cols-2 gap-4 text-sm p-4 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="text-muted-foreground">Sender:</span>
+                  <span className="text-muted-foreground">{m.modNewsletter_labelSender()}</span>
                   <span className="font-medium">{detail.senderName ?? detail.senderEmail}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="text-muted-foreground">Received:</span>
+                  <span className="text-muted-foreground">{m.modNewsletter_labelReceived()}</span>
                   <span>{formatDate(detail.receivedAt)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <ExternalLink className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="text-muted-foreground">Source:</span>
-                  <Badge variant="outline">{detail.source ?? "email"}</Badge>
+                  <span className="text-muted-foreground">{m.modNewsletter_labelSource()}</span>
+                  <Badge variant="outline">{detail.source ?? m.modNewsletter_sourceEmail()}</Badge>
                 </div>
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="text-muted-foreground">Owner (Audit):</span>
+                  <span className="text-muted-foreground">{m.modNewsletter_labelOwnerAudit()}</span>
                   <code className="text-xs bg-muted px-1 py-0.5 rounded">{detail.userEmail}</code>
                 </div>
               </div>
@@ -204,17 +205,17 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
               ) : piiDetection?.hasPotentialPII ? (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-                  <AlertTitle>Potential Personalization Detected</AlertTitle>
+                  <AlertTitle>{m.modNewsletter_piiDetectedTitle()}</AlertTitle>
                   <AlertDescription>
                     <p className="mb-2">{piiDetection.recommendation}</p>
                     <ul className="list-disc pl-4 space-y-1">
                       {piiDetection.findings.map((finding, i) => (
                         <li key={i} className="text-sm">
                           <span className="font-medium">{finding.description}</span> (
-                          {finding.count} found)
+                          {m.modNewsletter_piiFoundCount({ count: finding.count })})
                           {finding.samples.length > 0 && (
                             <span className="text-muted-foreground ml-1">
-                              e.g., "{finding.samples[0]}"
+                              {m.modNewsletter_piiExample({ example: finding.samples[0] })}
                             </span>
                           )}
                         </li>
@@ -225,10 +226,10 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
               ) : (
                 <Alert>
                   <Check className="h-4 w-4" aria-hidden="true" />
-                  <AlertTitle>No Personalization Detected</AlertTitle>
+                  <AlertTitle>{m.modNewsletter_noPiiTitle()}</AlertTitle>
                   <AlertDescription>
                     {piiDetection?.recommendation ??
-                      "Content appears clean for community publishing."}
+                      m.modNewsletter_noPiiMessage()}
                   </AlertDescription>
                 </Alert>
               )}
@@ -236,7 +237,7 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
               {/* Content Preview */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="bg-muted px-4 py-2 text-sm font-medium border-b">
-                  Content Preview
+                  {m.modNewsletter_contentPreviewTitle()}
                 </div>
                 {isLoadingContent ? (
                   <div className="p-4">
@@ -244,7 +245,7 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
                   </div>
                 ) : contentError ? (
                   <div className="p-8 text-center text-muted-foreground">
-                    <p>Unable to load content</p>
+                    <p>{m.modNewsletter_contentLoadError()}</p>
                     <p className="text-xs mt-1">{contentError}</p>
                   </div>
                 ) : contentUrl ? (
@@ -252,10 +253,10 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
                     src={contentUrl}
                     className="w-full h-[500px] border-0"
                     sandbox="allow-same-origin"
-                    title="Newsletter content preview"
+                    title={m.modNewsletter_contentPreviewTitle()}
                   />
                 ) : (
-                  <div className="p-8 text-center text-muted-foreground">No content available</div>
+                  <div className="p-8 text-center text-muted-foreground">{m.modNewsletter_noContentAvailable()}</div>
                 )}
               </div>
 
@@ -266,27 +267,27 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
                   variant="outline"
                   onClick={() => setShowRejectDialog(true)}
                   disabled={isPublishing || isRejecting || isLoadingContent || !!contentError}
-                  title={contentError ? "Cannot act without reviewing content" : undefined}
+                  title={contentError ? m.modNewsletter_cannotActWithoutContent() : undefined}
                 >
                   <X className="h-4 w-4 mr-2" aria-hidden="true" />
-                  Reject
+                  {m.modNewsletter_buttonReject()}
                 </Button>
                 <Button
                   onClick={handlePublish}
                   disabled={isPublishing || isRejecting || isLoadingContent || !!contentError}
-                  title={contentError ? "Cannot act without reviewing content" : undefined}
+                  title={contentError ? m.modNewsletter_cannotActWithoutContent() : undefined}
                 >
                   {isPublishing ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
                   ) : (
                     <Check className="h-4 w-4 mr-2" aria-hidden="true" />
                   )}
-                  Publish to Community
+                  {m.modNewsletter_buttonPublish()}
                 </Button>
               </DialogFooter>
             </div>
           ) : (
-            <div className="py-8 text-center text-muted-foreground">Newsletter not found</div>
+            <div className="py-8 text-center text-muted-foreground">{m.modNewsletter_newsletterNotFound()}</div>
           )}
         </DialogContent>
       </Dialog>
@@ -295,15 +296,14 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Newsletter</DialogTitle>
+            <DialogTitle>{m.modNewsletter_rejectDialogTitle()}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              This newsletter will be removed from the moderation queue. The user's copy will remain
-              unchanged.
+              {m.modNewsletter_rejectDialogMessage()}
             </p>
             <Textarea
-              placeholder="Reason for rejection (required)..."
+              placeholder={m.modNewsletter_rejectReasonPlaceholder()}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               rows={3}
@@ -311,7 +311,7 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
-              Cancel
+              {m.modNewsletter_buttonCancel()}
             </Button>
             <Button
               variant="destructive"
@@ -321,7 +321,7 @@ export function ModerationNewsletterModal({ userNewsletterId, onClose, onActionC
               {isRejecting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
               ) : null}
-              Confirm Rejection
+              {m.modNewsletter_buttonConfirmRejection()}
             </Button>
           </DialogFooter>
         </DialogContent>

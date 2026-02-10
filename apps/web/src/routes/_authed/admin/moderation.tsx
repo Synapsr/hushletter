@@ -5,6 +5,7 @@ import { api } from "@hushletter/backend";
 import { ModerationQueueTable } from "@/components/admin/ModerationQueueTable";
 import { Alert, AlertDescription, AlertTitle, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@hushletter/ui";
 import { AlertCircle, Inbox } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Admin Moderation Queue Page
@@ -32,15 +33,15 @@ function ModerationPage() {
 
   // Show error alert if count query failed
   const hasError = countError;
-  const errorMessage = countErrorMessage?.message || "An error occurred loading moderation data";
+  const errorMessage = countErrorMessage?.message || m.adminModeration_loadError();
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Moderation Queue</h2>
+          <h2 className="text-2xl font-bold">{m.adminModeration_title()}</h2>
           <p className="text-muted-foreground mt-1">
-            Review user newsletters before publishing to community
+            {m.adminModeration_description()}
           </p>
         </div>
       </div>
@@ -49,7 +50,7 @@ function ModerationPage() {
       {hasError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" aria-hidden="true" />
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>{m.common_error()}</AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       )}
@@ -63,12 +64,12 @@ function ModerationPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <Inbox className="h-4 w-4" aria-hidden="true" />
-                Pending Review
+                {m.adminModeration_pendingReview()}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">{queueCount?.count ?? 0}</p>
-              <p className="text-xs text-muted-foreground mt-1">newsletters awaiting moderation</p>
+              <p className="text-xs text-muted-foreground mt-1">{m.adminModeration_pendingCount({ count: queueCount?.count ?? 0 })}</p>
             </CardContent>
           </Card>
         )}

@@ -5,6 +5,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { cn } from "@/lib/utils";
 import { FolderIcon, EyeOff, UserCheck } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Sender data from listSendersForUserWithUnreadCounts query
@@ -201,13 +202,13 @@ export function SenderSidebar({
           isAllSelected && "bg-accent font-medium",
         )}
       >
-        <span>All Newsletters</span>
+        <span>{m.folder_allNewsletters()}</span>
         <div className="flex items-center gap-2">
           {/* Subtle unread indicator (UX compliant) */}
           {totalUnreadCount > 0 && (
             <span
               className="h-2 w-2 rounded-full bg-primary/60"
-              aria-label={`${totalUnreadCount} unread`}
+              aria-label={m.folder_unreadCount({ count: totalUnreadCount })}
             />
           )}
           <span className="text-muted-foreground text-xs">{totalNewsletterCount}</span>
@@ -239,7 +240,7 @@ export function SenderSidebar({
                 {folder.unreadCount > 0 && (
                   <span
                     className="h-2 w-2 rounded-full bg-primary/60"
-                    aria-label={`${folder.unreadCount} unread in ${folder.name}`}
+                    aria-label={m.folder_unreadInFolder({ count: folder.unreadCount, name: folder.name })}
                   />
                 )}
                 <span className="text-muted-foreground text-xs">{folder.newsletterCount}</span>
@@ -259,13 +260,13 @@ export function SenderSidebar({
             >
               <div className="flex items-center gap-2 truncate flex-1 mr-2">
                 <FolderIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                <span className="truncate">Uncategorized</span>
+                <span className="truncate">{m.folder_uncategorized()}</span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {uncategorizedStats.unreadCount > 0 && (
                   <span
                     className="h-2 w-2 rounded-full bg-primary/60"
-                    aria-label={`${uncategorizedStats.unreadCount} unread in Uncategorized`}
+                    aria-label={m.folder_unreadInFolder({ count: uncategorizedStats.unreadCount, name: m.folder_uncategorized() })}
                   />
                 )}
                 <span className="text-muted-foreground text-xs">
@@ -296,7 +297,7 @@ export function SenderSidebar({
             {sender.unreadCount > 0 && (
               <span
                 className="h-2 w-2 rounded-full bg-primary/60"
-                aria-label={`${sender.unreadCount} unread from ${sender.displayName}`}
+                aria-label={m.sender_unreadFrom({ count: sender.unreadCount, name: sender.displayName })}
               />
             )}
             <span className="text-muted-foreground text-xs">{sender.userNewsletterCount}</span>
@@ -306,7 +307,7 @@ export function SenderSidebar({
 
       {/* Empty state when no senders */}
       {senderList.length === 0 && followedWithoutNewsletters.length === 0 && (
-        <p className="text-muted-foreground text-sm text-center py-4">No senders yet</p>
+        <p className="text-muted-foreground text-sm text-center py-4">{m.sender_noSendersYet()}</p>
       )}
 
       {/* Story 6.4 Task 5.1-5.3: Followed senders without newsletters */}
@@ -314,7 +315,7 @@ export function SenderSidebar({
         <>
           <div className="h-px bg-border my-2" />
           <p className="px-3 py-1 text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            Following
+            {m.sender_following()}
           </p>
           {followedWithoutNewsletters.map((sender) => (
             <Link
@@ -329,9 +330,9 @@ export function SenderSidebar({
               <span className="truncate flex-1 mr-2">{sender.displayName}</span>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Story 6.4 Task 5.2: "Following" indicator */}
-                <UserCheck className="h-3.5 w-3.5 text-primary/70" aria-label="Following" />
+                <UserCheck className="h-3.5 w-3.5 text-primary/70" aria-label={m.sender_following()} />
                 {/* Story 6.4 Task 5.3: "View Back-Catalog" - link goes to community sender page */}
-                <span className="text-xs text-muted-foreground">View</span>
+                <span className="text-xs text-muted-foreground">{m.common_view()}</span>
               </div>
             </Link>
           ))}
@@ -352,7 +353,7 @@ export function SenderSidebar({
           >
             <div className="flex items-center gap-2 truncate flex-1 mr-2">
               <EyeOff className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-              <span className="truncate">Hidden</span>
+              <span className="truncate">{m.folder_hidden()}</span>
             </div>
             <span className="text-muted-foreground text-xs flex-shrink-0">{hiddenCount}</span>
           </button>

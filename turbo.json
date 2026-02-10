@@ -11,6 +11,14 @@
       "persistent": true,
       "dependsOn": ["^generate"]
     },
+    "dev:web": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:convex": {
+      "cache": false,
+      "persistent": true
+    },
     "generate": {
       "cache": false
     },

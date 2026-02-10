@@ -2,53 +2,39 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
-import { signUp } from "@/lib/auth-client";
-import { extractNameFromEmail } from "@/lib/utils/error";
+import { signIn } from "@/lib/auth-client";
 import { useAppForm } from "@/hooks/form/form";
 import { revalidateLogic } from "@tanstack/react-form";
 import { toast } from "sonner";
+import { m } from "@/paraglide/messages.js";
 
-export const Route = createFileRoute("/signup")({
-  component: SignupPage,
+export const Route = createFileRoute("/{-$locale}/login")({
+  component: LoginPage,
 });
 
-const signupSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+const loginSchema = z.object({
+  email: z.email(m.auth_invalidEmail()),
+  password: z.string().min(1, m.auth_passwordRequired()),
 });
 
-function SignupPage() {
+function LoginPage() {
   const navigate = useNavigate();
 
   const mutation = useMutation({
     mutationFn: async (value: { email: string; password: string }) => {
-      const result = await signUp.email(
-        {
-          email: value.email,
-          password: value.password,
-          name: extractNameFromEmail(value.email),
-        },
-        {
-          onError: (ctx) => {
-            const errorCode = ctx.error?.code;
-            const errorMessage = ctx.error?.message;
+      const result = await signIn.email({
+        email: value.email,
+        password: value.password,
+      });
 
-            if (
-              errorCode === "USER_ALREADY_EXISTS" ||
-              errorMessage?.toLowerCase().includes("already exists")
-            ) {
-              throw new Error("An account with this email already exists");
-            }
-
-            throw new Error(errorMessage || "Registration failed. Please try again.");
-          },
-        },
-      );
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
 
       return result;
     },
     onError: (error) => {
-      toast.error(error.message || "Registration failed. Please try again.");
+      toast.error(error.message || m.auth_invalidCredentials());
     },
     onSuccess: () => {
       navigate({ to: "/newsletters" });
@@ -68,7 +54,7 @@ function SignupPage() {
       modeAfterSubmission: "change",
     }),
     validators: {
-      onSubmit: signupSchema,
+      onSubmit: loginSchema,
     },
   });
 
@@ -76,8 +62,8 @@ function SignupPage() {
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-50 to-white p-4 dark:from-gray-950 dark:to-gray-900">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-          <CardDescription>Start organizing your newsletters today</CardDescription>
+          <CardTitle className="text-2xl font-bold">{m.auth_loginTitle()}</CardTitle>
+          <CardDescription>{m.auth_loginSubtitle()}</CardDescription>
         </CardHeader>
         <CardContent>
           <form.AppForm>
@@ -85,9 +71,9 @@ function SignupPage() {
               <form.AppField name="email">
                 {(field) => (
                   <field.Input
-                    label="Email"
+                    label={m.auth_email()}
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder={m.auth_emailPlaceholder()}
                     autoComplete="email"
                   />
                 )}
@@ -96,24 +82,36 @@ function SignupPage() {
               <form.AppField name="password">
                 {(field) => (
                   <field.Input
-                    label="Password"
+                    label={m.auth_password()}
                     type="password"
-                    placeholder="Min 8 characters"
-                    autoComplete="new-password"
+                    placeholder={m.auth_passwordPlaceholder()}
+                    autoComplete="current-password"
                   />
                 )}
               </form.AppField>
 
               <form.SubscribeButton type="submit" className="w-full">
-                Sign Up
+                {m.auth_signIn()}
               </form.SubscribeButton>
             </form.Form>
           </form.AppForm>
 
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              className="text-sm text-muted-foreground transition-colors hover:text-primary"
+              onClick={() => {
+                // Placeholder for future password reset story
+              }}
+            >
+              {m.auth_forgotPassword()}
+            </button>
+          </div>
+
           <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            Already have an account?{" "}
-            <Link to="/login" className="font-medium text-primary hover:underline">
-              Sign In
+            {m.auth_noAccount()}{" "}
+            <Link to="/{-$locale}/signup" className="font-medium text-primary hover:underline">
+              {m.auth_signUpLink()}
             </Link>
           </p>
         </CardContent>

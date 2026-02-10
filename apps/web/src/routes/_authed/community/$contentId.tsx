@@ -6,6 +6,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import DOMPurify from "dompurify";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@hushletter/ui";
 import { ArrowLeft, Plus, Users, Check, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/community/$contentId")({
   component: CommunityReaderPage,
@@ -59,7 +60,7 @@ function ContentSkeleton() {
 function ContentError({ message }: { message: string }) {
   return (
     <div className="text-center py-12 border rounded-lg bg-destructive/5">
-      <p className="text-destructive font-medium mb-2">Failed to load content</p>
+      <p className="text-destructive font-medium mb-2">{m.communityDetail_failedToLoad()}</p>
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
@@ -253,7 +254,7 @@ function CommunityReaderPage() {
       }
     } catch (err) {
       console.error("[CommunityReader] Failed to add to collection:", err);
-      setAddError("Could not add this newsletter to your collection.");
+      setAddError(m.communityDetail_addError());
     } finally {
       setIsAdding(false);
     }
@@ -277,7 +278,7 @@ function CommunityReaderPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Community
+          {m.communityDetail_backToCommunity()}
         </Link>
       </div>
 
@@ -300,8 +301,7 @@ function CommunityReaderPage() {
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
                   <span>
-                    {metadata.readerCount}{" "}
-                    {metadata.readerCount === 1 ? "reader has" : "readers have"} this
+                    {m.communityDetail_readerCount({ count: metadata.readerCount })}
                   </span>
                 </div>
                 {/* Add to collection button */}
@@ -313,17 +313,17 @@ function CommunityReaderPage() {
                   {isAdding ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      Adding...
+                      {m.communityDetail_adding()}
                     </>
                   ) : alreadyInCollection ? (
                     <>
                       <Check className="h-4 w-4 mr-1" />
-                      In Collection
+                      {m.communityDetail_inCollection()}
                     </>
                   ) : (
                     <>
                       <Plus className="h-4 w-4 mr-1" />
-                      Add to My Collection
+                      {m.communityDetail_addToCollection()}
                     </>
                   )}
                 </Button>
@@ -347,7 +347,7 @@ function CommunityReaderPage() {
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="h-4 w-4 text-amber-500" />
               <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                AI Summary
+                {m.communityDetail_aiSummary()}
               </span>
             </div>
             <p className="text-sm text-amber-900 dark:text-amber-100">{metadata.summary}</p>
@@ -371,7 +371,7 @@ function CommunityReaderPage() {
             />
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No content available for this newsletter.
+              {m.communityDetail_noContent()}
             </div>
           )}
         </CardContent>
@@ -379,7 +379,7 @@ function CommunityReaderPage() {
 
       {/* Note about personal actions */}
       <p className="text-center text-xs text-muted-foreground mt-4">
-        Add to your collection to mark as read, hide, or track reading progress.
+        {m.communityDetail_addNote()}
       </p>
     </div>
   );

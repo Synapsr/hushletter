@@ -1,5 +1,6 @@
 import { AlertTriangle, XCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@hushletter/ui";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Anomaly type from getDeliveryAnomalies query
@@ -37,11 +38,11 @@ export function AnomalyAlertBanner({ anomalies }: AnomalyAlertBannerProps) {
   const warningAnomalies = anomalies.filter((a) => a.severity === "warning");
 
   return (
-    <div className="space-y-2" role="region" aria-label="System alerts">
+    <div className="space-y-2" role="region" aria-label={m.anomalyAlert_systemAlertsLabel()}>
       {criticalAnomalies.map((anomaly) => (
         <Alert key={`critical-${anomaly.type}-${anomaly.message}`} variant="destructive">
           <XCircle className="h-4 w-4" aria-hidden="true" />
-          <AlertTitle>Critical Alert</AlertTitle>
+          <AlertTitle>{m.anomalyAlert_criticalAlertTitle()}</AlertTitle>
           <AlertDescription>{anomaly.message}</AlertDescription>
         </Alert>
       ))}
@@ -52,7 +53,7 @@ export function AnomalyAlertBanner({ anomalies }: AnomalyAlertBannerProps) {
           className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20"
         >
           <AlertTriangle className="h-4 w-4 text-yellow-600" aria-hidden="true" />
-          <AlertTitle className="text-yellow-800 dark:text-yellow-200">Warning</AlertTitle>
+          <AlertTitle className="text-yellow-800 dark:text-yellow-200">{m.anomalyAlert_warningTitle()}</AlertTitle>
           <AlertDescription className="text-yellow-700 dark:text-yellow-300">
             {anomaly.message}
           </AlertDescription>

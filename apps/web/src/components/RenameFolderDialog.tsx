@@ -14,6 +14,7 @@ import {
   DialogTitle,
   Input,
 } from "@hushletter/ui";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * RenameFolderDialog - Dialog for renaming a folder
@@ -27,8 +28,8 @@ import {
 const folderNameSchema = z.object({
   name: z
     .string()
-    .min(1, "Folder name is required")
-    .max(100, "Folder name must be 100 characters or less"),
+    .min(1, m.renameFolderDlg_nameRequired())
+    .max(100, m.renameFolderDlg_nameTooLong()),
 });
 
 interface RenameFolderDialogProps {
@@ -55,11 +56,11 @@ export function RenameFolderDialog({
     onSuccess: (data) => {
       const result = data as RenameResult;
       queryClient.invalidateQueries({ queryKey: ["folders"] });
-      toast.success(`Folder renamed to "${result.name}"`);
+      toast.success(m.renameFolderDlg_success({ folderName: result.name }));
       onOpenChange(false);
     },
     onError: () => {
-      toast.error("Failed to rename folder");
+      toast.error(m.renameFolderDlg_error());
     },
   });
 
@@ -96,7 +97,7 @@ export function RenameFolderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
-          <DialogTitle>Rename Folder</DialogTitle>
+          <DialogTitle>{m.renameFolderDlg_title()}</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -111,7 +112,7 @@ export function RenameFolderDialog({
                 <Input
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="Folder name"
+                  placeholder={m.renameFolderDlg_placeholder()}
                   autoFocus
                   aria-invalid={field.state.meta.errors.length > 0}
                   aria-describedby={field.state.meta.errors.length > 0 ? "name-error" : undefined}
@@ -128,7 +129,7 @@ export function RenameFolderDialog({
           />
           <DialogFooter className="mt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {m.renameFolderDlg_cancel()}
             </Button>
             <form.Subscribe
               selector={(state) => ({
@@ -140,7 +141,7 @@ export function RenameFolderDialog({
                   type="submit"
                   disabled={!canSubmit || isSubmitting || renameMutation.isPending}
                 >
-                  {renameMutation.isPending ? "Saving..." : "Save"}
+                  {renameMutation.isPending ? m.renameFolderDlg_saving() : m.renameFolderDlg_save()}
                 </Button>
               )}
             />

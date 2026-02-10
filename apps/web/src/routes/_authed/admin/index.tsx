@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   XCircle,
 } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /** Date range options for trend chart - Story 7.1 Task 4.5 */
 type DateRange = 7 | 30 | 90;
@@ -71,7 +72,7 @@ function AdminDashboard() {
     <div className="space-y-6">
       {/* Service Status Row */}
       <section aria-label="Service Status">
-        <h2 className="text-lg font-medium mb-3">Service Status</h2>
+        <h2 className="text-lg font-medium mb-3">{m.adminOverview_serviceStatus()}</h2>
         <div className="flex gap-4 flex-wrap">
           {statusLoading ? (
             <>
@@ -80,8 +81,8 @@ function AdminDashboard() {
             </>
           ) : serviceStatus ? (
             <>
-              <ServiceStatusBadge service="Convex Database" status={serviceStatus.convex} />
-              <ServiceStatusBadge service="Email Worker" status={serviceStatus.emailWorker} />
+              <ServiceStatusBadge service={m.adminOverview_convexDatabase()} status={serviceStatus.convex} />
+              <ServiceStatusBadge service={m.adminOverview_emailWorker()} status={serviceStatus.emailWorker} />
             </>
           ) : null}
 
@@ -94,14 +95,14 @@ function AdminDashboard() {
               className="flex items-center gap-2 px-3 py-1 rounded-full border hover:bg-accent transition-colors"
             >
               <Shield className="h-4 w-4" aria-hidden="true" />
-              <span className="text-sm font-medium">Privacy:</span>
+              <span className="text-sm font-medium">{m.adminOverview_privacy()}</span>
               {privacyAudit.status === "PASS" && (
                 <Badge
                   variant="default"
                   className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
                 >
                   <CheckCircle className="h-3 w-3" aria-hidden="true" />
-                  PASS
+                  {m.adminOverview_pass()}
                 </Badge>
               )}
               {privacyAudit.status === "WARNING" && (
@@ -110,13 +111,13 @@ function AdminDashboard() {
                   className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-1"
                 >
                   <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-                  WARNING
+                  {m.adminOverview_warning()}
                 </Badge>
               )}
               {privacyAudit.status === "FAIL" && (
                 <Badge variant="destructive" className="flex items-center gap-1">
                   <XCircle className="h-3 w-3" aria-hidden="true" />
-                  FAIL
+                  {m.adminOverview_fail()}
                 </Badge>
               )}
             </Link>
@@ -126,34 +127,34 @@ function AdminDashboard() {
 
       {/* Key Metrics Grid */}
       <section aria-label="System Metrics">
-        <h2 className="text-lg font-medium mb-3">System Overview</h2>
+        <h2 className="text-lg font-medium mb-3">{m.adminOverview_systemOverview()}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {statsLoading ? (
             Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[120px]" />)
           ) : stats ? (
             <>
               <StatCard
-                title="Total Users"
+                title={m.adminOverview_totalUsers()}
                 value={stats.totalUsers}
                 icon={<Users className="h-4 w-4" />}
-                trend={activity ? `+${activity.newUsersCount} today` : undefined}
+                trend={activity ? m.adminOverview_todayCount({ count: activity.newUsersCount }) : undefined}
               />
               <StatCard
-                title="Newsletters (Content)"
+                title={m.adminOverview_newslettersContent()}
                 value={stats.totalNewsletters}
                 icon={<Mail className="h-4 w-4" />}
-                description="Unique newsletter content"
+                description={m.adminOverview_uniqueContent()}
               />
               <StatCard
-                title="Total Senders"
+                title={m.adminOverview_totalSenders()}
                 value={stats.totalSenders}
                 icon={<Building2 className="h-4 w-4" />}
               />
               <StatCard
-                title="User Newsletter Links"
+                title={m.adminOverview_userLinks()}
                 value={stats.totalUserNewsletters}
                 icon={<FileStack className="h-4 w-4" />}
-                trend={activity ? `+${activity.newNewslettersCount} today` : undefined}
+                trend={activity ? m.adminOverview_todayCount({ count: activity.newNewslettersCount }) : undefined}
               />
             </>
           ) : null}
@@ -164,8 +165,8 @@ function AdminDashboard() {
       <section aria-label="Historical Trends">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>{dateRange}-Day Trends</CardTitle>
-            <div className="flex gap-1" role="group" aria-label="Select date range">
+            <CardTitle>{m.adminOverview_dayTrends({ days: dateRange })}</CardTitle>
+            <div className="flex gap-1" role="group" aria-label={m.adminOverview_selectDateRange()}>
               {([7, 30, 90] as const).map((days) => (
                 <Button
                   key={days}
@@ -174,7 +175,7 @@ function AdminDashboard() {
                   onClick={() => setDateRange(days)}
                   aria-pressed={dateRange === days}
                 >
-                  {days}d
+                  {m.adminOverview_daysLabel({ days })}
                 </Button>
               ))}
             </div>
@@ -186,7 +187,7 @@ function AdminDashboard() {
               <TrendChart data={history} />
             ) : (
               <p className="text-muted-foreground text-center py-8">
-                Historical data will appear after the first daily snapshot.
+                {m.adminOverview_historicalEmpty()}
               </p>
             )}
           </CardContent>
@@ -197,7 +198,7 @@ function AdminDashboard() {
       <section aria-label="Recent Activity">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity (24h)</CardTitle>
+            <CardTitle>{m.adminOverview_recentActivity()}</CardTitle>
           </CardHeader>
           <CardContent>
             {activityLoading ? (

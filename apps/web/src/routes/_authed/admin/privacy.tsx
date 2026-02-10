@@ -9,6 +9,7 @@ import { PrivacySenderTable } from "@/components/admin/PrivacySenderTable";
 import { NewsletterSearchPanel } from "@/components/admin/NewsletterSearchPanel";
 import { Alert, AlertDescription, AlertTitle, Card, CardContent, CardHeader, CardTitle, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from "@hushletter/ui";
 import { AlertCircle } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Privacy Review Page - Admin dashboard for privacy compliance
@@ -31,43 +32,35 @@ function PrivacyReview() {
     data: stats,
     isPending: statsLoading,
     isError: statsError,
-    error: statsErrorMessage,
   } = useQuery(convexQuery(api.admin.getPrivacyStats, {}));
 
   const {
     data: audit,
     isPending: auditLoading,
     isError: auditError,
-    error: auditErrorMessage,
   } = useQuery(convexQuery(api.admin.runPrivacyAudit, {}));
 
   const {
     data: privateSenders,
     isPending: sendersLoading,
     isError: sendersError,
-    error: sendersErrorMessage,
   } = useQuery(convexQuery(api.admin.listPrivateSenders, { limit: 20 }));
 
   // Show error alert if any query failed
   const hasError = statsError || auditError || sendersError;
-  const errorMessage =
-    statsErrorMessage?.message ||
-    auditErrorMessage?.message ||
-    sendersErrorMessage?.message ||
-    "An error occurred";
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Privacy Review</h2>
+        <h2 className="text-2xl font-bold">{m.adminPrivacy_title()}</h2>
       </div>
 
       {/* Error Alert */}
       {hasError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" aria-hidden="true" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{errorMessage}</AlertDescription>
+          <AlertTitle>{m.common_error()}</AlertTitle>
+          <AlertDescription>{m.adminPrivacy_errorOccurred()}</AlertDescription>
         </Alert>
       )}
 
@@ -82,9 +75,9 @@ function PrivacyReview() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="senders">Private Senders</TabsTrigger>
-          <TabsTrigger value="investigate">Investigate</TabsTrigger>
+          <TabsTrigger value="overview">{m.adminPrivacy_overview()}</TabsTrigger>
+          <TabsTrigger value="senders">{m.adminPrivacy_privateSenders()}</TabsTrigger>
+          <TabsTrigger value="investigate">{m.adminPrivacy_investigate()}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -105,7 +98,7 @@ function PrivacyReview() {
           {!auditLoading && audit && (
             <Card>
               <CardHeader>
-                <CardTitle>Audit Checks</CardTitle>
+                <CardTitle>{m.adminPrivacy_auditChecks()}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2" role="list" aria-label="Audit check results">
@@ -119,7 +112,7 @@ function PrivacyReview() {
                       </span>
                       <span>
                         {check.name}
-                        <span className="sr-only">{check.passed ? " - passed" : " - failed"}</span>
+                        <span className="sr-only">{check.passed ? m.adminPrivacy_passed() : m.adminPrivacy_failedCheck()}</span>
                       </span>
                     </li>
                   ))}

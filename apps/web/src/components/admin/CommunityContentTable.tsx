@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@hushletter/backend";
 import { useConvexMutation } from "@convex-dev/react-query";
 import { useState, useDeferredValue } from "react";
+import { m } from "@/paraglide/messages.js";
 import {
   Badge,
   Button,
@@ -179,7 +180,7 @@ export function CommunityContentTable() {
 
   if (isError) {
     return (
-      <div className="text-center py-8 text-muted-foreground">Failed to load community content</div>
+      <div className="text-center py-8 text-muted-foreground">{m.communityContent_loadError()}</div>
     );
   }
 
@@ -194,7 +195,7 @@ export function CommunityContentTable() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by sender email..."
+            placeholder={m.communityContent_searchPlaceholder()}
             value={searchEmail}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchEmail(e.target.value)}
             className="pl-8"
@@ -207,13 +208,13 @@ export function CommunityContentTable() {
           }
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder={m.communityContent_filterPlaceholder()} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="hidden">Hidden</SelectItem>
-            <SelectItem value="blocked_sender">Blocked Sender</SelectItem>
+            <SelectItem value="all">{m.communityContent_filterAllStatus()}</SelectItem>
+            <SelectItem value="active">{m.communityContent_filterActive()}</SelectItem>
+            <SelectItem value="hidden">{m.communityContent_filterHidden()}</SelectItem>
+            <SelectItem value="blocked_sender">{m.communityContent_filterBlockedSender()}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -230,29 +231,29 @@ export function CommunityContentTable() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Subject</TableHead>
-                <TableHead>Sender</TableHead>
+                <TableHead>{m.communityContent_columnSubject()}</TableHead>
+                <TableHead>{m.communityContent_columnSender()}</TableHead>
                 <TableHead>
                   <div className="flex items-center gap-1">
                     <Users className="h-4 w-4" aria-hidden="true" />
-                    Readers
+                    {m.communityContent_columnReaders()}
                   </div>
                 </TableHead>
                 <TableHead>
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" aria-hidden="true" />
-                    First Received
+                    {m.communityContent_columnFirstReceived()}
                   </div>
                 </TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{m.communityContent_columnStatus()}</TableHead>
+                <TableHead className="text-right">{m.communityContent_columnActions()}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8">
-                    No content found
+                    {m.communityContent_noContentFound()}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -277,17 +278,17 @@ export function CommunityContentTable() {
                       {content.moderationStatus === "active" ? (
                         <Badge variant="default" className="bg-green-600">
                           <Eye className="h-3 w-3 mr-1" aria-hidden="true" />
-                          Active
+                          {m.communityContent_statusActive()}
                         </Badge>
                       ) : content.moderationStatus === "hidden" ? (
                         <Badge variant="secondary">
                           <EyeOff className="h-3 w-3 mr-1" aria-hidden="true" />
-                          Hidden
+                          {m.communityContent_statusHidden()}
                         </Badge>
                       ) : (
                         <Badge variant="destructive">
                           <Ban className="h-3 w-3 mr-1" aria-hidden="true" />
-                          Blocked Sender
+                          {m.communityContent_statusBlockedSender()}
                         </Badge>
                       )}
                     </TableCell>
@@ -307,10 +308,10 @@ export function CommunityContentTable() {
                                   senderEmail: content.senderEmail,
                                 })
                               }
-                              aria-label={`Hide ${content.subject}`}
+                              aria-label={m.communityContent_hideAriaLabel({ subject: content.subject })}
                             >
                               <EyeOff className="h-4 w-4 mr-1" aria-hidden="true" />
-                              Hide
+                              {m.communityContent_hideButton()}
                             </Button>
                             {content.senderId && (
                               <Button
@@ -325,10 +326,10 @@ export function CommunityContentTable() {
                                     senderEmail: content.senderEmail,
                                   })
                                 }
-                                aria-label={`Block sender ${content.senderEmail}`}
+                                aria-label={m.communityContent_blockSenderAriaLabel({ email: content.senderEmail })}
                               >
                                 <Ban className="h-4 w-4 mr-1" aria-hidden="true" />
-                                Block Sender
+                                {m.communityContent_blockSenderButton()}
                               </Button>
                             )}
                           </>
@@ -338,10 +339,10 @@ export function CommunityContentTable() {
                             variant="outline"
                             disabled={restoreContentMutation.isPending}
                             onClick={() => handleRestore(content.id)}
-                            aria-label={`Restore ${content.subject}`}
+                            aria-label={m.communityContent_restoreAriaLabel({ subject: content.subject })}
                           >
                             <Eye className="h-4 w-4 mr-1" aria-hidden="true" />
-                            Restore
+                            {m.communityContent_restoreButton()}
                           </Button>
                         ) : null}
                       </div>
@@ -358,22 +359,21 @@ export function CommunityContentTable() {
       <Dialog open={hideDialogOpen} onOpenChange={setHideDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Hide Content from Community</DialogTitle>
+            <DialogTitle>{m.communityContent_dialogHideTitle()}</DialogTitle>
             <DialogDescription>
-              This will remove the newsletter from community visibility. Users who have added it to
-              their collection will not be affected.
+              {m.communityContent_dialogHideDescription()}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label className="text-sm font-medium">Newsletter</Label>
+              <Label className="text-sm font-medium">{m.communityContent_dialogNewsletterLabel()}</Label>
               <p className="text-sm text-muted-foreground">{selectedContent?.subject}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="hide-reason">Reason for hiding</Label>
+              <Label htmlFor="hide-reason">{m.communityContent_dialogHideReasonLabel()}</Label>
               <Textarea
                 id="hide-reason"
-                placeholder="Enter reason for moderation action..."
+                placeholder={m.communityContent_dialogHideReasonPlaceholder()}
                 value={reason}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReason(e.target.value)}
               />
@@ -381,10 +381,10 @@ export function CommunityContentTable() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setHideDialogOpen(false)}>
-              Cancel
+              {m.communityContent_dialogCancelButton()}
             </Button>
             <Button onClick={handleHide} disabled={!reason.trim() || hideContentMutation.isPending}>
-              {hideContentMutation.isPending ? "Hiding..." : "Hide Content"}
+              {hideContentMutation.isPending ? m.communityContent_dialogHidingButton() : m.communityContent_dialogHideButton()}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -394,22 +394,21 @@ export function CommunityContentTable() {
       <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Block Sender from Community</DialogTitle>
+            <DialogTitle>{m.communityContent_dialogBlockTitle()}</DialogTitle>
             <DialogDescription>
-              This will hide ALL newsletters from this sender. Users' personal copies will not be
-              affected.
+              {m.communityContent_dialogBlockDescription()}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label className="text-sm font-medium">Sender</Label>
+              <Label className="text-sm font-medium">{m.communityContent_dialogSenderLabel()}</Label>
               <p className="text-sm text-muted-foreground">{selectedContent?.senderEmail}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="block-reason">Reason for blocking</Label>
+              <Label htmlFor="block-reason">{m.communityContent_dialogBlockReasonLabel()}</Label>
               <Textarea
                 id="block-reason"
-                placeholder="Enter reason for blocking this sender..."
+                placeholder={m.communityContent_dialogBlockReasonPlaceholder()}
                 value={reason}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReason(e.target.value)}
               />
@@ -417,7 +416,7 @@ export function CommunityContentTable() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBlockDialogOpen(false)}>
-              Cancel
+              {m.communityContent_dialogCancelButton()}
             </Button>
             <Button
               variant="destructive"
@@ -426,7 +425,7 @@ export function CommunityContentTable() {
                 !reason.trim() || !selectedContent?.senderId || blockSenderMutation.isPending
               }
             >
-              {blockSenderMutation.isPending ? "Blocking..." : "Block Sender"}
+              {blockSenderMutation.isPending ? m.communityContent_dialogBlockingButton() : m.communityContent_dialogBlockButton()}
             </Button>
           </DialogFooter>
         </DialogContent>

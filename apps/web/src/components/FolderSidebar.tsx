@@ -5,6 +5,7 @@ import { api } from "@hushletter/backend";
 import { cn } from "@/lib/utils";
 import { FolderIcon, EyeOff, AlertCircle } from "lucide-react";
 import { FolderActionsDropdown } from "./FolderActionsDropdown";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Folder data from listVisibleFoldersWithUnreadCounts query
@@ -124,11 +125,11 @@ export function FolderSidebar({
       <aside
         className="w-64 border-r bg-background p-4"
         role="navigation"
-        aria-label="Folder navigation"
+        aria-label={m.newsletters_folderNavigation()}
       >
         <div className="flex items-center gap-2 text-destructive text-sm">
           <AlertCircle className="h-4 w-4" aria-hidden="true" />
-          <span>Failed to load folders</span>
+          <span>{m.folder_loadError()}</span>
         </div>
       </aside>
     );
@@ -160,7 +161,7 @@ export function FolderSidebar({
     <aside
       className="w-64 border-r bg-background p-4 space-y-1 overflow-y-auto"
       role="navigation"
-      aria-label="Folder navigation"
+      aria-label={m.newsletters_folderNavigation()}
     >
       {/* "All Newsletters" item - Story 9.4 Task 1.5 */}
       <button
@@ -172,14 +173,14 @@ export function FolderSidebar({
           isAllSelected && "bg-accent font-medium",
         )}
       >
-        <span>All Newsletters</span>
+        <span>{m.folder_allNewsletters()}</span>
         <div className="flex items-center gap-2">
           {/* Subtle unread indicator (UX compliant) */}
           {totalUnreadCount > 0 && (
             <span
               className="h-2 w-2 rounded-full bg-primary/60"
               role="status"
-              aria-label={`${totalUnreadCount} unread`}
+              aria-label={m.folder_unreadCount({ count: totalUnreadCount })}
             />
           )}
           <span className="text-muted-foreground text-xs">{totalNewsletterCount}</span>
@@ -219,7 +220,7 @@ export function FolderSidebar({
                   <span
                     className="h-2 w-2 rounded-full bg-primary/60"
                     role="status"
-                    aria-label={`${folder.unreadCount} unread in ${folder.name}`}
+                    aria-label={m.folder_unreadInFolder({ count: folder.unreadCount, name: folder.name })}
                   />
                 )}
                 <span className="text-muted-foreground text-xs group-hover:hidden">
@@ -245,7 +246,7 @@ export function FolderSidebar({
       {/* Empty state when no folders - Story 9.4 Task 6.1 */}
       {folderList.length === 0 && (
         <p className="text-muted-foreground text-sm text-center py-4">
-          No folders yet. Folders are created automatically when you receive newsletters.
+          {m.folder_emptyState()}
         </p>
       )}
 
@@ -266,7 +267,7 @@ export function FolderSidebar({
           >
             <div className="flex items-center gap-2 truncate flex-1 mr-2">
               <EyeOff className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="truncate">Hidden</span>
+              <span className="truncate">{m.folder_hidden()}</span>
             </div>
             <span className="text-muted-foreground text-xs flex-shrink-0">{hiddenCount}</span>
           </button>

@@ -9,10 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as Char123LocaleChar125IndexRouteImport } from './routes/{-$locale}/index'
+import { Route as Char123LocaleChar125SignupRouteImport } from './routes/{-$locale}/signup'
+import { Route as Char123LocaleChar125LoginRouteImport } from './routes/{-$locale}/login'
 import { Route as AuthedAdminRouteRouteImport } from './routes/_authed/admin/route'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedNewslettersIndexRouteImport } from './routes/_authed/newsletters/index'
@@ -31,25 +31,28 @@ import { Route as AuthedAdminDeliveryRouteImport } from './routes/_authed/admin/
 import { Route as AuthedAdminCommunityRouteImport } from './routes/_authed/admin/community'
 import { Route as AuthedCommunitySenderSenderEmailRouteImport } from './routes/_authed/community/sender/$senderEmail'
 
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const Char123LocaleChar125IndexRoute =
+  Char123LocaleChar125IndexRouteImport.update({
+    id: '/{-$locale}/',
+    path: '/{-$locale}/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char123LocaleChar125SignupRoute =
+  Char123LocaleChar125SignupRouteImport.update({
+    id: '/{-$locale}/signup',
+    path: '/{-$locale}/signup',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char123LocaleChar125LoginRoute =
+  Char123LocaleChar125LoginRouteImport.update({
+    id: '/{-$locale}/login',
+    path: '/{-$locale}/login',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthedAdminRouteRoute = AuthedAdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -139,10 +142,11 @@ const AuthedCommunitySenderSenderEmailRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/signup': typeof SignupRoute
+  '/': typeof AuthedRouteWithChildren
   '/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
+  '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
+  '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/admin/community': typeof AuthedAdminCommunityRoute
   '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
@@ -161,9 +165,10 @@ export interface FileRoutesByFullPath {
   '/community/sender/$senderEmail': typeof AuthedCommunitySenderSenderEmailRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/signup': typeof SignupRoute
+  '/': typeof AuthedRouteWithChildren
+  '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
+  '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
+  '/{-$locale}': typeof Char123LocaleChar125IndexRoute
   '/admin/community': typeof AuthedAdminCommunityRoute
   '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
@@ -183,11 +188,11 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
-  '/login': typeof LoginRoute
-  '/signup': typeof SignupRoute
   '/_authed/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
+  '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
+  '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/_authed/admin/community': typeof AuthedAdminCommunityRoute
   '/_authed/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/_authed/admin/health': typeof AuthedAdminHealthRoute
@@ -209,9 +214,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/login'
-    | '/signup'
     | '/admin'
+    | '/{-$locale}/login'
+    | '/{-$locale}/signup'
+    | '/{-$locale}/'
     | '/admin/community'
     | '/admin/delivery'
     | '/admin/health'
@@ -231,8 +237,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/login'
-    | '/signup'
+    | '/{-$locale}/login'
+    | '/{-$locale}/signup'
+    | '/{-$locale}'
     | '/admin/community'
     | '/admin/delivery'
     | '/admin/health'
@@ -251,11 +258,11 @@ export interface FileRouteTypes {
     | '/community/sender/$senderEmail'
   id:
     | '__root__'
-    | '/'
     | '/_authed'
-    | '/login'
-    | '/signup'
     | '/_authed/admin'
+    | '/{-$locale}/login'
+    | '/{-$locale}/signup'
+    | '/{-$locale}/'
     | '/_authed/admin/community'
     | '/_authed/admin/delivery'
     | '/_authed/admin/health'
@@ -275,29 +282,15 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
-  LoginRoute: typeof LoginRoute
-  SignupRoute: typeof SignupRoute
+  Char123LocaleChar125LoginRoute: typeof Char123LocaleChar125LoginRoute
+  Char123LocaleChar125SignupRoute: typeof Char123LocaleChar125SignupRoute
+  Char123LocaleChar125IndexRoute: typeof Char123LocaleChar125IndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authed': {
       id: '/_authed'
       path: ''
@@ -305,11 +298,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/{-$locale}/': {
+      id: '/{-$locale}/'
+      path: '/{-$locale}'
+      fullPath: '/{-$locale}/'
+      preLoaderRoute: typeof Char123LocaleChar125IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/signup': {
+      id: '/{-$locale}/signup'
+      path: '/{-$locale}/signup'
+      fullPath: '/{-$locale}/signup'
+      preLoaderRoute: typeof Char123LocaleChar125SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/login': {
+      id: '/{-$locale}/login'
+      path: '/{-$locale}/login'
+      fullPath: '/{-$locale}/login'
+      preLoaderRoute: typeof Char123LocaleChar125LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/admin': {
@@ -485,10 +492,10 @@ const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
-  LoginRoute: LoginRoute,
-  SignupRoute: SignupRoute,
+  Char123LocaleChar125LoginRoute: Char123LocaleChar125LoginRoute,
+  Char123LocaleChar125SignupRoute: Char123LocaleChar125SignupRoute,
+  Char123LocaleChar125IndexRoute: Char123LocaleChar125IndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

@@ -1,6 +1,7 @@
 import { Badge, Tooltip, TooltipTrigger, TooltipContent } from "@hushletter/ui";
 import { CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Service status data structure
@@ -53,7 +54,7 @@ export function ServiceStatusBadge({ service, status }: ServiceStatusBadgeProps)
             status.healthy && "bg-green-600 hover:bg-green-700 text-white",
           )}
           role="status"
-          aria-label={`${service}: ${status.healthy ? "Healthy" : "Unhealthy"}`}
+          aria-label={status.healthy ? m.serviceStatus_healthyAriaLabel({ service }) : m.serviceStatus_unhealthyAriaLabel({ service })}
         >
           <Icon className="h-3 w-3" aria-hidden="true" />
           {service}

@@ -5,6 +5,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { Button } from "@hushletter/ui";
 import { Download, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Props for BulkImportBar component
@@ -46,25 +47,25 @@ export function BulkImportBar({
 
       // Story 9.9 Task 5.5: Show completion summary
       if (result.imported > 0 && result.skipped === 0 && result.failed === 0) {
-        toast.success(`Imported ${result.imported} newsletter${result.imported !== 1 ? "s" : ""}`);
+        toast.success(m.bulkImport_successImported({ count: result.imported }));
       } else {
         const parts = [];
         if (result.imported > 0) {
-          parts.push(`${result.imported} imported`);
+          parts.push(m.bulkImport_imported({ count: result.imported }));
         }
         if (result.skipped > 0) {
-          parts.push(`${result.skipped} already in collection`);
+          parts.push(m.bulkImport_alreadyInCollection({ count: result.skipped }));
         }
         if (result.failed > 0) {
-          parts.push(`${result.failed} failed`);
+          parts.push(m.bulkImport_failed({ count: result.failed }));
         }
-        toast.info(`Import complete: ${parts.join(", ")}`, { duration: 5000 });
+        toast.info(m.bulkImport_completeDetails({ details: parts.join(", ") }), { duration: 5000 });
       }
 
       onImportComplete();
       onClearSelection();
     } catch {
-      toast.error("Bulk import failed");
+      toast.error(m.bulkImport_errorFailed());
     } finally {
       setIsImporting(false);
     }
@@ -80,22 +81,21 @@ export function BulkImportBar({
           <>
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
             <span className="text-sm text-muted-foreground">
-              Importing {selectedIds.size} newsletter
-              {selectedIds.size !== 1 ? "s" : ""}...
+              {m.bulkImport_importing({ count: selectedIds.size })}
             </span>
           </>
         ) : (
           <>
-            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <span className="text-sm font-medium">{m.bulkImport_selected({ count: selectedIds.size })}</span>
             <Button onClick={handleBulkImport} size="sm">
               <Download className="h-4 w-4 mr-2" aria-hidden="true" />
-              Import Selected
+              {m.bulkImport_buttonImportSelected()}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={onClearSelection}
-              aria-label="Clear selection"
+              aria-label={m.bulkImport_ariaClearSelection()}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </Button>

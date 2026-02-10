@@ -8,6 +8,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { ReaderView, clearCacheEntry } from "@/components/ReaderView";
 import { SummaryPanel } from "@/components/SummaryPanel";
+import { m } from "@/paraglide/messages.js";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,13 +97,13 @@ function ContentErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
     <Card className="text-center">
       <CardHeader>
-        <CardTitle className="text-destructive">Failed to load content</CardTitle>
+        <CardTitle className="text-destructive">{m.newsletters_failedToLoadContent()}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-muted-foreground">
           There was an issue loading the newsletter content. Please try again.
         </p>
-        <Button onClick={resetErrorBoundary}>Try Again</Button>
+        <Button onClick={resetErrorBoundary}>{m.common_tryAgain()}</Button>
       </CardContent>
     </Card>
   );
@@ -116,11 +117,11 @@ function SummaryErrorFallback({ resetErrorBoundary }: FallbackProps) {
   return (
     <div className="mb-6 p-4 bg-muted/50 rounded-lg flex items-center justify-between">
       <span className="text-sm text-muted-foreground">
-        AI summary feature is temporarily unavailable.
+        {m.newsletters_aiSummaryUnavailable()}
       </span>
       <Button variant="ghost" size="sm" onClick={resetErrorBoundary} className="gap-1">
         <RefreshCw className="h-3 w-3" />
-        Retry
+        {m.newsletters_retry()}
       </Button>
     </div>
   );
@@ -134,11 +135,11 @@ function PageError({ message }: { message: string }) {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <Button variant="ghost" className="mb-6" onClick={() => window.history.back()}>
         <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to newsletters
+        {m.newsletters_backToNewsletters()}
       </Button>
       <Card className="text-center">
         <CardHeader>
-          <CardTitle className="text-destructive">Error</CardTitle>
+          <CardTitle className="text-destructive">{m.common_error()}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">{message}</p>
@@ -204,12 +205,12 @@ function NewsletterHeader({
         {isCommunity ? (
           <Badge variant="secondary" className="flex items-center gap-1 shrink-0">
             <Globe className="h-3 w-3" aria-hidden="true" />
-            <span>From community</span>
+            <span>{m.newsletters_fromCommunity()}</span>
           </Badge>
         ) : (
           <Badge variant="outline" className="flex items-center gap-1 shrink-0">
             <Mail className="h-3 w-3" aria-hidden="true" />
-            <span>Your collection</span>
+            <span>{m.newsletters_yourCollection()}</span>
           </Badge>
         )}
       </div>
@@ -235,14 +236,14 @@ function NewsletterHeader({
         <div className="flex items-center gap-2">
           {/* Progress indicator for partially read (AC5) */}
           {showResumeButton && (
-            <span className="text-sm text-muted-foreground">{readProgress}% read</span>
+            <span className="text-sm text-muted-foreground">{m.newsletters_readProgress({ progress: readProgress ?? 0 })}</span>
           )}
 
           {/* Resume reading button (AC2) */}
           {showResumeButton && onResumeClick && (
             <Button variant="outline" size="sm" onClick={onResumeClick} className="gap-1">
               <BookOpen className="h-4 w-4" />
-              Resume
+              {m.newsletters_resume()}
             </Button>
           )}
 
@@ -256,7 +257,7 @@ function NewsletterHeader({
               className="gap-1"
             >
               <BookMarked className="h-4 w-4" />
-              Mark unread
+              {m.newsletters_markUnread()}
             </Button>
           ) : (
             <Button
@@ -267,7 +268,7 @@ function NewsletterHeader({
               className="gap-1"
             >
               <BookOpen className="h-4 w-4" />
-              Mark as read
+              {m.newsletters_markAsRead()}
             </Button>
           )}
 
@@ -281,7 +282,7 @@ function NewsletterHeader({
               className="gap-1"
             >
               <Eye className="h-4 w-4" />
-              Unhide
+              {m.newsletters_unhide()}
             </Button>
           ) : (
             <Button
@@ -292,7 +293,7 @@ function NewsletterHeader({
               className="gap-1"
             >
               <EyeOff className="h-4 w-4" />
-              Hide
+              {m.newsletters_hide()}
             </Button>
           )}
 
@@ -300,21 +301,21 @@ function NewsletterHeader({
           <AlertDialog>
             <AlertDialogTrigger render={<Button variant="ghost" size="sm" className="gap-1" />}>
                 <Trash2 className="h-4 w-4" />
-                {isCommunity ? "Remove" : "Delete"}
+                {isCommunity ? m.newsletters_remove() : m.common_delete()}
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  {isCommunity ? "Remove from collection?" : "Delete newsletter?"}
+                  {isCommunity ? m.newsletters_removeFromCollection() : m.newsletters_deleteNewsletter()}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {isCommunity
-                    ? "This will remove the newsletter from your personal collection. The newsletter will still be available in the community library."
-                    : "This will permanently delete this newsletter from your collection."}
+                    ? m.newsletters_removeFromCollectionDesc()
+                    : m.newsletters_deleteNewsletterDesc()}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel>{m.common_cancel()}</AlertDialogCancel>
                 {/* Story 9.10 (code review fix): Destructive styling for permanent delete, default for community remove */}
                 <AlertDialogAction
                   onClick={onDelete}
@@ -324,7 +325,7 @@ function NewsletterHeader({
                       : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   }
                 >
-                  {isCommunity ? "Remove" : "Delete"}
+                  {isCommunity ? m.newsletters_remove() : m.common_delete()}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -388,7 +389,7 @@ function NewsletterDetailPage() {
 
   // Validate route param before using - prevents invalid ID errors
   if (!id || typeof id !== "string" || id.trim() === "") {
-    return <PageError message="Invalid newsletter ID" />;
+    return <PageError message={m.newsletters_invalidId()} />;
   }
 
   // Type assertion: Route params come as strings, but Convex expects Id<"userNewsletters">
@@ -419,10 +420,10 @@ function NewsletterDetailPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <Button variant="ghost" className="mb-6" onClick={() => window.history.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to newsletters
+          {m.newsletters_backToNewsletters()}
         </Button>
         <div className="text-center py-12">
-          <h2 className="text-xl font-semibold text-foreground mb-2">Newsletter not found</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-2">{m.newsletters_notFound()}</h2>
           <p className="text-muted-foreground">
             This newsletter may have been deleted or you don&apos;t have access to it.
           </p>
@@ -451,14 +452,14 @@ function NewsletterDetailPage() {
     try {
       await hideNewsletter({ userNewsletterId });
       // Show confirmation briefly before navigating (AC1: "confirmation is briefly shown")
-      setHideConfirmation("Newsletter hidden");
+      setHideConfirmation(m.newsletters_newsletterHidden());
       // Brief delay to show confirmation, then navigate
       setTimeout(() => {
         navigate({ to: "/newsletters" });
       }, 800);
     } catch (error) {
       console.error("[NewsletterDetail] Failed to hide newsletter:", error);
-      setHideConfirmation("Failed to hide newsletter");
+      setHideConfirmation(m.newsletters_failedToHide());
       setTimeout(() => setHideConfirmation(null), 2000);
     }
   };
@@ -467,11 +468,11 @@ function NewsletterDetailPage() {
     try {
       await unhideNewsletter({ userNewsletterId });
       // Show confirmation (AC1)
-      setHideConfirmation("Newsletter restored");
+      setHideConfirmation(m.newsletters_newsletterRestored());
       setTimeout(() => setHideConfirmation(null), 2000);
     } catch (error) {
       console.error("[NewsletterDetail] Failed to unhide newsletter:", error);
-      setHideConfirmation("Failed to restore newsletter");
+      setHideConfirmation(m.newsletters_failedToRestore());
       setTimeout(() => setHideConfirmation(null), 2000);
     }
   };
@@ -484,7 +485,7 @@ function NewsletterDetailPage() {
       navigate({ to: "/newsletters" });
     } catch (error) {
       console.error("[NewsletterDetail] Failed to delete newsletter:", error);
-      setHideConfirmation("Failed to delete newsletter");
+      setHideConfirmation(m.newsletters_failedToDelete());
       setTimeout(() => setHideConfirmation(null), 2000);
     }
   };
@@ -494,7 +495,7 @@ function NewsletterDetailPage() {
       {/* Back navigation - uses history.back() to preserve URL params like ?sender= (AC4) */}
       <Button variant="ghost" className="mb-6" onClick={() => window.history.back()}>
         <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to newsletters
+        {m.newsletters_backToNewsletters()}
       </Button>
 
       {/* Code review fix (HIGH-1): Confirmation feedback for hide/unhide (AC1) */}

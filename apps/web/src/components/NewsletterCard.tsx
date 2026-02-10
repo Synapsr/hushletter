@@ -7,6 +7,7 @@ import { Button, Card, CardContent, Tooltip, TooltipTrigger, TooltipContent } fr
 import { cn } from "@/lib/utils";
 import { EyeOff, Eye, Sparkles, Lock, Mail, Globe } from "lucide-react";
 import { SummaryPreview } from "./SummaryPreview";
+import { m } from "@/paraglide/messages.js";
 
 /** Newsletter data from listUserNewsletters query */
 export interface NewsletterData {
@@ -45,14 +46,14 @@ function formatDate(timestamp: number): string {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours === 0) {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      if (diffMinutes < 1) return "Just now";
-      return `${diffMinutes}m ago`;
+      if (diffMinutes < 1) return m.time_justNow();
+      return m.time_minutesAgo({ minutes: diffMinutes });
     }
-    return `${diffHours}h ago`;
+    return m.time_hoursAgo({ hours: diffHours });
   }
 
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays === 1) return m.time_yesterday();
+  if (diffDays < 7) return m.time_daysAgo({ days: diffDays });
 
   // Show full date for older newsletters
   return date.toLocaleDateString(undefined, {
@@ -78,7 +79,7 @@ function getSourceIndicatorInfo(source?: NewsletterData["source"]) {
   if (source === "community") {
     return {
       Icon: Globe,
-      label: "From community",
+      label: m.newsletters_fromCommunity(),
       tooltip: "This newsletter was imported from the community library",
       className: "text-blue-500",
     };
@@ -86,8 +87,8 @@ function getSourceIndicatorInfo(source?: NewsletterData["source"]) {
   // Default to private indicator for email/gmail/manual/undefined
   return {
     Icon: Mail,
-    label: "Private",
-    tooltip: "This newsletter is in your private collection",
+    label: m.newsletters_private(),
+    tooltip: m.newsletters_privateTooltip(),
     className: "text-muted-foreground",
   };
 }
@@ -124,13 +125,13 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
     e.preventDefault();
     e.stopPropagation();
     try {
-      setFeedback("Hiding...");
+      setFeedback(m.newsletterCard_hiding());
       await hideNewsletter({ userNewsletterId: newsletter._id });
       // Note: Item will disappear from list due to Convex reactivity - that's the primary feedback
       // The "Hiding..." text provides immediate feedback before the item disappears
     } catch (error) {
       console.error("[NewsletterCard] Failed to hide newsletter:", error);
-      setFeedback("Failed");
+      setFeedback(m.newsletterCard_failed());
       setTimeout(() => setFeedback(null), 2000);
     }
   };
@@ -139,13 +140,13 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
     e.preventDefault();
     e.stopPropagation();
     try {
-      setFeedback("Restoring...");
+      setFeedback(m.newsletterCard_restoring());
       await unhideNewsletter({ userNewsletterId: newsletter._id });
-      setFeedback("Restored!");
+      setFeedback(m.newsletterCard_restored());
       setTimeout(() => setFeedback(null), 1500);
     } catch (error) {
       console.error("[NewsletterCard] Failed to unhide newsletter:", error);
-      setFeedback("Failed");
+      setFeedback(m.newsletterCard_failed());
       setTimeout(() => setFeedback(null), 2000);
     }
   };
@@ -222,7 +223,7 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
                     <button
                       type="button"
                       className="flex items-center text-amber-500 hover:text-amber-400 transition-colors"
-                      title="Click to preview AI summary"
+                      title={m.newsletterCard_summaryPreviewAria()}
                       aria-label={
                         showSummaryPreview ? "Hide summary preview" : "Show summary preview"
                       }
@@ -253,7 +254,7 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
                 {/* Story 3.4 AC5: Progress indicator for partially read */}
                 {isPartiallyRead && !feedback && (
                   <span className="text-xs text-muted-foreground">
-                    {newsletter.readProgress}% read
+                    {m.newsletters_readProgress({ progress: newsletter.readProgress ?? 0 })}
                   </span>
                 )}
               </div>
@@ -266,7 +267,7 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
                   size="icon"
                   className="h-8 w-8 opacity-100"
                   onClick={handleUnhideClick}
-                  aria-label="Unhide newsletter"
+                  aria-label={m.newsletterCard_unhideAria()}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -276,7 +277,7 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
                   size="icon"
                   className="h-8 w-8 opacity-50 md:opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={handleHideClick}
-                  aria-label="Hide newsletter"
+                  aria-label={m.newsletterCard_hideAria()}
                 >
                   <EyeOff className="h-4 w-4" />
                 </Button>

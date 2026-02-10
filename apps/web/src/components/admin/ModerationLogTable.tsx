@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hushletter/ui";
 import { Eye, EyeOff, Ban, Unlock, CheckCircle, XCircle, History } from "lucide-react";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { m } from "@/paraglide/messages.js";
 
 /** Moderation log item returned from listModerationLog */
 interface ModerationLogItem {
@@ -43,13 +44,23 @@ const actionIcons: Record<string, React.ReactNode> = {
   dismiss_report: <XCircle className="h-4 w-4" />,
 };
 
-const actionLabels: Record<string, string> = {
-  hide_content: "Hid Content",
-  restore_content: "Restored Content",
-  block_sender: "Blocked Sender",
-  unblock_sender: "Unblocked Sender",
-  resolve_report: "Resolved Report",
-  dismiss_report: "Dismissed Report",
+const getActionLabel = (actionType: string): string => {
+  switch (actionType) {
+    case "hide_content":
+      return m.modLog_actionHidContent();
+    case "restore_content":
+      return m.modLog_actionRestoreContent();
+    case "block_sender":
+      return m.modLog_actionBlockSender();
+    case "unblock_sender":
+      return m.modLog_actionUnblockSender();
+    case "resolve_report":
+      return m.modLog_actionResolveReport();
+    case "dismiss_report":
+      return m.modLog_actionDismissReport();
+    default:
+      return actionType;
+  }
 };
 
 const actionVariants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -86,7 +97,7 @@ export function ModerationLogTable() {
 
   if (isError) {
     return (
-      <div className="text-center py-8 text-muted-foreground">Failed to load moderation log</div>
+      <div className="text-center py-8 text-muted-foreground">{m.modLog_errorLoadFailed()}</div>
     );
   }
 
@@ -101,16 +112,16 @@ export function ModerationLogTable() {
           onValueChange={(v) => setActionFilter(v as ActionType | "all")}
         >
           <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Filter by action" />
+            <SelectValue placeholder={m.modLog_filterByAction()} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Actions</SelectItem>
-            <SelectItem value="hide_content">Hide Content</SelectItem>
-            <SelectItem value="restore_content">Restore Content</SelectItem>
-            <SelectItem value="block_sender">Block Sender</SelectItem>
-            <SelectItem value="unblock_sender">Unblock Sender</SelectItem>
-            <SelectItem value="resolve_report">Resolve Report</SelectItem>
-            <SelectItem value="dismiss_report">Dismiss Report</SelectItem>
+            <SelectItem value="all">{m.modLog_allActions()}</SelectItem>
+            <SelectItem value="hide_content">{m.modLog_actionHideContent()}</SelectItem>
+            <SelectItem value="restore_content">{m.modLog_actionRestoreContent()}</SelectItem>
+            <SelectItem value="block_sender">{m.modLog_actionBlockSender()}</SelectItem>
+            <SelectItem value="unblock_sender">{m.modLog_actionUnblockSender()}</SelectItem>
+            <SelectItem value="resolve_report">{m.modLog_actionResolveReport()}</SelectItem>
+            <SelectItem value="dismiss_report">{m.modLog_actionDismissReport()}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -125,11 +136,11 @@ export function ModerationLogTable() {
       ) : logs.length === 0 ? (
         <div className="text-center py-12">
           <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium">No Moderation History</h3>
+          <h3 className="text-lg font-medium">{m.modLog_noHistoryTitle()}</h3>
           <p className="text-muted-foreground">
             {actionFilter === "all"
-              ? "No moderation actions have been taken yet."
-              : `No "${actionLabels[actionFilter]}" actions found.`}
+              ? m.modLog_noHistoryMessageAll()
+              : m.modLog_noHistoryMessageFiltered({ actionType: getActionLabel(actionFilter) })}
           </p>
         </div>
       ) : (
@@ -137,11 +148,11 @@ export function ModerationLogTable() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Action</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Admin</TableHead>
-                <TableHead>Timestamp</TableHead>
+                <TableHead>{m.modLog_columnAction()}</TableHead>
+                <TableHead>{m.modLog_columnTarget()}</TableHead>
+                <TableHead>{m.modLog_columnReason()}</TableHead>
+                <TableHead>{m.modLog_columnAdmin()}</TableHead>
+                <TableHead>{m.modLog_columnTimestamp()}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -153,7 +164,7 @@ export function ModerationLogTable() {
                       className="flex items-center gap-1 w-fit"
                     >
                       {actionIcons[log.actionType]}
-                      {actionLabels[log.actionType]}
+                      {getActionLabel(log.actionType)}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -169,7 +180,7 @@ export function ModerationLogTable() {
                     {log.details && (
                       <details className="text-xs text-muted-foreground">
                         <summary className="cursor-pointer hover:text-foreground">
-                          View details
+                          {m.modLog_viewDetails()}
                         </summary>
                         <pre className="mt-1 text-xs overflow-auto max-w-[200px]">
                           {JSON.stringify(log.details, null, 2)}

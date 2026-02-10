@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@hushletter/backend";
 import { useConvexMutation } from "@convex-dev/react-query";
 import { useState } from "react";
+import { m } from "@/paraglide/messages.js";
 import {
   Button,
   Dialog,
@@ -111,7 +112,7 @@ export function BlockedSendersTable() {
 
   if (isError) {
     return (
-      <div className="text-center py-8 text-muted-foreground">Failed to load blocked senders</div>
+      <div className="text-center py-8 text-muted-foreground">{m.blockedSenders_loadError()}</div>
     );
   }
 
@@ -131,8 +132,8 @@ export function BlockedSendersTable() {
     return (
       <div className="text-center py-12">
         <Ban className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium">No Blocked Senders</h3>
-        <p className="text-muted-foreground">No senders have been blocked from the community.</p>
+        <h3 className="text-lg font-medium">{m.blockedSenders_emptyTitle()}</h3>
+        <p className="text-muted-foreground">{m.blockedSenders_emptyDescription()}</p>
       </div>
     );
   }
@@ -143,18 +144,18 @@ export function BlockedSendersTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Sender</TableHead>
-              <TableHead>Domain</TableHead>
-              <TableHead>Reason</TableHead>
+              <TableHead>{m.blockedSenders_columnSender()}</TableHead>
+              <TableHead>{m.blockedSenders_columnDomain()}</TableHead>
+              <TableHead>{m.blockedSenders_columnReason()}</TableHead>
               <TableHead>
                 <div className="flex items-center gap-1">
                   <FileText className="h-4 w-4" aria-hidden="true" />
-                  Content
+                  {m.blockedSenders_columnContent()}
                 </div>
               </TableHead>
-              <TableHead>Blocked At</TableHead>
-              <TableHead>Blocked By</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{m.blockedSenders_columnBlockedAt()}</TableHead>
+              <TableHead>{m.blockedSenders_columnBlockedBy()}</TableHead>
+              <TableHead className="text-right">{m.blockedSenders_columnActions()}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -170,7 +171,7 @@ export function BlockedSendersTable() {
                 </TableCell>
                 <TableCell>{sender.domain}</TableCell>
                 <TableCell className="max-w-[200px] truncate">{sender.reason}</TableCell>
-                <TableCell>{sender.contentCount} items</TableCell>
+                <TableCell>{m.blockedSenders_contentCount({ count: sender.contentCount })}</TableCell>
                 <TableCell>{formatDate(sender.blockedAt)}</TableCell>
                 <TableCell>{sender.blockedByEmail}</TableCell>
                 <TableCell className="text-right">
@@ -185,10 +186,10 @@ export function BlockedSendersTable() {
                         contentCount: sender.contentCount,
                       })
                     }
-                    aria-label={`Unblock ${sender.senderEmail}`}
+                    aria-label={m.blockedSenders_unblockAriaLabel({ email: sender.senderEmail })}
                   >
                     <Unlock className="h-4 w-4 mr-1" aria-hidden="true" />
-                    Unblock
+                    {m.blockedSenders_unblockButton()}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -201,20 +202,20 @@ export function BlockedSendersTable() {
       <Dialog open={unblockDialogOpen} onOpenChange={setUnblockDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Unblock Sender</DialogTitle>
+            <DialogTitle>{m.blockedSenders_dialogUnblockTitle()}</DialogTitle>
             <DialogDescription>
-              This will allow the sender's content to appear in the community again.
+              {m.blockedSenders_dialogUnblockDescription()}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label className="text-sm font-medium">Sender</Label>
+              <Label className="text-sm font-medium">{m.blockedSenders_dialogSenderLabel()}</Label>
               <p className="text-sm text-muted-foreground">{selectedSender?.senderEmail}</p>
             </div>
             <div>
-              <Label className="text-sm font-medium">Content affected</Label>
+              <Label className="text-sm font-medium">{m.blockedSenders_dialogContentAffectedLabel()}</Label>
               <p className="text-sm text-muted-foreground">
-                {selectedSender?.contentCount} newsletters
+                {m.blockedSenders_dialogNewsletterCount({ count: selectedSender?.contentCount ?? 0 })}
               </p>
             </div>
             <div className="flex items-center space-x-2">
@@ -226,16 +227,16 @@ export function BlockedSendersTable() {
                 className="h-4 w-4 rounded border-gray-300"
               />
               <Label htmlFor="restore-content" className="text-sm">
-                Restore all hidden content from this sender
+                {m.blockedSenders_dialogRestoreContentLabel()}
               </Label>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUnblockDialogOpen(false)}>
-              Cancel
+              {m.blockedSenders_dialogCancelButton()}
             </Button>
             <Button onClick={handleUnblock} disabled={unblockMutation.isPending}>
-              {unblockMutation.isPending ? "Unblocking..." : "Unblock Sender"}
+              {unblockMutation.isPending ? m.blockedSenders_dialogUnblockingButton() : m.blockedSenders_dialogUnblockButton()}
             </Button>
           </DialogFooter>
         </DialogContent>

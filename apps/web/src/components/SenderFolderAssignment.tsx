@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@hushletter/ui";
 import { FolderIcon, CheckIcon } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Folder data type (minimal for folder selection)
@@ -83,12 +84,12 @@ export function SenderFolderAssignment({
       ) : (
         <DialogTrigger render={<Button variant="outline" size="sm" />}>
             <FolderIcon className="h-4 w-4 mr-2" />
-            {currentFolder ? currentFolder.name : "Assign to Folder"}
+            {currentFolder ? currentFolder.name : m.senderFolder_assignToFolder()}
         </DialogTrigger>
       )}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Assign "{senderName}" to Folder</DialogTitle>
+          <DialogTitle>{m.senderFolder_assignTitle({ senderName })}</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -104,11 +105,11 @@ export function SenderFolderAssignment({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select a folder" />
+                <SelectValue placeholder={m.senderFolder_selectPlaceholder()} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">
-                  <span className="text-muted-foreground">No folder (Uncategorized)</span>
+                  <span className="text-muted-foreground">{m.senderFolder_noFolder()}</span>
                 </SelectItem>
                 {folderList.map((folder) => (
                   <SelectItem key={folder._id} value={folder._id}>
@@ -123,19 +124,19 @@ export function SenderFolderAssignment({
 
             {folderList.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No folders yet. Create a folder first from the sidebar.
+                {m.senderFolder_noFoldersYet()}
               </p>
             )}
           </div>
           <div className="flex justify-end gap-2">
             <DialogClose render={<Button type="button" variant="outline" />}>
-                Cancel
+                {m.senderFolder_cancel()}
             </DialogClose>
             <form.Subscribe
               selector={(state) => state.isSubmitting}
               children={(isSubmitting) => (
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : "Save"}
+                  {isSubmitting ? m.senderFolder_saving() : m.senderFolder_save()}
                 </Button>
               )}
             />
@@ -196,12 +197,12 @@ export function SenderFolderDropdown({
           <SelectTrigger className="w-[180px]">
             <div className="flex items-center gap-2">
               <FolderIcon className="h-4 w-4 text-muted-foreground" />
-              <SelectValue>{currentFolder?.name ?? "No folder"}</SelectValue>
+              <SelectValue>{currentFolder?.name ?? m.senderFolder_noFolderShort()}</SelectValue>
             </div>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">
-              <span className="text-muted-foreground">No folder</span>
+              <span className="text-muted-foreground">{m.senderFolder_noFolderShort()}</span>
             </SelectItem>
             {folderList.map((folder) => (
               <SelectItem key={folder._id} value={folder._id}>

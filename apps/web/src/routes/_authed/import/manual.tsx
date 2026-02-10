@@ -22,6 +22,7 @@ import { EmlDropZone } from "./-EmlDropZone";
 import { EmlPreview } from "./-EmlPreview";
 import { BulkImportProgress } from "./-BulkImportProgress";
 import { readFileAsArrayBuffer, getParserErrorMessage } from "./-emlUtils";
+import { m } from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/import/manual")({
   component: ManualImportPage,
@@ -50,9 +51,9 @@ function ErrorAlert({ message, onDismiss }: { message: string; onDismiss: () => 
       <button
         onClick={onDismiss}
         className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-sm font-medium"
-        aria-label="Dismiss error"
+        aria-label={m.importManual_dismissError()}
       >
-        Dismiss
+        {m.importManual_dismissError()}
       </button>
     </div>
   );
@@ -171,11 +172,11 @@ function ManualImportPage() {
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Import
+          {m.importManual_backToImport()}
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Manual Import</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{m.importManual_title()}</h1>
         <p className="text-muted-foreground">
-          Import newsletters from .eml files exported from your email client
+          {m.importManual_description()}
         </p>
       </div>
 
@@ -195,8 +196,8 @@ function ManualImportPage() {
       {state.type === "parsing" && (
         <Card>
           <CardHeader>
-            <CardTitle>Parsing Email File</CardTitle>
-            <CardDescription>Reading and validating the .eml file...</CardDescription>
+            <CardTitle>{m.importManual_parsing()}</CardTitle>
+            <CardDescription>{m.importManual_parsingDesc()}</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -237,19 +238,17 @@ function ManualImportPage() {
       {state.type === "idle" && (
         <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900">
           <p className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-2">
-            How to export .eml files
+            {m.importManual_howToExport()}
           </p>
           <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
             <li>
-              <strong>Gmail:</strong> Open email → Three dots menu → Download message
+              <strong>{m.importManual_gmail()}</strong> {m.importManual_gmailSteps()}
             </li>
             <li>
-              <strong>Outlook:</strong> Select email → File → Save As → Save as type: Outlook
-              Message Format
+              <strong>{m.importManual_outlook()}</strong> {m.importManual_outlookSteps()}
             </li>
             <li>
-              <strong>Apple Mail:</strong> Select email → File → Save As → Format: Raw Message
-              Source
+              <strong>{m.importManual_appleMail()}</strong> {m.importManual_appleMailSteps()}
             </li>
           </ul>
         </div>

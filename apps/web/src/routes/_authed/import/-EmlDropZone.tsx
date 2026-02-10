@@ -15,6 +15,7 @@ import { useRef, useState } from "react";
 import { Button } from "@hushletter/ui";
 import { Upload, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 interface EmlDropZoneProps {
   /** Callback when valid .eml files are selected */
@@ -78,7 +79,7 @@ export function EmlDropZone({ onFilesSelected, onError, disabled = false }: EmlD
     const emlFiles = files.filter((f) => f.name.toLowerCase().endsWith(".eml"));
 
     if (emlFiles.length === 0) {
-      onError("Only .eml files are supported");
+      onError(m.emlDrop_invalidFiles());
       return;
     }
 
@@ -113,7 +114,7 @@ export function EmlDropZone({ onFilesSelected, onError, disabled = false }: EmlD
     <div
       role="button"
       tabIndex={disabled ? -1 : 0}
-      aria-label="Drop zone for email files. Press Enter to browse files."
+      aria-label={m.emlDrop_ariaLabel()}
       aria-disabled={disabled}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -151,25 +152,25 @@ export function EmlDropZone({ onFilesSelected, onError, disabled = false }: EmlD
       {/* Instructions */}
       <div className="space-y-2">
         <p className="text-lg font-medium text-gray-900 dark:text-white">
-          {isDragging && !disabled ? "Drop files here" : "Drag .eml files here"}
+          {isDragging && !disabled ? m.emlDrop_dropActive() : m.emlDrop_dropIdle()}
         </p>
         <p className="text-sm text-muted-foreground">
           {isDragging && !disabled
-            ? "Release to import"
-            : "Supports single or multiple file import"}
+            ? m.emlDrop_dropRelease()
+            : m.emlDrop_dropDescription()}
         </p>
       </div>
 
       {/* Browse button (AC #7) */}
       <div className="mt-4">
         <Button variant="outline" onClick={handleBrowseClick} disabled={disabled} type="button">
-          Browse Files
+          {m.emlDrop_browseButton()}
         </Button>
       </div>
 
       {/* File type hint */}
       <p className="mt-4 text-xs text-muted-foreground">
-        Only .eml files are supported. Export newsletters from your email client as .eml format.
+        {m.emlDrop_fileTypeHint()}
       </p>
     </div>
   );

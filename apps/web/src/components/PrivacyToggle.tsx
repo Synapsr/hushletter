@@ -11,6 +11,7 @@ import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { Lock, Unlock, AlertCircle } from "lucide-react";
 import { Switch, Tooltip, TooltipTrigger, TooltipContent } from "@hushletter/ui";
+import { m } from "@/paraglide/messages.js";
 
 interface PrivacyToggleProps {
   senderId: Id<"senders">;
@@ -42,7 +43,7 @@ export function PrivacyToggle({ senderId, isPrivate, compact = false }: PrivacyT
       await mutateAsync({ senderId, isPrivate: checked });
     } catch (err) {
       console.error("[PrivacyToggle] Failed to update privacy setting:", err);
-      setError("Failed to update");
+      setError(m.privacyToggle_failedToUpdate());
       // Clear error after 3 seconds
       setTimeout(() => setError(null), 3000);
     }
@@ -53,7 +54,7 @@ export function PrivacyToggle({ senderId, isPrivate, compact = false }: PrivacyT
       {error ? (
         <Tooltip>
           <TooltipTrigger className="inline-flex">
-            <AlertCircle className="h-4 w-4 text-destructive" aria-label="Error updating privacy" />
+            <AlertCircle className="h-4 w-4 text-destructive" aria-label={m.privacyToggle_errorUpdatingPrivacy()} />
           </TooltipTrigger>
           <TooltipContent>{error}</TooltipContent>
         </Tooltip>
@@ -66,10 +67,10 @@ export function PrivacyToggle({ senderId, isPrivate, compact = false }: PrivacyT
         checked={isPrivate}
         onCheckedChange={handleToggle}
         disabled={isPending}
-        aria-label={isPrivate ? "Mark sender as public" : "Mark sender as private"}
+        aria-label={isPrivate ? m.privacyToggle_markAsPublic() : m.privacyToggle_markAsPrivate()}
       />
       {!compact && (
-        <span className="text-sm text-muted-foreground">{isPrivate ? "Private" : "Public"}</span>
+        <span className="text-sm text-muted-foreground">{isPrivate ? m.privacyToggle_private() : m.privacyToggle_public()}</span>
       )}
     </div>
   );

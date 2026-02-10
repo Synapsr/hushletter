@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { m } from "@/paraglide/messages.js";
 import {
   Button,
   Input,
@@ -90,7 +91,7 @@ export function ModerationQueueTable() {
       <div className="flex flex-wrap gap-4 items-end">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Label htmlFor="sender-filter" className="text-xs text-muted-foreground mb-1 block">
-            Sender
+            {m.modQueue_labelSender()}
           </Label>
           <div className="relative">
             <Search
@@ -99,48 +100,48 @@ export function ModerationQueueTable() {
             />
             <Input
               id="sender-filter"
-              placeholder="Filter by sender email..."
+              placeholder={m.modQueue_filterSenderPlaceholder()}
               value={senderFilter}
               onChange={(e) => setSenderFilter(e.target.value)}
               className="pl-9"
-              aria-label="Filter by sender email"
+              aria-label={m.modQueue_filterSenderLabel()}
             />
           </div>
         </div>
         <div className="min-w-[150px]">
           <Label htmlFor="start-date" className="text-xs text-muted-foreground mb-1 block">
-            From Date
+            {m.modQueue_labelFromDate()}
           </Label>
           <Input
             id="start-date"
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            aria-label="Filter from date"
+            aria-label={m.modQueue_filterFromDateLabel()}
           />
         </div>
         <div className="min-w-[150px]">
           <Label htmlFor="end-date" className="text-xs text-muted-foreground mb-1 block">
-            To Date
+            {m.modQueue_labelToDate()}
           </Label>
           <Input
             id="end-date"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            aria-label="Filter to date"
+            aria-label={m.modQueue_filterToDateLabel()}
           />
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Sort</Label>
+          <Label className="text-xs text-muted-foreground mb-1 block">{m.modQueue_labelSort()}</Label>
           <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-            <SelectTrigger className="w-[180px]" aria-label="Sort by">
-              <SelectValue placeholder="Sort by..." />
+            <SelectTrigger className="w-[180px]" aria-label={m.modQueue_sortByLabel()}>
+              <SelectValue placeholder={m.modQueue_sortByPlaceholder()} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="latestReceived">Latest Received</SelectItem>
-              <SelectItem value="newsletterCount">Newsletter Count</SelectItem>
-              <SelectItem value="senderName">Sender Name</SelectItem>
+              <SelectItem value="latestReceived">{m.modQueue_sortLatestReceived()}</SelectItem>
+              <SelectItem value="newsletterCount">{m.modQueue_sortNewsletterCount()}</SelectItem>
+              <SelectItem value="senderName">{m.modQueue_sortSenderName()}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -150,10 +151,10 @@ export function ModerationQueueTable() {
             size="sm"
             onClick={clearFilters}
             className="h-10"
-            aria-label="Clear all filters"
+            aria-label={m.modQueue_clearFiltersLabel()}
           >
             <X className="h-4 w-4 mr-1" aria-hidden="true" />
-            Clear
+            {m.modQueue_buttonClear()}
           </Button>
         )}
       </div>
@@ -164,10 +165,10 @@ export function ModerationQueueTable() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-8" />
-              <TableHead>Sender</TableHead>
-              <TableHead className="text-right">Newsletters</TableHead>
-              <TableHead>Latest Received</TableHead>
-              <TableHead>Sample Subjects</TableHead>
+              <TableHead>{m.modQueue_columnSender()}</TableHead>
+              <TableHead className="text-right">{m.modQueue_columnNewsletters()}</TableHead>
+              <TableHead>{m.modQueue_columnLatestReceived()}</TableHead>
+              <TableHead>{m.modQueue_columnSampleSubjects()}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -194,7 +195,7 @@ export function ModerationQueueTable() {
             ) : queue?.items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  No newsletters pending moderation
+                  {m.modQueue_noNewsletters()}
                 </TableCell>
               </TableRow>
             ) : (
@@ -216,8 +217,8 @@ export function ModerationQueueTable() {
       {/* Pagination info */}
       {queue && (
         <div className="text-sm text-muted-foreground">
-          Showing {queue.items.length} of {queue.totalSenders} senders
-          {queue.hasMore && " (more available)"}
+          {m.modQueue_showingSenders({ shown: queue.items.length, total: queue.totalSenders })}
+          {queue.hasMore && ` ${m.modQueue_moreAvailable()}`}
         </div>
       )}
 
@@ -265,7 +266,7 @@ function SenderRow({
         aria-expanded={isExpanded}
       >
         <TableCell>
-          <button type="button" className="p-1" aria-label={isExpanded ? "Collapse" : "Expand"}>
+          <button type="button" className="p-1" aria-label={isExpanded ? m.modQueue_collapseLabel() : m.modQueue_expandLabel()}>
             {isExpanded ? (
               <ChevronDown className="h-4 w-4" aria-hidden="true" />
             ) : (
@@ -347,7 +348,7 @@ function SenderNewsletterRows({
           </TableCell>
           <TableCell>{formatDate(newsletter.receivedAt)}</TableCell>
           <TableCell className="text-sm text-muted-foreground">
-            User: {newsletter.userEmail}
+            {m.modQueue_userLabel({ email: newsletter.userEmail })}
           </TableCell>
         </TableRow>
       ))}

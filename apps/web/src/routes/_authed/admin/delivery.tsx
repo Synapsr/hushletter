@@ -7,6 +7,7 @@ import { DeliveryStatsCard } from "@/components/admin/DeliveryStatsCard";
 import { DeliveryLogTable } from "@/components/admin/DeliveryLogTable";
 import { AnomalyAlertBanner } from "@/components/admin/AnomalyAlertBanner";
 import { Card, CardContent, CardHeader, CardTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton } from "@hushletter/ui";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Email Delivery Monitoring Page
@@ -65,7 +66,7 @@ function DeliveryMonitoring() {
 
       {/* Delivery Stats Cards */}
       <section aria-label="Delivery Statistics">
-        <h2 className="text-lg font-medium mb-3">Delivery Statistics (24h)</h2>
+        <h2 className="text-lg font-medium mb-3">{m.adminDelivery_statsTitle()}</h2>
         {statsLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -81,7 +82,7 @@ function DeliveryMonitoring() {
       <section aria-label="Success Rates">
         <Card>
           <CardHeader>
-            <CardTitle>Success Rates by Period</CardTitle>
+            <CardTitle>{m.adminDelivery_successRates()}</CardTitle>
           </CardHeader>
           <CardContent>
             {rateStatsLoading ? (
@@ -103,7 +104,7 @@ function DeliveryMonitoring() {
                       {period.successRate}%
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {period.stored}/{period.total} delivered
+                      {m.adminDelivery_delivered({ stored: period.stored, total: period.total })}
                     </p>
                   </div>
                 ))}
@@ -118,10 +119,10 @@ function DeliveryMonitoring() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>
-              Delivery Logs
+              {m.adminDelivery_logsTitle()}
               {failedDeliveries && failedDeliveries.length > 0 && (
                 <span className="ml-2 text-sm font-normal text-red-600 dark:text-red-400">
-                  ({failedDeliveries.length} failed)
+                  {m.adminDelivery_failedCount({ count: failedDeliveries.length })}
                 </span>
               )}
             </CardTitle>
@@ -129,15 +130,15 @@ function DeliveryMonitoring() {
               value={statusFilter}
               onValueChange={(v) => setStatusFilter(v as DeliveryStatusFilter)}
             >
-              <SelectTrigger className="w-[150px]" aria-label="Filter by status">
-                <SelectValue placeholder="Filter by status" />
+              <SelectTrigger className="w-[150px]" aria-label={m.adminDelivery_filterByStatus()}>
+                <SelectValue placeholder={m.adminDelivery_filterByStatus()} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="received">Received</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="stored">Stored</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="all">{m.adminDelivery_allStatus()}</SelectItem>
+                <SelectItem value="received">{m.adminDelivery_received()}</SelectItem>
+                <SelectItem value="processing">{m.adminDelivery_processing()}</SelectItem>
+                <SelectItem value="stored">{m.adminDelivery_stored()}</SelectItem>
+                <SelectItem value="failed">{m.adminDelivery_failed()}</SelectItem>
               </SelectContent>
             </Select>
           </CardHeader>

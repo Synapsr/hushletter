@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle, Badge } from "@hushletter/ui";
 import { CheckCircle, AlertTriangle, XCircle, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Privacy violation from runPrivacyAudit query
@@ -51,7 +52,7 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
       color: "text-green-600",
       bgColor: "bg-green-50 dark:bg-green-950/20",
       borderColor: "border-green-500",
-      title: "Privacy Compliance: PASS",
+      title: m.privacyAudit_statusPass(),
     },
     WARNING: {
       variant: "default" as const,
@@ -59,7 +60,7 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
       color: "text-yellow-600",
       bgColor: "bg-yellow-50 dark:bg-yellow-950/20",
       borderColor: "border-yellow-500",
-      title: "Privacy Compliance: WARNING",
+      title: m.privacyAudit_statusWarning(),
     },
     FAIL: {
       variant: "destructive" as const,
@@ -67,7 +68,7 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
       color: "text-red-600",
       bgColor: "bg-red-50 dark:bg-red-950/20",
       borderColor: "border-red-500",
-      title: "Privacy Compliance: FAIL",
+      title: m.privacyAudit_statusFail(),
     },
   };
 
@@ -91,7 +92,7 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
 
         {audit.violations.length > 0 && (
           <div className="mt-4 space-y-2">
-            <p className="font-medium">Violations Found:</p>
+            <p className="font-medium">{m.privacyAudit_violationsFoundTitle()}</p>
             <ul className="list-disc list-inside space-y-1" role="list">
               {audit.violations.map((violation, index) => (
                 <li
@@ -99,7 +100,7 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
                   className={violation.severity === "critical" ? "text-red-600" : "text-yellow-600"}
                 >
                   {violation.message}
-                  <span className="sr-only"> - severity: {violation.severity}</span>
+                  <span className="sr-only"> - {m.privacyAudit_severityLabel({ severity: violation.severity })}</span>
                 </li>
               ))}
             </ul>
@@ -108,7 +109,7 @@ export function PrivacyAuditPanel({ audit }: PrivacyAuditPanelProps) {
 
         {status === "PASS" && (
           <p className="mt-2 text-green-700 dark:text-green-300">
-            All privacy checks passed. Private content is properly isolated from community database.
+            {m.privacyAudit_passMessage()}
           </p>
         )}
       </AlertDescription>

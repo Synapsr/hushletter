@@ -4,6 +4,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { Badge, Skeleton } from "@hushletter/ui";
 import { ShieldAlert } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Admin route layout - guards all /admin/* routes
@@ -57,9 +58,9 @@ function AdminLayout() {
         aria-live="polite"
       >
         <ShieldAlert className="h-12 w-12 text-destructive" aria-hidden="true" />
-        <h1 className="text-2xl font-bold">Error</h1>
+        <h1 className="text-2xl font-bold">{m.common_error()}</h1>
         <p className="text-muted-foreground">
-          {error?.message ?? "An error occurred while checking permissions."}
+          {error?.message ?? m.admin_permissionError()}
         </p>
       </div>
     );
@@ -74,10 +75,10 @@ function AdminLayout() {
         aria-live="polite"
       >
         <ShieldAlert className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
-        <h1 className="text-2xl font-bold">Access Denied</h1>
-        <p className="text-muted-foreground">You do not have permission to access this area.</p>
+        <h1 className="text-2xl font-bold">{m.admin_accessDenied()}</h1>
+        <p className="text-muted-foreground">{m.admin_noPermission()}</p>
         <Link to="/newsletters" className="text-primary hover:underline mt-4">
-          Return to Newsletters
+          {m.admin_returnToNewsletters()}
         </Link>
       </div>
     );
@@ -88,7 +89,7 @@ function AdminLayout() {
     <div className="flex flex-col h-full min-h-screen">
       <header className="border-b border-border bg-background px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Admin Dashboard</h1>
+          <h1 className="text-xl font-semibold">{m.admin_dashboardTitle()}</h1>
           <nav className="flex items-center gap-4" aria-label="Admin navigation">
             <Link
               to="/admin"
@@ -96,35 +97,35 @@ function AdminLayout() {
               activeProps={{ className: "text-foreground font-medium" }}
               activeOptions={{ exact: true }}
             >
-              Overview
+              {m.admin_navOverview()}
             </Link>
             <Link
               to="/admin/health"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               activeProps={{ className: "text-foreground font-medium" }}
             >
-              Health Details
+              {m.admin_navHealth()}
             </Link>
             <Link
               to="/admin/delivery"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               activeProps={{ className: "text-foreground font-medium" }}
             >
-              Email Delivery
+              {m.admin_navDelivery()}
             </Link>
             <Link
               to="/admin/privacy"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               activeProps={{ className: "text-foreground font-medium" }}
             >
-              Privacy Review
+              {m.admin_navPrivacy()}
             </Link>
             <Link
               to="/admin/moderation"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
               activeProps={{ className: "text-foreground font-medium" }}
             >
-              Moderation
+              {m.admin_navModeration()}
               {typeof moderationCount?.count === "number" && moderationCount.count > 0 && (
                 <Badge variant="secondary" className="ml-1 text-xs">
                   {moderationCount.count}
@@ -136,7 +137,7 @@ function AdminLayout() {
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               activeProps={{ className: "text-foreground font-medium" }}
             >
-              Community Content
+              {m.admin_navCommunity()}
             </Link>
           </nav>
         </div>

@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@hushletter/ui";
+import { m } from "@/paraglide/messages.js";
 
 interface ErrorFallbackProps {
   error: Error;
@@ -19,29 +20,29 @@ export function ErrorFallback({ error, resetErrorBoundary }: ErrorFallbackProps)
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-destructive">
-            Something went wrong
+            {m.errorFallback_title()}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
           <p className="text-gray-600 dark:text-gray-400">
-            We encountered an unexpected error. Please try again or return to the home page.
+            {m.errorFallback_description()}
           </p>
 
           <div className="flex flex-col gap-2">
             {resetErrorBoundary && (
               <Button onClick={resetErrorBoundary} variant="default">
-                Try Again
+                {m.common_tryAgain()}
               </Button>
             )}
-            <Link to="/">
+            <Link to="/{-$locale}">
               <Button variant="outline" className="w-full">
-                Return Home
+                {m.errorFallback_returnHome()}
               </Button>
             </Link>
           </div>
 
           {/* Show error ID for support - NOT the actual error message */}
-          <p className="text-xs text-gray-400 mt-4">Error ID: {Date.now().toString(36)}</p>
+          <p className="text-xs text-gray-400 mt-4">{m.errorFallback_errorId({ id: Date.now().toString(36) })}</p>
         </CardContent>
       </Card>
     </main>

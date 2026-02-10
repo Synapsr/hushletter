@@ -13,6 +13,7 @@ import { useState, useMemo, useDeferredValue } from "react";
 import { Shield, Search, ArrowLeft, Info } from "lucide-react";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, Input } from "@hushletter/ui";
 import { PrivacyToggle } from "@/components/PrivacyToggle";
+import { m } from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/settings/privacy")({
   component: PrivacySettingsPage,
@@ -136,7 +137,7 @@ function PrivacySettingsPage() {
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-destructive">
-              Failed to load senders. Please try refreshing the page.
+              {m.settingsPrivacy_loadError()}
             </p>
           </CardContent>
         </Card>
@@ -157,14 +158,14 @@ function PrivacySettingsPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Settings
+          {m.settingsPrivacy_backToSettings()}
         </Link>
         <div className="flex items-center gap-3">
           <Shield className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Privacy Settings</h1>
+            <h1 className="text-3xl font-bold text-foreground">{m.settingsPrivacy_title()}</h1>
             <p className="text-muted-foreground mt-1">
-              Control which senders' newsletters are shared with the community.
+              {m.settings_privacyDescription()}
             </p>
           </div>
         </div>
@@ -176,18 +177,18 @@ function PrivacySettingsPage() {
           <div className="flex gap-3">
             <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
             <div className="text-sm text-blue-900 dark:text-blue-100 space-y-1">
-              <p className="font-medium">How privacy works:</p>
+              <p className="font-medium">{m.settingsPrivacy_howPrivacyWorks()}</p>
               <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-200">
                 <li>
-                  <strong>Public senders:</strong> Future newsletters are shared with the community
+                  <strong>{m.settingsPrivacy_publicSenders()}</strong> {m.settingsPrivacy_publicDescription()}
                 </li>
                 <li>
-                  <strong>Private senders:</strong> Newsletters are only visible to you
+                  <strong>{m.settingsPrivacy_privateSenders()}</strong> {m.settingsPrivacy_privateDescription()}
                 </li>
                 <li>
-                  Changing privacy settings only affects <strong>future</strong> newsletters
+                  {m.settingsPrivacy_futureOnly()}
                 </li>
-                <li>Existing newsletters keep their current privacy status</li>
+                <li>{m.settingsPrivacy_existingKept()}</li>
               </ul>
             </div>
           </div>
@@ -197,10 +198,10 @@ function PrivacySettingsPage() {
       {/* Main settings card */}
       <Card>
         <CardHeader>
-          <CardTitle>Sender Privacy</CardTitle>
+          <CardTitle>{m.settingsPrivacy_senderPrivacy()}</CardTitle>
           <CardDescription>
             {senderList?.length === 0
-              ? "You don't have any senders yet. Newsletters you receive will appear here."
+              ? m.settingsPrivacy_noSenders()
               : `Manage privacy for ${senderList?.length} sender${senderList?.length === 1 ? "" : "s"}`}
           </CardDescription>
         </CardHeader>
@@ -211,7 +212,7 @@ function PrivacySettingsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search senders..."
+                  placeholder={m.settingsPrivacy_searchPlaceholder()}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -222,7 +223,7 @@ function PrivacySettingsPage() {
               {selectedSenders.size > 0 && (
                 <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                   <span className="text-sm text-muted-foreground">
-                    {selectedSenders.size} selected
+                    {m.settingsPrivacy_selected({ count: selectedSenders.size })}
                   </span>
                   <div className="flex-1" />
                   <Button
@@ -231,7 +232,7 @@ function PrivacySettingsPage() {
                     onClick={handleBulkPrivate}
                     disabled={updateSettings.isPending}
                   >
-                    Mark Private
+                    {m.settingsPrivacy_markPrivate()}
                   </Button>
                   <Button
                     variant="outline"
@@ -239,7 +240,7 @@ function PrivacySettingsPage() {
                     onClick={handleBulkPublic}
                     disabled={updateSettings.isPending}
                   >
-                    Mark Public
+                    {m.settingsPrivacy_markPublic()}
                   </Button>
                 </div>
               )}
@@ -252,17 +253,17 @@ function PrivacySettingsPage() {
                     checked={isAllSelected}
                     indeterminate={isSomeSelected}
                     onCheckedChange={toggleSelectAll}
-                    aria-label={isAllSelected ? "Deselect all" : "Select all"}
+                    aria-label={isAllSelected ? m.settingsPrivacy_deselectAll() : m.settingsPrivacy_selectAll()}
                   />
-                  <div className="flex-1">Sender</div>
-                  <div className="w-24 text-center hidden sm:block">Newsletters</div>
-                  <div className="w-32 text-right">Privacy</div>
+                  <div className="flex-1">{m.settingsPrivacy_headerSender()}</div>
+                  <div className="w-24 text-center hidden sm:block">{m.settingsPrivacy_headerNewsletters()}</div>
+                  <div className="w-32 text-right">{m.settingsPrivacy_headerPrivacy()}</div>
                 </div>
 
                 {/* Sender rows */}
                 {filteredSenders.length === 0 ? (
                   <div className="px-4 py-8 text-center text-muted-foreground">
-                    {searchQuery ? "No senders match your search" : "No senders to display"}
+                    {searchQuery ? m.settingsPrivacy_noMatch() : m.settingsPrivacy_noDisplay()}
                   </div>
                 ) : (
                   filteredSenders.map((sender) => (
@@ -293,9 +294,9 @@ function PrivacySettingsPage() {
               {/* Privacy stats */}
               {senderList.length > 0 && (
                 <div className="flex gap-4 text-sm text-muted-foreground pt-2">
-                  <span>{senderList.filter((s) => s.isPrivate).length} private</span>
+                  <span>{m.settingsPrivacy_privateCount({ count: senderList.filter((s) => s.isPrivate).length })}</span>
                   <span>•</span>
-                  <span>{senderList.filter((s) => !s.isPrivate).length} public</span>
+                  <span>{m.settingsPrivacy_publicCount({ count: senderList.filter((s) => !s.isPrivate).length })}</span>
                 </div>
               )}
             </div>

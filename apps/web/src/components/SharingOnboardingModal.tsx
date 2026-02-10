@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@hushletter/ui";
 import { Globe, Lock, Users } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * SharingOnboardingModal - Explains community sharing to new users
@@ -57,10 +58,10 @@ export function SharingOnboardingModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-primary" />
-            Welcome to the Community
+            {m.sharingOnboarding_title()}
           </DialogTitle>
           <DialogDescription>
-            Your newsletters help build a shared library for everyone.
+            {m.sharingOnboarding_description()}
           </DialogDescription>
         </DialogHeader>
 
@@ -71,10 +72,9 @@ export function SharingOnboardingModal() {
               <Users className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="font-medium text-sm">Shared by Default</p>
+              <p className="font-medium text-sm">{m.sharingOnboarding_sharedByDefaultTitle()}</p>
               <p className="text-sm text-muted-foreground">
-                Newsletters you receive are shared with the community, helping everyone discover
-                great content from publishers they might not know about.
+                {m.sharingOnboarding_sharedByDefaultDescription()}
               </p>
             </div>
           </div>
@@ -85,10 +85,9 @@ export function SharingOnboardingModal() {
               <Lock className="h-5 w-5 text-amber-500" />
             </div>
             <div>
-              <p className="font-medium text-sm">You're in Control</p>
+              <p className="font-medium text-sm">{m.sharingOnboarding_inControlTitle()}</p>
               <p className="text-sm text-muted-foreground">
-                You can mark specific senders as private anytime. Private newsletters are never
-                shared and only you can see them.
+                {m.sharingOnboarding_inControlDescription()}
               </p>
             </div>
           </div>
@@ -96,8 +95,7 @@ export function SharingOnboardingModal() {
           {/* Privacy note */}
           <div className="bg-muted/50 rounded-lg p-3">
             <p className="text-xs text-muted-foreground">
-              Your identity is never revealed. Community members can see newsletter content but not
-              who contributed it.
+              {m.sharingOnboarding_privacyNote()}
             </p>
           </div>
         </div>
@@ -106,11 +104,11 @@ export function SharingOnboardingModal() {
           {/* Story 6.2: Link directly to privacy settings page */}
           <Link to="/settings/privacy" onClick={handleDismiss}>
             <Button variant="outline" size="sm">
-              Privacy Settings
+              {m.sharingOnboarding_buttonPrivacySettings()}
             </Button>
           </Link>
           <Button onClick={handleDismiss} size="sm">
-            Got it, thanks!
+            {m.sharingOnboarding_buttonGotIt()}
           </Button>
         </DialogFooter>
       </DialogContent>

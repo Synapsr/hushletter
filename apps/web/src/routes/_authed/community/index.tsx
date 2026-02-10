@@ -34,6 +34,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { toast } from "sonner";
+import { m } from "@/paraglide/messages.js";
 
 /** Response type from listCommunityNewsletters query */
 type CommunityNewslettersResponse = {
@@ -115,18 +116,16 @@ function EmptyCommunityState({ senderFilter }: { senderFilter?: string }) {
   if (senderFilter) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">No curated newsletters found from this sender yet.</p>
+        <p className="text-muted-foreground">{m.community_noSenderNewsletters()}</p>
       </div>
     );
   }
 
   return (
     <div className="text-center py-12">
-      <p className="text-xl font-medium mb-2">No curated newsletters yet</p>
+      <p className="text-xl font-medium mb-2">{m.community_noNewslettersTitle()}</p>
       <p className="text-muted-foreground">
-        Our team is reviewing and curating quality newsletters for the community.
-        <br />
-        Check back soon for recommended content!
+        {m.community_noNewslettersDesc()}
       </p>
     </div>
   );
@@ -140,11 +139,9 @@ function EmptySearchState({ searchQuery }: { searchQuery: string }) {
   return (
     <div className="text-center py-12">
       <Search className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-      <p className="text-lg font-medium mb-2">No results found</p>
+      <p className="text-lg font-medium mb-2">{m.community_noResultsTitle()}</p>
       <p className="text-muted-foreground">
-        No newsletters matching "{searchQuery}" were found.
-        <br />
-        Try different keywords or browse all newsletters.
+        {m.community_noResultsDesc({ query: searchQuery })}
       </p>
     </div>
   );
@@ -157,13 +154,13 @@ function EmptySearchState({ searchQuery }: { searchQuery: string }) {
 function CommunityErrorState({ onRetry }: { onRetry?: () => void }) {
   return (
     <div className="text-center py-12">
-      <p className="text-lg font-medium mb-2 text-destructive">Something went wrong</p>
+      <p className="text-lg font-medium mb-2 text-destructive">{m.community_somethingWentWrong()}</p>
       <p className="text-muted-foreground mb-4">
-        Failed to load community newsletters. Please try again.
+        {m.community_loadError()}
       </p>
       {onRetry && (
         <button onClick={onRetry} className="text-sm text-primary hover:underline">
-          Try again
+          {m.common_tryAgain()}
         </button>
       )}
     </div>
@@ -193,7 +190,7 @@ function SenderCard({ sender }: { sender: TopCommunitySenderData }) {
             <div className="flex items-center gap-4 flex-shrink-0">
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Users className="h-4 w-4" />
-                <span>{sender.subscriberCount} subscribers</span>
+                <span>{m.community_subscriberCount({ count: sender.subscriberCount })}</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
             </div>
@@ -473,12 +470,12 @@ function CommunityBrowsePage() {
         contentId: newsletter._id as Id<"newsletterContent">,
       });
       if (result.alreadyExists) {
-        toast.info("Newsletter already in your collection", {
-          description: result.folderName ? `In folder: ${result.folderName}` : undefined,
+        toast.info(m.community_alreadyInCollection(), {
+          description: result.folderName ? m.previewModal_inFolder({ name: result.folderName }) : undefined,
         });
       } else {
-        toast.success("Newsletter added to your collection", {
-          description: result.folderName ? `Added to folder: ${result.folderName}` : undefined,
+        toast.success(m.community_addedToCollection(), {
+          description: result.folderName ? m.previewModal_addedToFolder({ name: result.folderName }) : undefined,
           icon: <FolderOpen className="h-4 w-4" />,
         });
         // Invalidate to refresh ownership status
@@ -486,7 +483,7 @@ function CommunityBrowsePage() {
       }
     } catch (error) {
       console.error("[quick-import] Failed:", error);
-      toast.error("Failed to import newsletter");
+      toast.error(m.community_importFailed());
     }
   };
 
@@ -533,7 +530,7 @@ function CommunityBrowsePage() {
         {deferredSearchQuery && searchResultsMayBeIncomplete && (
           <div className="text-center py-4">
             <p className="text-sm text-muted-foreground">
-              Showing top 50 results. Try more specific keywords for better matches.
+              {m.community_topResults()}
             </p>
           </div>
         )}
@@ -550,11 +547,11 @@ function CommunityBrowsePage() {
             {isFetchingNextPage && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Loading more...</span>
+                <span>{m.community_loadingMore()}</span>
               </div>
             )}
             {!hasNextPage && displayNewsletters.length > 0 && (
-              <p className="text-sm text-muted-foreground">You've reached the end</p>
+              <p className="text-sm text-muted-foreground">{m.community_reachedEnd()}</p>
             )}
           </div>
         )}
@@ -578,9 +575,9 @@ function CommunityBrowsePage() {
     if (sendersList.length === 0) {
       return (
         <div className="text-center py-12">
-          <p className="text-xl font-medium mb-2">No senders yet</p>
+          <p className="text-xl font-medium mb-2">{m.community_noSendersTitle()}</p>
           <p className="text-muted-foreground">
-            Senders will appear here as users share newsletters.
+            {m.community_noSendersDesc()}
           </p>
         </div>
       );
@@ -617,9 +614,9 @@ function CommunityBrowsePage() {
 
       {/* Header - Story 9.8 Task 6.4: Updated description for admin-curated content */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Community</h1>
+        <h1 className="text-3xl font-bold text-foreground">{m.community_title()}</h1>
         <p className="text-muted-foreground mt-1">
-          Discover curated newsletters recommended by our team
+          {m.community_description()}
         </p>
       </div>
 
@@ -641,7 +638,7 @@ function CommunityBrowsePage() {
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          Newsletters
+          {m.community_newsletters()}
         </button>
         <button
           role="tab"
@@ -655,7 +652,7 @@ function CommunityBrowsePage() {
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          Browse by Sender
+          {m.community_browseBySender()}
         </button>
       </div>
 
@@ -667,7 +664,7 @@ function CommunityBrowsePage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search newsletters by subject or sender..."
+              placeholder={m.community_searchPlaceholder()}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="pl-9"
@@ -690,12 +687,12 @@ function CommunityBrowsePage() {
                 {selectionMode ? (
                   <>
                     <CheckSquare className="h-4 w-4" aria-hidden="true" />
-                    Exit Selection
+                    {m.community_exitSelection()}
                   </>
                 ) : (
                   <>
                     <Square className="h-4 w-4" aria-hidden="true" />
-                    Select Multiple
+                    {m.community_selectMultiple()}
                   </>
                 )}
               </Button>
@@ -715,7 +712,7 @@ function CommunityBrowsePage() {
                       ).length
                     }
                   >
-                    Select All Visible
+                    {m.community_selectAllVisible()}
                   </Button>
                   <Button
                     variant="ghost"
@@ -723,9 +720,9 @@ function CommunityBrowsePage() {
                     onClick={handleClearSelection}
                     disabled={selectedIds.size === 0}
                   >
-                    Clear Selection
+                    {m.community_clearSelection()}
                   </Button>
-                  <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+                  <span className="text-sm text-muted-foreground">{m.community_selectedCount({ count: selectedIds.size })}</span>
                 </>
               )}
 
@@ -734,22 +731,22 @@ function CommunityBrowsePage() {
               {/* Sort control - Story 9.8 Task 6.1: Added Most Imported option */}
               <Select value={sort || "popular"} onValueChange={(v) => v !== null && handleSortChange(v)}>
                 <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Sort by" />
+                  <SelectValue placeholder={m.community_sortBy()} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="popular">Popular</SelectItem>
-                  <SelectItem value="imports">Most Imported</SelectItem>
-                  <SelectItem value="recent">Recent</SelectItem>
+                  <SelectItem value="popular">{m.community_sortPopular()}</SelectItem>
+                  <SelectItem value="imports">{m.community_sortMostImported()}</SelectItem>
+                  <SelectItem value="recent">{m.community_sortRecent()}</SelectItem>
                 </SelectContent>
               </Select>
 
               {/* Sender filter */}
               <Select value={sender || "all"} onValueChange={(v) => v !== null && handleSenderChange(v)}>
                 <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="All senders" />
+                  <SelectValue placeholder={m.community_allSenders()} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All senders</SelectItem>
+                  <SelectItem value="all">{m.community_allSenders()}</SelectItem>
                   {senders.map((s) => (
                     <SelectItem key={s.email} value={s.email}>
                       {s.name || s.email}
@@ -760,11 +757,11 @@ function CommunityBrowsePage() {
 
               {/* Story 6.4 Task 3.2: Domain filter */}
               <Select value={domain || "all"} onValueChange={(v) => v !== null && handleDomainChange(v)}>
-                <SelectTrigger className="w-[180px]" aria-label="Filter by domain">
-                  <SelectValue placeholder="All domains" />
+                <SelectTrigger className="w-[180px]" aria-label={m.community_filterByDomain()}>
+                  <SelectValue placeholder={m.community_allDomains()} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All domains</SelectItem>
+                  <SelectItem value="all">{m.community_allDomains()}</SelectItem>
                   {domains.map((d) => (
                     <SelectItem key={d.domain} value={d.domain}>
                       {d.domain}

@@ -6,6 +6,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@hushletter/ui";
 import { Sparkles, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 interface SummaryPreviewProps {
   /** userNewsletter document ID */
@@ -72,7 +73,7 @@ export function SummaryPreview({ userNewsletterId }: SummaryPreviewProps) {
         className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
       >
         <Sparkles className="h-3 w-3 text-amber-500" aria-hidden="true" />
-        {isExpanded ? "Hide preview" : "Show summary"}
+        {isExpanded ? m.summaryPreview_hidePreview() : m.summaryPreview_showSummary()}
         {isExpanded ? (
           <ChevronUp className="h-3 w-3" aria-hidden="true" />
         ) : (
@@ -88,7 +89,7 @@ export function SummaryPreview({ userNewsletterId }: SummaryPreviewProps) {
         >
           {/* Loading skeleton */}
           {isPending && (
-            <div className="space-y-1 animate-pulse" aria-label="Loading summary...">
+            <div className="space-y-1 animate-pulse" aria-label={m.summaryPreview_loadingSummary()}>
               <div className="h-3 bg-muted rounded w-full" />
               <div className="h-3 bg-muted rounded w-3/4" />
             </div>
@@ -101,7 +102,7 @@ export function SummaryPreview({ userNewsletterId }: SummaryPreviewProps) {
               {isShared && (
                 <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <Users className="h-3 w-3" aria-hidden="true" />
-                  Community
+                  {m.summaryPreview_community()}
                 </span>
               )}
               <p className="text-muted-foreground leading-relaxed">{truncatedSummary}</p>
@@ -112,7 +113,7 @@ export function SummaryPreview({ userNewsletterId }: SummaryPreviewProps) {
                   className="text-xs text-primary hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  Read more →
+                  {m.summaryPreview_readMore()}
                 </Link>
               )}
             </div>
@@ -121,7 +122,7 @@ export function SummaryPreview({ userNewsletterId }: SummaryPreviewProps) {
           {/* No summary available */}
           {!isPending && !summary && (
             <p className="text-muted-foreground text-xs">
-              No summary available for this newsletter.
+              {m.summaryPreview_noSummaryAvailable()}
             </p>
           )}
         </div>

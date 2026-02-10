@@ -14,6 +14,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
 import { Copy, Check, Mail, ExternalLink } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /** Type for getCurrentUser query response - matches auth.ts return type */
 interface CurrentUserData {
@@ -58,10 +59,10 @@ export function SubscribeInfo({ senderEmail, senderName, domain }: SubscribeInfo
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Mail className="h-4 w-4" />
-          How to Subscribe
+          {m.subscribeInfo_title()}
         </CardTitle>
         <CardDescription>
-          Get newsletters from {displayName} delivered to your inbox
+          {m.subscribeInfo_description({ sender: displayName })}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -69,7 +70,7 @@ export function SubscribeInfo({ senderEmail, senderName, domain }: SubscribeInfo
         {dedicatedEmail ? (
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              Subscribe using your dedicated email address:
+              {m.subscribeInfo_subscribeInstructions()}
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 bg-muted px-3 py-2 rounded-md text-sm font-mono truncate">
@@ -80,7 +81,7 @@ export function SubscribeInfo({ senderEmail, senderName, domain }: SubscribeInfo
                 size="icon"
                 onClick={handleCopy}
                 aria-label={
-                  copied ? "Email address copied to clipboard" : "Copy email address to clipboard"
+                  copied ? m.subscribeInfo_ariaCopied() : m.subscribeInfo_ariaCopy()
                 }
               >
                 {copied ? (
@@ -91,25 +92,25 @@ export function SubscribeInfo({ senderEmail, senderName, domain }: SubscribeInfo
               </Button>
               {/* Live region for screen reader announcement */}
               <span className="sr-only" role="status" aria-live="polite">
-                {copied ? "Email address copied to clipboard" : ""}
+                {copied ? m.subscribeInfo_ariaCopied() : ""}
               </span>
             </div>
           </div>
         ) : isError ? (
           <p className="text-sm text-destructive">
-            Failed to load your dedicated email address. Please refresh the page.
+            {m.subscribeInfo_errorLoadFailed()}
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">Loading your dedicated email address...</p>
+          <p className="text-sm text-muted-foreground">{m.subscribeInfo_loadingEmail()}</p>
         )}
 
         {/* Instructions */}
         <div className="text-sm text-muted-foreground space-y-2">
-          <p>To subscribe:</p>
+          <p>{m.subscribeInfo_stepsTitle()}</p>
           <ol className="list-decimal list-inside space-y-1 ml-2">
-            <li>Visit the newsletter's website</li>
-            <li>Enter your dedicated email address above</li>
-            <li>New newsletters will appear automatically in your inbox</li>
+            <li>{m.subscribeInfo_step1()}</li>
+            <li>{m.subscribeInfo_step2()}</li>
+            <li>{m.subscribeInfo_step3()}</li>
           </ol>
         </div>
 
@@ -121,7 +122,7 @@ export function SubscribeInfo({ senderEmail, senderName, domain }: SubscribeInfo
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
           >
-            Visit {domain}
+            {m.subscribeInfo_visitDomain({ domain })}
             <ExternalLink className="h-3 w-3" />
           </a>
         )}

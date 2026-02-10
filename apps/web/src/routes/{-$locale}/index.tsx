@@ -1,7 +1,9 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Button, Card, CardContent } from "@hushletter/ui";
+import { m } from "@/paraglide/messages.js";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/{-$locale}/")({
   component: LandingPage,
 });
 
@@ -10,13 +12,14 @@ function LandingPage() {
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
       {/* Header */}
       <header className="container mx-auto px-4 py-6 flex justify-between items-center">
-        <div className="text-2xl font-bold text-gray-900 dark:text-white">Newsletter Manager</div>
-        <nav className="flex gap-4">
-          <Link to="/login">
-            <Button variant="ghost">Sign In</Button>
+        <div className="text-2xl font-bold text-gray-900 dark:text-white">{m.common_brandName()}</div>
+        <nav className="flex gap-4 items-center">
+          <LanguageSwitcher />
+          <Link to="/{-$locale}/login">
+            <Button variant="ghost">{m.landing_signIn()}</Button>
           </Link>
-          <Link to="/signup">
-            <Button>Get Started</Button>
+          <Link to="/{-$locale}/signup">
+            <Button>{m.landing_getStarted()}</Button>
           </Link>
         </nav>
       </header>
@@ -24,20 +27,20 @@ function LandingPage() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-20 text-center">
         <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 max-w-4xl mx-auto leading-tight">
-          Your Newsletters, Organized and Accessible
+          {m.landing_title()}
         </h1>
         <p className="text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto">
-          One dedicated email address. All your newsletters in one clean interface.
+          {m.landing_subtitle()}
         </p>
         <div className="flex gap-4 justify-center">
-          <Link to="/signup">
+          <Link to="/{-$locale}/signup">
             <Button size="lg" className="text-lg px-8 py-6">
-              Get Started
+              {m.landing_getStarted()}
             </Button>
           </Link>
-          <Link to="/login">
+          <Link to="/{-$locale}/login">
             <Button variant="outline" size="lg" className="text-lg px-8 py-6">
-              Sign In
+              {m.landing_signIn()}
             </Button>
           </Link>
         </div>
@@ -46,28 +49,28 @@ function LandingPage() {
       {/* Features Section */}
       <section className="container mx-auto px-4 py-20">
         <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
-          Everything you need to manage your newsletters
+          {m.landing_featuresTitle()}
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
           <FeatureCard
             icon="📧"
-            title="Dedicated Email"
-            description="Get a unique email address just for your newsletters. No more cluttered inbox."
+            title={m.landing_featureEmailTitle()}
+            description={m.landing_featureEmailDesc()}
           />
           <FeatureCard
             icon="⚡"
-            title="Real-time Delivery"
-            description="Newsletters arrive instantly and are automatically organized by sender."
+            title={m.landing_featureRealtimeTitle()}
+            description={m.landing_featureRealtimeDesc()}
           />
           <FeatureCard
             icon="🤖"
-            title="AI Summaries"
-            description="Get quick AI-generated summaries of your newsletters when you're short on time."
+            title={m.landing_featureAiTitle()}
+            description={m.landing_featureAiDesc()}
           />
           <FeatureCard
             icon="🗂️"
-            title="Community Catalog"
-            description="Discover and access newsletters from our community's shared collection."
+            title={m.landing_featureCommunityTitle()}
+            description={m.landing_featureCommunityDesc()}
           />
         </div>
       </section>
@@ -76,13 +79,13 @@ function LandingPage() {
       <section className="container mx-auto px-4 py-20">
         <Card className="max-w-3xl mx-auto bg-gray-900 dark:bg-gray-800 text-white">
           <CardContent className="p-12 text-center">
-            <h3 className="text-3xl font-bold mb-4">Ready to take control of your newsletters?</h3>
+            <h3 className="text-3xl font-bold mb-4">{m.landing_ctaTitle()}</h3>
             <p className="text-gray-300 mb-8">
-              Join thousands of readers who have simplified their newsletter experience.
+              {m.landing_ctaSubtitle()}
             </p>
-            <Link to="/signup">
+            <Link to="/{-$locale}/signup">
               <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
-                Start for Free
+                {m.landing_ctaButton()}
               </Button>
             </Link>
           </CardContent>
@@ -92,13 +95,13 @@ function LandingPage() {
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 border-t border-gray-200 dark:border-gray-800">
         <div className="flex justify-between items-center text-gray-600 dark:text-gray-400">
-          <p>&copy; {new Date().getFullYear()} Newsletter Manager. All rights reserved.</p>
+          <p>{m.landing_footerCopyright({ year: new Date().getFullYear().toString() })}</p>
           <div className="flex gap-6">
             <a href="#" className="hover:text-gray-900 dark:hover:text-white">
-              Privacy
+              {m.landing_footerPrivacy()}
             </a>
             <a href="#" className="hover:text-gray-900 dark:hover:text-white">
-              Terms
+              {m.landing_footerTerms()}
             </a>
           </div>
         </div>

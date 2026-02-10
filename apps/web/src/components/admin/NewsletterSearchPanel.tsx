@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { useForm } from "@tanstack/react-form";
+import { m } from "@/paraglide/messages.js";
 import {
   Badge,
   Button,
@@ -78,7 +79,7 @@ export function NewsletterSearchPanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Search className="h-5 w-5" aria-hidden="true" />
-            Search Newsletters
+            {m.newsletterSearch_title()}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -93,10 +94,10 @@ export function NewsletterSearchPanel() {
               name="senderEmail"
               children={(field) => (
                 <div className="space-y-1">
-                  <Label htmlFor="senderEmail">Sender Email</Label>
+                  <Label htmlFor="senderEmail">{m.newsletterSearch_labelSenderEmail()}</Label>
                   <Input
                     id="senderEmail"
-                    placeholder="newsletter@example.com"
+                    placeholder={m.newsletterSearch_senderEmailPlaceholder()}
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
@@ -108,10 +109,10 @@ export function NewsletterSearchPanel() {
               name="subjectContains"
               children={(field) => (
                 <div className="space-y-1">
-                  <Label htmlFor="subjectContains">Subject Contains</Label>
+                  <Label htmlFor="subjectContains">{m.newsletterSearch_labelSubjectContains()}</Label>
                   <Input
                     id="subjectContains"
-                    placeholder="Search subject..."
+                    placeholder={m.newsletterSearch_subjectPlaceholder()}
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
@@ -123,18 +124,18 @@ export function NewsletterSearchPanel() {
               name="privacyFilter"
               children={(field) => (
                 <div className="space-y-1">
-                  <Label htmlFor="privacyFilter">Privacy Status</Label>
+                  <Label htmlFor="privacyFilter">{m.newsletterSearch_labelPrivacyStatus()}</Label>
                   <Select
                     value={field.state.value}
                     onValueChange={(v) => field.handleChange(v as PrivacyFilter)}
                   >
-                    <SelectTrigger id="privacyFilter" aria-label="Filter by privacy status">
+                    <SelectTrigger id="privacyFilter" aria-label={m.newsletterSearch_privacyFilterLabel()}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="private">Private Only</SelectItem>
-                      <SelectItem value="public">Public Only</SelectItem>
+                      <SelectItem value="all">{m.newsletterSearch_filterAll()}</SelectItem>
+                      <SelectItem value="private">{m.newsletterSearch_filterPrivateOnly()}</SelectItem>
+                      <SelectItem value="public">{m.newsletterSearch_filterPublicOnly()}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -146,7 +147,7 @@ export function NewsletterSearchPanel() {
                 selector={(state) => state.isSubmitting}
                 children={(isSubmitting) => (
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? "Searching..." : "Search"}
+                    {isSubmitting ? m.newsletterSearch_buttonSearching() : m.newsletterSearch_buttonSearch()}
                   </Button>
                 )}
               />
@@ -157,24 +158,24 @@ export function NewsletterSearchPanel() {
 
       {isPending && hasSearched && (
         <p className="text-center text-muted-foreground py-8" role="status">
-          Searching...
+          {m.newsletterSearch_searching()}
         </p>
       )}
 
       {results && results.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Search Results ({results.length})</CardTitle>
+            <CardTitle>{m.newsletterSearch_resultsTitle({ count: results.length })}</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Privacy</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Sender</TableHead>
-                  <TableHead>Received</TableHead>
-                  <TableHead>Storage</TableHead>
+                  <TableHead>{m.newsletterSearch_columnPrivacy()}</TableHead>
+                  <TableHead>{m.newsletterSearch_columnSubject()}</TableHead>
+                  <TableHead>{m.newsletterSearch_columnSender()}</TableHead>
+                  <TableHead>{m.newsletterSearch_columnReceived()}</TableHead>
+                  <TableHead>{m.newsletterSearch_columnStorage()}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -184,12 +185,12 @@ export function NewsletterSearchPanel() {
                       {newsletter.isPrivate ? (
                         <Badge variant="secondary" className="flex items-center gap-1 w-fit">
                           <Lock className="h-3 w-3" aria-hidden="true" />
-                          Private
+                          {m.newsletterSearch_badgePrivate()}
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="flex items-center gap-1 w-fit">
                           <Unlock className="h-3 w-3" aria-hidden="true" />
-                          Public
+                          {m.newsletterSearch_badgePublic()}
                         </Badge>
                       )}
                     </TableCell>
@@ -207,7 +208,7 @@ export function NewsletterSearchPanel() {
                         variant={newsletter.hasPrivateR2Key ? "secondary" : "default"}
                         className="text-xs"
                       >
-                        {newsletter.hasPrivateR2Key ? "Private R2" : "Shared Content"}
+                        {newsletter.hasPrivateR2Key ? m.newsletterSearch_storagePrivateR2() : m.newsletterSearch_storageSharedContent()}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -220,13 +221,13 @@ export function NewsletterSearchPanel() {
 
       {hasSearched && results && results.length === 0 && (
         <p className="text-center text-muted-foreground py-8" role="status">
-          No newsletters found matching your criteria
+          {m.newsletterSearch_noResults()}
         </p>
       )}
 
       {!hasSearched && (
         <p className="text-center text-muted-foreground py-8" role="status">
-          Enter search criteria and click Search to find newsletters
+          {m.newsletterSearch_instructionMessage()}
         </p>
       )}
     </div>

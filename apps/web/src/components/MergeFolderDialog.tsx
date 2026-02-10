@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@hushletter/ui";
 import { AlertCircle } from "lucide-react";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * MergeFolderDialog - Dialog for merging one folder into another
@@ -83,9 +84,9 @@ export function MergeFolderDialog({
       setTargetFolderId("");
 
       // Show toast with undo action - Task 3.7
-      toast.success(`Merged ${result.movedNewsletterCount} newsletters into folder`, {
+      toast.success(m.mergeFolderDlg_mergeSuccess({ count: result.movedNewsletterCount }), {
         action: {
-          label: "Undo",
+          label: m.mergeFolderDlg_undo(),
           onClick: () => undoMutation.mutate({ mergeId: result.mergeId }),
         },
         duration: 10000, // 10 seconds visible (undo window is 30s on backend)
@@ -94,16 +95,16 @@ export function MergeFolderDialog({
     onError: (error) => {
       if (error instanceof Error) {
         if (error.message.includes("Cannot merge folder into itself")) {
-          toast.error("Cannot merge a folder into itself");
+          toast.error(m.mergeFolderDlg_errorSelfMerge());
         } else if (error.message.includes("Target folder not found")) {
-          toast.error("Target folder no longer exists - it may have been deleted");
+          toast.error(m.mergeFolderDlg_errorTargetNotFound());
         } else if (error.message.includes("Source folder not found")) {
-          toast.error("Source folder no longer exists - it may have been deleted");
+          toast.error(m.mergeFolderDlg_errorSourceNotFound());
         } else {
-          toast.error("Failed to merge folders");
+          toast.error(m.mergeFolderDlg_errorGeneric());
         }
       } else {
-        toast.error("Failed to merge folders");
+        toast.error(m.mergeFolderDlg_errorGeneric());
       }
     },
   });
@@ -125,18 +126,16 @@ export function MergeFolderDialog({
 
       const skippedTotal = result.skippedSenderCount + result.skippedNewsletterCount;
       if (skippedTotal > 0) {
-        toast.warning(
-          `Folder restored, but ${skippedTotal} item${skippedTotal > 1 ? "s were" : " was"} deleted and couldn't be recovered`,
-        );
+        toast.warning(m.mergeFolderDlg_undoPartialSuccess({ count: skippedTotal }));
       } else {
-        toast.success("Merge undone - folder restored");
+        toast.success(m.mergeFolderDlg_undoSuccess());
       }
     },
     onError: (error) => {
       if (error instanceof Error && error.message.includes("expired")) {
-        toast.error("Undo window has expired");
+        toast.error(m.mergeFolderDlg_undoExpired());
       } else {
-        toast.error("Failed to undo merge");
+        toast.error(m.mergeFolderDlg_undoError());
       }
     },
   });
@@ -170,34 +169,33 @@ export function MergeFolderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
-          <DialogTitle>Merge Folder</DialogTitle>
+          <DialogTitle>{m.mergeFolderDlg_title()}</DialogTitle>
           <DialogDescription>
-            Move all newsletters and senders from "{sourceFolderName}" into another folder. The "
-            {sourceFolderName}" folder will be deleted.
+            {m.mergeFolderDlg_description({ sourceFolderName })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4 space-y-4">
           <div>
             <label htmlFor="target-folder" className="text-sm font-medium block mb-2">
-              Merge into:
+              {m.mergeFolderDlg_mergeIntoLabel()}
             </label>
             {foldersPending ? (
               <div className="h-10 bg-muted rounded-md animate-pulse" />
             ) : availableTargets.length === 0 ? (
               <div className="flex items-center gap-2 text-muted-foreground text-sm p-3 border rounded-md">
                 <AlertCircle className="h-4 w-4" />
-                <span>No other folders available to merge into</span>
+                <span>{m.mergeFolderDlg_noTargetsAvailable()}</span>
               </div>
             ) : (
               <Select value={targetFolderId} onValueChange={(v) => v !== null && setTargetFolderId(v)}>
                 <SelectTrigger id="target-folder">
-                  <SelectValue placeholder="Select target folder" />
+                  <SelectValue placeholder={m.mergeFolderDlg_selectPlaceholder()} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableTargets.map((folder) => (
                     <SelectItem key={folder._id} value={folder._id}>
-                      {folder.name} ({folder.newsletterCount} newsletters)
+                      {m.mergeFolderDlg_targetOption({ folderName: folder.name, count: folder.newsletterCount })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -207,21 +205,20 @@ export function MergeFolderDialog({
 
           {selectedTarget && (
             <p className="text-sm text-muted-foreground">
-              All newsletters and senders from "{sourceFolderName}" will be moved to "
-              {selectedTarget.name}". This action can be undone within 30 seconds.
+              {m.mergeFolderDlg_confirmationText({ sourceFolderName, targetFolderName: selectedTarget.name })}
             </p>
           )}
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {m.mergeFolderDlg_cancel()}
           </Button>
           <Button
             onClick={handleMerge}
             disabled={!targetFolderId || mergeMutation.isPending || availableTargets.length === 0}
           >
-            {mergeMutation.isPending ? "Merging..." : "Merge"}
+            {mergeMutation.isPending ? m.mergeFolderDlg_merging() : m.mergeFolderDlg_merge()}
           </Button>
         </DialogFooter>
       </DialogContent>

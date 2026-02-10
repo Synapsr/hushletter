@@ -4,6 +4,7 @@ import tsConfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 import viteReact from '@vitejs/plugin-react'
 import { nitro } from 'nitro/vite'
+import { paraglideVitePlugin } from '@inlang/paraglide-js'
 
 export default defineConfig({
   server: {
@@ -15,6 +16,22 @@ export default defineConfig({
     noExternal: ['@convex-dev/better-auth', '@hushletter/shared'],
   },
   plugins: [
+    paraglideVitePlugin({
+      project: './project.inlang',
+      outdir: './src/paraglide',
+      outputStructure: 'message-modules',
+      cookieName: 'PARAGLIDE_LOCALE',
+      strategy: ['cookie', 'url', 'preferredLanguage', 'baseLocale'],
+      urlPatterns: [
+        {
+          pattern: '/:path(.*)?',
+          localized: [
+            ['fr', '/fr/:path(.*)?'],
+            ['en', '/:path(.*)?'],
+          ],
+        },
+      ],
+    }),
     tailwindcss(),
     tsConfigPaths({
       projects: ['./tsconfig.json'],

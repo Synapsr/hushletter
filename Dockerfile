@@ -56,4 +56,4 @@ RUN ln -sfn /app/apps/web/.output /app/.output
 
 EXPOSE 3000
 
-CMD ["node", "--experimental-urlpattern", "/app/apps/web/.output/server/index.mjs"]
+CMD ["node", "--import", "/app/apps/web/.output/server/_libs/urlpattern-polyfill.mjs", "/app/apps/web/.output/server/index.mjs"]

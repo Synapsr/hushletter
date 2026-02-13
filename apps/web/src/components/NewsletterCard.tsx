@@ -30,6 +30,8 @@ interface NewsletterCardProps {
   newsletter: NewsletterData;
   /** Story 3.5: Whether to show "Unhide" instead of "Hide" action */
   showUnhide?: boolean;
+  /** When provided, intercepts click to select inline instead of navigating */
+  onSelect?: (id: string) => void;
 }
 
 /**
@@ -99,7 +101,7 @@ function getSourceIndicatorInfo(source?: NewsletterData["source"]) {
  * Story 3.5: AC1 - Hide action on hover, AC4 - Unhide action for hidden newsletters
  * Story 5.2: Task 1-3 - Summary indicator and preview
  */
-export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCardProps) {
+export function NewsletterCard({ newsletter, showUnhide = false, onSelect }: NewsletterCardProps) {
   const senderDisplay = getSenderDisplay(newsletter);
   // Story 9.10 (code review fix): Extract source info computation from IIFE in JSX
   const sourceInfo = getSourceIndicatorInfo(newsletter.source);
@@ -151,11 +153,19 @@ export function NewsletterCard({ newsletter, showUnhide = false }: NewsletterCar
     }
   };
 
+  const handleClick = onSelect
+    ? (e: React.MouseEvent) => {
+        e.preventDefault();
+        onSelect(newsletter._id);
+      }
+    : undefined;
+
   return (
     <Link
       to="/newsletters/$id"
       params={{ id: newsletter._id }}
       className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl group"
+      onClick={handleClick}
     >
       <Card
         className={cn(

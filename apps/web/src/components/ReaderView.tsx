@@ -13,6 +13,8 @@ interface ReaderViewProps {
   initialProgress?: number;
   /** Callback when reading is complete (100% scrolled) */
   onReadingComplete?: () => void;
+  /** Optional className override for the scroll container */
+  className?: string;
 }
 
 /**
@@ -108,6 +110,7 @@ export function ReaderView({
   userNewsletterId,
   initialProgress,
   onReadingComplete,
+  className,
 }: ReaderViewProps) {
   const [contentHtml, setContentHtml] = useState<string | null>(null);
   // Exception: useAction doesn't have isPending, manual loading state required
@@ -317,7 +320,7 @@ export function ReaderView({
 
   // Render sanitized HTML content in scrollable container for progress tracking
   return (
-    <div ref={scrollContainerRef} className="overflow-y-auto max-h-[calc(100vh-200px)]">
+    <div ref={scrollContainerRef} className={className ?? "overflow-y-auto max-h-[calc(100vh-200px)]"}>
       <article
         className="prose prose-gray dark:prose-invert max-w-none
           prose-a:text-primary prose-a:no-underline hover:prose-a:underline

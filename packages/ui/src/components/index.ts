@@ -1,6 +1,7 @@
 // a
-export * from "./alert";
 export * from "./alert-dialog";
+export * from "./alert";
+export * from "./autocomplete";
 export * from "./avatar";
 
 // b
@@ -12,6 +13,7 @@ export * from "./card";
 export * from "./checkbox-group";
 export * from "./checkbox";
 export * from "./collapsible";
+export * from "./command";
 
 // d
 export * from "./dialog";
@@ -20,7 +22,11 @@ export * from "./dialog";
 export * from "./form";
 
 // i
+export * from "./input-group";
 export * from "./input";
+
+// k
+export * from "./kbd";
 
 // l
 export * from "./label";

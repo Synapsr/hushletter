@@ -14,9 +14,12 @@
 | 2026-02-13 | self | Added a new `hiddenPending` prop in `SenderFolderSidebar` that collided with an existing local query alias | Rename local query state aliases immediately when introducing similarly named props to avoid transform-time duplicate symbol errors |
 | 2026-02-13 | self | Ran `vitest` from monorepo root for an `apps/web` test and hit `@/` alias resolution errors | Run web tests from `apps/web` workspace so Vite/Vitest picks the app config and path aliases |
 | 2026-02-13 | self | Docker `bun install` failed in CI because pre-install layer copied only some workspace manifests | In Dockerfiles, copy every workspace `package.json` referenced by `workspace:*` deps before running `bun install --frozen-lockfile` |
+| 2026-02-13 | self | `convex deploy --cmd` in Docker build hung with repeated WebSocket reconnects on EasyPanel | Make Convex deploy optional in Docker and default to plain web build; run backend deploy separately in CI where WebSockets are reliable |
+| 2026-02-13 | self | `bunx convex deploy` can be less stable than Node CLI in containerized CI | Prefer `npx convex deploy --yes` in Docker build steps to match previously working Node-based Convex behavior |
 
 ## User Preferences
 - Implement plans end-to-end when asked, with strong UX polish (optimistic updates and perceived performance).
+- Avoid Dockerfile patterns that bake app env values into image `ENV`; prefer runtime env config or command-scoped env injection.
 
 ## Patterns That Work
 - Use Convex + TanStack Query with local optimistic overlay state for instant UI feedback while waiting for reactive sync.

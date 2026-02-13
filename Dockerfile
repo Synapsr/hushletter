@@ -19,11 +19,24 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 # Build args for Convex
+ARG CONVEX_DEPLOYMENT
 ARG CONVEX_DEPLOY_KEY
 ARG VITE_CONVEX_URL
+ARG VITE_CONVEX_SITE_URL
+ARG VITE_SITE_URL
+ARG RUN_CONVEX_DEPLOY=true
 
-# Deploy Convex and build web app
-RUN cd packages/backend && bunx convex deploy --cmd 'cd ../.. && bun run --filter @hushletter/web build'
+# Deploy Convex by default (same behavior as your previous working pipeline),
+# with an opt-out switch for environments that need it.
+RUN if [ "$RUN_CONVEX_DEPLOY" = "true" ]; then \
+      cd packages/backend && \
+      CONVEX_DEPLOYMENT="$CONVEX_DEPLOYMENT" CONVEX_DEPLOY_KEY="$CONVEX_DEPLOY_KEY" \
+      VITE_CONVEX_URL="$VITE_CONVEX_URL" VITE_CONVEX_SITE_URL="$VITE_CONVEX_SITE_URL" VITE_SITE_URL="$VITE_SITE_URL" \
+      npx convex deploy --yes --cmd 'cd ../.. && bun run --filter @hushletter/web build'; \
+    else \
+      VITE_CONVEX_URL="$VITE_CONVEX_URL" VITE_CONVEX_SITE_URL="$VITE_CONVEX_SITE_URL" VITE_SITE_URL="$VITE_SITE_URL" \
+      bun run --filter @hushletter/web build; \
+    fi
 
 # Production stage
 FROM oven/bun:1 AS runner

@@ -20,6 +20,7 @@
 | 2026-02-13 | self | Assumed Docker failure was still infra-related after simplification, but build was failing on strict TS errors in app code | When Docker hits `bun run --filter @hushletter/web build`, treat TypeScript diagnostics as primary blocker and fix listed files first |
 | 2026-02-13 | self | Convex deploy kept failing with WebSocket reconnects when run via Bun-based CLI path in container build | For EasyPanel single-step Docker deploys, use Node-based build stage and run `npx convex deploy` directly |
 | 2026-02-13 | self | Runner tried to execute `/app/.output/server/index.mjs` and crashed after successful monorepo build | In monorepo runtime stage, set `WORKDIR` to workspace output path (`/app/apps/web`) before starting Node |
+| 2026-02-13 | self | Runtime still referenced `/app/.output` in some deployment paths and Node 22 lacked global `URLPattern` | Start server with absolute workspace entrypoint and pass `--experimental-urlpattern`; add `/app/.output` symlink to workspace output for compatibility |
 
 ## User Preferences
 - Implement plans end-to-end when asked, with strong UX polish (optimistic updates and perceived performance).

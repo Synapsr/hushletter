@@ -52,8 +52,8 @@ WORKDIR /app
 
 COPY --from=base /app ./
 
-WORKDIR /app/apps/web
+RUN ln -sfn /app/apps/web/.output /app/.output
 
 EXPOSE 3000
 
-CMD ["node", ".output/server/index.mjs"]
+CMD ["node", "--experimental-urlpattern", "/app/apps/web/.output/server/index.mjs"]

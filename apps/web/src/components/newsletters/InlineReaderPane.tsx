@@ -6,14 +6,12 @@ import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { Button, ScrollArea } from "@hushletter/ui";
-import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { ReaderView, clearCacheEntry } from "@/components/ReaderView";
-import { SummaryPanel } from "@/components/SummaryPanel";
 import {
   READER_BACKGROUND_OPTIONS,
   useReaderPreferences,
 } from "@/hooks/useReaderPreferences";
-import { SenderAvatar } from "./SenderAvatar";
 import { ReaderActionBar } from "./ReaderActionBar";
 import { m } from "@/paraglide/messages.js";
 
@@ -50,25 +48,6 @@ function ContentErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
         {m.newsletters_failedToLoadContent()}
       </p>
       <Button onClick={resetErrorBoundary}>{m.common_tryAgain()}</Button>
-    </div>
-  );
-}
-
-function SummaryErrorFallback({ resetErrorBoundary }: FallbackProps) {
-  return (
-    <div className="mx-6 mb-4 p-4 bg-muted/50 rounded-lg flex items-center justify-between">
-      <span className="text-sm text-muted-foreground">
-        {m.newsletters_aiSummaryUnavailable()}
-      </span>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={resetErrorBoundary}
-        className="gap-1"
-      >
-        <RefreshCw className="h-3 w-3" />
-        {m.newsletters_retry()}
-      </Button>
     </div>
   );
 }
@@ -110,6 +89,7 @@ export function InlineReaderPane({
   const paneBackgroundColor =
     READER_BACKGROUND_OPTIONS[preferences.background].color;
   const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
+  const [isArchivePending, setIsArchivePending] = useState(false);
   const [estimatedReadMinutes, setEstimatedReadMinutes] = useState<
     number | null
   >(null);
@@ -121,6 +101,7 @@ export function InlineReaderPane({
   const newsletter = data as NewsletterMetadata | null | undefined;
 
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
+  const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
   const markRead = useMutation(api.newsletters.markNewsletterRead);
 
   useEffect(() => {
@@ -148,8 +129,46 @@ export function InlineReaderPane({
     );
   }
 
-  const handleArchive = () => {
-    hideNewsletter({ userNewsletterId: newsletterId });
+  const handleUndoArchive = async () => {
+    try {
+      await unhideNewsletter({ userNewsletterId: newsletterId });
+    } catch (error) {
+      console.error("[InlineReaderPane] Failed to restore archived newsletter:", error);
+      toast.error(m.newsletters_failedToRestore());
+    }
+  };
+
+  const handleArchive = async () => {
+    if (isArchivePending) return;
+
+    setIsArchivePending(true);
+    try {
+      if (newsletter.isHidden) {
+        await unhideNewsletter({ userNewsletterId: newsletterId });
+        return;
+      }
+
+      await hideNewsletter({ userNewsletterId: newsletterId });
+      toast.success(m.newsletters_newsletterHidden(), {
+        duration: 5000,
+        action: {
+          label: m.common_cancel(),
+          onClick: () => {
+            void handleUndoArchive();
+          },
+        },
+      });
+    } catch (error) {
+      if (newsletter.isHidden) {
+        console.error("[InlineReaderPane] Failed to unhide newsletter:", error);
+        toast.error(m.newsletters_failedToRestore());
+      } else {
+        console.error("[InlineReaderPane] Failed to hide newsletter:", error);
+        toast.error(m.newsletters_failedToHide());
+      }
+    } finally {
+      setIsArchivePending(false);
+    }
   };
 
   const handleReadingComplete = () => {
@@ -198,6 +217,7 @@ export function InlineReaderPane({
         isHidden={newsletter.isHidden}
         isFavorited={favoritedValue}
         isFavoritePending={favoritePending}
+        isArchivePending={isArchivePending}
         onArchive={handleArchive}
         onToggleFavorite={handleFavoriteToggle}
         estimatedReadMinutes={estimatedReadMinutes ?? undefined}

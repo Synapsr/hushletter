@@ -16,6 +16,7 @@ import {
 } from "@hushletter/ui";
 import {
   Archive,
+  ArchiveRestore,
   Star,
   Highlighter,
   Share2,
@@ -38,6 +39,7 @@ interface ReaderActionBarProps {
   isHidden: boolean;
   isFavorited: boolean;
   isFavoritePending: boolean;
+  isArchivePending?: boolean;
   onArchive: () => void;
   onToggleFavorite: () => void;
   /** 0 means under 1 minute, positive integers are rounded-up minutes */
@@ -56,10 +58,12 @@ interface ReaderActionBarProps {
  * Archive maps to hideNewsletter. Star is fully wired with optimistic favorite state.
  */
 export function ReaderActionBar({
+  isHidden,
   onArchive,
   onToggleFavorite,
   isFavorited,
   isFavoritePending,
+  isArchivePending = false,
   estimatedReadMinutes,
   preferences,
   onBackgroundChange,
@@ -75,6 +79,7 @@ export function ReaderActionBar({
       ? m.reader_minuteRead({ minutes: "<1" })
       : m.reader_minuteRead({ minutes: estimatedReadMinutes })
     : null;
+  const archiveLabel = isHidden ? m.newsletters_unhide() : m.reader_archive();
 
   return (
     <div className="flex items-center justify-between px-6 py-2 border-b bg-background/95 backdrop-blur-sm">
@@ -83,12 +88,22 @@ export function ReaderActionBar({
           <Tooltip>
             <TooltipTrigger
               render={
-                <Button variant="ghost" size="icon" onClick={onArchive}>
-                  <Archive className="h-4 w-4" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={archiveLabel}
+                  disabled={isArchivePending}
+                  onClick={onArchive}
+                >
+                  {isHidden ? (
+                    <ArchiveRestore className="h-4 w-4" />
+                  ) : (
+                    <Archive className="h-4 w-4" />
+                  )}
                 </Button>
               }
             />
-            <TooltipContent>{m.reader_archive()}</TooltipContent>
+            <TooltipContent>{archiveLabel}</TooltipContent>
           </Tooltip>
 
           <Tooltip>

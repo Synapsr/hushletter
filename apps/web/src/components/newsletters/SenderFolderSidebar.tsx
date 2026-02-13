@@ -21,6 +21,8 @@ interface SenderFolderSidebarProps {
   selectedFolderId: string | null;
   selectedNewsletterId: string | null;
   selectedFilter: FilterType | null;
+  hiddenNewsletters: NewsletterData[];
+  hiddenPending: boolean;
   favoritedNewsletters: NewsletterData[];
   favoritedPending: boolean;
   onFolderSelect: (folderId: string | null) => void;
@@ -62,6 +64,8 @@ export function SenderFolderSidebar({
   selectedFolderId,
   selectedNewsletterId,
   selectedFilter,
+  hiddenNewsletters,
+  hiddenPending,
   favoritedNewsletters,
   favoritedPending,
   onFolderSelect,
@@ -74,6 +78,9 @@ export function SenderFolderSidebar({
   const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>(
     selectedFilter === FILTER_STARRED ? "starred" : "all",
   );
+  const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const {
     data: folders,
@@ -81,7 +88,7 @@ export function SenderFolderSidebar({
     isError: foldersError,
   } = useQuery(convexQuery(api.folders.listVisibleFoldersWithUnreadCounts, {}));
 
-  const { data: hiddenCount, isPending: hiddenPending } = useQuery(
+  const { data: hiddenCount, isPending: hiddenCountPending } = useQuery(
     convexQuery(api.newsletters.getHiddenNewsletterCount, {}),
   );
 
@@ -89,6 +96,19 @@ export function SenderFolderSidebar({
     if (!folders) return [];
     return (folders as unknown[]).filter(isFolderData);
   }, [folders]);
+
+  useEffect(() => {
+    setExpandedFolderIds((previous) => {
+      if (previous.size === 0) return previous;
+
+      const visibleFolderIds = new Set(folderList.map((folder) => folder._id));
+      const next = new Set(
+        [...previous].filter((folderId) => visibleFolderIds.has(folderId)),
+      );
+
+      return next.size === previous.size ? previous : next;
+    });
+  }, [folderList]);
 
   // Filter folders based on sidebar tab
   const filteredFolders = useMemo(() => {
@@ -106,17 +126,25 @@ export function SenderFolderSidebar({
     [favoritedNewsletters, getIsFavorited],
   );
 
+  const visibleHiddenNewsletters = useMemo(
+    () => hiddenNewsletters,
+    [hiddenNewsletters],
+  );
+
   useEffect(() => {
     if (selectedFilter === FILTER_STARRED) {
       setSidebarFilter("starred");
       return;
     }
-    if (sidebarFilter === "starred") {
-      setSidebarFilter("all");
-    }
-  }, [selectedFilter, sidebarFilter]);
+    setSidebarFilter((current) => (current === "starred" ? "all" : current));
+  }, [selectedFilter]);
 
   const handleHiddenClick = () => {
+    if (selectedFilter === FILTER_HIDDEN) {
+      onFilterSelect(null);
+      return;
+    }
+
     setSidebarFilter("all");
     onFolderSelect(null);
     onFilterSelect(FILTER_HIDDEN);
@@ -134,6 +162,18 @@ export function SenderFolderSidebar({
     if (selectedFilter === FILTER_STARRED || selectedFilter === FILTER_HIDDEN) {
       onFilterSelect(null);
     }
+  };
+
+  const handleFolderExpandedChange = (folderId: string, expanded: boolean) => {
+    setExpandedFolderIds((previous) => {
+      const next = new Set(previous);
+      if (expanded) {
+        next.add(folderId);
+      } else {
+        next.delete(folderId);
+      }
+      return next;
+    });
   };
 
   if (foldersError) {
@@ -182,7 +222,32 @@ export function SenderFolderSidebar({
       {/* Folder list */}
       <ScrollArea className="flex-1 mt-2">
         <div className="px-2 pb-2 space-y-0.5">
-          {sidebarFilter === "starred" ? (
+          {selectedFilter === FILTER_HIDDEN ? (
+            hiddenPending ? (
+              <SidebarSkeleton />
+            ) : visibleHiddenNewsletters.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8 px-4">
+                {m.newsletters_noHiddenNewsletters()}
+              </p>
+            ) : (
+              <div className="space-y-0.5">
+                {visibleHiddenNewsletters.map((newsletter) => (
+                  <NewsletterListItem
+                    key={newsletter._id}
+                    newsletter={newsletter}
+                    isSelected={selectedNewsletterId === newsletter._id}
+                    isFavorited={getIsFavorited(
+                      newsletter._id,
+                      Boolean(newsletter.isFavorited),
+                    )}
+                    isFavoritePending={isFavoritePending(newsletter._id)}
+                    onClick={onNewsletterSelect}
+                    onToggleFavorite={onToggleFavorite}
+                  />
+                ))}
+              </div>
+            )
+          ) : sidebarFilter === "starred" ? (
             favoritedPending ? (
               <SidebarSkeleton />
             ) : visibleFavoritedNewsletters.length === 0 ? (
@@ -223,6 +288,10 @@ export function SenderFolderSidebar({
                 isSelected={selectedFolderId === folder._id}
                 selectedNewsletterId={selectedNewsletterId}
                 sidebarFilter={sidebarFilter}
+                isExpanded={expandedFolderIds.has(folder._id)}
+                onExpandedChange={(expanded) =>
+                  handleFolderExpandedChange(folder._id, expanded)
+                }
                 onFolderSelect={(id) => {
                   onFilterSelect(null);
                   onFolderSelect(id);
@@ -241,7 +310,7 @@ export function SenderFolderSidebar({
           )}
 
           {/* Hidden section */}
-          {!hiddenPending && (hiddenCount ?? 0) > 0 && (
+          {!hiddenCountPending && ((hiddenCount ?? 0) > 0 || selectedFilter === FILTER_HIDDEN) && (
             <>
               <div className="h-px bg-border my-2 mx-2" role="separator" />
               <button
@@ -261,7 +330,7 @@ export function SenderFolderSidebar({
                   <span className="truncate">{m.folder_hidden()}</span>
                 </div>
                 <span className="text-muted-foreground text-xs flex-shrink-0">
-                  {hiddenCount}
+                  {hiddenCount ?? visibleHiddenNewsletters.length}
                 </span>
               </button>
             </>

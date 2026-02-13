@@ -36,9 +36,39 @@ type NewsletterSearchParams = {
   newsletter?: string;
 };
 
+interface GetStarredAutoSelectionIdArgs {
+  isDesktop: boolean;
+  isFilteringByStarred: boolean;
+  isPending: boolean;
+  selectedNewsletterId?: string;
+  newsletters: Array<{ _id: string }>;
+}
+
 function isValidConvexId(id: string | undefined): boolean {
   if (!id || typeof id !== "string") return false;
   return id.length > 0 && id.trim() === id && !/\s/.test(id);
+}
+
+export function getStarredAutoSelectionId({
+  isDesktop,
+  isFilteringByStarred,
+  isPending,
+  selectedNewsletterId,
+  newsletters,
+}: GetStarredAutoSelectionIdArgs): string | null {
+  if (!isDesktop || !isFilteringByStarred || isPending || newsletters.length === 0) {
+    return null;
+  }
+
+  const selectedStillVisible =
+    selectedNewsletterId !== undefined &&
+    newsletters.some((newsletter) => newsletter._id === selectedNewsletterId);
+
+  if (selectedStillVisible) {
+    return null;
+  }
+
+  return newsletters[0]?._id ?? null;
 }
 
 export const Route = createFileRoute("/_authed/newsletters/")({
@@ -90,6 +120,30 @@ function NewsletterListSkeleton() {
           <div className="h-5 bg-muted rounded w-3/4" />
         </div>
       ))}
+    </div>
+  );
+}
+
+function ReaderPaneSkeleton() {
+  return (
+    <div className="flex-1 min-w-0 p-6">
+      <div className="animate-pulse space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="size-11 rounded-full bg-muted" />
+          <div className="space-y-2">
+            <div className="h-4 bg-muted rounded w-40" />
+            <div className="h-3 bg-muted rounded w-56" />
+          </div>
+        </div>
+        <div className="h-8 bg-muted rounded w-3/4" />
+        <div className="h-4 bg-muted rounded w-1/2" />
+        <div className="space-y-3 pt-4">
+          <div className="h-4 bg-muted rounded w-full" />
+          <div className="h-4 bg-muted rounded w-5/6" />
+          <div className="h-4 bg-muted rounded w-4/5" />
+          <div className="h-4 bg-muted rounded w-full" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -147,6 +201,21 @@ function NewslettersPage() {
 
   // Mobile sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingFilter, setPendingFilter] = useState<FilterType | null | undefined>(
+    undefined,
+  );
+  const effectiveFilter: FilterType | null =
+    pendingFilter !== undefined ? pendingFilter : (filterParam ?? null);
+  const isFilterTransitioning =
+    pendingFilter !== undefined && (filterParam ?? null) !== pendingFilter;
+  const effectiveNewsletterId = isFilterTransitioning ? undefined : newsletterIdParam;
+
+  useEffect(() => {
+    if (pendingFilter === undefined) return;
+    if ((filterParam ?? null) === pendingFilter) {
+      setPendingFilter(undefined);
+    }
+  }, [pendingFilter, filterParam]);
 
   // Restore last read newsletter on desktop when no newsletter param
   useEffect(() => {
@@ -207,8 +276,8 @@ function NewslettersPage() {
   const folders = (foldersData ?? []) as FolderData[];
 
   // Determine filter type - mutually exclusive
-  const isFilteringByHidden = filterParam === FILTER_HIDDEN;
-  const isFilteringByStarred = filterParam === FILTER_STARRED;
+  const isFilteringByHidden = effectiveFilter === FILTER_HIDDEN;
+  const isFilteringByStarred = effectiveFilter === FILTER_STARRED;
   const isFilteringByFolder =
     !!folderIdParam && !isFilteringByHidden && !isFilteringByStarred;
 
@@ -269,6 +338,7 @@ function NewslettersPage() {
 
   // Handle folder selection
   const handleFolderSelect = (selectedFolderId: string | null) => {
+    setPendingFilter(null);
     navigate({
       to: "/newsletters",
       search: selectedFolderId
@@ -280,6 +350,7 @@ function NewslettersPage() {
 
   // Handle filter selection
   const handleFilterSelect = (filter: FilterType | null) => {
+    setPendingFilter(filter);
     navigate({
       to: "/newsletters",
       search: filter ? { filter } : {},
@@ -293,23 +364,20 @@ function NewslettersPage() {
       to: "/newsletters",
       search: {
         ...(folderIdParam ? { folder: folderIdParam } : {}),
-        ...(filterParam ? { filter: filterParam } : {}),
+        ...(effectiveFilter ? { filter: effectiveFilter } : {}),
         newsletter: id,
       },
     });
   };
 
-  // Loading state
-  const isPending =
-    userPending ||
-    foldersPending ||
-    (isFilteringByHidden
-      ? hiddenNewslettersPending
-      : isFilteringByStarred
-        ? favoritedNewslettersPending
-        : isFilteringByFolder
-          ? newslettersByFolderPending
-          : allNewslettersPending);
+  const isInitialPagePending = userPending || foldersPending;
+  const activeListPending = isFilteringByHidden
+    ? hiddenNewslettersPending
+    : isFilteringByStarred
+      ? favoritedNewslettersPending
+      : isFilteringByFolder
+        ? newslettersByFolderPending
+        : allNewslettersPending;
 
   const dedicatedEmail = user?.dedicatedEmail ?? null;
 
@@ -336,13 +404,32 @@ function NewslettersPage() {
     [favoritedNewsletters, getIsFavorited],
   );
 
-  if (isPending) return <PageSkeleton />;
+  const autoSelectedStarredNewsletterId = getStarredAutoSelectionId({
+    isDesktop,
+    isFilteringByStarred,
+    isPending: activeListPending,
+    selectedNewsletterId: effectiveNewsletterId,
+    newsletters: visibleFavoritedNewsletters,
+  });
+
+  useEffect(() => {
+    if (!autoSelectedStarredNewsletterId) return;
+    navigate({
+      to: "/newsletters",
+      search: { filter: FILTER_STARRED, newsletter: autoSelectedStarredNewsletterId },
+      replace: true,
+    });
+  }, [autoSelectedStarredNewsletterId, navigate]);
+
+  if (isInitialPagePending) return <PageSkeleton />;
 
   // Desktop sidebar props for the new SenderFolderSidebar
   const senderFolderSidebarProps = {
     selectedFolderId: folderIdParam ?? null,
-    selectedNewsletterId: newsletterIdParam ?? null,
-    selectedFilter: filterParam ?? null,
+    selectedNewsletterId: effectiveNewsletterId ?? null,
+    selectedFilter: effectiveFilter,
+    hiddenNewsletters: ((hiddenNewsletters ?? []) as NewsletterData[]),
+    hiddenPending: hiddenNewslettersPending,
     favoritedNewsletters: visibleFavoritedNewsletters,
     favoritedPending: favoritedNewslettersPending,
     onFolderSelect: handleFolderSelect,
@@ -356,7 +443,7 @@ function NewslettersPage() {
   // Mobile sidebar props (old FolderSidebar)
   const mobileSidebarProps = {
     selectedFolderId: folderIdParam ?? null,
-    selectedFilter: filterParam ?? null,
+    selectedFilter: effectiveFilter,
     onFolderSelect: handleFolderSelect,
     onFilterSelect: handleFilterSelect,
   };
@@ -367,14 +454,16 @@ function NewslettersPage() {
     <div className="hidden md:flex h-full">
       <SenderFolderSidebar {...senderFolderSidebarProps} />
 
-      {newsletterIdParam ? (
+      {effectiveNewsletterId ? (
         <InlineReaderPane
-          key={newsletterIdParam}
-          newsletterId={newsletterIdParam as Id<"userNewsletters">}
+          key={effectiveNewsletterId}
+          newsletterId={effectiveNewsletterId as Id<"userNewsletters">}
           getIsFavorited={getIsFavorited}
           isFavoritePending={isFavoritePending}
           onToggleFavorite={onToggleFavorite}
         />
+      ) : activeListPending ? (
+        <ReaderPaneSkeleton />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
           <Inbox className="h-12 w-12 text-muted-foreground/40" />
@@ -428,7 +517,9 @@ function NewslettersPage() {
           </h1>
         )}
 
-        {visibleNewsletterList.length === 0 ? (
+        {activeListPending ? (
+          <NewsletterListSkeleton />
+        ) : visibleNewsletterList.length === 0 ? (
           isFilteringByHidden ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">

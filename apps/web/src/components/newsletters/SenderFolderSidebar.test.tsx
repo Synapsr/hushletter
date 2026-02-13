@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { SenderFolderSidebar } from "./SenderFolderSidebar";
 import type { NewsletterData } from "@/components/NewsletterCard";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
@@ -24,26 +24,45 @@ vi.mock("@hushletter/backend", () => ({
 }));
 
 vi.mock("./SenderFolderItem", () => ({
-  SenderFolderItem: ({ folder }: { folder: { name: string } }) => (
-    <div data-testid="sender-folder-item">{folder.name}</div>
+  SenderFolderItem: ({
+    folder,
+    isExpanded,
+    onExpandedChange,
+  }: {
+    folder: { name: string };
+    isExpanded: boolean;
+    onExpandedChange: (expanded: boolean) => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="sender-folder-item"
+      data-expanded={isExpanded ? "true" : "false"}
+      onClick={() => onExpandedChange(!isExpanded)}
+    >
+      {folder.name}
+    </button>
   ),
 }));
 
 vi.mock("./NewsletterListItem", () => ({
   NewsletterListItem: ({ newsletter }: { newsletter: { subject: string } }) => (
-    <div data-testid="starred-newsletter-item">{newsletter.subject}</div>
+    <div data-testid="newsletter-list-item">{newsletter.subject}</div>
   ),
 }));
 
 import { useQuery } from "@tanstack/react-query";
 
 const mockUseQuery = vi.mocked(useQuery);
+let foldersQueryData: unknown[] = [];
+let hiddenCountData = 0;
 
 describe("SenderFolderSidebar", () => {
   const defaultProps = {
     selectedFolderId: null,
     selectedNewsletterId: null,
     selectedFilter: "starred" as const,
+    hiddenNewsletters: [] as NewsletterData[],
+    hiddenPending: false,
     favoritedNewsletters: [] as NewsletterData[],
     favoritedPending: false,
     onFolderSelect: vi.fn(),
@@ -56,18 +75,20 @@ describe("SenderFolderSidebar", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    foldersQueryData = [];
+    hiddenCountData = 0;
     mockUseQuery.mockImplementation((options) => {
       const queryKey = options?.queryKey?.[0];
       if (queryKey === "folders.listVisibleFoldersWithUnreadCounts") {
         return {
-          data: [],
+          data: foldersQueryData,
           isPending: false,
           isError: false,
         } as ReturnType<typeof useQuery>;
       }
       if (queryKey === "newsletters.getHiddenNewsletterCount") {
         return {
-          data: 0,
+          data: hiddenCountData,
           isPending: false,
           isError: false,
         } as ReturnType<typeof useQuery>;
@@ -107,6 +128,78 @@ describe("SenderFolderSidebar", () => {
       />,
     );
 
-    expect(screen.getByTestId("starred-newsletter-item")).toHaveTextContent("Weekly update");
+    expect(screen.getByTestId("newsletter-list-item")).toHaveTextContent("Weekly update");
+  });
+
+  it("renders hidden newsletter rows when hidden filter is selected", () => {
+    const hiddenNewsletters: NewsletterData[] = [
+      {
+        _id: "hidden1" as Id<"userNewsletters">,
+        subject: "Hidden digest",
+        senderEmail: "hidden@example.com",
+        receivedAt: Date.now(),
+        isRead: true,
+        isHidden: true,
+        isPrivate: false,
+        isFavorited: false,
+      },
+    ];
+
+    render(
+      <SenderFolderSidebar
+        {...defaultProps}
+        selectedFilter="hidden"
+        hiddenNewsletters={hiddenNewsletters}
+      />,
+    );
+
+    expect(screen.getByTestId("newsletter-list-item")).toHaveTextContent("Hidden digest");
+  });
+
+  it("clears hidden filter when hidden button is clicked while already selected", () => {
+    const onFilterSelect = vi.fn();
+
+    render(
+      <SenderFolderSidebar
+        {...defaultProps}
+        selectedFilter="hidden"
+        onFilterSelect={onFilterSelect}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /hidden/i }));
+    expect(onFilterSelect).toHaveBeenCalledWith(null);
+  });
+
+  it("keeps folder expansion state when switching from all to starred and back", () => {
+    foldersQueryData = [
+      {
+        _id: "folder-1",
+        name: "Product",
+        newsletterCount: 3,
+        unreadCount: 1,
+      },
+    ];
+
+    const { rerender } = render(
+      <SenderFolderSidebar {...defaultProps} selectedFilter={null} />,
+    );
+
+    const folderButton = screen.getByTestId("sender-folder-item");
+    expect(folderButton).toHaveAttribute("data-expanded", "false");
+
+    fireEvent.click(folderButton);
+    expect(screen.getByTestId("sender-folder-item")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+
+    rerender(<SenderFolderSidebar {...defaultProps} selectedFilter="starred" />);
+    rerender(<SenderFolderSidebar {...defaultProps} selectedFilter={null} />);
+
+    expect(screen.getByTestId("sender-folder-item")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
   });
 });

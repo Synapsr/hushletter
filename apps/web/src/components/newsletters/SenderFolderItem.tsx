@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
@@ -24,11 +23,16 @@ interface SenderFolderItemProps {
   isSelected: boolean;
   selectedNewsletterId: string | null;
   sidebarFilter: "all" | "unread" | "starred";
+  isExpanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
   onFolderSelect: (folderId: string) => void;
   onNewsletterSelect: (newsletterId: string) => void;
   getIsFavorited: (newsletterId: string, serverValue?: boolean) => boolean;
   isFavoritePending: (newsletterId: string) => boolean;
-  onToggleFavorite: (newsletterId: string, currentValue: boolean) => Promise<void>;
+  onToggleFavorite: (
+    newsletterId: string,
+    currentValue: boolean,
+  ) => Promise<void>;
   onHideSuccess: () => void;
 }
 
@@ -41,6 +45,8 @@ export function SenderFolderItem({
   isSelected,
   selectedNewsletterId,
   sidebarFilter,
+  isExpanded,
+  onExpandedChange,
   onFolderSelect,
   onNewsletterSelect,
   getIsFavorited,
@@ -48,8 +54,6 @@ export function SenderFolderItem({
   onToggleFavorite,
   onHideSuccess,
 }: SenderFolderItemProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   // Lazy-load newsletters only when expanded
   const { data: newsletters, isPending } = useQuery({
     ...convexQuery(api.newsletters.listUserNewslettersByFolder, {
@@ -72,7 +76,7 @@ export function SenderFolderItem({
   };
 
   return (
-    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+    <Collapsible open={isExpanded} onOpenChange={onExpandedChange}>
       <div
         className={cn(
           "group flex items-center rounded-lg transition-colors",
@@ -107,14 +111,21 @@ export function SenderFolderItem({
             senderEmail={folder.name}
             size="sm"
           />
-          <span className="text-sm truncate font-medium">{folder.name}</span>
+          <span
+            className={cn(
+              "text-sm truncate font-medium",
+              folder.unreadCount === 0 && "text-muted-foreground",
+            )}
+          >
+            {folder.name}
+          </span>
         </button>
 
         <div className="flex items-center gap-1 pr-2 shrink-0">
           {folder.unreadCount > 0 && (
             <Badge
               variant="default"
-              className="h-5 min-w-5 px-1.5 text-[11px] font-semibold"
+              className="h-5 min-w-5 px-1.5 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
             >
               {folder.unreadCount}
             </Badge>
@@ -128,7 +139,7 @@ export function SenderFolderItem({
       </div>
 
       <CollapsiblePanel
-        render={<ScrollArea scrollFade className="max-h-[200px]" />}
+        render={<ScrollArea scrollFade className="max-h-[245px]" />}
       >
         <div className="ml-4 border-l border-border pl-2 py-1 space-y-0.5 ">
           {isPending ? (

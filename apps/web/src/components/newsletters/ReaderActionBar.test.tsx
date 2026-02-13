@@ -3,6 +3,52 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ReaderActionBar } from "./ReaderActionBar";
 
 describe("ReaderActionBar", () => {
+  it("shows archive aria label when newsletter is visible", () => {
+    render(
+      <ReaderActionBar
+        isRead={false}
+        isHidden={false}
+        isFavorited={false}
+        isFavoritePending={false}
+        onArchive={vi.fn()}
+        onToggleFavorite={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+  });
+
+  it("shows unhide aria label when newsletter is hidden", () => {
+    render(
+      <ReaderActionBar
+        isRead={false}
+        isHidden
+        isFavorited={false}
+        isFavoritePending={false}
+        onArchive={vi.fn()}
+        onToggleFavorite={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Unhide" })).toBeInTheDocument();
+  });
+
+  it("disables archive button while archive mutation is pending", () => {
+    render(
+      <ReaderActionBar
+        isRead={false}
+        isHidden={false}
+        isFavorited={false}
+        isFavoritePending={false}
+        isArchivePending
+        onArchive={vi.fn()}
+        onToggleFavorite={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Archive" })).toBeDisabled();
+  });
+
   it("calls onToggleFavorite when star button is clicked", async () => {
     const onToggleFavorite = vi.fn();
 

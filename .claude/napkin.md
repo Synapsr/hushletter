@@ -7,7 +7,12 @@
 | 2026-02-13 | self | Large multi-hunk patch to `newsletters.ts` failed due drifted context | Apply smaller targeted patches for long files with active local changes |
 | 2026-02-13 | self | Ran test path with `$id` unquoted and shell expanded it away | Quote route test paths containing `$` (e.g. `'.../$id.test.tsx'`) |
 | 2026-02-13 | self | Used a stale context block in `apply_patch` while editing `SenderFolderItem.tsx` and patch failed | Re-read current numbered lines (`nl -ba`) and patch tight ranges after each file mutation |
+| 2026-02-13 | self | React component tests emitted `act(...)` warnings after async click handlers updated state | Wrap event triggers and async callback invocations in `await act(async () => { ... })` for stable/no-noise tests |
 | 2026-02-13 | self | Used `rg` with a newline escape in a single-line regex and got a parse error | Use simpler single-line patterns or enable multiline mode explicitly (`-U`) when needed |
+| 2026-02-13 | self | Assumed backend lived in `convex/` at repo root and ran `rg` against a non-existent path | Verify monorepo package location first (`packages/backend/convex`) before search commands |
+| 2026-02-13 | self | Tried forwarding test file args via `bun run test ...` and hit Bun script parsing help output | Run focused tests with direct runner invocation (`bun x vitest run <path>`) when script arg forwarding is unclear |
+| 2026-02-13 | self | Added a new `hiddenPending` prop in `SenderFolderSidebar` that collided with an existing local query alias | Rename local query state aliases immediately when introducing similarly named props to avoid transform-time duplicate symbol errors |
+| 2026-02-13 | self | Ran `vitest` from monorepo root for an `apps/web` test and hit `@/` alias resolution errors | Run web tests from `apps/web` workspace so Vite/Vitest picks the app config and path aliases |
 
 ## User Preferences
 - Implement plans end-to-end when asked, with strong UX polish (optimistic updates and perceived performance).
@@ -15,6 +20,8 @@
 ## Patterns That Work
 - Use Convex + TanStack Query with local optimistic overlay state for instant UI feedback while waiting for reactive sync.
 - Keep optimistic state in one route-level controller and pass pure callbacks down to list/sidebar/reader to prevent duplicated mutation logic.
+- For URL-driven filters in TanStack Router, use a short-lived local `pendingFilter` override so tabs/content update immediately and skeletons render before search params settle.
+- For collapsible rows that unmount across filter/tab branches, keep expansion state in the parent keyed by row id; local row state is lost on remount.
 
 ## Patterns That Don't Work
 - Using broad `queryClient.invalidateQueries()` for high-frequency UI actions causes avoidable jitter.
@@ -43,3 +50,4 @@
 - Applying reader theme only inside ReaderView feels abrupt; extend the same background to InlineReaderPane container/scroll area for smoother visual continuity across header, summary, and content.
 - Iframe auto-height can runaway if a safety buffer is added unconditionally on every measurement; only add buffer when `scrollHeight > clientHeight` to avoid ResizeObserver growth loops.
 - `about:srcdoc` sandbox script warnings can still happen even after sanitization (often browser extension injection); use post-sanitize attribute/protocol cleanup and treat persistent warnings as expected unless `allow-scripts` is enabled.
+- `apps/web` currently has unrelated baseline TS errors (`global-search`, `useMediaQuery`, `_authed`, `packages/ui/input-group`); use focused test runs for feature validation unless explicitly tasked with cleanup.

@@ -61,3 +61,64 @@ describe("NewslettersPage validateSearch", () => {
     });
   });
 });
+
+describe("getStarredAutoSelectionId", () => {
+  const getAutoSelection = async () => {
+    const { getStarredAutoSelectionId } = await import("./index");
+    return getStarredAutoSelectionId;
+  };
+
+  it("returns first newsletter when starred data is ready and none selected", async () => {
+    const getStarredAutoSelectionId = await getAutoSelection();
+
+    expect(
+      getStarredAutoSelectionId({
+        isDesktop: true,
+        isFilteringByStarred: true,
+        isPending: false,
+        newsletters: [{ _id: "newest" }, { _id: "older" }],
+      }),
+    ).toBe("newest");
+  });
+
+  it("returns null while starred query is pending", async () => {
+    const getStarredAutoSelectionId = await getAutoSelection();
+
+    expect(
+      getStarredAutoSelectionId({
+        isDesktop: true,
+        isFilteringByStarred: true,
+        isPending: true,
+        newsletters: [{ _id: "newest" }],
+      }),
+    ).toBeNull();
+  });
+
+  it("returns null when current selection still exists in starred list", async () => {
+    const getStarredAutoSelectionId = await getAutoSelection();
+
+    expect(
+      getStarredAutoSelectionId({
+        isDesktop: true,
+        isFilteringByStarred: true,
+        isPending: false,
+        selectedNewsletterId: "existing",
+        newsletters: [{ _id: "existing" }, { _id: "older" }],
+      }),
+    ).toBeNull();
+  });
+
+  it("falls back to newest when current selection is not part of starred list", async () => {
+    const getStarredAutoSelectionId = await getAutoSelection();
+
+    expect(
+      getStarredAutoSelectionId({
+        isDesktop: true,
+        isFilteringByStarred: true,
+        isPending: false,
+        selectedNewsletterId: "missing",
+        newsletters: [{ _id: "newest" }, { _id: "older" }],
+      }),
+    ).toBe("newest");
+  });
+});

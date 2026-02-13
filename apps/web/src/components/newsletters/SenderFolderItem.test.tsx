@@ -51,6 +51,8 @@ describe("SenderFolderItem", () => {
         isSelected={false}
         selectedNewsletterId={null}
         sidebarFilter="all"
+        isExpanded={false}
+        onExpandedChange={vi.fn()}
         onFolderSelect={onFolderSelect}
         onNewsletterSelect={vi.fn()}
         getIsFavorited={vi.fn(() => false)}

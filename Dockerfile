@@ -52,6 +52,8 @@ WORKDIR /app
 
 COPY --from=base /app ./
 
+WORKDIR /app/apps/web
+
 EXPOSE 3000
 
 CMD ["node", ".output/server/index.mjs"]

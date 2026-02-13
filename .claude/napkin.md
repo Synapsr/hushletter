@@ -23,6 +23,7 @@
 - Implement plans end-to-end when asked, with strong UX polish (optimistic updates and perceived performance).
 - Avoid Dockerfile patterns that bake app env values into image `ENV`; prefer runtime env config or command-scoped env injection.
 - Prefer a simple, stable Dockerfile over layered fallback logic when troubleshooting CI deployment issues.
+- In EasyPanel deployments, prefer a single Docker-triggered flow (Convex deploy + web build) instead of multi-step manual commands.
 
 ## Patterns That Work
 - Use Convex + TanStack Query with local optimistic overlay state for instant UI feedback while waiting for reactive sync.

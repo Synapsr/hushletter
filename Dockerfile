@@ -18,15 +18,29 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 # Build args needed by web build
+ARG CONVEX_DEPLOYMENT
+ARG CONVEX_DEPLOY_KEY
 ARG VITE_CONVEX_URL
 ARG VITE_CONVEX_SITE_URL
 ARG VITE_SITE_URL
+ARG RUN_CONVEX_DEPLOY=true
 
-# Build web app only
-RUN VITE_CONVEX_URL="$VITE_CONVEX_URL" \
-    VITE_CONVEX_SITE_URL="$VITE_CONVEX_SITE_URL" \
-    VITE_SITE_URL="$VITE_SITE_URL" \
-    bun run --filter @hushletter/web build
+# One-step deploy from EasyPanel:
+# - with RUN_CONVEX_DEPLOY=true and CONVEX_DEPLOY_KEY set: deploy Convex + build web
+# - otherwise: build web only
+RUN if [ "$RUN_CONVEX_DEPLOY" = "true" ] && [ -n "$CONVEX_DEPLOY_KEY" ]; then \
+      CONVEX_DEPLOYMENT="$CONVEX_DEPLOYMENT" \
+      CONVEX_DEPLOY_KEY="$CONVEX_DEPLOY_KEY" \
+      VITE_CONVEX_URL="$VITE_CONVEX_URL" \
+      VITE_CONVEX_SITE_URL="$VITE_CONVEX_SITE_URL" \
+      VITE_SITE_URL="$VITE_SITE_URL" \
+      bun run deploy:convex:web; \
+    else \
+      VITE_CONVEX_URL="$VITE_CONVEX_URL" \
+      VITE_CONVEX_SITE_URL="$VITE_CONVEX_SITE_URL" \
+      VITE_SITE_URL="$VITE_SITE_URL" \
+      bun run --filter @hushletter/web build; \
+    fi
 
 # Production stage
 FROM oven/bun:1 AS runner

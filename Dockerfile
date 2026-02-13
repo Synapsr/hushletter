@@ -32,7 +32,11 @@ RUN if [ "$RUN_CONVEX_DEPLOY" = "true" ]; then \
       cd packages/backend && \
       CONVEX_DEPLOYMENT="$CONVEX_DEPLOYMENT" CONVEX_DEPLOY_KEY="$CONVEX_DEPLOY_KEY" \
       VITE_CONVEX_URL="$VITE_CONVEX_URL" VITE_CONVEX_SITE_URL="$VITE_CONVEX_SITE_URL" VITE_SITE_URL="$VITE_SITE_URL" \
-      npx convex deploy --yes --cmd 'cd ../.. && bun run --filter @hushletter/web build'; \
+      if command -v npx >/dev/null 2>&1; then \
+        npx convex deploy --yes --cmd 'cd ../.. && bun run --filter @hushletter/web build'; \
+      else \
+        bunx convex deploy --yes --cmd 'cd ../.. && bun run --filter @hushletter/web build'; \
+      fi; \
     else \
       VITE_CONVEX_URL="$VITE_CONVEX_URL" VITE_CONVEX_SITE_URL="$VITE_CONVEX_SITE_URL" VITE_SITE_URL="$VITE_SITE_URL" \
       bun run --filter @hushletter/web build; \

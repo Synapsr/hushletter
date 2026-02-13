@@ -16,6 +16,7 @@
 | 2026-02-13 | self | Docker `bun install` failed in CI because pre-install layer copied only some workspace manifests | In Dockerfiles, copy every workspace `package.json` referenced by `workspace:*` deps before running `bun install --frozen-lockfile` |
 | 2026-02-13 | self | `convex deploy --cmd` in Docker build hung with repeated WebSocket reconnects on EasyPanel | Make Convex deploy optional in Docker and default to plain web build; run backend deploy separately in CI where WebSockets are reliable |
 | 2026-02-13 | self | `bunx convex deploy` can be less stable than Node CLI in containerized CI | Prefer `npx convex deploy --yes` in Docker build steps to match previously working Node-based Convex behavior |
+| 2026-02-13 | self | Switched Docker to `npx convex` on `oven/bun` base image and build failed (`npx: not found`) | In `oven/bun` images, guard for tool availability (`npx` vs `bunx`) before invoking Convex CLI |
 
 ## User Preferences
 - Implement plans end-to-end when asked, with strong UX polish (optimistic updates and perceived performance).

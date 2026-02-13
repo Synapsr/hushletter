@@ -15,21 +15,17 @@ import {
   CommandPanel,
   CommandSeparator,
   CommandShortcut,
-  Input,
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
+  Button,
   Kbd,
   KbdGroup,
 } from "@hushletter/ui/components";
-import { Button } from "@hushletter/ui/components";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
   CornerDownLeftIcon,
   SearchIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { formatForDisplay, useHotkey } from "@tanstack/react-hotkeys";
 
@@ -43,7 +39,6 @@ export const GlobalSearch = ({}: Props) => {
   }
 
   useHotkey("Mod+K", () => {
-    console.log("Mod+K");
     setOpen((open) => !open);
   });
 

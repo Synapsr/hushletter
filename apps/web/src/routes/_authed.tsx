@@ -4,15 +4,7 @@ import {
   Outlet,
   redirect,
 } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { convexQuery } from "@convex-dev/react-query";
-import { api } from "@hushletter/backend";
 import type { RouterContext } from "@/router";
-import { signOut } from "@/lib/auth-client";
-import { Button } from "@hushletter/ui";
-import { Settings, Download, Globe, Shield } from "lucide-react";
-import { m } from "@/paraglide/messages.js";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SharedLogo } from "@/components/shared/shared-logo";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { UserMenu } from "@/components/navigation/user-menu";
@@ -30,23 +22,6 @@ export const Route = createFileRoute("/_authed")({
 });
 
 function AuthedLayout() {
-  // Story 7.1 Task 1.4: Check if user is admin for conditional nav link
-  const { data: adminCheck } = useQuery(
-    convexQuery(api.admin.checkIsAdmin, {}),
-  );
-  const isAdmin = adminCheck?.isAdmin ?? false;
-
-  const handleLogout = async () => {
-    try {
-      await signOut();
-    } catch {
-      // Even if signOut fails, redirect to home
-      // The session may already be invalid
-    }
-    // Navigate to landing page — middleware will redirect to /fr/ if cookie is French
-    window.location.href = "/";
-  };
-
   return (
     <div className="h-screen w-screen flex flex-col">
       <header className="border-b shrink-0">

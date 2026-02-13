@@ -17,10 +17,12 @@
 | 2026-02-13 | self | `convex deploy --cmd` in Docker build hung with repeated WebSocket reconnects on EasyPanel | Make Convex deploy optional in Docker and default to plain web build; run backend deploy separately in CI where WebSockets are reliable |
 | 2026-02-13 | self | `bunx convex deploy` can be less stable than Node CLI in containerized CI | Prefer `npx convex deploy --yes` in Docker build steps to match previously working Node-based Convex behavior |
 | 2026-02-13 | self | Switched Docker to `npx convex` on `oven/bun` base image and build failed (`npx: not found`) | In `oven/bun` images, guard for tool availability (`npx` vs `bunx`) before invoking Convex CLI |
+| 2026-02-13 | self | Assumed Docker failure was still infra-related after simplification, but build was failing on strict TS errors in app code | When Docker hits `bun run --filter @hushletter/web build`, treat TypeScript diagnostics as primary blocker and fix listed files first |
 
 ## User Preferences
 - Implement plans end-to-end when asked, with strong UX polish (optimistic updates and perceived performance).
 - Avoid Dockerfile patterns that bake app env values into image `ENV`; prefer runtime env config or command-scoped env injection.
+- Prefer a simple, stable Dockerfile over layered fallback logic when troubleshooting CI deployment issues.
 
 ## Patterns That Work
 - Use Convex + TanStack Query with local optimistic overlay state for instant UI feedback while waiting for reactive sync.

@@ -34,12 +34,14 @@ vi.mock("./NewsletterListItem", () => ({
 describe("SenderFolderItem", () => {
   const folder: FolderData = {
     _id: "folder-1" as Id<"folders">,
+    userId: "user-1",
     name: "DENG",
     senderCount: 1,
     newsletterCount: 2,
     unreadCount: 1,
     isHidden: false,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 
   it("expands without selecting folder, then selects on row click", async () => {

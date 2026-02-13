@@ -29,6 +29,7 @@
 - Keep optimistic state in one route-level controller and pass pure callbacks down to list/sidebar/reader to prevent duplicated mutation logic.
 - For URL-driven filters in TanStack Router, use a short-lived local `pendingFilter` override so tabs/content update immediately and skeletons render before search params settle.
 - For collapsible rows that unmount across filter/tab branches, keep expansion state in the parent keyed by row id; local row state is lost on remount.
+- Keep Docker build focused on app build/run, and perform Convex deployment as a separate explicit step/script in monorepos.
 
 ## Patterns That Don't Work
 - Using broad `queryClient.invalidateQueries()` for high-frequency UI actions causes avoidable jitter.

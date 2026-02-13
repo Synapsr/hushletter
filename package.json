@@ -15,7 +15,8 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
-    "format": "oxfmt --write ."
+    "format": "oxfmt --write .",
+    "deploy:convex:web": "cd packages/backend && bunx convex deploy --yes --cmd-url-env-var-name VITE_CONVEX_URL --cmd 'cd ../.. && bun run --filter @hushletter/web build'"
   },
   "workspaces": ["apps/*", "packages/*"]
 }

@@ -2,6 +2,12 @@ import {
   createStartHandler,
   defaultStreamHandler,
 } from "@tanstack/react-start/server";
+import { URLPattern as URLPatternPolyfill } from "urlpattern-polyfill";
+
+if (typeof globalThis.URLPattern === "undefined") {
+  (globalThis as unknown as { URLPattern: typeof URLPatternPolyfill }).URLPattern =
+    URLPatternPolyfill;
+}
 
 const handler = createStartHandler(defaultStreamHandler);
 

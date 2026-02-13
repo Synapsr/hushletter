@@ -1,11 +1,16 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { m } from "@/paraglide/messages.js";
 import type { NewsletterData } from "@/components/NewsletterCard";
+import { Star } from "lucide-react";
 
 interface NewsletterListItemProps {
   newsletter: NewsletterData;
   isSelected: boolean;
+  isFavorited: boolean;
+  isFavoritePending: boolean;
   onClick: (id: string) => void;
+  onToggleFavorite: (newsletterId: string, currentValue: boolean) => Promise<void>;
 }
 
 /**
@@ -35,37 +40,89 @@ function formatRelativeTime(timestamp: number): string {
 export function NewsletterListItem({
   newsletter,
   isSelected,
+  isFavorited,
+  isFavoritePending,
   onClick,
+  onToggleFavorite,
 }: NewsletterListItemProps) {
+  const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
+
+  const handleFavoriteClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (isFavoritePending) return;
+
+    try {
+      await onToggleFavorite(newsletter._id, isFavorited);
+      setFavoriteFeedback(null);
+    } catch (error) {
+      console.error("[NewsletterListItem] Failed to update favorite:", error);
+      setFavoriteFeedback(m.newsletters_favoriteUpdateFailed());
+      setTimeout(() => setFavoriteFeedback(null), 2000);
+    }
+  };
+
   return (
-    <button
-      onClick={() => onClick(newsletter._id)}
+    <div
       className={cn(
-        "w-full text-left px-3 py-2 rounded-md transition-colors",
+        "w-full px-3 py-2 rounded-md transition-colors",
         "hover:bg-accent/60",
         isSelected && "bg-accent",
         !newsletter.isRead && "font-medium",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p
-          className={cn(
-            "text-sm truncate flex-1",
-            newsletter.isRead ? "text-muted-foreground" : "text-foreground",
-          )}
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          onClick={() => onClick(newsletter._id)}
+          className="flex-1 text-left min-w-0"
         >
-          {newsletter.subject}
-        </p>
-        <time className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">
-          {formatRelativeTime(newsletter.receivedAt)}
-        </time>
+          <div className="flex items-start justify-between gap-2">
+            <p
+              className={cn(
+                "text-sm truncate flex-1",
+                newsletter.isRead ? "text-muted-foreground" : "text-foreground",
+              )}
+            >
+              {newsletter.subject}
+            </p>
+            <time className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">
+              {formatRelativeTime(newsletter.receivedAt)}
+            </time>
+          </div>
+          {/* Preview snippet - first part of subject or sender info */}
+          {newsletter.senderName && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {newsletter.senderName}
+            </p>
+          )}
+          {favoriteFeedback && (
+            <p className="text-[11px] text-destructive mt-1" role="status">
+              {favoriteFeedback}
+            </p>
+          )}
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
+            "text-muted-foreground hover:text-yellow-500 hover:bg-accent",
+            isFavorited && "text-yellow-500",
+            isFavoritePending && "opacity-50 cursor-not-allowed",
+          )}
+          aria-label={
+            isFavorited
+              ? m.newsletters_removeFromFavoritesAria()
+              : m.newsletters_addToFavoritesAria()
+          }
+          aria-pressed={isFavorited}
+          disabled={isFavoritePending}
+          onClick={handleFavoriteClick}
+        >
+          <Star className={cn("h-3.5 w-3.5", isFavorited && "fill-current")} />
+        </button>
       </div>
-      {/* Preview snippet - first part of subject or sender info */}
-      {newsletter.senderName && (
-        <p className="text-xs text-muted-foreground truncate mt-0.5">
-          {newsletter.senderName}
-        </p>
-      )}
-    </button>
+    </div>
   );
 }

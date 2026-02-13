@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
 import { convexQuery } from "@convex-dev/react-query";
@@ -8,12 +9,22 @@ import { Button, ScrollArea } from "@hushletter/ui";
 import { RefreshCw } from "lucide-react";
 import { ReaderView, clearCacheEntry } from "@/components/ReaderView";
 import { SummaryPanel } from "@/components/SummaryPanel";
+import {
+  READER_BACKGROUND_OPTIONS,
+  useReaderPreferences,
+} from "@/hooks/useReaderPreferences";
 import { SenderAvatar } from "./SenderAvatar";
 import { ReaderActionBar } from "./ReaderActionBar";
 import { m } from "@/paraglide/messages.js";
 
 interface InlineReaderPaneProps {
   newsletterId: Id<"userNewsletters">;
+  getIsFavorited?: (newsletterId: string, serverValue?: boolean) => boolean;
+  isFavoritePending?: (newsletterId: string) => boolean;
+  onToggleFavorite?: (
+    newsletterId: string,
+    currentValue: boolean,
+  ) => Promise<void>;
 }
 
 interface NewsletterMetadata {
@@ -24,6 +35,7 @@ interface NewsletterMetadata {
   receivedAt: number;
   isRead: boolean;
   isHidden: boolean;
+  isFavorited?: boolean;
   isPrivate: boolean;
   readProgress?: number;
   contentStatus: "available" | "missing" | "error";
@@ -87,7 +99,20 @@ function ReaderSkeleton() {
  * Inline reader pane for the split-pane layout.
  * Reuses ReaderView and SummaryPanel from the detail page.
  */
-export function InlineReaderPane({ newsletterId }: InlineReaderPaneProps) {
+export function InlineReaderPane({
+  newsletterId,
+  getIsFavorited,
+  isFavoritePending,
+  onToggleFavorite,
+}: InlineReaderPaneProps) {
+  const { preferences, setBackground, setFont, setFontSize } =
+    useReaderPreferences();
+  const paneBackgroundColor =
+    READER_BACKGROUND_OPTIONS[preferences.background].color;
+  const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
+  const [estimatedReadMinutes, setEstimatedReadMinutes] = useState<
+    number | null
+  >(null);
   const { data, isPending } = useQuery(
     convexQuery(api.newsletters.getUserNewsletter, {
       userNewsletterId: newsletterId,
@@ -98,10 +123,26 @@ export function InlineReaderPane({ newsletterId }: InlineReaderPaneProps) {
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
   const markRead = useMutation(api.newsletters.markNewsletterRead);
 
-  if (isPending) return <ReaderSkeleton />;
+  useEffect(() => {
+    setEstimatedReadMinutes(null);
+  }, [newsletterId]);
+
+  if (isPending) {
+    return (
+      <div
+        className="flex-1 min-w-0 overflow-hidden"
+        style={{ backgroundColor: paneBackgroundColor }}
+      >
+        <ReaderSkeleton />
+      </div>
+    );
+  }
   if (!newsletter) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground">
+      <div
+        className="flex-1 flex items-center justify-center text-muted-foreground"
+        style={{ backgroundColor: paneBackgroundColor }}
+      >
         {m.newsletters_notFound()}
       </div>
     );
@@ -121,19 +162,63 @@ export function InlineReaderPane({ newsletterId }: InlineReaderPaneProps) {
 
   const date = new Date(newsletter.receivedAt);
   const senderDisplay = newsletter.senderName || newsletter.senderEmail;
+  const favoritedValue = getIsFavorited
+    ? getIsFavorited(newsletter._id, Boolean(newsletter.isFavorited))
+    : Boolean(newsletter.isFavorited);
+  const favoritePending = isFavoritePending
+    ? isFavoritePending(newsletter._id)
+    : false;
+
+  const handleFavoriteToggle = async () => {
+    if (!onToggleFavorite || favoritePending) return;
+    try {
+      await onToggleFavorite(newsletter._id, favoritedValue);
+      setFavoriteFeedback(null);
+    } catch (error) {
+      console.error("[InlineReaderPane] Failed to update favorite:", error);
+      setFavoriteFeedback(m.newsletters_favoriteUpdateFailed());
+      setTimeout(() => setFavoriteFeedback(null), 2000);
+    }
+  };
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+    <div
+      className="flex-1 flex flex-col min-w-0 overflow-hidden"
+      style={{ backgroundColor: paneBackgroundColor }}
+    >
       <ReaderActionBar
+        senderName={senderDisplay}
+        subject={newsletter.subject}
+        date={date.toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}
         isRead={newsletter.isRead}
         isHidden={newsletter.isHidden}
+        isFavorited={favoritedValue}
+        isFavoritePending={favoritePending}
         onArchive={handleArchive}
-        estimatedReadMinutes={8}
+        onToggleFavorite={handleFavoriteToggle}
+        estimatedReadMinutes={estimatedReadMinutes ?? undefined}
+        preferences={preferences}
+        onBackgroundChange={setBackground}
+        onFontChange={setFont}
+        onFontSizeChange={setFontSize}
       />
 
-      <ScrollArea className="flex-1">
+      {favoriteFeedback && (
+        <div className="px-6 py-2 text-xs text-destructive" role="status">
+          {favoriteFeedback}
+        </div>
+      )}
+
+      <ScrollArea
+        className="flex-1"
+        style={{ backgroundColor: paneBackgroundColor }}
+      >
         {/* Newsletter header */}
-        <div className="px-6 pt-6 pb-4 max-w-3xl mx-auto">
+        {/*   <div className="px-6 pt-6 pb-4 max-w-3xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
             <SenderAvatar
               senderName={newsletter.senderName}
@@ -162,17 +247,17 @@ export function InlineReaderPane({ newsletterId }: InlineReaderPaneProps) {
           </h1>
 
           <hr className="my-6 border-border" />
-        </div>
+        </div> */}
 
         {/* AI Summary */}
-        <div className="px-6 max-w-3xl mx-auto">
+        {/* <div className="px-6 max-w-3xl mx-auto">
           <ErrorBoundary FallbackComponent={SummaryErrorFallback}>
             <SummaryPanel userNewsletterId={newsletterId} />
           </ErrorBoundary>
-        </div>
+        </div> */}
 
         {/* Newsletter content */}
-        <div className="px-6 pb-12 max-w-3xl mx-auto">
+        <div className="px-6 pt-6 pb-12 max-w-3xl mx-auto ">
           <ErrorBoundary
             FallbackComponent={ContentErrorFallback}
             onReset={handleContentReset}
@@ -182,6 +267,8 @@ export function InlineReaderPane({ newsletterId }: InlineReaderPaneProps) {
               initialProgress={newsletter.readProgress}
               onReadingComplete={handleReadingComplete}
               className="max-h-none overflow-visible"
+              preferences={preferences}
+              onEstimatedReadMinutesChange={setEstimatedReadMinutes}
             />
           </ErrorBoundary>
         </div>

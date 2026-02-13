@@ -10,20 +10,23 @@ import { FolderSidebar, FolderSidebarSkeleton, type FolderData } from "@/compone
 import { SenderFolderSidebar } from "@/components/newsletters/SenderFolderSidebar";
 import { InlineReaderPane } from "@/components/newsletters/InlineReaderPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useOptimisticNewsletterFavorite } from "@/hooks/useOptimisticNewsletterFavorite";
 import { Button, Sheet, SheetContent, SheetTitle, SheetTrigger } from "@hushletter/ui";
 import { Menu, Inbox } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
 
 /** Code review fix: Extract magic string to constant */
 const FILTER_HIDDEN = "hidden" as const;
+const FILTER_STARRED = "starred" as const;
 const LAST_READ_KEY = "hushletter:lastNewsletter";
-type FilterType = typeof FILTER_HIDDEN;
+type FilterType = typeof FILTER_HIDDEN | typeof FILTER_STARRED;
 
 /**
  * Search params schema for URL-based filtering
  * - /newsletters                                    → All newsletters
  * - /newsletters?folder={folderId}                 → Folder view
  * - /newsletters?filter=hidden                     → Hidden newsletters
+ * - /newsletters?filter=starred                    → Favorited newsletters
  * - /newsletters?folder={folderId}&newsletter={id} → Folder + inline reader (desktop)
  * - /newsletters?newsletter={id}                   → Inline reader (desktop)
  */
@@ -48,7 +51,10 @@ export const Route = createFileRoute("/_authed/newsletters/")({
 
     return {
       folder: isValidConvexId(folder) ? folder : undefined,
-      filter: filter === FILTER_HIDDEN ? FILTER_HIDDEN : undefined,
+      filter:
+        filter === FILTER_HIDDEN || filter === FILTER_STARRED
+          ? (filter as FilterType)
+          : undefined,
       newsletter: isValidConvexId(newsletter) ? newsletter : undefined,
     };
   },
@@ -202,7 +208,9 @@ function NewslettersPage() {
 
   // Determine filter type - mutually exclusive
   const isFilteringByHidden = filterParam === FILTER_HIDDEN;
-  const isFilteringByFolder = !!folderIdParam && !isFilteringByHidden;
+  const isFilteringByStarred = filterParam === FILTER_STARRED;
+  const isFilteringByFolder =
+    !!folderIdParam && !isFilteringByHidden && !isFilteringByStarred;
 
   // Get newsletters by folder
   const { data: newslettersByFolder, isPending: newslettersByFolderPending } =
@@ -218,17 +226,46 @@ function NewslettersPage() {
     ...convexQuery(api.newsletters.listUserNewslettersBySender, {
       senderId: undefined,
     }),
-    enabled: !isFilteringByFolder && !isFilteringByHidden,
+    enabled: !isFilteringByFolder && !isFilteringByHidden && !isFilteringByStarred,
   });
 
   // Fetch hidden newsletters
   const { data: hiddenNewsletters, isPending: hiddenNewslettersPending } =
     useQuery(convexQuery(api.newsletters.listHiddenNewsletters, {}));
 
+  // Fetch favorited newsletters (starred view)
+  const { data: favoritedNewsletters, isPending: favoritedNewslettersPending } =
+    useQuery({
+      ...convexQuery(api.newsletters.listFavoritedNewsletters, {}),
+      enabled: isFilteringByStarred,
+    });
+
   const selectedFolder = useMemo(() => {
     if (!folderIdParam) return null;
     return folders.find((f) => f._id === folderIdParam) ?? null;
   }, [folders, folderIdParam]);
+
+  const favoriteSnapshots = useMemo(() => {
+    const allSnapshots = [
+      ...((allNewsletters ?? []) as NewsletterData[]),
+      ...((newslettersByFolder ?? []) as NewsletterData[]),
+      ...((hiddenNewsletters ?? []) as NewsletterData[]),
+      ...((favoritedNewsletters ?? []) as NewsletterData[]),
+    ];
+    const deduped = new Map<string, { _id: string; isFavorited?: boolean }>();
+    for (const newsletter of allSnapshots) {
+      deduped.set(newsletter._id, {
+        _id: newsletter._id,
+        isFavorited: newsletter.isFavorited,
+      });
+    }
+    return [...deduped.values()];
+  }, [allNewsletters, newslettersByFolder, hiddenNewsletters, favoritedNewsletters]);
+
+  const favoriteController = useOptimisticNewsletterFavorite(favoriteSnapshots);
+  const getIsFavorited = favoriteController.getIsFavorited;
+  const isFavoritePending = favoriteController.isFavoritePending;
+  const onToggleFavorite = favoriteController.toggleFavorite;
 
   // Handle folder selection
   const handleFolderSelect = (selectedFolderId: string | null) => {
@@ -268,28 +305,52 @@ function NewslettersPage() {
     foldersPending ||
     (isFilteringByHidden
       ? hiddenNewslettersPending
-      : isFilteringByFolder
-        ? newslettersByFolderPending
-        : allNewslettersPending);
-
-  if (isPending) return <PageSkeleton />;
+      : isFilteringByStarred
+        ? favoritedNewslettersPending
+        : isFilteringByFolder
+          ? newslettersByFolderPending
+          : allNewslettersPending);
 
   const dedicatedEmail = user?.dedicatedEmail ?? null;
 
   const newsletterList = isFilteringByHidden
     ? ((hiddenNewsletters ?? []) as NewsletterData[])
+    : isFilteringByStarred
+      ? ((favoritedNewsletters ?? []) as NewsletterData[])
     : isFilteringByFolder
       ? ((newslettersByFolder ?? []) as NewsletterData[])
       : ((allNewsletters ?? []) as NewsletterData[]);
+
+  const visibleNewsletterList = useMemo(() => {
+    if (!isFilteringByStarred) return newsletterList;
+    return newsletterList.filter((newsletter) =>
+      getIsFavorited(newsletter._id, Boolean(newsletter.isFavorited)),
+    );
+  }, [isFilteringByStarred, newsletterList, getIsFavorited]);
+
+  const visibleFavoritedNewsletters = useMemo(
+    () =>
+      ((favoritedNewsletters ?? []) as NewsletterData[]).filter((newsletter) =>
+        getIsFavorited(newsletter._id, Boolean(newsletter.isFavorited)),
+      ),
+    [favoritedNewsletters, getIsFavorited],
+  );
+
+  if (isPending) return <PageSkeleton />;
 
   // Desktop sidebar props for the new SenderFolderSidebar
   const senderFolderSidebarProps = {
     selectedFolderId: folderIdParam ?? null,
     selectedNewsletterId: newsletterIdParam ?? null,
     selectedFilter: filterParam ?? null,
+    favoritedNewsletters: visibleFavoritedNewsletters,
+    favoritedPending: favoritedNewslettersPending,
     onFolderSelect: handleFolderSelect,
     onNewsletterSelect: handleNewsletterSelect,
     onFilterSelect: handleFilterSelect,
+    getIsFavorited,
+    isFavoritePending,
+    onToggleFavorite,
   };
 
   // Mobile sidebar props (old FolderSidebar)
@@ -310,6 +371,9 @@ function NewslettersPage() {
         <InlineReaderPane
           key={newsletterIdParam}
           newsletterId={newsletterIdParam as Id<"userNewsletters">}
+          getIsFavorited={getIsFavorited}
+          isFavoritePending={isFavoritePending}
+          onToggleFavorite={onToggleFavorite}
         />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
@@ -352,6 +416,10 @@ function NewslettersPage() {
           <h1 className="text-3xl font-bold text-foreground mb-6">
             {m.newsletters_hiddenNewsletters()}
           </h1>
+        ) : isFilteringByStarred ? (
+          <h1 className="text-3xl font-bold text-foreground mb-6">
+            {m.newsletters_starredNewsletters()}
+          </h1>
         ) : selectedFolder && folderIdParam ? (
           <FolderHeader folderId={folderIdParam} />
         ) : (
@@ -360,11 +428,17 @@ function NewslettersPage() {
           </h1>
         )}
 
-        {newsletterList.length === 0 ? (
+        {visibleNewsletterList.length === 0 ? (
           isFilteringByHidden ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">
                 {m.newsletters_noHiddenNewsletters()}
+              </p>
+            </div>
+          ) : isFilteringByStarred ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                {m.newsletters_noStarredNewsletters()}
               </p>
             </div>
           ) : selectedFolder ? (
@@ -380,11 +454,17 @@ function NewslettersPage() {
           )
         ) : (
           <div className="space-y-3">
-            {newsletterList.map((newsletter) => (
+            {visibleNewsletterList.map((newsletter) => (
               <NewsletterCard
                 key={newsletter._id}
                 newsletter={newsletter}
                 showUnhide={isFilteringByHidden}
+                isFavorited={getIsFavorited(
+                  newsletter._id,
+                  Boolean(newsletter.isFavorited),
+                )}
+                isFavoritePending={isFavoritePending(newsletter._id)}
+                onToggleFavorite={onToggleFavorite}
               />
             ))}
           </div>

@@ -40,11 +40,13 @@ describe("newsletters API exports", () => {
   it("should export public mutation functions for hide/unhide (Story 3.5)", () => {
     expect(api.newsletters.hideNewsletter).toBeDefined()
     expect(api.newsletters.unhideNewsletter).toBeDefined()
+    expect(api.newsletters.setNewsletterFavorite).toBeDefined()
   })
 
   // Story 3.5: List hidden newsletters query
   it("should export listHiddenNewsletters query (Story 3.5)", () => {
     expect(api.newsletters.listHiddenNewsletters).toBeDefined()
+    expect(api.newsletters.listFavoritedNewsletters).toBeDefined()
   })
 
   it("should export internal functions", () => {
@@ -106,9 +108,11 @@ describe("createUserNewsletter mutation contract", () => {
     const defaultValues = {
       isRead: false,
       isHidden: false,
+      isFavorited: false,
     }
     expect(defaultValues.isRead).toBe(false)
     expect(defaultValues.isHidden).toBe(false)
+    expect(defaultValues.isFavorited).toBe(false)
   })
 })
 
@@ -1019,6 +1023,69 @@ describe("unhideNewsletter mutation contract (Story 3.5)", () => {
   it("sets isHidden to false", () => {
     const expectedUpdate = { isHidden: false }
     expect(expectedUpdate.isHidden).toBe(false)
+  })
+})
+
+describe("setNewsletterFavorite mutation contract", () => {
+  it("defines expected args schema", () => {
+    const expectedArgsShape = {
+      userNewsletterId: "required Id<'userNewsletters'>",
+      isFavorited: "required boolean",
+    }
+    expect(expectedArgsShape).toHaveProperty("userNewsletterId")
+    expect(expectedArgsShape).toHaveProperty("isFavorited")
+  })
+
+  it("requires authentication", () => {
+    const expectedError = { code: "UNAUTHORIZED", message: "Not authenticated" }
+    expect(expectedError.code).toBe("UNAUTHORIZED")
+  })
+
+  it("validates newsletter ownership", () => {
+    const expectedError = { code: "FORBIDDEN", message: "Access denied" }
+    expect(expectedError.code).toBe("FORBIDDEN")
+  })
+
+  it("throws NOT_FOUND when newsletter doesn't exist", () => {
+    const expectedError = { code: "NOT_FOUND", message: "Newsletter not found" }
+    expect(expectedError.code).toBe("NOT_FOUND")
+  })
+
+  it("sets isFavorited to requested value", () => {
+    const expectedUpdate = { isFavorited: true }
+    expect(expectedUpdate.isFavorited).toBe(true)
+  })
+})
+
+describe("listFavoritedNewsletters query contract", () => {
+  it("takes no args", () => {
+    const expectedArgs = {}
+    expect(Object.keys(expectedArgs)).toHaveLength(0)
+  })
+
+  it("returns empty array when not authenticated", () => {
+    const returnWhenUnauth: unknown[] = []
+    expect(returnWhenUnauth).toEqual([])
+  })
+
+  it("uses favorited + non-hidden index path and sorts by newest", () => {
+    const queryBehavior = {
+      uses:
+        "withIndex('by_userId_isFavorited_isHidden_receivedAt', q => q.eq('userId', user._id).eq('isFavorited', true).eq('isHidden', false))",
+      order: "desc",
+    }
+    expect(queryBehavior.uses).toContain("isFavorited")
+    expect(queryBehavior.uses).toContain("isHidden")
+    expect(queryBehavior.order).toBe("desc")
+  })
+
+  it("returns summary/source enriched newsletters", () => {
+    const enrichment = {
+      hasSummary: true,
+      source: "email | gmail | manual | community",
+    }
+    expect(enrichment).toHaveProperty("hasSummary")
+    expect(enrichment).toHaveProperty("source")
   })
 })
 

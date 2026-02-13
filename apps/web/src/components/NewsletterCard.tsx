@@ -5,7 +5,7 @@ import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { Button, Card, CardContent, Tooltip, TooltipTrigger, TooltipContent } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
-import { EyeOff, Eye, Sparkles, Lock, Mail, Globe } from "lucide-react";
+import { EyeOff, Eye, Sparkles, Lock, Mail, Globe, Star } from "lucide-react";
 import { SummaryPreview } from "./SummaryPreview";
 import { m } from "@/paraglide/messages.js";
 
@@ -24,6 +24,7 @@ export interface NewsletterData {
   hasSummary?: boolean;
   /** Story 9.10: Newsletter source for unified folder view display */
   source?: "email" | "gmail" | "manual" | "community";
+  isFavorited?: boolean;
 }
 
 interface NewsletterCardProps {
@@ -32,6 +33,9 @@ interface NewsletterCardProps {
   showUnhide?: boolean;
   /** When provided, intercepts click to select inline instead of navigating */
   onSelect?: (id: string) => void;
+  isFavorited?: boolean;
+  isFavoritePending?: boolean;
+  onToggleFavorite?: (newsletterId: string, currentValue: boolean) => Promise<void>;
 }
 
 /**
@@ -101,13 +105,22 @@ function getSourceIndicatorInfo(source?: NewsletterData["source"]) {
  * Story 3.5: AC1 - Hide action on hover, AC4 - Unhide action for hidden newsletters
  * Story 5.2: Task 1-3 - Summary indicator and preview
  */
-export function NewsletterCard({ newsletter, showUnhide = false, onSelect }: NewsletterCardProps) {
+export function NewsletterCard({
+  newsletter,
+  showUnhide = false,
+  onSelect,
+  isFavorited,
+  isFavoritePending = false,
+  onToggleFavorite,
+}: NewsletterCardProps) {
   const senderDisplay = getSenderDisplay(newsletter);
+  const favoriteValue = isFavorited ?? Boolean(newsletter.isFavorited);
   // Story 9.10 (code review fix): Extract source info computation from IIFE in JSX
   const sourceInfo = getSourceIndicatorInfo(newsletter.source);
 
   // Code review fix (HIGH-1): Track feedback state for AC1 confirmation
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
   // Story 5.2: Track summary preview expansion state
   const [showSummaryPreview, setShowSummaryPreview] = useState(false);
 
@@ -160,6 +173,21 @@ export function NewsletterCard({ newsletter, showUnhide = false, onSelect }: New
       }
     : undefined;
 
+  const handleFavoriteClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!onToggleFavorite || isFavoritePending) return;
+
+    try {
+      await onToggleFavorite(newsletter._id, favoriteValue);
+      setFavoriteFeedback(null);
+    } catch (error) {
+      console.error("[NewsletterCard] Failed to update favorite:", error);
+      setFavoriteFeedback(m.newsletters_favoriteUpdateFailed());
+      setTimeout(() => setFavoriteFeedback(null), 2000);
+    }
+  };
+
   return (
     <Link
       to="/newsletters/$id"
@@ -201,7 +229,7 @@ export function NewsletterCard({ newsletter, showUnhide = false, onSelect }: New
                 </p>
               </div>
             </div>
-            {/* Date, summary indicator, progress indicator, feedback, and hide action */}
+            {/* Date, summary indicator, progress indicator, feedback, and actions */}
             <div className="flex items-start gap-2 flex-shrink-0">
               <div className="flex flex-col items-end gap-1">
                 {/* Date, source indicator, privacy indicator, and summary indicator row */}
@@ -267,7 +295,30 @@ export function NewsletterCard({ newsletter, showUnhide = false, onSelect }: New
                     {m.newsletters_readProgress({ progress: newsletter.readProgress ?? 0 })}
                   </span>
                 )}
+                {favoriteFeedback && (
+                  <span className="text-xs text-destructive" role="status">
+                    {favoriteFeedback}
+                  </span>
+                )}
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8 opacity-50 md:opacity-0 group-hover:opacity-100 transition-opacity",
+                  favoriteValue && "opacity-100 text-yellow-500",
+                )}
+                onClick={handleFavoriteClick}
+                aria-label={
+                  favoriteValue
+                    ? m.newsletters_removeFromFavoritesAria()
+                    : m.newsletters_addToFavoritesAria()
+                }
+                aria-pressed={favoriteValue}
+                disabled={isFavoritePending || !onToggleFavorite}
+              >
+                <Star className={cn("h-4 w-4", favoriteValue && "fill-current")} />
+              </Button>
               {/* Story 3.5: Hide/Unhide button - appears on hover (AC1, AC4)
                   Code review fix (MEDIUM-3): Always visible on touch devices (md:opacity-0)
                   since hover states don't work on mobile */}

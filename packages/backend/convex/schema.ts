@@ -72,6 +72,7 @@ export default defineSchema({
     receivedAt: v.number(), // Unix timestamp ms
     isRead: v.boolean(),
     isHidden: v.boolean(),
+    isFavorited: v.optional(v.boolean()),
     isPrivate: v.boolean(),
     readProgress: v.optional(v.number()), // 0-100 percentage
     // Story 5.1: AI Summary (personal for private newsletters, or user-regenerated summaries)
@@ -103,6 +104,12 @@ export default defineSchema({
     .index("by_receivedAt", ["receivedAt"]) // Story 7.1: Admin recent activity queries
     .index("by_userId_messageId", ["userId", "messageId"]) // Story 8.4: Duplicate detection
     .index("by_userId_folderId", ["userId", "folderId"]) // Story 9.1: Task 1.6 - For folder queries
+    .index("by_userId_isFavorited_isHidden_receivedAt", [
+      "userId",
+      "isFavorited",
+      "isHidden",
+      "receivedAt",
+    ])
     .index("by_reviewStatus", ["reviewStatus"]), // Story 9.7: Task 1.4 - For moderation queue filtering
 
   // Global sender registry (not user-scoped)

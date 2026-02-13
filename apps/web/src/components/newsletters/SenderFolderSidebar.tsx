@@ -1,31 +1,34 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  ScrollArea,
-} from "@hushletter/ui";
+import { Tabs, TabsList, TabsTrigger, ScrollArea } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import { EyeOff, AlertCircle } from "lucide-react";
 import { SenderFolderItem } from "./SenderFolderItem";
+import { NewsletterListItem } from "./NewsletterListItem";
 import type { FolderData } from "@/components/FolderSidebar";
+import type { NewsletterData } from "@/components/NewsletterCard";
 import { m } from "@/paraglide/messages.js";
 
 type SidebarFilter = "all" | "unread" | "starred";
 
 const FILTER_HIDDEN = "hidden" as const;
-type FilterType = typeof FILTER_HIDDEN;
+const FILTER_STARRED = "starred" as const;
+type FilterType = typeof FILTER_HIDDEN | typeof FILTER_STARRED;
 
 interface SenderFolderSidebarProps {
   selectedFolderId: string | null;
   selectedNewsletterId: string | null;
   selectedFilter: FilterType | null;
+  favoritedNewsletters: NewsletterData[];
+  favoritedPending: boolean;
   onFolderSelect: (folderId: string | null) => void;
   onNewsletterSelect: (newsletterId: string) => void;
   onFilterSelect: (filter: FilterType | null) => void;
+  getIsFavorited: (newsletterId: string, serverValue?: boolean) => boolean;
+  isFavoritePending: (newsletterId: string) => boolean;
+  onToggleFavorite: (newsletterId: string, currentValue: boolean) => Promise<void>;
 }
 
 function isFolderData(item: unknown): item is FolderData {
@@ -59,19 +62,24 @@ export function SenderFolderSidebar({
   selectedFolderId,
   selectedNewsletterId,
   selectedFilter,
+  favoritedNewsletters,
+  favoritedPending,
   onFolderSelect,
   onNewsletterSelect,
   onFilterSelect,
+  getIsFavorited,
+  isFavoritePending,
+  onToggleFavorite,
 }: SenderFolderSidebarProps) {
-  const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>("all");
+  const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>(
+    selectedFilter === FILTER_STARRED ? "starred" : "all",
+  );
 
   const {
     data: folders,
     isPending: foldersPending,
     isError: foldersError,
-  } = useQuery(
-    convexQuery(api.folders.listVisibleFoldersWithUnreadCounts, {}),
-  );
+  } = useQuery(convexQuery(api.folders.listVisibleFoldersWithUnreadCounts, {}));
 
   const { data: hiddenCount, isPending: hiddenPending } = useQuery(
     convexQuery(api.newsletters.getHiddenNewsletterCount, {}),
@@ -90,9 +98,42 @@ export function SenderFolderSidebar({
     return folderList;
   }, [folderList, sidebarFilter]);
 
+  const visibleFavoritedNewsletters = useMemo(
+    () =>
+      favoritedNewsletters.filter((newsletter) =>
+        getIsFavorited(newsletter._id, Boolean(newsletter.isFavorited)),
+      ),
+    [favoritedNewsletters, getIsFavorited],
+  );
+
+  useEffect(() => {
+    if (selectedFilter === FILTER_STARRED) {
+      setSidebarFilter("starred");
+      return;
+    }
+    if (sidebarFilter === "starred") {
+      setSidebarFilter("all");
+    }
+  }, [selectedFilter, sidebarFilter]);
+
   const handleHiddenClick = () => {
+    setSidebarFilter("all");
     onFolderSelect(null);
     onFilterSelect(FILTER_HIDDEN);
+  };
+
+  const handleTabChange = (value: SidebarFilter) => {
+    setSidebarFilter(value);
+
+    if (value === "starred") {
+      onFolderSelect(null);
+      onFilterSelect(FILTER_STARRED);
+      return;
+    }
+
+    if (selectedFilter === FILTER_STARRED || selectedFilter === FILTER_HIDDEN) {
+      onFilterSelect(null);
+    }
   };
 
   if (foldersError) {
@@ -123,10 +164,7 @@ export function SenderFolderSidebar({
         </h2>
 
         {/* Filter tabs */}
-        <Tabs
-          defaultValue="all"
-          onValueChange={(val) => setSidebarFilter(val as SidebarFilter)}
-        >
+        <Tabs value={sidebarFilter} onValueChange={(val) => handleTabChange(val as SidebarFilter)}>
           <TabsList className="w-full h-8">
             <TabsTrigger value="all" className="flex-1 text-xs h-7">
               {m.sidebar_filterAll()}
@@ -144,7 +182,32 @@ export function SenderFolderSidebar({
       {/* Folder list */}
       <ScrollArea className="flex-1 mt-2">
         <div className="px-2 pb-2 space-y-0.5">
-          {foldersPending ? (
+          {sidebarFilter === "starred" ? (
+            favoritedPending ? (
+              <SidebarSkeleton />
+            ) : visibleFavoritedNewsletters.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8 px-4">
+                {m.newsletters_noStarredNewsletters()}
+              </p>
+            ) : (
+              <div className="space-y-0.5">
+                {visibleFavoritedNewsletters.map((newsletter) => (
+                  <NewsletterListItem
+                    key={newsletter._id}
+                    newsletter={newsletter}
+                    isSelected={selectedNewsletterId === newsletter._id}
+                    isFavorited={getIsFavorited(
+                      newsletter._id,
+                      Boolean(newsletter.isFavorited),
+                    )}
+                    isFavoritePending={isFavoritePending(newsletter._id)}
+                    onClick={onNewsletterSelect}
+                    onToggleFavorite={onToggleFavorite}
+                  />
+                ))}
+              </div>
+            )
+          ) : foldersPending ? (
             <SidebarSkeleton />
           ) : filteredFolders.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-8 px-4">
@@ -165,6 +228,9 @@ export function SenderFolderSidebar({
                   onFolderSelect(id);
                 }}
                 onNewsletterSelect={onNewsletterSelect}
+                getIsFavorited={getIsFavorited}
+                isFavoritePending={isFavoritePending}
+                onToggleFavorite={onToggleFavorite}
                 onHideSuccess={() => {
                   if (selectedFolderId === folder._id) {
                     onFolderSelect(null);

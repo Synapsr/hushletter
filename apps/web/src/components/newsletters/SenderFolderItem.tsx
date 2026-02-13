@@ -8,9 +8,10 @@ import {
   CollapsibleTrigger,
   CollapsiblePanel,
   Badge,
+  ScrollArea,
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
-import { ChevronRight, Star } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { NewsletterListItem } from "./NewsletterListItem";
 import { SenderAvatar } from "./SenderAvatar";
 import { FolderActionsDropdown } from "@/components/FolderActionsDropdown";
@@ -25,6 +26,9 @@ interface SenderFolderItemProps {
   sidebarFilter: "all" | "unread" | "starred";
   onFolderSelect: (folderId: string) => void;
   onNewsletterSelect: (newsletterId: string) => void;
+  getIsFavorited: (newsletterId: string, serverValue?: boolean) => boolean;
+  isFavoritePending: (newsletterId: string) => boolean;
+  onToggleFavorite: (newsletterId: string, currentValue: boolean) => Promise<void>;
   onHideSuccess: () => void;
 }
 
@@ -39,6 +43,9 @@ export function SenderFolderItem({
   sidebarFilter,
   onFolderSelect,
   onNewsletterSelect,
+  getIsFavorited,
+  isFavoritePending,
+  onToggleFavorite,
   onHideSuccess,
 }: SenderFolderItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -60,8 +67,7 @@ export function SenderFolderItem({
       ? newsletterList.filter((n) => !n.isRead)
       : newsletterList;
 
-  const handleToggle = () => {
-    setIsExpanded(!isExpanded);
+  const handleFolderSelect = () => {
     onFolderSelect(folder._id);
   };
 
@@ -75,8 +81,7 @@ export function SenderFolderItem({
         )}
       >
         <CollapsibleTrigger
-          onClick={handleToggle}
-          className="flex items-center gap-2 flex-1 px-2 py-2 min-w-0"
+          className="flex items-center justify-center h-8 w-8 shrink-0 rounded-md hover:bg-accent/60 transition-colors"
           aria-label={
             isExpanded
               ? m.sidebar_collapseFolder({ folderName: folder.name })
@@ -89,13 +94,21 @@ export function SenderFolderItem({
               isExpanded && "rotate-90",
             )}
           />
+        </CollapsibleTrigger>
+
+        <button
+          type="button"
+          onClick={handleFolderSelect}
+          aria-current={isSelected ? "page" : undefined}
+          className="flex items-center gap-2 flex-1 px-1 py-2 min-w-0 text-left"
+        >
           <SenderAvatar
             senderName={folder.name}
             senderEmail={folder.name}
             size="sm"
           />
           <span className="text-sm truncate font-medium">{folder.name}</span>
-        </CollapsibleTrigger>
+        </button>
 
         <div className="flex items-center gap-1 pr-2 shrink-0">
           {folder.unreadCount > 0 && (
@@ -106,7 +119,6 @@ export function SenderFolderItem({
               {folder.unreadCount}
             </Badge>
           )}
-          <Star className="h-3.5 w-3.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-yellow-500" />
           <FolderActionsDropdown
             folderId={folder._id}
             folderName={folder.name}
@@ -115,8 +127,10 @@ export function SenderFolderItem({
         </div>
       </div>
 
-      <CollapsiblePanel>
-        <div className="ml-4 border-l border-border pl-2 py-1 space-y-0.5">
+      <CollapsiblePanel
+        render={<ScrollArea scrollFade className="max-h-[200px]" />}
+      >
+        <div className="ml-4 border-l border-border pl-2 py-1 space-y-0.5 ">
           {isPending ? (
             // Loading skeleton for newsletter items
             <div className="space-y-1 py-1">
@@ -141,7 +155,13 @@ export function SenderFolderItem({
                 key={newsletter._id}
                 newsletter={newsletter}
                 isSelected={selectedNewsletterId === newsletter._id}
+                isFavorited={getIsFavorited(
+                  newsletter._id,
+                  Boolean(newsletter.isFavorited),
+                )}
+                isFavoritePending={isFavoritePending(newsletter._id)}
                 onClick={onNewsletterSelect}
+                onToggleFavorite={onToggleFavorite}
               />
             ))
           )}

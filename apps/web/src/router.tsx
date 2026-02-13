@@ -23,6 +23,7 @@ export function getRouter() {
   // Initialize Convex query client with auth expectation for SSR
   const convexQueryClient = new ConvexQueryClient(CONVEX_URL, {
     expectAuth: true,
+    unsavedChangesWarning: false,
   })
 
   const queryClient: QueryClient = new QueryClient({

@@ -297,6 +297,80 @@ describe("NewsletterCard", () => {
     })
   })
 
+  describe("Favorite Actions", () => {
+    it("renders add-to-favorites button when not favorited", () => {
+      const toggleFavorite = vi.fn().mockResolvedValue(undefined)
+      render(
+        <NewsletterCard
+          newsletter={mockNewsletter}
+          isFavorited={false}
+          onToggleFavorite={toggleFavorite}
+        />,
+      )
+
+      expect(screen.getByRole("button", { name: "Add to favorites" })).toBeInTheDocument()
+    })
+
+    it("renders remove-from-favorites button when favorited", () => {
+      const toggleFavorite = vi.fn().mockResolvedValue(undefined)
+      render(
+        <NewsletterCard
+          newsletter={mockNewsletter}
+          isFavorited
+          onToggleFavorite={toggleFavorite}
+        />,
+      )
+
+      const button = screen.getByRole("button", { name: "Remove from favorites" })
+      expect(button).toBeInTheDocument()
+      expect(button).toHaveAttribute("aria-pressed", "true")
+    })
+
+    it("calls onToggleFavorite with optimistic current value", async () => {
+      const toggleFavorite = vi.fn().mockResolvedValue(undefined)
+      render(
+        <NewsletterCard
+          newsletter={mockNewsletter}
+          isFavorited={false}
+          onToggleFavorite={toggleFavorite}
+        />,
+      )
+
+      await fireEvent.click(screen.getByRole("button", { name: "Add to favorites" }))
+
+      expect(toggleFavorite).toHaveBeenCalledWith("test-id-123", false)
+    })
+
+    it("disables favorite button while pending", () => {
+      const toggleFavorite = vi.fn().mockResolvedValue(undefined)
+      render(
+        <NewsletterCard
+          newsletter={mockNewsletter}
+          isFavorited={false}
+          isFavoritePending
+          onToggleFavorite={toggleFavorite}
+        />,
+      )
+
+      expect(screen.getByRole("button", { name: "Add to favorites" })).toBeDisabled()
+    })
+
+    it("shows non-blocking error feedback when favorite update fails", async () => {
+      const toggleFavorite = vi.fn().mockRejectedValue(new Error("boom"))
+      render(
+        <NewsletterCard
+          newsletter={mockNewsletter}
+          isFavorited={false}
+          onToggleFavorite={toggleFavorite}
+        />,
+      )
+
+      await fireEvent.click(screen.getByRole("button", { name: "Add to favorites" }))
+
+      expect(await screen.findByText("Failed to update favorite")).toBeInTheDocument()
+    })
+  })
+
   // Story 3.4: Reading progress indicator tests
   describe("Reading Progress (Story 3.4 AC5)", () => {
     it("shows progress indicator for partially read newsletters", () => {

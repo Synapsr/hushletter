@@ -15,6 +15,7 @@ import { getToken } from "@/lib/auth-server";
 import type { RouterContext } from "@/router";
 import { getLocale } from "@/paraglide/runtime.js";
 import { m } from "@/paraglide/messages.js";
+import { Agentation } from "agentation";
 
 // Server function to get auth token for SSR
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
@@ -94,6 +95,8 @@ function RootComponent() {
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang={getLocale()}>
+      {process.env.NODE_ENV === "development" && <Agentation />}
+
       <head>
         <HeadContent />
       </head>

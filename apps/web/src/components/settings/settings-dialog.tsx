@@ -31,6 +31,7 @@ export const SettingsDialog = () => {
   return (
     <Dialog>
       <DialogTrigger
+        data-settings-trigger="true"
         render={<Button variant="outline" size="icon" className="rounded-lg" />}
       >
         <SettingsIcon className="size-4" />

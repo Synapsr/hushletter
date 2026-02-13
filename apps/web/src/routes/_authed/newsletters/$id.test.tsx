@@ -281,29 +281,26 @@ describe("ReaderView Integration (Story 3.2 Task 3)", () => {
     })
   })
 
-  describe("Typography (AC3)", () => {
-    it("documents prose class configuration", () => {
+  describe("Rendering Strategy (AC3)", () => {
+    it("documents iframe srcDoc rendering configuration", () => {
       /**
-       * AC3: Clean typography optimized for long-form reading
+       * AC3: Stable rendering for varied newsletter HTML
        *
-       * Uses @tailwindcss/typography prose classes:
-       * - prose prose-gray dark:prose-invert
-       * - prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-       * - prose-img:rounded-lg prose-img:mx-auto
-       * - prose-headings:font-semibold
-       * - prose-p:leading-relaxed
+       * Uses sandboxed iframe rendering with srcDoc:
+       * - Prevents app typography CSS from breaking email table layouts
+       * - sandbox="allow-same-origin allow-popups" for height measurement + links
+       * - Light-touch guard CSS for image/table containment
+       * - No aggressive prose overrides
        */
-      const typographyClasses = {
-        base: "prose prose-gray dark:prose-invert",
-        links: "prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
-        images: "prose-img:rounded-lg prose-img:mx-auto",
-        headings: "prose-headings:font-semibold",
-        paragraphs: "prose-p:leading-relaxed",
-        maxWidth: "max-w-none",
+      const renderingConfig = {
+        renderer: "iframe srcDoc",
+        sandbox: "allow-same-origin allow-popups",
+        styleIsolation: true,
+        lightTouchGuards: ["html/body margin reset", "img max-width", "table max-width"],
       }
 
-      expect(typographyClasses.base).toContain("prose")
-      expect(typographyClasses.paragraphs).toContain("leading-relaxed")
+      expect(renderingConfig.renderer).toContain("iframe")
+      expect(renderingConfig.sandbox).toContain("allow-popups")
     })
   })
 

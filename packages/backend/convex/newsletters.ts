@@ -349,6 +349,7 @@ export const createUserNewsletter = internalMutation({
       receivedAt: args.receivedAt,
       isRead: false,
       isHidden: false,
+      isFavorited: false,
       isPrivate: args.isPrivate,
       source: args.source, // Story 9.2: Track ingestion source
       messageId: args.messageId, // Story 8.4: Store for duplicate detection
@@ -414,6 +415,7 @@ type UserNewsletterWithContentResult = {
   receivedAt: number
   isRead: boolean
   isHidden: boolean
+  isFavorited?: boolean
   isPrivate: boolean
   readProgress?: number
   contentUrl: string | null
@@ -1007,6 +1009,105 @@ export const unhideNewsletter = mutation({
     await ctx.db.patch(args.userNewsletterId, {
       isHidden: false,
     })
+  },
+})
+
+/**
+ * Set favorite status for a newsletter.
+ * Favorites are user-scoped and can coexist with hidden/news read state.
+ */
+export const setNewsletterFavorite = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+    isFavorited: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    if (!userNewsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user || userNewsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    await ctx.db.patch(args.userNewsletterId, {
+      isFavorited: args.isFavorited,
+    })
+  },
+})
+
+/**
+ * List favorited newsletters for current user.
+ * Returns only non-hidden favorites sorted by newest first.
+ */
+export const listFavoritedNewsletters = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return []
+
+    const favoritedNewsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_isFavorited_isHidden_receivedAt", (q) =>
+        q.eq("userId", user._id).eq("isFavorited", true).eq("isHidden", false)
+      )
+      .order("desc")
+      .collect()
+
+    const folders = await ctx.db
+      .query("folders")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+    const hiddenFolderIds = new Set(
+      folders.filter((folder) => folder.isHidden).map((folder) => folder._id)
+    )
+    const visibleFavorites = favoritedNewsletters.filter(
+      (newsletter) =>
+        !newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId)
+    )
+
+    const contentIds = visibleFavorites
+      .filter((n) => !n.isPrivate && n.contentId && !n.summary)
+      .map((n) => n.contentId!)
+
+    const uniqueContentIds = [...new Set(contentIds)]
+    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const contentMap = new Map(
+      contents
+        .filter((c): c is NonNullable<typeof c> => c !== null)
+        .map((c) => [c._id, c])
+    )
+
+    const enrichedNewsletters = visibleFavorites.map((newsletter) => {
+      let hasSummary = Boolean(newsletter.summary)
+
+      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+        const content = contentMap.get(newsletter.contentId)
+        hasSummary = Boolean(content?.summary)
+      }
+
+      return { ...newsletter, hasSummary, source: newsletter.source }
+    })
+
+    return enrichedNewsletters
   },
 })
 

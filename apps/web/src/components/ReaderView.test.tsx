@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 import { ReaderView, clearContentCache } from "./ReaderView"
+import { READER_PREFERENCES_STORAGE_KEY } from "@/hooks/useReaderPreferences"
 
 /** Helper to cast test strings to Convex Id type */
 const testId = (id: string) => id as Id<"userNewsletters">
@@ -9,18 +10,35 @@ const testId = (id: string) => id as Id<"userNewsletters">
 // Mock convex/react useAction and useMutation
 const mockGetNewsletterWithContent = vi.fn()
 const mockUpdateReadProgress = vi.fn()
+const afterSanitizeHooks: Array<(node: Element) => void> = []
 
 vi.mock("convex/react", () => ({
   useAction: () => mockGetNewsletterWithContent,
   useMutation: () => mockUpdateReadProgress,
 }))
 
-// Mock DOMPurify with hooks support
+// Mock DOMPurify with hooks support and deterministic sanitization behavior
 vi.mock("dompurify", () => ({
   default: {
-    sanitize: (html: string) => html.replace(/<script[^>]*>.*?<\/script>/gi, ""),
-    addHook: vi.fn(),
-    removeHook: vi.fn(),
+    sanitize: (html: string) => {
+      const stripped = html.replace(/<script[^>]*>.*?<\/script>/gi, "")
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(stripped, "text/html")
+      doc.querySelectorAll("*").forEach((node) => {
+        afterSanitizeHooks.forEach((hook) => hook(node))
+      })
+      return doc.documentElement.outerHTML
+    },
+    addHook: vi.fn((name: string, hook: (node: Element) => void) => {
+      if (name === "afterSanitizeAttributes") {
+        afterSanitizeHooks.push(hook)
+      }
+    }),
+    removeHook: vi.fn((name: string) => {
+      if (name === "afterSanitizeAttributes") {
+        afterSanitizeHooks.length = 0
+      }
+    }),
   },
 }))
 
@@ -28,12 +46,26 @@ vi.mock("dompurify", () => ({
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
+function getReaderFrame(): HTMLIFrameElement {
+  const frame = document.querySelector(
+    'iframe[data-testid="reader-content-frame"]'
+  ) as HTMLIFrameElement | null
+  expect(frame).toBeInTheDocument()
+  return frame as HTMLIFrameElement
+}
+
+function createWords(count: number): string {
+  return Array.from({ length: count }, (_, index) => `word${index + 1}`).join(" ")
+}
+
 describe("ReaderView", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockFetch.mockReset()
     mockGetNewsletterWithContent.mockReset()
     mockUpdateReadProgress.mockReset()
+    afterSanitizeHooks.length = 0
+    localStorage.removeItem(READER_PREFERENCES_STORAGE_KEY)
     // Clear the content cache between tests
     clearContentCache()
   })
@@ -65,7 +97,72 @@ describe("ReaderView", () => {
       render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Newsletter content here")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Newsletter content here")
+      })
+    })
+
+    it("does not render inline preference controls in ReaderView", async () => {
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "test-id",
+        contentUrl: "https://r2.example.com/content.html",
+        contentStatus: "available",
+      })
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<p>Reader settings content</p>"),
+      })
+
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
+
+      await waitFor(() => {
+        expect(getReaderFrame().srcdoc).toContain("Reader settings content")
+      })
+
+      expect(screen.queryByLabelText("Reader background")).not.toBeInTheDocument()
+      expect(screen.queryByLabelText("Reader font")).not.toBeInTheDocument()
+      expect(screen.queryByLabelText("Reader font size")).not.toBeInTheDocument()
+    })
+
+    it("applies persisted background, font, and font size preferences", async () => {
+      localStorage.setItem(
+        READER_PREFERENCES_STORAGE_KEY,
+        JSON.stringify({ background: "paper", font: "serif", fontSize: "large" }),
+      )
+
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "test-id",
+        contentUrl: "https://r2.example.com/content.html",
+        contentStatus: "available",
+      })
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            '<table bgcolor="#ffffff"><tr><td style="background-color:#fff;font-size:16px;">Styled newsletter</td></tr></table>',
+          ),
+      })
+
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
+
+      await waitFor(() => {
+        const srcdoc = getReaderFrame().srcdoc
+        expect(srcdoc).toContain("data-hushletter-reader-display-override")
+        expect(srcdoc).toContain("ui-serif")
+        expect(srcdoc).toContain("background-color: #F7F1E5")
+        expect(srcdoc).toContain('bgcolor="#F7F1E5"')
+        expect(srcdoc).toContain("background-color:#F7F1E5")
+        expect(srcdoc).toContain("font-size:17.28px")
+        expect(srcdoc).toContain("font-size: calc(1em * 1.08)")
+      })
+
+      const scrollContainer = document.querySelector(
+        '[data-testid="reader-scroll-container"]'
+      ) as HTMLDivElement | null
+      expect(scrollContainer).toBeInTheDocument()
+      expect(scrollContainer).toHaveStyle({
+        backgroundColor: "rgb(247, 241, 229)",
       })
     })
 
@@ -85,9 +182,7 @@ describe("ReaderView", () => {
       render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
-        expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-          "Public Newsletter"
-        )
+        expect(getReaderFrame().srcdoc).toContain("<h1>Public Newsletter</h1>")
       })
     })
 
@@ -107,7 +202,7 @@ describe("ReaderView", () => {
       render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Private content")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Private content")
       })
     })
   })
@@ -196,9 +291,108 @@ describe("ReaderView", () => {
       render(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Safe content")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Safe content")
         // Script tags should be removed by DOMPurify
-        expect(document.querySelector("script")).not.toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).not.toContain("<script")
+      })
+    })
+
+    it("adds safe target/rel attributes to links", async () => {
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "test-id",
+        contentUrl: "https://r2.example.com/content.html",
+        contentStatus: "available",
+      })
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            '<a href="https://example.com/read">Read more</a>'
+          ),
+      })
+
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
+
+      await waitFor(() => {
+        const srcdoc = getReaderFrame().srcdoc
+        expect(srcdoc).toContain('target="_blank"')
+        expect(srcdoc).toContain('rel="noopener noreferrer"')
+      })
+    })
+
+    it("removes inline event handlers and script-like URLs", async () => {
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "test-id",
+        contentUrl: "https://r2.example.com/content.html",
+        contentStatus: "available",
+      })
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            '<a href="javascript:alert(1)" onclick="alert(2)">Bad link</a><img src="data:text/html,<script>alert(1)</script>" onerror="alert(3)" />'
+          ),
+      })
+
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
+
+      await waitFor(() => {
+        const srcdoc = getReaderFrame().srcdoc
+        expect(srcdoc).toContain("Bad link")
+        expect(srcdoc).not.toContain("javascript:")
+        expect(srcdoc).not.toContain("data:text/html")
+        expect(srcdoc).not.toContain("onclick=")
+        expect(srcdoc).not.toContain("onerror=")
+      })
+    })
+
+    it("preserves common table layout attributes while applying background remap", async () => {
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "test-id",
+        contentUrl: "https://r2.example.com/content.html",
+        contentStatus: "available",
+      })
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            '<table cellpadding="0" cellspacing="0" bgcolor="#ffffff"><tr><td colspan="2">Cell</td></tr></table>'
+          ),
+      })
+
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
+
+      await waitFor(() => {
+        const srcdoc = getReaderFrame().srcdoc
+        expect(srcdoc).toContain('cellpadding="0"')
+        expect(srcdoc).toContain('cellspacing="0"')
+        expect(srcdoc).toContain('bgcolor="transparent"')
+        expect(srcdoc).toContain('colspan="2"')
+      })
+    })
+
+    it("wraps plain text content in a pre fallback", async () => {
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "test-id",
+        contentUrl: "https://r2.example.com/content.txt",
+        contentStatus: "available",
+      })
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("Line 1\nLine 2"),
+      })
+
+      render(<ReaderView userNewsletterId={testId("test-id")} />)
+
+      await waitFor(() => {
+        const srcdoc = getReaderFrame().srcdoc
+        expect(srcdoc).toContain('class="hushletter-plain-text"')
+        expect(srcdoc).toContain("Line 1")
+        expect(srcdoc).toContain("Line 2")
       })
     })
   })
@@ -219,7 +413,7 @@ describe("ReaderView", () => {
       const { rerender } = render(<ReaderView userNewsletterId={testId("test-id-1")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("First newsletter")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("First newsletter")
       })
 
       // Change to different newsletter
@@ -237,7 +431,7 @@ describe("ReaderView", () => {
       rerender(<ReaderView userNewsletterId={testId("test-id-2")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Second newsletter")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Second newsletter")
       })
     })
   })
@@ -259,7 +453,7 @@ describe("ReaderView", () => {
       const { unmount } = render(<ReaderView userNewsletterId={testId("cached-test-id")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Cached content")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Cached content")
       })
 
       expect(mockGetNewsletterWithContent).toHaveBeenCalledTimes(1)
@@ -275,7 +469,7 @@ describe("ReaderView", () => {
       render(<ReaderView userNewsletterId={testId("cached-test-id")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Cached content")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Cached content")
       })
 
       // Should not have fetched again - content comes from cache
@@ -318,11 +512,153 @@ describe("ReaderView", () => {
       render(<ReaderView userNewsletterId={testId("error-test-id")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Retry succeeded")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Retry succeeded")
       })
 
       // Should have fetched again since errors aren't cached
       expect(mockGetNewsletterWithContent).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe("Estimated Read Time", () => {
+    it("emits 0 when content is under one minute", async () => {
+      const onEstimatedReadMinutesChange = vi.fn()
+
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "read-time-short-id",
+        contentUrl: "https://r2.example.com/content-short.html",
+        contentStatus: "available",
+      })
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("Very short update"),
+      })
+
+      render(
+        <ReaderView
+          userNewsletterId={testId("read-time-short-id")}
+          onEstimatedReadMinutesChange={onEstimatedReadMinutesChange}
+        />
+      )
+
+      await waitFor(() => {
+        expect(onEstimatedReadMinutesChange).toHaveBeenLastCalledWith(0)
+      })
+    })
+
+    it("emits computed read time minutes after content loads", async () => {
+      const onEstimatedReadMinutesChange = vi.fn()
+
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "read-time-test-id",
+        contentUrl: "https://r2.example.com/content.html",
+        contentStatus: "available",
+      })
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(createWords(221)),
+      })
+
+      render(
+        <ReaderView
+          userNewsletterId={testId("read-time-test-id")}
+          onEstimatedReadMinutesChange={onEstimatedReadMinutesChange}
+        />
+      )
+
+      await waitFor(() => {
+        expect(onEstimatedReadMinutesChange).toHaveBeenLastCalledWith(2)
+      })
+    })
+
+    it("emits null when content is missing or unavailable", async () => {
+      const onEstimatedReadMinutesChange = vi.fn()
+
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "read-time-missing-id",
+        contentUrl: null,
+        contentStatus: "missing",
+      })
+
+      const { unmount } = render(
+        <ReaderView
+          userNewsletterId={testId("read-time-missing-id")}
+          onEstimatedReadMinutesChange={onEstimatedReadMinutesChange}
+        />
+      )
+
+      await waitFor(() => {
+        expect(onEstimatedReadMinutesChange).toHaveBeenLastCalledWith(null)
+      })
+
+      unmount()
+      mockGetNewsletterWithContent.mockReset()
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "read-time-error-id",
+        contentUrl: null,
+        contentStatus: "error",
+      })
+
+      render(
+        <ReaderView
+          userNewsletterId={testId("read-time-error-id")}
+          onEstimatedReadMinutesChange={onEstimatedReadMinutesChange}
+        />
+      )
+
+      await waitFor(() => {
+        expect(onEstimatedReadMinutesChange).toHaveBeenLastCalledWith(null)
+      })
+    })
+
+    it("emits cached estimate on remount without refetching", async () => {
+      const firstCallback = vi.fn()
+
+      mockGetNewsletterWithContent.mockResolvedValue({
+        _id: "read-time-cached-id",
+        contentUrl: "https://r2.example.com/cached-read-time.html",
+        contentStatus: "available",
+      })
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(createWords(260)),
+      })
+
+      const { unmount } = render(
+        <ReaderView
+          userNewsletterId={testId("read-time-cached-id")}
+          onEstimatedReadMinutesChange={firstCallback}
+        />
+      )
+
+      await waitFor(() => {
+        expect(firstCallback).toHaveBeenLastCalledWith(2)
+      })
+
+      expect(mockGetNewsletterWithContent).toHaveBeenCalledTimes(1)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+
+      unmount()
+      mockGetNewsletterWithContent.mockClear()
+      mockFetch.mockClear()
+
+      const secondCallback = vi.fn()
+      render(
+        <ReaderView
+          userNewsletterId={testId("read-time-cached-id")}
+          onEstimatedReadMinutesChange={secondCallback}
+        />
+      )
+
+      await waitFor(() => {
+        expect(secondCallback).toHaveBeenLastCalledWith(2)
+      })
+
+      expect(mockGetNewsletterWithContent).not.toHaveBeenCalled()
+      expect(mockFetch).not.toHaveBeenCalled()
     })
   })
 
@@ -342,7 +678,7 @@ describe("ReaderView", () => {
       render(<ReaderView userNewsletterId={testId("scroll-test-id")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Scrollable content")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Scrollable content")
       })
 
       // Verify scroll container exists with proper class
@@ -366,7 +702,7 @@ describe("ReaderView", () => {
       render(<ReaderView userNewsletterId={testId("resume-test-id")} initialProgress={45} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Resume content")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Resume content")
       })
     })
 
@@ -393,7 +729,7 @@ describe("ReaderView", () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByText("Complete content")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Complete content")
       })
     })
 
@@ -412,7 +748,7 @@ describe("ReaderView", () => {
       render(<ReaderView userNewsletterId={testId("progress-test-id")} />)
 
       await waitFor(() => {
-        expect(screen.getByText("Progress tracking content")).toBeInTheDocument()
+        expect(getReaderFrame().srcdoc).toContain("Progress tracking content")
       })
 
       // Verify that useMutation was called (hook is set up)

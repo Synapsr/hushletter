@@ -8,6 +8,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { ReaderView, clearCacheEntry } from "@/components/ReaderView";
 import { SummaryPanel } from "@/components/SummaryPanel";
+import { useOptimisticNewsletterFavorite } from "@/hooks/useOptimisticNewsletterFavorite";
 import { m } from "@/paraglide/messages.js";
 import {
   AlertDialog,
@@ -36,6 +37,7 @@ import {
   Trash2,
   Mail,
   Globe,
+  Star,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authed/newsletters/$id")({
@@ -51,6 +53,7 @@ interface NewsletterMetadata {
   receivedAt: number;
   isRead: boolean;
   isHidden: boolean;
+  isFavorited?: boolean;
   isPrivate: boolean;
   readProgress?: number;
   contentStatus: "available" | "missing" | "error";
@@ -163,12 +166,15 @@ function NewsletterHeader({
   readProgress,
   isRead,
   isHidden,
+  isFavorited,
+  isFavoritePending,
   source,
   onResumeClick,
   onMarkRead,
   onMarkUnread,
   onHide,
   onUnhide,
+  onToggleFavorite,
   onDelete,
   isUpdating,
 }: {
@@ -179,12 +185,15 @@ function NewsletterHeader({
   readProgress?: number;
   isRead: boolean;
   isHidden: boolean;
+  isFavorited: boolean;
+  isFavoritePending: boolean;
   source?: "email" | "gmail" | "manual" | "community";
   onResumeClick?: () => void;
   onMarkRead: () => void;
   onMarkUnread: () => void;
   onHide: () => void;
   onUnhide: () => void;
+  onToggleFavorite: () => void;
   onDelete: () => void;
   isUpdating: boolean;
 }) {
@@ -271,6 +280,25 @@ function NewsletterHeader({
               {m.newsletters_markAsRead()}
             </Button>
           )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleFavorite}
+            disabled={isFavoritePending}
+            aria-pressed={isFavorited}
+            aria-label={
+              isFavorited
+                ? m.newsletters_removeFromFavoritesAria()
+                : m.newsletters_addToFavoritesAria()
+            }
+            className={isFavorited ? "gap-1 text-yellow-500" : "gap-1"}
+          >
+            <Star className={isFavorited ? "h-4 w-4 fill-current" : "h-4 w-4"} />
+            {isFavorited
+              ? m.newsletters_favoritedLabel()
+              : m.newsletters_favoriteLabel()}
+          </Button>
 
           {/* Story 3.5: Hide/Unhide button (AC1, AC4) */}
           {isHidden ? (
@@ -402,6 +430,11 @@ function NewsletterDetailPage() {
     convexQuery(api.newsletters.getUserNewsletter, { userNewsletterId }),
   );
   const newsletter = data as NewsletterMetadata | null | undefined;
+  const favoriteController = useOptimisticNewsletterFavorite(
+    newsletter
+      ? [{ _id: newsletter._id, isFavorited: newsletter.isFavorited }]
+      : [],
+  );
 
   // Show loading skeleton while fetching metadata
   if (isPending) {
@@ -444,6 +477,22 @@ function NewsletterDetailPage() {
   // Story 3.4: Handler for resume button (AC2)
   const handleResumeClick = () => {
     setShouldResume(true);
+  };
+
+  const favoritedValue = favoriteController.getIsFavorited(
+    newsletter._id,
+    Boolean(newsletter.isFavorited),
+  );
+  const favoritePending = favoriteController.isFavoritePending(newsletter._id);
+
+  const handleToggleFavorite = async () => {
+    try {
+      await favoriteController.toggleFavorite(newsletter._id, favoritedValue);
+    } catch (error) {
+      console.error("[NewsletterDetail] Failed to update favorite:", error);
+      setHideConfirmation(m.newsletters_favoriteUpdateFailed());
+      setTimeout(() => setHideConfirmation(null), 2000);
+    }
   };
 
   // Story 3.5: Handlers for hide/unhide (AC1, AC4)
@@ -521,12 +570,15 @@ function NewsletterDetailPage() {
         readProgress={newsletter.readProgress}
         isRead={newsletter.isRead}
         isHidden={newsletter.isHidden}
+        isFavorited={favoritedValue}
+        isFavoritePending={favoritePending}
         source={newsletter.source}
         onResumeClick={handleResumeClick}
         onMarkRead={handleMarkRead}
         onMarkUnread={handleMarkUnread}
         onHide={handleHide}
         onUnhide={handleUnhide}
+        onToggleFavorite={handleToggleFavorite}
         onDelete={handleDelete}
         isUpdating={false}
       />

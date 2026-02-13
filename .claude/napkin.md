@@ -13,6 +13,7 @@
 | 2026-02-13 | self | Tried forwarding test file args via `bun run test ...` and hit Bun script parsing help output | Run focused tests with direct runner invocation (`bun x vitest run <path>`) when script arg forwarding is unclear |
 | 2026-02-13 | self | Added a new `hiddenPending` prop in `SenderFolderSidebar` that collided with an existing local query alias | Rename local query state aliases immediately when introducing similarly named props to avoid transform-time duplicate symbol errors |
 | 2026-02-13 | self | Ran `vitest` from monorepo root for an `apps/web` test and hit `@/` alias resolution errors | Run web tests from `apps/web` workspace so Vite/Vitest picks the app config and path aliases |
+| 2026-02-13 | self | Docker `bun install` failed in CI because pre-install layer copied only some workspace manifests | In Dockerfiles, copy every workspace `package.json` referenced by `workspace:*` deps before running `bun install --frozen-lockfile` |
 
 ## User Preferences
 - Implement plans end-to-end when asked, with strong UX polish (optimistic updates and perceived performance).

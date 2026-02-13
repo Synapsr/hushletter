@@ -22,6 +22,7 @@
 | 2026-02-13 | self | Runner tried to execute `/app/.output/server/index.mjs` and crashed after successful monorepo build | In monorepo runtime stage, set `WORKDIR` to workspace output path (`/app/apps/web`) before starting Node |
 | 2026-02-13 | self | Runtime still referenced `/app/.output` in some deployment paths and Node 22 lacked global `URLPattern` | Start server with absolute workspace entrypoint and pass `--experimental-urlpattern`; add `/app/.output` symlink to workspace output for compatibility |
 | 2026-02-13 | self | Node runtime rejected `--experimental-urlpattern` and still needed URLPattern in SSR middleware | Preload Nitro’s `urlpattern-polyfill` using Node `--import /app/apps/web/.output/server/_libs/urlpattern-polyfill.mjs` |
+| 2026-02-13 | self | Node runtime/polyfill path kept conflicting with platform start overrides and caused URLPattern/flag issues | Align runtime with TanStack Bun hosting by starting server with Bun (`bun .output/server/index.mjs`) and keep Docker CMD on `bun run --filter @hushletter/web start` |
 
 ## User Preferences
 - Implement plans end-to-end when asked, with strong UX polish (optimistic updates and perceived performance).

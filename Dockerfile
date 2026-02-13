@@ -46,7 +46,7 @@ RUN if [ "$RUN_CONVEX_DEPLOY" = "true" ] && [ -n "$CONVEX_DEPLOY_KEY" ]; then \
     fi
 
 # Production stage
-FROM node:22-slim AS runner
+FROM oven/bun:1 AS runner
 
 WORKDIR /app
 
@@ -56,4 +56,4 @@ RUN ln -sfn /app/apps/web/.output /app/.output
 
 EXPOSE 3000
 
-CMD ["node", "--import", "/app/apps/web/.output/server/_libs/urlpattern-polyfill.mjs", "/app/apps/web/.output/server/index.mjs"]
+CMD ["bun", "run", "--filter", "@hushletter/web", "start"]

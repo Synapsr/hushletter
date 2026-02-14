@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { ShareDedicatedEmailPage } from "./$token";
+import { render, screen, waitFor } from "@testing-library/react";
+import { ShareNewsletterPage } from "./$token";
 
-const mockUseQuery = vi.fn();
+const mockGet = vi.fn();
 
 vi.mock("@tanstack/react-router", async () => {
   const actual = await vi.importActual("@tanstack/react-router");
@@ -12,49 +12,71 @@ vi.mock("@tanstack/react-router", async () => {
   };
 });
 
-vi.mock("@tanstack/react-query", () => ({
-  useQuery: (...args: unknown[]) => mockUseQuery(...args),
-}));
-
-vi.mock("@convex-dev/react-query", () => ({
-  convexQuery: vi.fn(() => ({ queryKey: ["mock-query"] })),
+vi.mock("convex/react", () => ({
+  useAction: () => mockGet,
 }));
 
 vi.mock("@hushletter/backend", () => ({
   api: {
     share: {
-      getDedicatedEmailByShareToken: "getDedicatedEmailByShareToken",
+      getNewsletterByShareTokenWithContent: "getNewsletterByShareTokenWithContent",
     },
   },
 }));
 
-describe("/share/$token", () => {
+vi.mock("@/hooks/useReaderPreferences", () => ({
+  useReaderPreferences: () => ({
+    preferences: { background: "mist", font: "sans", fontSize: "medium" },
+  }),
+  READER_BACKGROUND_OPTIONS: {
+    mist: { label: "Mist", color: "#ffffff" },
+  },
+}));
+
+vi.mock("@/components/ReaderView", () => ({
+  buildReaderDocument: (raw: string) => `<!doctype html><html><body>${raw}</body></html>`,
+  withReaderDisplayOverrides: (doc: string) => doc,
+}));
+
+describe("/share/$token (newsletter content)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        text: async () => "<p>Hello</p>",
+      })),
+    );
   });
 
-  it("renders only the dedicated email when token resolves", () => {
-    mockUseQuery.mockReturnValue({
-      data: { dedicatedEmail: "user123@newsletters.example.com" },
-      isPending: false,
+  it("renders shared newsletter subject + iframe when token resolves", async () => {
+    mockGet.mockResolvedValueOnce({
+      subject: "Weekly Digest",
+      senderEmail: "sender@example.com",
+      senderName: "Sender",
+      receivedAt: Date.now(),
+      contentUrl: "https://example.com/content",
+      contentStatus: "available",
     });
 
-    render(<ShareDedicatedEmailPage token="token-123" />);
+    render(<ShareNewsletterPage token="token-123" />);
 
-    expect(
-      screen.getByRole("button", { name: "user123@newsletters.example.com" }),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Weekly Digest")).toBeInTheDocument();
+    });
+    expect(screen.getByTitle("Shared newsletter")).toBeInTheDocument();
   });
 
-  it("renders minimal not-found when token is invalid", () => {
-    mockUseQuery.mockReturnValue({
-      data: null,
-      isPending: false,
+  it("renders minimal not-found when token is invalid", async () => {
+    mockGet.mockResolvedValueOnce(null);
+
+    render(<ShareNewsletterPage token="bad-token" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Not found")).toBeInTheDocument();
     });
-
-    render(<ShareDedicatedEmailPage token="bad-token" />);
-
-    expect(screen.getByText("Not found")).toBeInTheDocument();
   });
 });
 

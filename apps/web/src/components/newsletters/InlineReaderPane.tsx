@@ -102,11 +102,8 @@ export function InlineReaderPane({
 
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
   const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
-  const ensureDedicatedEmailShareToken = useMutation(
-    api.share.ensureDedicatedEmailShareToken,
-  );
-  const rotateDedicatedEmailShareToken = useMutation(
-    api.share.rotateDedicatedEmailShareToken,
+  const ensureNewsletterShareToken = useMutation(
+    api.share.ensureNewsletterShareToken,
   );
 
   useEffect(() => {
@@ -203,36 +200,18 @@ export function InlineReaderPane({
 
   const handleShare = async () => {
     try {
-      const { token } = await ensureDedicatedEmailShareToken({});
+      const { token } = await ensureNewsletterShareToken({ userNewsletterId: newsletterId });
       const url = `${window.location.origin}/share/${token}`;
-      window.open(url, "_blank", "noopener,noreferrer");
 
       try {
         await navigator.clipboard.writeText(url);
-        toast.success(m.dedicatedEmail_copied(), {
-          action: {
-            label: "Rotate link",
-            onClick: () => {
-              void (async () => {
-                const { token: nextToken } =
-                  await rotateDedicatedEmailShareToken({});
-                const nextUrl = `${window.location.origin}/share/${nextToken}`;
-                window.open(nextUrl, "_blank", "noopener,noreferrer");
-                try {
-                  await navigator.clipboard.writeText(nextUrl);
-                  toast.success(m.dedicatedEmail_copied());
-                } catch {
-                  // Ignore clipboard failures.
-                }
-              })();
-            },
-          },
-        });
+        toast.success("Share link copied to clipboard");
       } catch {
-        // Ignore clipboard failures (permissions / unsupported).
+        // Clipboard failures (permissions / unsupported).
+        toast.error("Copy failed");
       }
     } catch (error) {
-      console.error("[InlineReaderPane] Failed to share dedicated email:", error);
+      console.error("[InlineReaderPane] Failed to share newsletter:", error);
       toast.error(m.common_error());
     }
   };

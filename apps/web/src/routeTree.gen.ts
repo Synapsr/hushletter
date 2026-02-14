@@ -20,6 +20,7 @@ import { Route as Char123LocaleChar1255RouteImport } from './routes/{-$locale}/5
 import { Route as Char123LocaleChar1253RouteImport } from './routes/{-$locale}/3'
 import { Route as Char123LocaleChar1251RouteImport } from './routes/{-$locale}/1'
 import { Route as ShareTokenRouteImport } from './routes/share/$token'
+import { Route as ShareEmailTokenRouteImport } from './routes/share-email/$token'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedAdminRouteRouteImport } from './routes/_authed/admin/route'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
@@ -27,6 +28,7 @@ import { Route as AuthedNewslettersIndexRouteImport } from './routes/_authed/new
 import { Route as AuthedImportIndexRouteImport } from './routes/_authed/import/index'
 import { Route as AuthedCommunityIndexRouteImport } from './routes/_authed/community/index'
 import { Route as AuthedAdminIndexRouteImport } from './routes/_authed/admin/index'
+import { Route as Char123LocaleChar125ShareTokenRouteImport } from './routes/{-$locale}/share/$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedSettingsPrivacyRouteImport } from './routes/_authed/settings/privacy'
 import { Route as AuthedNewslettersIdRouteImport } from './routes/_authed/newsletters/$id'
@@ -97,6 +99,11 @@ const ShareTokenRoute = ShareTokenRouteImport.update({
   path: '/share/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShareEmailTokenRoute = ShareEmailTokenRouteImport.update({
+  id: '/share-email/$token',
+  path: '/share-email/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -132,6 +139,12 @@ const AuthedAdminIndexRoute = AuthedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
+const Char123LocaleChar125ShareTokenRoute =
+  Char123LocaleChar125ShareTokenRouteImport.update({
+    id: '/{-$locale}/share/$token',
+    path: '/{-$locale}/share/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -199,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedRouteWithChildren
   '/admin': typeof AuthedAdminRouteRouteWithChildren
   '/onboarding': typeof AuthedOnboardingRoute
+  '/share-email/$token': typeof ShareEmailTokenRoute
   '/share/$token': typeof ShareTokenRoute
   '/{-$locale}/1': typeof Char123LocaleChar1251Route
   '/{-$locale}/3': typeof Char123LocaleChar1253Route
@@ -220,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
   '/settings/privacy': typeof AuthedSettingsPrivacyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/{-$locale}/share/$token': typeof Char123LocaleChar125ShareTokenRoute
   '/admin/': typeof AuthedAdminIndexRoute
   '/community/': typeof AuthedCommunityIndexRoute
   '/import/': typeof AuthedImportIndexRoute
@@ -230,6 +245,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AuthedRouteWithChildren
   '/onboarding': typeof AuthedOnboardingRoute
+  '/share-email/$token': typeof ShareEmailTokenRoute
   '/share/$token': typeof ShareTokenRoute
   '/{-$locale}/1': typeof Char123LocaleChar1251Route
   '/{-$locale}/3': typeof Char123LocaleChar1253Route
@@ -251,6 +267,7 @@ export interface FileRoutesByTo {
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
   '/settings/privacy': typeof AuthedSettingsPrivacyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/{-$locale}/share/$token': typeof Char123LocaleChar125ShareTokenRoute
   '/admin': typeof AuthedAdminIndexRoute
   '/community': typeof AuthedCommunityIndexRoute
   '/import': typeof AuthedImportIndexRoute
@@ -263,6 +280,7 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/_authed/admin': typeof AuthedAdminRouteRouteWithChildren
   '/_authed/onboarding': typeof AuthedOnboardingRoute
+  '/share-email/$token': typeof ShareEmailTokenRoute
   '/share/$token': typeof ShareTokenRoute
   '/{-$locale}/1': typeof Char123LocaleChar1251Route
   '/{-$locale}/3': typeof Char123LocaleChar1253Route
@@ -284,6 +302,7 @@ export interface FileRoutesById {
   '/_authed/newsletters/$id': typeof AuthedNewslettersIdRoute
   '/_authed/settings/privacy': typeof AuthedSettingsPrivacyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/{-$locale}/share/$token': typeof Char123LocaleChar125ShareTokenRoute
   '/_authed/admin/': typeof AuthedAdminIndexRoute
   '/_authed/community/': typeof AuthedCommunityIndexRoute
   '/_authed/import/': typeof AuthedImportIndexRoute
@@ -297,6 +316,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/onboarding'
+    | '/share-email/$token'
     | '/share/$token'
     | '/{-$locale}/1'
     | '/{-$locale}/3'
@@ -318,6 +338,7 @@ export interface FileRouteTypes {
     | '/newsletters/$id'
     | '/settings/privacy'
     | '/api/auth/$'
+    | '/{-$locale}/share/$token'
     | '/admin/'
     | '/community/'
     | '/import/'
@@ -328,6 +349,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/onboarding'
+    | '/share-email/$token'
     | '/share/$token'
     | '/{-$locale}/1'
     | '/{-$locale}/3'
@@ -349,6 +371,7 @@ export interface FileRouteTypes {
     | '/newsletters/$id'
     | '/settings/privacy'
     | '/api/auth/$'
+    | '/{-$locale}/share/$token'
     | '/admin'
     | '/community'
     | '/import'
@@ -360,6 +383,7 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/_authed/admin'
     | '/_authed/onboarding'
+    | '/share-email/$token'
     | '/share/$token'
     | '/{-$locale}/1'
     | '/{-$locale}/3'
@@ -381,6 +405,7 @@ export interface FileRouteTypes {
     | '/_authed/newsletters/$id'
     | '/_authed/settings/privacy'
     | '/api/auth/$'
+    | '/{-$locale}/share/$token'
     | '/_authed/admin/'
     | '/_authed/community/'
     | '/_authed/import/'
@@ -391,6 +416,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
+  ShareEmailTokenRoute: typeof ShareEmailTokenRoute
   ShareTokenRoute: typeof ShareTokenRoute
   Char123LocaleChar1251Route: typeof Char123LocaleChar1251Route
   Char123LocaleChar1253Route: typeof Char123LocaleChar1253Route
@@ -402,6 +428,7 @@ export interface RootRouteChildren {
   Char123LocaleChar125SignupRoute: typeof Char123LocaleChar125SignupRoute
   Char123LocaleChar125IndexRoute: typeof Char123LocaleChar125IndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  Char123LocaleChar125ShareTokenRoute: typeof Char123LocaleChar125ShareTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -483,6 +510,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share-email/$token': {
+      id: '/share-email/$token'
+      path: '/share-email/$token'
+      fullPath: '/share-email/$token'
+      preLoaderRoute: typeof ShareEmailTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authed/onboarding': {
       id: '/_authed/onboarding'
       path: '/onboarding'
@@ -531,6 +565,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthedAdminIndexRouteImport
       parentRoute: typeof AuthedAdminRouteRoute
+    }
+    '/{-$locale}/share/$token': {
+      id: '/{-$locale}/share/$token'
+      path: '/{-$locale}/share/$token'
+      fullPath: '/{-$locale}/share/$token'
+      preLoaderRoute: typeof Char123LocaleChar125ShareTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -675,6 +716,7 @@ const AuthedRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
+  ShareEmailTokenRoute: ShareEmailTokenRoute,
   ShareTokenRoute: ShareTokenRoute,
   Char123LocaleChar1251Route: Char123LocaleChar1251Route,
   Char123LocaleChar1253Route: Char123LocaleChar1253Route,
@@ -686,6 +728,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char123LocaleChar125SignupRoute: Char123LocaleChar125SignupRoute,
   Char123LocaleChar125IndexRoute: Char123LocaleChar125IndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  Char123LocaleChar125ShareTokenRoute: Char123LocaleChar125ShareTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

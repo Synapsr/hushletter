@@ -13,10 +13,16 @@ describe("share API exports", () => {
     expect(api.share).toBeDefined()
     expect(api.share.ensureDedicatedEmailShareToken).toBeDefined()
     expect(api.share.rotateDedicatedEmailShareToken).toBeDefined()
+    expect(api.share.ensureNewsletterShareToken).toBeDefined()
+    expect(api.share.rotateNewsletterShareToken).toBeDefined()
   })
 
   it("should export public queries", () => {
     expect(api.share.getDedicatedEmailByShareToken).toBeDefined()
+  })
+
+  it("should export public actions", () => {
+    expect(api.share.getNewsletterByShareTokenWithContent).toBeDefined()
   })
 
   it("documents minimal public return shape for share lookup", () => {
@@ -33,4 +39,3 @@ describe("share API exports", () => {
     expect(intendedErrors).toContain("NO_DEDICATED_EMAIL")
   })
 })
-

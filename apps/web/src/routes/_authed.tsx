@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authed")({
     }
 
     // Skip onboarding check if already on the onboarding page
-    if (location.pathname === "/onboarding") {
+    if (location.pathname === "/onboarding" || location.pathname === "/fr/onboarding") {
       return;
     }
 

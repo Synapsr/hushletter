@@ -752,3 +752,6 @@ function scrollToProgress(
     behavior: "smooth",
   });
 }
+
+// Reused by the public share route to render the same sanitized email document.
+export { buildReaderDocument, withReaderDisplayOverrides };

@@ -81,6 +81,9 @@ export default defineSchema({
     isFavorited: v.optional(v.boolean()),
     isPrivate: v.boolean(),
     readProgress: v.optional(v.number()), // 0-100 percentage
+    // Public share token for this specific newsletter (revocable/rotatable)
+    shareToken: v.optional(v.string()),
+    shareTokenUpdatedAt: v.optional(v.number()),
     // Story 5.1: AI Summary (personal for private newsletters, or user-regenerated summaries)
     summary: v.optional(v.string()),
     summaryGeneratedAt: v.optional(v.number()), // Unix timestamp ms
@@ -111,6 +114,7 @@ export default defineSchema({
     .index("by_userId_messageId", ["userId", "messageId"]) // Story 8.4: Duplicate detection
     .index("by_userId_folderId", ["userId", "folderId"]) // Story 9.1: Task 1.6 - For folder queries
     .index("by_userId_folderId_receivedAt", ["userId", "folderId", "receivedAt"]) // Perf: folder view sorted by date
+    .index("by_shareToken", ["shareToken"])
     .index("by_userId_isFavorited_isHidden_receivedAt", [
       "userId",
       "isFavorited",

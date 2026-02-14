@@ -28,8 +28,7 @@ vi.mock("@hushletter/backend", () => ({
       markNewsletterRead: "markNewsletterRead",
     },
     share: {
-      ensureDedicatedEmailShareToken: "ensureDedicatedEmailShareToken",
-      rotateDedicatedEmailShareToken: "rotateDedicatedEmailShareToken",
+      ensureNewsletterShareToken: "ensureNewsletterShareToken",
     },
   },
 }));

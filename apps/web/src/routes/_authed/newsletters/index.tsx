@@ -567,9 +567,22 @@ function NewslettersPage() {
     onFilterSelect: handleFilterSelect,
   };
 
+  // True empty state: no filtering active, user/folders loaded, zero folders
+  // (folders are auto-created from newsletter senders, so zero folders = zero newsletters)
+  const isGlobalEmpty =
+    !isInitialPagePending &&
+    !isFilteringByFolder &&
+    !isFilteringByHidden &&
+    !isFilteringByStarred &&
+    folders.length === 0;
+
   // ── Desktop layout: split-pane ──
   // Left: SenderFolderSidebar | Right: InlineReaderPane or empty state
-  const desktopLayout = (
+  const desktopLayout = isGlobalEmpty ? (
+    <div className="hidden md:flex h-full items-center justify-center">
+      <EmptyNewsletterState dedicatedEmail={dedicatedEmail} />
+    </div>
+  ) : (
     <div className="hidden md:flex h-full">
       <SenderFolderSidebar {...senderFolderSidebarProps} />
 
@@ -593,7 +606,11 @@ function NewslettersPage() {
   );
 
   // ── Mobile layout: card list (existing behavior) ──
-  const mobileLayout = (
+  const mobileLayout = isGlobalEmpty ? (
+    <div className="md:hidden flex flex-col h-full items-center justify-center">
+      <EmptyNewsletterState dedicatedEmail={dedicatedEmail} />
+    </div>
+  ) : (
     <div className="md:hidden flex flex-col h-full">
       {/* Mobile sidebar trigger */}
       <div className="fixed top-4 left-4 z-50">

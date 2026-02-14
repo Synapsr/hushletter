@@ -12,6 +12,7 @@ const DASHBOARD_PREFIXES = [
   "/import",
   "/community",
   "/admin",
+  "/onboarding",
 ];
 
 function isDashboardRoute(pathname: string): boolean {

@@ -112,7 +112,7 @@ function OnboardingPage() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 p-4 overflow-auto">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 p-4 pt-[18vh] overflow-auto">
       <style>{keyframes}</style>
 
       <div
@@ -276,7 +276,6 @@ function StepChoosePrefix({
 
   // Mutations
   const claimPrefix = useMutation(api.users.claimEmailPrefix);
-  const skipOnboarding = useMutation(api.users.completeOnboarding);
 
   const isAvailable = shouldCheck && !isChecking && availability?.available === true;
   const isTaken = shouldCheck && !isChecking && availability?.reason === "TAKEN";
@@ -296,16 +295,6 @@ function StepChoosePrefix({
       const msg = error instanceof Error ? error.message : "Something went wrong";
       toast.error(msg);
       setIsSubmitting(false);
-    }
-  };
-
-  const handleSkip = async () => {
-    try {
-      await skipOnboarding();
-      navigate({ to: "/newsletters" });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Something went wrong";
-      toast.error(msg);
     }
   };
 
@@ -438,13 +427,6 @@ function StepChoosePrefix({
           </Button>
         </div>
 
-        <button
-          type="button"
-          onClick={handleSkip}
-          className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
-        >
-          {m.onboarding_skipButton()}
-        </button>
       </div>
     </div>
   );

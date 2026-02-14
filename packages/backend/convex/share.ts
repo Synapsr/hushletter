@@ -1,6 +1,15 @@
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
+import {
+  action,
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server"
 import { v, ConvexError } from "convex/values"
 import { authComponent } from "./auth"
+import { r2 } from "./r2"
+import { internal } from "./_generated/api"
 
 function generateShareToken(): string {
   // 32-char, URL-safe token (UUID without dashes)
@@ -102,5 +111,143 @@ export const getDedicatedEmailByShareToken = query({
 
     if (!user?.dedicatedEmail) return null
     return { dedicatedEmail: user.dedicatedEmail }
+  },
+})
+
+export const getUserNewsletterByShareTokenInternal = internalQuery({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const token = args.token.trim()
+    if (!token) return null
+
+    return await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_shareToken", (q) => q.eq("shareToken", token))
+      .first()
+  },
+})
+
+/**
+ * Ensure the current user has a public share token for a specific newsletter.
+ */
+export const ensureNewsletterShareToken = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireAuthedUserDoc(ctx)
+
+    const newsletter = await ctx.db.get(args.userNewsletterId)
+    if (!newsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+    if (newsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    if (newsletter.shareToken) {
+      return { token: newsletter.shareToken }
+    }
+
+    const token = generateShareToken()
+    await ctx.db.patch(newsletter._id, {
+      shareToken: token,
+      shareTokenUpdatedAt: Date.now(),
+    })
+
+    return { token }
+  },
+})
+
+/**
+ * Rotate (revoke + reissue) the share token for a specific newsletter.
+ */
+export const rotateNewsletterShareToken = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireAuthedUserDoc(ctx)
+
+    const newsletter = await ctx.db.get(args.userNewsletterId)
+    if (!newsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+    if (newsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    const token = generateShareToken()
+    await ctx.db.patch(newsletter._id, {
+      shareToken: token,
+      shareTokenUpdatedAt: Date.now(),
+    })
+
+    return { token }
+  },
+})
+
+type SharedNewsletterWithContentResult = {
+  subject: string
+  senderEmail: string
+  senderName?: string
+  receivedAt: number
+  contentUrl: string | null
+  contentStatus: "available" | "missing" | "error"
+}
+
+/**
+ * Public lookup for a newsletter by share token, with a signed R2 URL for its content.
+ * Returns null when not found.
+ */
+export const getNewsletterByShareTokenWithContent = action({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args): Promise<SharedNewsletterWithContentResult | null> => {
+    const token = args.token.trim()
+    if (!token) return null
+
+    const newsletter = await ctx.runQuery(
+      internal.share.getUserNewsletterByShareTokenInternal,
+      { token }
+    )
+
+    if (!newsletter) return null
+
+    let r2Key: string | null = null
+
+    if (newsletter.isPrivate && newsletter.privateR2Key) {
+      r2Key = newsletter.privateR2Key
+    } else if (!newsletter.isPrivate && newsletter.contentId) {
+      const content = await ctx.runQuery(internal.newsletters.getNewsletterContentInternal, {
+        contentId: newsletter.contentId,
+      })
+      if (content) r2Key = content.r2Key
+    }
+
+    let contentUrl: string | null = null
+    let contentStatus: "available" | "missing" | "error" = "missing"
+
+    if (r2Key) {
+      try {
+        contentUrl = await r2.getUrl(r2Key, { expiresIn: 3600 })
+        contentStatus = "available"
+      } catch (error) {
+        console.error("[share] Failed to generate R2 signed URL:", error)
+        contentStatus = "error"
+      }
+    }
+
+    return {
+      subject: newsletter.subject,
+      senderEmail: newsletter.senderEmail,
+      senderName: newsletter.senderName,
+      receivedAt: newsletter.receivedAt,
+      contentUrl,
+      contentStatus,
+    }
   },
 })

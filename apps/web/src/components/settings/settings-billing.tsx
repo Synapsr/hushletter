@@ -5,8 +5,14 @@ import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
-import { getLocale } from "@/paraglide/runtime.js";
-import { Button, Separator } from "@hushletter/ui/components";
+import {
+  Button,
+  Separator,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hushletter/ui/components";
+import { InfoIcon } from "lucide-react";
 
 type EntitlementsData = {
   plan: "free" | "pro";
@@ -23,9 +29,9 @@ type EntitlementsData = {
 };
 
 export function SettingsBilling() {
-  const locale = getLocale();
-  const currency = locale.startsWith("fr") ? ("eur" as const) : ("usd" as const);
-  const currencySymbol = currency === "eur" ? "€" : "$";
+  // Polar is currently configured for USD-only pricing.
+  const currency = "usd" as const;
+  const currencySymbol = "$";
 
   const { data: entitlementsData, isPending } = useQuery(
     convexQuery(api.entitlements.getEntitlements, {}),
@@ -73,7 +79,9 @@ export function SettingsBilling() {
   const unlockedCap = entitlements?.unlockedCap ?? 1000;
   const hardCap = entitlements?.hardCap ?? 2000;
   const aiDailyLimit = entitlements?.aiDailyLimit ?? 50;
-  const at95 = typeof unlockedStored === "number" && unlockedStored >= Math.floor(unlockedCap * 0.95);
+  const at95 =
+    typeof unlockedStored === "number" &&
+    unlockedStored >= Math.floor(unlockedCap * 0.95);
   const at80 =
     typeof unlockedStored === "number" &&
     unlockedStored >= Math.floor(unlockedCap * 0.8) &&
@@ -81,14 +89,20 @@ export function SettingsBilling() {
 
   const readablePct =
     typeof unlockedStored === "number" && unlockedCap > 0
-      ? Math.min(100, Math.max(0, Math.round((unlockedStored / unlockedCap) * 100)))
+      ? Math.min(
+          100,
+          Math.max(0, Math.round((unlockedStored / unlockedCap) * 100)),
+        )
       : null;
   const storedPct =
     typeof totalStored === "number" && hardCap > 0
       ? Math.min(100, Math.max(0, Math.round((totalStored / hardCap) * 100)))
       : null;
-  const progressColor =
-    at95 ? "bg-amber-500" : at80 ? "bg-primary/70" : "bg-primary";
+  const progressColor = at95
+    ? "bg-amber-500"
+    : at80
+      ? "bg-primary/70"
+      : "bg-primary";
 
   return (
     <div className="space-y-6">
@@ -109,10 +123,6 @@ export function SettingsBilling() {
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="text-sm text-muted-foreground">
-            {currencySymbol}9/month · {currencySymbol}90/year · + tax/VAT where applicable
-          </div>
-
           {billingError && (
             <p className="text-sm text-destructive" role="alert">
               {billingError}
@@ -124,9 +134,22 @@ export function SettingsBilling() {
 
             <div className="space-y-1">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Readable newsletters</span>
+                <span className="text-muted-foreground flex items-center gap-1">
+                  Readable newsletters
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <InfoIcon className="h-4 w-4" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      The number of newsletters that can be read for free. After
+                      that, new arrivals are locked. you can upgrade to Pro to
+                      unlock more newsletters or delete some to free up space.
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
                 <span className="tabular-nums">
-                  {typeof unlockedStored === "number" ? unlockedStored : "—"}/{unlockedCap}
+                  {typeof unlockedStored === "number" ? unlockedStored : "—"}/
+                  {unlockedCap}
                 </span>
               </div>
               <div className="h-2 w-full rounded bg-muted overflow-hidden">
@@ -135,12 +158,9 @@ export function SettingsBilling() {
                   style={{ width: `${readablePct ?? 0}%` }}
                 />
               </div>
-              <div className="text-xs text-muted-foreground">
-                Free: first {unlockedCap} are readable. After that, new arrivals are stored but locked.
-              </div>
             </div>
 
-            <div className="space-y-1">
+            {/*  <div className="space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Total stored</span>
                 <span className="tabular-nums">
@@ -156,11 +176,12 @@ export function SettingsBilling() {
               <div className="text-xs text-muted-foreground">
                 Hard cap: at {hardCap} stored, new arrivals stop being stored on Free.
               </div>
-            </div>
+            </div> */}
 
             {typeof lockedStored === "number" && (
               <div className="text-sm text-muted-foreground">
-                Locked newsletters: <span className="tabular-nums">{lockedStored}</span>
+                Locked newsletters:{" "}
+                <span className="tabular-nums">{lockedStored}</span>
               </div>
             )}
           </div>
@@ -180,7 +201,8 @@ export function SettingsBilling() {
             <>
               {at95 && (
                 <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
-                  You’re close to the Free plan limit. New newsletters may become locked until you upgrade.
+                  You’re close to the Free plan limit. New newsletters may
+                  become locked until you upgrade.
                 </div>
               )}
               {at80 && (
@@ -190,7 +212,10 @@ export function SettingsBilling() {
               )}
 
               <div className="flex flex-wrap gap-2">
-                <Button disabled={billingPending} onClick={() => handleUpgrade("month")}>
+                <Button
+                  disabled={billingPending}
+                  onClick={() => handleUpgrade("month")}
+                >
                   Upgrade monthly ({currencySymbol}9)
                 </Button>
                 <Button
@@ -202,7 +227,9 @@ export function SettingsBilling() {
                 </Button>
               </div>
 
-              <p className="text-sm text-muted-foreground">30-day money-back guarantee.</p>
+              <p className="text-sm text-muted-foreground">
+                30-day money-back guarantee.
+              </p>
             </>
           ) : (
             <div className="rounded-lg border bg-card p-3">

@@ -371,11 +371,9 @@ function SettingsPage() {
   const [billingPending, setBillingPending] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
 
-  const locale = getLocale();
-  const currency = locale.startsWith("fr")
-    ? ("eur" as const)
-    : ("usd" as const);
-  const currencySymbol = currency === "eur" ? "€" : "$";
+  // Polar is currently configured for USD-only pricing.
+  const currency = "usd" as const;
+  const currencySymbol = "$";
 
   const handleUpgrade = async (interval: "month" | "year") => {
     setBillingPending(true);

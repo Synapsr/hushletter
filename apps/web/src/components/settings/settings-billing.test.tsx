@@ -69,7 +69,7 @@ describe("SettingsBilling", () => {
   it("renders EUR pricing for fr locale", () => {
     mockLocale = "fr";
     render(<SettingsBilling />);
-    expect(screen.getByText("€9/month · €90/year · + tax/VAT where applicable")).toBeTruthy();
+    expect(screen.getByText("$9/month · $90/year · + tax/VAT where applicable")).toBeTruthy();
   });
 
   it("renders manage subscription for Pro", () => {
@@ -85,4 +85,3 @@ describe("SettingsBilling", () => {
     expect(screen.getByRole("button", { name: /manage subscription/i })).toBeTruthy();
   });
 });
-

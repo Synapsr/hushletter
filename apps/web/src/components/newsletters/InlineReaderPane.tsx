@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
 import { convexQuery } from "@convex-dev/react-query";
@@ -13,6 +13,8 @@ import {
   useReaderPreferences,
 } from "@/hooks/useReaderPreferences";
 import { ReaderActionBar } from "./ReaderActionBar";
+import { AnimatePresence } from "motion/react";
+import { FloatingSummaryPanel } from "./FloatingSummaryPanel";
 import { m } from "@/paraglide/messages.js";
 
 interface InlineReaderPaneProps {
@@ -88,6 +90,8 @@ export function InlineReaderPane({
     useReaderPreferences();
   const paneBackgroundColor =
     READER_BACKGROUND_OPTIONS[preferences.background].color;
+  const paneRef = useRef<HTMLDivElement>(null);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
   const [isArchivePending, setIsArchivePending] = useState(false);
   const [estimatedReadMinutes, setEstimatedReadMinutes] = useState<
@@ -147,7 +151,8 @@ export function InlineReaderPane({
             Upgrade to read this newsletter
           </h2>
           <p className="text-sm text-muted-foreground mb-4">
-            You’ve hit the Free plan reading limit. New arrivals are stored but locked until you upgrade.
+            You’ve hit the Free plan reading limit. New arrivals are stored but
+            locked until you upgrade.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button render={<a href="/settings" />}>Upgrade to Pro</Button>
@@ -164,7 +169,10 @@ export function InlineReaderPane({
     try {
       await unhideNewsletter({ userNewsletterId: newsletterId });
     } catch (error) {
-      console.error("[InlineReaderPane] Failed to restore archived newsletter:", error);
+      console.error(
+        "[InlineReaderPane] Failed to restore archived newsletter:",
+        error,
+      );
       toast.error(m.newsletters_failedToRestore());
     }
   };
@@ -229,7 +237,9 @@ export function InlineReaderPane({
 
   const handleShare = async () => {
     try {
-      const { token } = await ensureNewsletterShareToken({ userNewsletterId: newsletterId });
+      const { token } = await ensureNewsletterShareToken({
+        userNewsletterId: newsletterId,
+      });
       const url = `${window.location.origin}/share/${token}`;
 
       try {
@@ -247,7 +257,8 @@ export function InlineReaderPane({
 
   return (
     <div
-      className="flex-1 flex flex-col min-w-0 overflow-hidden"
+      ref={paneRef}
+      className="flex-1 flex flex-col overflow-hidden min-w-0 relative"
       style={{ backgroundColor: paneBackgroundColor }}
     >
       <ReaderActionBar
@@ -272,7 +283,19 @@ export function InlineReaderPane({
         onFontChange={setFont}
         onFontSizeChange={setFontSize}
         isPro={isPro}
+        onToggleSummary={() => setIsSummaryOpen((prev) => !prev)}
+        isSummaryOpen={isSummaryOpen}
       />
+
+      <AnimatePresence>
+        {isSummaryOpen && (
+          <FloatingSummaryPanel
+            userNewsletterId={newsletterId}
+            onClose={() => setIsSummaryOpen(false)}
+            constraintsRef={paneRef}
+          />
+        )}
+      </AnimatePresence>
 
       {favoriteFeedback && (
         <div className="px-6 py-2 text-xs text-destructive" role="status">

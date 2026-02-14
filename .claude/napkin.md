@@ -3,6 +3,8 @@
 ## Corrections
 | Date | Source | What Went Wrong | What To Do Instead |
 |------|--------|----------------|-------------------|
+| 2026-02-14 | self | Used `bun -C apps/web ...` but this Bun version doesn't support `-C` | `cd apps/web` then run `bun run <script>` |
+| 2026-02-14 | self | Tried using `python` for a quick text edit but it isn't installed in this environment | Use `node`, `perl`, or shell tools for small scripted edits |
 | 2026-02-13 | self | Tried reading `.claude/napkin.md` before it existed | Create `.claude/napkin.md` at session start when missing |
 | 2026-02-13 | self | Large multi-hunk patch to `newsletters.ts` failed due drifted context | Apply smaller targeted patches for long files with active local changes |
 | 2026-02-13 | self | Ran test path with `$id` unquoted and shell expanded it away | Quote route test paths containing `$` (e.g. `'.../$id.test.tsx'`) |

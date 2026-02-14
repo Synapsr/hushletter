@@ -513,6 +513,8 @@
   "folderMgmt_save": "Save",
   "folderMgmt_saving": "Saving...",
   "folderMgmt_senderCount": "({count} senders)",
+  "floatingSummary_close": "Close summary panel",
+  "floatingSummary_toggle": "AI Summary",
   "follow_ariaFollow": "Follow {sender}",
   "follow_ariaLoadingStatus": "Loading follow status",
   "follow_ariaUnfollow": "Unfollow {sender}",

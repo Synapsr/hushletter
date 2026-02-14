@@ -101,8 +101,9 @@ function useCounter(target: number, isInView: boolean, duration = 2000) {
 
 export function LandingPage() {
   const locale = getLocale();
-  const currency = locale.startsWith("fr") ? ("eur" as const) : ("usd" as const);
-  const currencySymbol = currency === "eur" ? "€" : "$";
+  // Polar is currently configured for USD-only pricing.
+  const currency = "usd" as const;
+  const currencySymbol = "$";
 
   const { data: currentUserData } = useQuery(convexQuery(api.auth.getCurrentUser, {}));
   const currentUser = currentUserData as { id: string } | null | undefined;

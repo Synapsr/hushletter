@@ -66,6 +66,6 @@ describe("LandingPage pricing section", () => {
   it("renders EUR pricing for fr locale", () => {
     mockLocale = "fr";
     render(<LandingPage />);
-    expect(screen.getByText("€9/month · €90/year · + tax/VAT where applicable")).toBeTruthy();
+    expect(screen.getByText("$9/month · $90/year · + tax/VAT where applicable")).toBeTruthy();
   });
 });

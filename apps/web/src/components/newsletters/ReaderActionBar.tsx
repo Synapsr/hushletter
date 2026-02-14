@@ -18,6 +18,7 @@ import {
   Archive,
   ArchiveRestore,
   Star,
+  Sparkles,
   Highlighter,
   Share2,
   SlidersHorizontal,
@@ -51,6 +52,8 @@ interface ReaderActionBarProps {
   onFontSizeChange?: (value: ReaderFontSizePreference) => void;
   /** Pro-only: reader appearance controls */
   isPro?: boolean;
+  onToggleSummary?: () => void;
+  isSummaryOpen?: boolean;
   senderName?: string;
   subject?: string;
   date?: string;
@@ -74,6 +77,8 @@ export function ReaderActionBar({
   onFontChange,
   onFontSizeChange,
   isPro = false,
+  onToggleSummary,
+  isSummaryOpen = false,
   senderName,
   subject,
 }: ReaderActionBarProps) {
@@ -151,22 +156,49 @@ export function ReaderActionBar({
         </div>
       </TooltipProvider>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 px-4">
         <div className="flex flex-col  text-center">
-          <p className="text-[10px] text-muted-foreground">{senderName}</p>
-          <p className="text-xs font-medium text-foreground">{subject}</p>
+          <p className="text-[10px] text-muted-foreground line-clamp-1">
+            {senderName}
+          </p>
+          <p
+            title={subject}
+            className="text-xs font-medium text-foreground line-clamp-1"
+          >
+            {subject}
+          </p>
           {/*  <span className="text-[10px] text-muted-foreground">{date}</span> */}
         </div>
       </div>
 
       <div className="flex items-center gap-2">
         {readEstimateLabel && (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted-foreground text-nowrap">
             {readEstimateLabel}
           </span>
         )}
 
         <Separator orientation="vertical" className="h-4" />
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={m.floatingSummary_toggle()}
+                aria-pressed={isSummaryOpen}
+                onClick={onToggleSummary}
+                className={isSummaryOpen ? "text-amber-500" : undefined}
+              >
+                <Sparkles
+                  className={isSummaryOpen ? "h-4 w-4 fill-current" : "h-4 w-4"}
+                />
+              </Button>
+            }
+          />
+          <TooltipContent>{m.floatingSummary_toggle()}</TooltipContent>
+        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger

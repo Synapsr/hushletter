@@ -513,6 +513,8 @@
   "folderMgmt_save": "Enregistrer",
   "folderMgmt_saving": "Enregistrement...",
   "folderMgmt_senderCount": "({count} expéditeurs)",
+  "floatingSummary_close": "Fermer le panneau de résumé",
+  "floatingSummary_toggle": "Résumé IA",
   "follow_ariaFollow": "Suivre {sender}",
   "follow_ariaLoadingStatus": "Chargement du statut d'abonnement",
   "follow_ariaUnfollow": "Ne plus suivre {sender}",

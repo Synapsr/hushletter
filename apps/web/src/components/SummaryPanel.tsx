@@ -7,6 +7,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@hushletter/ui";
 import { Sparkles, RefreshCw, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { ConvexError } from "convex/values";
+import { cn } from "@/lib/utils";
 import { useSummaryPreferences } from "@/hooks/useSummaryPreferences";
 import { m } from "@/paraglide/messages.js";
 import { Link } from "@tanstack/react-router";
@@ -14,6 +15,8 @@ import { Link } from "@tanstack/react-router";
 interface SummaryPanelProps {
   /** userNewsletter document ID - typed for Convex safety */
   userNewsletterId: Id<"userNewsletters">;
+  /** Optional className override for the root Card (used by FloatingSummaryPanel to strip Card chrome) */
+  className?: string;
 }
 
 /** Summary data from Convex query */
@@ -39,7 +42,7 @@ interface SummaryData {
  * Convex useAction doesn't provide isPending like useMutation does, so manual loading
  * state management is required here. See ReaderView.tsx for same pattern.
  */
-export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
+export function SummaryPanel({ userNewsletterId, className }: SummaryPanelProps) {
   // Story 5.2: Use persisted preference for collapse state
   const { isCollapsed, toggleCollapsed } = useSummaryPreferences();
   // Exception: useAction doesn't provide isPending, manual state required
@@ -85,7 +88,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
   const isSharedSummary = summaryData?.isShared ?? false;
 
   return (
-    <Card className="mb-6">
+    <Card className={cn("mb-6", className)}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-medium flex items-center gap-2">

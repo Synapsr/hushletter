@@ -144,6 +144,19 @@ async function upsertNewsletterReadProgress(
   })
 }
 
+async function getSearchMetaDoc(
+  ctx: { db: { query: (table: "newsletterSearchMeta") => any } },
+  userId: Id<"users">,
+  userNewsletterId: Id<"userNewsletters">
+): Promise<Doc<"newsletterSearchMeta"> | null> {
+  return await ctx.db
+    .query("newsletterSearchMeta")
+    .withIndex("by_userId_userNewsletterId", (q: any) =>
+      q.eq("userId", userId).eq("userNewsletterId", userNewsletterId)
+    )
+    .first()
+}
+
 async function getHiddenFolderIdSet(
   ctx: { db: { query: (table: "folders") => any } },
   userId: Id<"users">
@@ -492,6 +505,17 @@ export const createUserNewsletter = internalMutation({
       isPrivate: args.isPrivate,
       source: args.source, // Story 9.2: Track ingestion source
       messageId: args.messageId, // Story 8.4: Store for duplicate detection
+    })
+
+    await ctx.db.insert("newsletterSearchMeta", {
+      userId: args.userId,
+      userNewsletterId,
+      subject: args.subject,
+      senderEmail: args.senderEmail,
+      senderName: args.senderName,
+      receivedAt: args.receivedAt,
+      isHidden: false,
+      isRead: false,
     })
 
     return userNewsletterId
@@ -1193,6 +1217,22 @@ export const setReadProgress = mutation({
     // Intermediate progress updates must not touch `userNewsletters`.
     if (clampedProgress === 100 && !userNewsletter.isRead) {
       await ctx.db.patch(args.userNewsletterId, { isRead: true })
+
+      const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+      if (!searchMeta) {
+        await ctx.db.insert("newsletterSearchMeta", {
+          userId: user._id,
+          userNewsletterId: args.userNewsletterId,
+          subject: userNewsletter.subject,
+          senderEmail: userNewsletter.senderEmail,
+          senderName: userNewsletter.senderName,
+          receivedAt: userNewsletter.receivedAt,
+          isHidden: userNewsletter.isHidden,
+          isRead: true,
+        })
+      } else if (!searchMeta.isRead) {
+        await ctx.db.patch(searchMeta._id, { isRead: true })
+      }
     }
   },
 })
@@ -1238,6 +1278,22 @@ export const markNewsletterRead = mutation({
     if (!userNewsletter.isRead) {
       await ctx.db.patch(args.userNewsletterId, { isRead: true })
     }
+
+    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+    if (!searchMeta) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: user._id,
+        userNewsletterId: args.userNewsletterId,
+        subject: userNewsletter.subject,
+        senderEmail: userNewsletter.senderEmail,
+        senderName: userNewsletter.senderName,
+        receivedAt: userNewsletter.receivedAt,
+        isHidden: userNewsletter.isHidden,
+        isRead: true,
+      })
+    } else if (!searchMeta.isRead) {
+      await ctx.db.patch(searchMeta._id, { isRead: true })
+    }
   },
 })
 
@@ -1273,6 +1329,22 @@ export const markNewsletterUnread = mutation({
       isRead: false,
       // Keep readProgress for "resume reading" feature
     })
+
+    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+    if (!searchMeta) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: user._id,
+        userNewsletterId: args.userNewsletterId,
+        subject: userNewsletter.subject,
+        senderEmail: userNewsletter.senderEmail,
+        senderName: userNewsletter.senderName,
+        receivedAt: userNewsletter.receivedAt,
+        isHidden: userNewsletter.isHidden,
+        isRead: false,
+      })
+    } else if (searchMeta.isRead) {
+      await ctx.db.patch(searchMeta._id, { isRead: false })
+    }
   },
 })
 
@@ -1316,6 +1388,22 @@ export const updateNewsletterReadProgress = mutation({
 
     if (clampedProgress === 100 && !userNewsletter.isRead) {
       await ctx.db.patch(args.userNewsletterId, { isRead: true })
+
+      const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+      if (!searchMeta) {
+        await ctx.db.insert("newsletterSearchMeta", {
+          userId: user._id,
+          userNewsletterId: args.userNewsletterId,
+          subject: userNewsletter.subject,
+          senderEmail: userNewsletter.senderEmail,
+          senderName: userNewsletter.senderName,
+          receivedAt: userNewsletter.receivedAt,
+          isHidden: userNewsletter.isHidden,
+          isRead: true,
+        })
+      } else if (!searchMeta.isRead) {
+        await ctx.db.patch(searchMeta._id, { isRead: true })
+      }
     }
   },
 })
@@ -1351,6 +1439,22 @@ export const hideNewsletter = mutation({
     await ctx.db.patch(args.userNewsletterId, {
       isHidden: true,
     })
+
+    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+    if (!searchMeta) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: user._id,
+        userNewsletterId: args.userNewsletterId,
+        subject: userNewsletter.subject,
+        senderEmail: userNewsletter.senderEmail,
+        senderName: userNewsletter.senderName,
+        receivedAt: userNewsletter.receivedAt,
+        isHidden: true,
+        isRead: userNewsletter.isRead,
+      })
+    } else if (!searchMeta.isHidden) {
+      await ctx.db.patch(searchMeta._id, { isHidden: true })
+    }
   },
 })
 
@@ -1385,6 +1489,22 @@ export const unhideNewsletter = mutation({
     await ctx.db.patch(args.userNewsletterId, {
       isHidden: false,
     })
+
+    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+    if (!searchMeta) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: user._id,
+        userNewsletterId: args.userNewsletterId,
+        subject: userNewsletter.subject,
+        senderEmail: userNewsletter.senderEmail,
+        senderName: userNewsletter.senderName,
+        receivedAt: userNewsletter.receivedAt,
+        isHidden: false,
+        isRead: userNewsletter.isRead,
+      })
+    } else if (searchMeta.isHidden) {
+      await ctx.db.patch(searchMeta._id, { isHidden: false })
+    }
   },
 })
 
@@ -1785,6 +1905,188 @@ export const getFavoritedNewsletterCount = query({
   },
 })
 
+async function backfillNewsletterSearchMetaRecentImpl(
+  ctx: {
+    db: {
+      query: (table: "userNewsletters" | "newsletterSearchMeta") => any
+      insert: (table: "newsletterSearchMeta", value: any) => Promise<any>
+      patch: (id: any, value: any) => Promise<void>
+    }
+  },
+  args: { userId: Id<"users">; limit: number }
+): Promise<{ inserted: number; updated: number }> {
+  const limit = Math.max(1, Math.min(args.limit, 1000))
+
+  const newsletters = (await ctx.db
+    .query("userNewsletters")
+    .withIndex("by_userId_receivedAt", (q: any) => q.eq("userId", args.userId))
+    .order("desc")
+    .take(limit)) as Array<Doc<"userNewsletters">>
+
+  const existingMeta = (await ctx.db
+    .query("newsletterSearchMeta")
+    .withIndex("by_userId_receivedAt", (q: any) => q.eq("userId", args.userId))
+    .order("desc")
+    .take(limit)) as Array<Doc<"newsletterSearchMeta">>
+
+  const metaByNewsletterId = new Map(
+    existingMeta.map((doc: Doc<"newsletterSearchMeta">) => [
+      doc.userNewsletterId,
+      doc,
+    ])
+  )
+
+  let inserted = 0
+  let updated = 0
+
+  for (const newsletter of newsletters) {
+    const current = metaByNewsletterId.get(newsletter._id)
+    const desired = {
+      subject: newsletter.subject,
+      senderEmail: newsletter.senderEmail,
+      senderName: newsletter.senderName,
+      receivedAt: newsletter.receivedAt,
+      isHidden: newsletter.isHidden,
+      isRead: newsletter.isRead,
+    }
+
+    if (!current) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: args.userId,
+        userNewsletterId: newsletter._id,
+        ...desired,
+      })
+      inserted++
+      continue
+    }
+
+    const patch: any = {}
+    if (current.subject !== desired.subject) patch.subject = desired.subject
+    if (current.senderEmail !== desired.senderEmail)
+      patch.senderEmail = desired.senderEmail
+    if (current.senderName !== desired.senderName)
+      patch.senderName = desired.senderName
+    if (current.receivedAt !== desired.receivedAt)
+      patch.receivedAt = desired.receivedAt
+    if (current.isHidden !== desired.isHidden) patch.isHidden = desired.isHidden
+    if (current.isRead !== desired.isRead) patch.isRead = desired.isRead
+
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(current._id, patch)
+      updated++
+    }
+  }
+
+  return { inserted, updated }
+}
+
+export const backfillNewsletterSearchMetaRecentForUser = internalMutation({
+  args: {
+    userId: v.id("users"),
+    limit: v.number(),
+  },
+  handler: async (ctx, args): Promise<{ inserted: number; updated: number }> => {
+    return await backfillNewsletterSearchMetaRecentImpl(ctx, {
+      userId: args.userId,
+      limit: args.limit,
+    })
+  },
+})
+
+export const backfillNewsletterSearchMetaRecent = mutation({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<{ inserted: number; updated: number }> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    const limit = Math.min(args.limit ?? 500, 1000)
+    return await backfillNewsletterSearchMetaRecentImpl(ctx, {
+      userId: user._id,
+      limit,
+    })
+  },
+})
+
+type NewsletterSearchMetaResult = {
+  userNewsletterId: Id<"userNewsletters">
+  subject: string
+  senderEmail: string
+  senderName?: string
+  receivedAt: number
+  isHidden: boolean
+  isRead: boolean
+}
+
+/**
+ * Search the current user's newsletters by subject + sender name/email.
+ *
+ * Note: this is designed to be called non-reactively from the client
+ * (via `useConvex().query(...)` inside TanStack Query) to avoid creating
+ * Convex subscriptions on each keystroke.
+ */
+export const searchUserNewslettersMeta = query({
+  args: {
+    query: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<NewsletterSearchMetaResult[]> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    const q = args.query.trim().toLowerCase()
+    if (q.length < 2) return []
+
+    const limit = Math.min(args.limit ?? 20, 50)
+
+    const recent = await ctx.db
+      .query("newsletterSearchMeta")
+      .withIndex("by_userId_receivedAt", (q2: any) => q2.eq("userId", user._id))
+      .order("desc")
+      .take(500)
+
+    const matches = recent.filter((doc: Doc<"newsletterSearchMeta">) => {
+      if (doc.subject.toLowerCase().includes(q)) return true
+      if (doc.senderEmail.toLowerCase().includes(q)) return true
+      if (doc.senderName && doc.senderName.toLowerCase().includes(q)) return true
+      return false
+    })
+
+    return matches.slice(0, limit).map((doc) => ({
+      userNewsletterId: doc.userNewsletterId,
+      subject: doc.subject,
+      senderEmail: doc.senderEmail,
+      senderName: doc.senderName,
+      receivedAt: doc.receivedAt,
+      isHidden: doc.isHidden,
+      isRead: doc.isRead,
+    }))
+  },
+})
+
 // ============================================================
 // Story 6.4: Empty State Detection
 // ============================================================
@@ -1879,6 +2181,11 @@ export const deleteUserNewsletter = mutation({
 
     // For private newsletters, we could optionally delete R2 content
     // But for safety, we just remove the reference (R2 cleanup can be a separate process)
+
+    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+    if (searchMeta) {
+      await ctx.db.delete(searchMeta._id)
+    }
 
     // Delete the userNewsletter record
     await ctx.db.delete(args.userNewsletterId)

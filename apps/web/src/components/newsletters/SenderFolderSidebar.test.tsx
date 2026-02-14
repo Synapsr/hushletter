@@ -18,6 +18,7 @@ vi.mock("@hushletter/backend", () => ({
       listVisibleFoldersWithUnreadCounts: "folders.listVisibleFoldersWithUnreadCounts",
     },
     newsletters: {
+      getUserNewsletter: "newsletters.getUserNewsletter",
       getHiddenNewsletterCount: "newsletters.getHiddenNewsletterCount",
     },
   },
@@ -26,10 +27,12 @@ vi.mock("@hushletter/backend", () => ({
 vi.mock("./SenderFolderItem", () => ({
   SenderFolderItem: ({
     folder,
+    isSelected,
     isExpanded,
     onExpandedChange,
   }: {
     folder: { name: string };
+    isSelected: boolean;
     isExpanded: boolean;
     onExpandedChange: (expanded: boolean) => void;
   }) => (
@@ -37,6 +40,7 @@ vi.mock("./SenderFolderItem", () => ({
       type="button"
       data-testid="sender-folder-item"
       data-expanded={isExpanded ? "true" : "false"}
+      data-selected={isSelected ? "true" : "false"}
       onClick={() => onExpandedChange(!isExpanded)}
     >
       {folder.name}
@@ -55,6 +59,7 @@ import { useQuery } from "@tanstack/react-query";
 const mockUseQuery = vi.mocked(useQuery);
 let foldersQueryData: unknown[] = [];
 let hiddenCountData = 0;
+let selectedNewsletterMetaData: unknown = null;
 
 describe("SenderFolderSidebar", () => {
   const defaultProps = {
@@ -89,6 +94,13 @@ describe("SenderFolderSidebar", () => {
       if (queryKey === "newsletters.getHiddenNewsletterCount") {
         return {
           data: hiddenCountData,
+          isPending: false,
+          isError: false,
+        } as ReturnType<typeof useQuery>;
+      }
+      if (queryKey === "newsletters.getUserNewsletter") {
+        return {
+          data: selectedNewsletterMetaData,
           isPending: false,
           isError: false,
         } as ReturnType<typeof useQuery>;
@@ -201,5 +213,39 @@ describe("SenderFolderSidebar", () => {
       "data-expanded",
       "true",
     );
+  });
+
+  it("highlights the sender row for the selected newsletter when folder search param is absent", () => {
+    foldersQueryData = [
+      {
+        _id: "folder-1",
+        name: "Sender One",
+        newsletterCount: 3,
+        unreadCount: 1,
+      },
+      {
+        _id: "folder-2",
+        name: "Sender Two",
+        newsletterCount: 2,
+        unreadCount: 0,
+      },
+    ];
+    selectedNewsletterMetaData = { folderId: "folder-2" };
+
+    render(
+      <SenderFolderSidebar
+        {...defaultProps}
+        selectedFilter={null}
+        selectedFolderId={null}
+        selectedNewsletterId={"newsletter-123"}
+      />,
+    );
+
+    const items = screen.getAllByTestId("sender-folder-item");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("Sender One");
+    expect(items[0]).toHaveAttribute("data-selected", "false");
+    expect(items[1]).toHaveTextContent("Sender Two");
+    expect(items[1]).toHaveAttribute("data-selected", "true");
   });
 });

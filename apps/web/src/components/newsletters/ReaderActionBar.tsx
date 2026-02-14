@@ -42,6 +42,7 @@ interface ReaderActionBarProps {
   isArchivePending?: boolean;
   onArchive: () => void;
   onToggleFavorite: () => void;
+  onShare?: () => void;
   /** 0 means under 1 minute, positive integers are rounded-up minutes */
   estimatedReadMinutes?: number;
   preferences?: ReaderPreferences;
@@ -61,6 +62,7 @@ export function ReaderActionBar({
   isHidden,
   onArchive,
   onToggleFavorite,
+  onShare,
   isFavorited,
   isFavoritePending,
   isArchivePending = false,
@@ -164,7 +166,12 @@ export function ReaderActionBar({
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button variant="ghost" size="icon" aria-label="Share newsletter">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Share newsletter"
+                onClick={onShare}
+              >
                 <Share2 className="h-4 w-4" />
               </Button>
             }

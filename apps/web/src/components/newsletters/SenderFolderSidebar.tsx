@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import {
   Tabs,
   TabsList,
@@ -103,6 +104,17 @@ export function SenderFolderSidebar({
     isError: foldersError,
   } = useQuery(convexQuery(api.folders.listVisibleFoldersWithUnreadCounts, {}));
 
+  // When a newsletter is open via `?newsletter=...` (without `?folder=...`),
+  // fetch its metadata so we can highlight the corresponding sender folder row.
+  const { data: selectedNewsletterMeta } = useQuery(
+    convexQuery(
+      api.newsletters.getUserNewsletter,
+      selectedNewsletterId
+        ? { userNewsletterId: selectedNewsletterId as Id<"userNewsletters"> }
+        : "skip",
+    ),
+  );
+
   const { data: hiddenCount, isPending: hiddenCountPending } = useQuery(
     convexQuery(api.newsletters.getHiddenNewsletterCount, {}),
   );
@@ -111,6 +123,15 @@ export function SenderFolderSidebar({
     if (!folders) return [];
     return (folders as unknown[]).filter(isFolderData);
   }, [folders]);
+
+  const selectedNewsletterFolderId = useMemo(() => {
+    const folderId = (selectedNewsletterMeta as { folderId?: unknown } | null | undefined)
+      ?.folderId;
+    return typeof folderId === "string" ? folderId : null;
+  }, [selectedNewsletterMeta]);
+
+  const effectiveSelectedFolderId =
+    selectedFolderId ?? selectedNewsletterFolderId ?? null;
 
   useEffect(() => {
     setExpandedFolderIds((previous) => {
@@ -331,7 +352,7 @@ export function SenderFolderSidebar({
               <SenderFolderItem
                 key={folder._id}
                 folder={folder}
-                isSelected={selectedFolderId === folder._id}
+                isSelected={effectiveSelectedFolderId === folder._id}
                 selectedNewsletterId={selectedNewsletterId}
                 sidebarFilter={sidebarFilter}
                 isExpanded={expandedFolderIds.has(folder._id)}

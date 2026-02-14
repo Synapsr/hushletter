@@ -52,7 +52,7 @@ function SignupPage() {
       toast.error(error.message || m.auth_registrationFailed());
     },
     onSuccess: () => {
-      navigate({ to: "/newsletters" });
+      navigate({ to: "/onboarding" });
     },
   });
 

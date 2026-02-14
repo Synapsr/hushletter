@@ -7,10 +7,13 @@
 | 2026-02-13 | self | Large multi-hunk patch to `newsletters.ts` failed due drifted context | Apply smaller targeted patches for long files with active local changes |
 | 2026-02-13 | self | Ran test path with `$id` unquoted and shell expanded it away | Quote route test paths containing `$` (e.g. `'.../$id.test.tsx'`) |
 | 2026-02-14 | self | Tried reading `apps/web/src/routes/_authed/newsletters/$id.tsx` without quoting `$id` and the shell stripped it | Always single-quote paths containing `$` in shell commands (and in tooling args) |
+| 2026-02-14 | self | Patch to `packages/backend/convex/share.ts` accidentally left a duplicate helper function signature line | After patching, re-open the edited file and sanity-check for duplicated/garbled lines before moving on |
+| 2026-02-14 | self | Used optional chaining on `navigator.clipboard?.writeText(...).catch(...)` which can still throw when clipboard is unavailable | Store the promise and guard it (`const p = ...; if (p) p.catch(...)`) or use try/catch with `await` |
 | 2026-02-14 | self | New Convex `action()` exports referencing `internal.*` caused TS self-referential inference errors (TS7022/TS7023) | Add explicit `handler` return type annotations (e.g. `Promise<{page,isDone,continueCursor}>`) to break cycles |
 | 2026-02-13 | self | Used a stale context block in `apply_patch` while editing `SenderFolderItem.tsx` and patch failed | Re-read current numbered lines (`nl -ba`) and patch tight ranges after each file mutation |
 | 2026-02-13 | self | React component tests emitted `act(...)` warnings after async click handlers updated state | Wrap event triggers and async callback invocations in `await act(async () => { ... })` for stable/no-noise tests |
 | 2026-02-14 | self | Started a long-running `convex logs` capture with a `nohup bash -lc` wrapper and accidentally single-quoted a variable in the kill scheduler, so it never terminated the stream | Prefer direct `nohup bunx convex logs ... &` and schedule kill with the literal PID (or a fully-expanded path), not a shell variable inside single quotes |
+| 2026-02-14 | self | `SenderFolderItem.test.tsx` failed with "Could not find Convex client" because the component uses `useAction` and the test didn’t mock it or wrap in `ConvexProvider` | In unit tests for components calling `useAction`/`useMutation`, either mock `convex/react` hooks or render under a `ConvexProvider` test wrapper |
 | 2026-02-13 | self | Used `rg` with a newline escape in a single-line regex and got a parse error | Use simpler single-line patterns or enable multiline mode explicitly (`-U`) when needed |
 | 2026-02-14 | self | Used `rg` regex look-ahead without `--pcre2` and hit "look-around not supported" | Avoid look-around in ripgrep patterns or use `rg --pcre2` when needed |
 | 2026-02-13 | self | Assumed backend lived in `convex/` at repo root and ran `rg` against a non-existent path | Verify monorepo package location first (`packages/backend/convex`) before search commands |
@@ -46,6 +49,7 @@
 - Convex bandwidth: gate conditional queries with Convex args `"skip"` (do not use `enabled:` expecting it to stop Convex subscriptions).
 - Convex bandwidth: for long lists, use “reactive head query + action tail pages” to keep subscriptions bounded.
 - Convex bandwidth: store high-frequency progress/telemetry writes in separate tables; only patch list docs for state transitions.
+- Command palette search: if results are already filtered server-side (e.g. subject or sender match), disable client-side Autocomplete filtering (`mode=\"none\"`) or include all searchable fields in the label; otherwise sender-matches can disappear client-side.
 
 ## Patterns That Don't Work
 - Using broad `queryClient.invalidateQueries()` for high-frequency UI actions causes avoidable jitter.

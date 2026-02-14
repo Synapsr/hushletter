@@ -102,6 +102,12 @@ export function InlineReaderPane({
 
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
   const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
+  const ensureDedicatedEmailShareToken = useMutation(
+    api.share.ensureDedicatedEmailShareToken,
+  );
+  const rotateDedicatedEmailShareToken = useMutation(
+    api.share.rotateDedicatedEmailShareToken,
+  );
 
   useEffect(() => {
     setEstimatedReadMinutes(null);
@@ -195,6 +201,42 @@ export function InlineReaderPane({
     }
   };
 
+  const handleShare = async () => {
+    try {
+      const { token } = await ensureDedicatedEmailShareToken({});
+      const url = `${window.location.origin}/share/${token}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success(m.dedicatedEmail_copied(), {
+          action: {
+            label: "Rotate link",
+            onClick: () => {
+              void (async () => {
+                const { token: nextToken } =
+                  await rotateDedicatedEmailShareToken({});
+                const nextUrl = `${window.location.origin}/share/${nextToken}`;
+                window.open(nextUrl, "_blank", "noopener,noreferrer");
+                try {
+                  await navigator.clipboard.writeText(nextUrl);
+                  toast.success(m.dedicatedEmail_copied());
+                } catch {
+                  // Ignore clipboard failures.
+                }
+              })();
+            },
+          },
+        });
+      } catch {
+        // Ignore clipboard failures (permissions / unsupported).
+      }
+    } catch (error) {
+      console.error("[InlineReaderPane] Failed to share dedicated email:", error);
+      toast.error(m.common_error());
+    }
+  };
+
   return (
     <div
       className="flex-1 flex flex-col min-w-0 overflow-hidden"
@@ -215,6 +257,7 @@ export function InlineReaderPane({
         isArchivePending={isArchivePending}
         onArchive={handleArchive}
         onToggleFavorite={handleFavoriteToggle}
+        onShare={handleShare}
         estimatedReadMinutes={estimatedReadMinutes ?? undefined}
         preferences={preferences}
         onBackgroundChange={setBackground}

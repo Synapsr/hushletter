@@ -111,6 +111,8 @@ export const getCurrentUser = query({
       email: authUser.email,
       name: authUser.name,
       dedicatedEmail: user?.dedicatedEmail ?? null,
+      onboardingCompletedAt: user?.onboardingCompletedAt ?? null,
+      createdAt: user?.createdAt ?? null,
     }
   },
 })

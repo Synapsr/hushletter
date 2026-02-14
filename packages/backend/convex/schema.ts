@@ -3,22 +3,28 @@ import { v } from "convex/values"
 
 export default defineSchema({
   // Users table - application user data linked to Better Auth
-  users: defineTable({
-    email: v.string(),
-    name: v.optional(v.string()),
-    createdAt: v.number(),
-    // Link to Better Auth user record
-    authId: v.optional(v.string()),
-    // Dedicated email address for receiving newsletters (Story 1.4)
-    dedicatedEmail: v.optional(v.string()),
-    // Story 6.1: Track if user has seen the community sharing onboarding
-    hasSeenSharingOnboarding: v.optional(v.boolean()),
-    // Story 7.1: Admin role flag - only set via direct DB edit or migration
-    isAdmin: v.optional(v.boolean()),
-  })
-    .index("by_email", ["email"])
-    .index("by_authId", ["authId"])
-    .index("by_dedicatedEmail", ["dedicatedEmail"]),
+	  users: defineTable({
+	    email: v.string(),
+	    name: v.optional(v.string()),
+	    createdAt: v.number(),
+	    // Link to Better Auth user record
+	    authId: v.optional(v.string()),
+	    // Dedicated email address for receiving newsletters (Story 1.4)
+	    dedicatedEmail: v.optional(v.string()),
+	    // Public share token for dedicatedEmail (revocable/rotatable)
+	    dedicatedEmailShareToken: v.optional(v.string()),
+	    dedicatedEmailShareTokenUpdatedAt: v.optional(v.number()),
+	    // Story 6.1: Track if user has seen the community sharing onboarding
+	    hasSeenSharingOnboarding: v.optional(v.boolean()),
+	    // Story 7.1: Admin role flag - only set via direct DB edit or migration
+	    isAdmin: v.optional(v.boolean()),
+	    // Onboarding: timestamp when user completed the post-signup onboarding flow
+	    onboardingCompletedAt: v.optional(v.number()),
+	  })
+	    .index("by_email", ["email"])
+	    .index("by_authId", ["authId"])
+	    .index("by_dedicatedEmail", ["dedicatedEmail"])
+	    .index("by_dedicatedEmailShareToken", ["dedicatedEmailShareToken"]),
 
   // ============================================================
   // Epic 2.5: Shared Content Schema
@@ -125,6 +131,22 @@ export default defineSchema({
   })
     .index("by_userId_userNewsletterId", ["userId", "userNewsletterId"])
     .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+
+  // Lightweight per-user newsletter search metadata (subject + sender only).
+  // Exists to keep typeahead search bounded/low-bandwidth without scanning
+  // large `userNewsletters` documents on every keystroke.
+  newsletterSearchMeta: defineTable({
+    userId: v.id("users"),
+    userNewsletterId: v.id("userNewsletters"),
+    subject: v.string(),
+    senderEmail: v.string(),
+    senderName: v.optional(v.string()),
+    receivedAt: v.number(), // Unix timestamp ms
+    isHidden: v.boolean(),
+    isRead: v.boolean(),
+  })
+    .index("by_userId_receivedAt", ["userId", "receivedAt"])
+    .index("by_userId_userNewsletterId", ["userId", "userNewsletterId"]),
 
   // Global sender registry (not user-scoped)
   // Story 2.5.1: Task 1 - Refactored senders table

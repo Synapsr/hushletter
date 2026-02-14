@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import React, { useState, useEffect, useRef } from "react";
 
-export const Route = createFileRoute("/{-$locale}/")({
-  component: LandingPage,
+export const Route = createFileRoute("/{-$locale}/6")({
+  component: Design6,
 });
 
 // SVG Component
@@ -94,7 +94,7 @@ function useCounter(target: number, isInView: boolean, duration = 2000) {
   return count;
 }
 
-function LandingPage() {
+function Design6() {
   return (
     <>
       <style>{`

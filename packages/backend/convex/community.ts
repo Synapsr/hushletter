@@ -909,6 +909,17 @@ export const addToCollection = mutation({
       source: "community", // Story 9.9: Track origin
     })
 
+    await ctx.db.insert("newsletterSearchMeta", {
+      userId: user._id,
+      userNewsletterId,
+      subject: content.subject,
+      senderEmail: content.senderEmail,
+      senderName: content.senderName,
+      receivedAt: content.firstReceivedAt,
+      isHidden: false,
+      isRead: false,
+    })
+
     // 8. Increment readerCount AND importCount
     // Story 9.9: Track imports separately from reader count
     await ctx.db.patch(args.contentId, {
@@ -1102,7 +1113,7 @@ export const bulkImportFromCommunity = mutation({
         }
 
         // Create userNewsletter
-        await ctx.db.insert("userNewsletters", {
+        const userNewsletterId = await ctx.db.insert("userNewsletters", {
           userId: user._id,
           senderId: sender._id,
           folderId,
@@ -1115,6 +1126,17 @@ export const bulkImportFromCommunity = mutation({
           isHidden: false,
           isPrivate: false,
           source: "community",
+        })
+
+        await ctx.db.insert("newsletterSearchMeta", {
+          userId: user._id,
+          userNewsletterId,
+          subject: content.subject,
+          senderEmail: content.senderEmail,
+          senderName: content.senderName,
+          receivedAt: content.firstReceivedAt,
+          isHidden: false,
+          isRead: false,
         })
 
         // Increment counts

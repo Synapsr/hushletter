@@ -4,6 +4,10 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { SenderFolderItem } from "./SenderFolderItem";
 import type { FolderData } from "@/components/FolderSidebar";
 
+vi.mock("convex/react", () => ({
+  useAction: vi.fn(() => vi.fn()),
+}));
+
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn(() => ({
     data: [],

@@ -13,6 +13,14 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as Char123LocaleChar125IndexRouteImport } from './routes/{-$locale}/index'
 import { Route as Char123LocaleChar125SignupRouteImport } from './routes/{-$locale}/signup'
 import { Route as Char123LocaleChar125LoginRouteImport } from './routes/{-$locale}/login'
+import { Route as Char123LocaleChar1258RouteImport } from './routes/{-$locale}/8'
+import { Route as Char123LocaleChar1257RouteImport } from './routes/{-$locale}/7'
+import { Route as Char123LocaleChar1256RouteImport } from './routes/{-$locale}/6'
+import { Route as Char123LocaleChar1255RouteImport } from './routes/{-$locale}/5'
+import { Route as Char123LocaleChar1253RouteImport } from './routes/{-$locale}/3'
+import { Route as Char123LocaleChar1251RouteImport } from './routes/{-$locale}/1'
+import { Route as ShareTokenRouteImport } from './routes/share/$token'
+import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedAdminRouteRouteImport } from './routes/_authed/admin/route'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AuthedNewslettersIndexRouteImport } from './routes/_authed/newsletters/index'
@@ -54,6 +62,46 @@ const Char123LocaleChar125LoginRoute =
     path: '/{-$locale}/login',
     getParentRoute: () => rootRouteImport,
   } as any)
+const Char123LocaleChar1258Route = Char123LocaleChar1258RouteImport.update({
+  id: '/{-$locale}/8',
+  path: '/{-$locale}/8',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char123LocaleChar1257Route = Char123LocaleChar1257RouteImport.update({
+  id: '/{-$locale}/7',
+  path: '/{-$locale}/7',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char123LocaleChar1256Route = Char123LocaleChar1256RouteImport.update({
+  id: '/{-$locale}/6',
+  path: '/{-$locale}/6',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char123LocaleChar1255Route = Char123LocaleChar1255RouteImport.update({
+  id: '/{-$locale}/5',
+  path: '/{-$locale}/5',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char123LocaleChar1253Route = Char123LocaleChar1253RouteImport.update({
+  id: '/{-$locale}/3',
+  path: '/{-$locale}/3',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char123LocaleChar1251Route = Char123LocaleChar1251RouteImport.update({
+  id: '/{-$locale}/1',
+  path: '/{-$locale}/1',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShareTokenRoute = ShareTokenRouteImport.update({
+  id: '/share/$token',
+  path: '/share/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedAdminRouteRoute = AuthedAdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -150,6 +198,14 @@ const AuthedCommunitySenderSenderEmailRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthedRouteWithChildren
   '/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/onboarding': typeof AuthedOnboardingRoute
+  '/share/$token': typeof ShareTokenRoute
+  '/{-$locale}/1': typeof Char123LocaleChar1251Route
+  '/{-$locale}/3': typeof Char123LocaleChar1253Route
+  '/{-$locale}/5': typeof Char123LocaleChar1255Route
+  '/{-$locale}/6': typeof Char123LocaleChar1256Route
+  '/{-$locale}/7': typeof Char123LocaleChar1257Route
+  '/{-$locale}/8': typeof Char123LocaleChar1258Route
   '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
@@ -173,6 +229,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AuthedRouteWithChildren
+  '/onboarding': typeof AuthedOnboardingRoute
+  '/share/$token': typeof ShareTokenRoute
+  '/{-$locale}/1': typeof Char123LocaleChar1251Route
+  '/{-$locale}/3': typeof Char123LocaleChar1253Route
+  '/{-$locale}/5': typeof Char123LocaleChar1255Route
+  '/{-$locale}/6': typeof Char123LocaleChar1256Route
+  '/{-$locale}/7': typeof Char123LocaleChar1257Route
+  '/{-$locale}/8': typeof Char123LocaleChar1258Route
   '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
   '/{-$locale}': typeof Char123LocaleChar125IndexRoute
@@ -198,6 +262,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
   '/_authed/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/_authed/onboarding': typeof AuthedOnboardingRoute
+  '/share/$token': typeof ShareTokenRoute
+  '/{-$locale}/1': typeof Char123LocaleChar1251Route
+  '/{-$locale}/3': typeof Char123LocaleChar1253Route
+  '/{-$locale}/5': typeof Char123LocaleChar1255Route
+  '/{-$locale}/6': typeof Char123LocaleChar1256Route
+  '/{-$locale}/7': typeof Char123LocaleChar1257Route
+  '/{-$locale}/8': typeof Char123LocaleChar1258Route
   '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
@@ -224,6 +296,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/onboarding'
+    | '/share/$token'
+    | '/{-$locale}/1'
+    | '/{-$locale}/3'
+    | '/{-$locale}/5'
+    | '/{-$locale}/6'
+    | '/{-$locale}/7'
+    | '/{-$locale}/8'
     | '/{-$locale}/login'
     | '/{-$locale}/signup'
     | '/{-$locale}/'
@@ -247,6 +327,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/onboarding'
+    | '/share/$token'
+    | '/{-$locale}/1'
+    | '/{-$locale}/3'
+    | '/{-$locale}/5'
+    | '/{-$locale}/6'
+    | '/{-$locale}/7'
+    | '/{-$locale}/8'
     | '/{-$locale}/login'
     | '/{-$locale}/signup'
     | '/{-$locale}'
@@ -271,6 +359,14 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authed'
     | '/_authed/admin'
+    | '/_authed/onboarding'
+    | '/share/$token'
+    | '/{-$locale}/1'
+    | '/{-$locale}/3'
+    | '/{-$locale}/5'
+    | '/{-$locale}/6'
+    | '/{-$locale}/7'
+    | '/{-$locale}/8'
     | '/{-$locale}/login'
     | '/{-$locale}/signup'
     | '/{-$locale}/'
@@ -295,6 +391,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
+  ShareTokenRoute: typeof ShareTokenRoute
+  Char123LocaleChar1251Route: typeof Char123LocaleChar1251Route
+  Char123LocaleChar1253Route: typeof Char123LocaleChar1253Route
+  Char123LocaleChar1255Route: typeof Char123LocaleChar1255Route
+  Char123LocaleChar1256Route: typeof Char123LocaleChar1256Route
+  Char123LocaleChar1257Route: typeof Char123LocaleChar1257Route
+  Char123LocaleChar1258Route: typeof Char123LocaleChar1258Route
   Char123LocaleChar125LoginRoute: typeof Char123LocaleChar125LoginRoute
   Char123LocaleChar125SignupRoute: typeof Char123LocaleChar125SignupRoute
   Char123LocaleChar125IndexRoute: typeof Char123LocaleChar125IndexRoute
@@ -330,6 +433,62 @@ declare module '@tanstack/react-router' {
       fullPath: '/{-$locale}/login'
       preLoaderRoute: typeof Char123LocaleChar125LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/8': {
+      id: '/{-$locale}/8'
+      path: '/{-$locale}/8'
+      fullPath: '/{-$locale}/8'
+      preLoaderRoute: typeof Char123LocaleChar1258RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/7': {
+      id: '/{-$locale}/7'
+      path: '/{-$locale}/7'
+      fullPath: '/{-$locale}/7'
+      preLoaderRoute: typeof Char123LocaleChar1257RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/6': {
+      id: '/{-$locale}/6'
+      path: '/{-$locale}/6'
+      fullPath: '/{-$locale}/6'
+      preLoaderRoute: typeof Char123LocaleChar1256RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/5': {
+      id: '/{-$locale}/5'
+      path: '/{-$locale}/5'
+      fullPath: '/{-$locale}/5'
+      preLoaderRoute: typeof Char123LocaleChar1255RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/3': {
+      id: '/{-$locale}/3'
+      path: '/{-$locale}/3'
+      fullPath: '/{-$locale}/3'
+      preLoaderRoute: typeof Char123LocaleChar1253RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/1': {
+      id: '/{-$locale}/1'
+      path: '/{-$locale}/1'
+      fullPath: '/{-$locale}/1'
+      preLoaderRoute: typeof Char123LocaleChar1251RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/$token': {
+      id: '/share/$token'
+      path: '/share/$token'
+      fullPath: '/share/$token'
+      preLoaderRoute: typeof ShareTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authed/onboarding': {
+      id: '/_authed/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthedOnboardingRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/admin': {
       id: '/_authed/admin'
@@ -485,6 +644,7 @@ const AuthedAdminRouteRouteWithChildren =
 
 interface AuthedRouteChildren {
   AuthedAdminRouteRoute: typeof AuthedAdminRouteRouteWithChildren
+  AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedCommunityContentIdRoute: typeof AuthedCommunityContentIdRoute
   AuthedImportManualRoute: typeof AuthedImportManualRoute
   AuthedNewslettersIdRoute: typeof AuthedNewslettersIdRoute
@@ -498,6 +658,7 @@ interface AuthedRouteChildren {
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAdminRouteRoute: AuthedAdminRouteRouteWithChildren,
+  AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedCommunityContentIdRoute: AuthedCommunityContentIdRoute,
   AuthedImportManualRoute: AuthedImportManualRoute,
   AuthedNewslettersIdRoute: AuthedNewslettersIdRoute,
@@ -514,6 +675,13 @@ const AuthedRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
+  ShareTokenRoute: ShareTokenRoute,
+  Char123LocaleChar1251Route: Char123LocaleChar1251Route,
+  Char123LocaleChar1253Route: Char123LocaleChar1253Route,
+  Char123LocaleChar1255Route: Char123LocaleChar1255Route,
+  Char123LocaleChar1256Route: Char123LocaleChar1256Route,
+  Char123LocaleChar1257Route: Char123LocaleChar1257Route,
+  Char123LocaleChar1258Route: Char123LocaleChar1258Route,
   Char123LocaleChar125LoginRoute: Char123LocaleChar125LoginRoute,
   Char123LocaleChar125SignupRoute: Char123LocaleChar125SignupRoute,
   Char123LocaleChar125IndexRoute: Char123LocaleChar125IndexRoute,

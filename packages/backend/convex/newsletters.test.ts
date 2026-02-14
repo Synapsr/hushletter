@@ -23,6 +23,7 @@ describe("newsletters API exports", () => {
     expect(api.newsletters).toBeDefined()
     expect(api.newsletters.getUserNewsletter).toBeDefined()
     expect(api.newsletters.listUserNewsletters).toBeDefined()
+    expect(api.newsletters.searchUserNewslettersMeta).toBeDefined()
   })
 
   it("should export public action functions", () => {

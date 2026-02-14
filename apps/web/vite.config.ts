@@ -14,6 +14,8 @@ export default defineConfig({
     // Bundle @convex-dev/better-auth for SSR compatibility
     // Bundle @hushletter/shared for monorepo imports
     noExternal: ['@convex-dev/better-auth', '@hushletter/shared'],
+    // Native modules must not be bundled
+    external: ['better-sqlite3'],
   },
   plugins: [
     paraglideVitePlugin({

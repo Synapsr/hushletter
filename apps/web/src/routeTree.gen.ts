@@ -29,6 +29,7 @@ import { Route as AuthedAdminModerationRouteImport } from './routes/_authed/admi
 import { Route as AuthedAdminHealthRouteImport } from './routes/_authed/admin/health'
 import { Route as AuthedAdminDeliveryRouteImport } from './routes/_authed/admin/delivery'
 import { Route as AuthedAdminCommunityRouteImport } from './routes/_authed/admin/community'
+import { Route as AuthedAdminAnalyticsRouteImport } from './routes/_authed/admin/analytics'
 import { Route as AuthedCommunitySenderSenderEmailRouteImport } from './routes/_authed/community/sender/$senderEmail'
 
 const AuthedRoute = AuthedRouteImport.update({
@@ -134,6 +135,11 @@ const AuthedAdminCommunityRoute = AuthedAdminCommunityRouteImport.update({
   path: '/community',
   getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
+const AuthedAdminAnalyticsRoute = AuthedAdminAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AuthedAdminRouteRoute,
+} as any)
 const AuthedCommunitySenderSenderEmailRoute =
   AuthedCommunitySenderSenderEmailRouteImport.update({
     id: '/community/sender/$senderEmail',
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
+  '/admin/analytics': typeof AuthedAdminAnalyticsRoute
   '/admin/community': typeof AuthedAdminCommunityRoute
   '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByTo {
   '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
   '/{-$locale}': typeof Char123LocaleChar125IndexRoute
+  '/admin/analytics': typeof AuthedAdminAnalyticsRoute
   '/admin/community': typeof AuthedAdminCommunityRoute
   '/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/admin/health': typeof AuthedAdminHealthRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
+  '/_authed/admin/analytics': typeof AuthedAdminAnalyticsRoute
   '/_authed/admin/community': typeof AuthedAdminCommunityRoute
   '/_authed/admin/delivery': typeof AuthedAdminDeliveryRoute
   '/_authed/admin/health': typeof AuthedAdminHealthRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/{-$locale}/login'
     | '/{-$locale}/signup'
     | '/{-$locale}/'
+    | '/admin/analytics'
     | '/admin/community'
     | '/admin/delivery'
     | '/admin/health'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/{-$locale}/login'
     | '/{-$locale}/signup'
     | '/{-$locale}'
+    | '/admin/analytics'
     | '/admin/community'
     | '/admin/delivery'
     | '/admin/health'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/{-$locale}/login'
     | '/{-$locale}/signup'
     | '/{-$locale}/'
+    | '/_authed/admin/analytics'
     | '/_authed/admin/community'
     | '/_authed/admin/delivery'
     | '/_authed/admin/health'
@@ -431,6 +443,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminCommunityRouteImport
       parentRoute: typeof AuthedAdminRouteRoute
     }
+    '/_authed/admin/analytics': {
+      id: '/_authed/admin/analytics'
+      path: '/analytics'
+      fullPath: '/admin/analytics'
+      preLoaderRoute: typeof AuthedAdminAnalyticsRouteImport
+      parentRoute: typeof AuthedAdminRouteRoute
+    }
     '/_authed/community/sender/$senderEmail': {
       id: '/_authed/community/sender/$senderEmail'
       path: '/community/sender/$senderEmail'
@@ -442,6 +461,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedAdminRouteRouteChildren {
+  AuthedAdminAnalyticsRoute: typeof AuthedAdminAnalyticsRoute
   AuthedAdminCommunityRoute: typeof AuthedAdminCommunityRoute
   AuthedAdminDeliveryRoute: typeof AuthedAdminDeliveryRoute
   AuthedAdminHealthRoute: typeof AuthedAdminHealthRoute
@@ -451,6 +471,7 @@ interface AuthedAdminRouteRouteChildren {
 }
 
 const AuthedAdminRouteRouteChildren: AuthedAdminRouteRouteChildren = {
+  AuthedAdminAnalyticsRoute: AuthedAdminAnalyticsRoute,
   AuthedAdminCommunityRoute: AuthedAdminCommunityRoute,
   AuthedAdminDeliveryRoute: AuthedAdminDeliveryRoute,
   AuthedAdminHealthRoute: AuthedAdminHealthRoute,
@@ -501,12 +522,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

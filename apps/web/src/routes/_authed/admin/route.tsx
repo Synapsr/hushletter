@@ -139,6 +139,13 @@ function AdminLayout() {
             >
               {m.admin_navCommunity()}
             </Link>
+            <Link
+              to="/admin/analytics"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              activeProps={{ className: "text-foreground font-medium" }}
+            >
+              {m.admin_navAnalytics()}
+            </Link>
           </nav>
         </div>
       </header>

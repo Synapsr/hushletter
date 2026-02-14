@@ -31,11 +31,25 @@ export function getRouter() {
       queries: {
         queryKeyHashFn: convexQueryClient.hashFn(),
         queryFn: convexQueryClient.queryFn(),
-        gcTime: 5000,
+        // ConvexQueryClient pushes updates into React Query; avoid wasteful refetches.
+        // Default React Query behavior can repeatedly refetch large lists on focus/reconnect.
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        gcTime: 1000 * 60 * 10,
       },
     },
   })
   convexQueryClient.connect(queryClient)
+
+  // Start analytics collector (browser-only, lazy-loaded)
+  if (typeof window !== "undefined") {
+    import("@/lib/analytics/analytics-collector").then(
+      ({ startAnalytics }) => {
+        startAnalytics(queryClient, convexQueryClient)
+      },
+    )
+  }
 
   const router = routerWithQueryClient(
     createRouter({

@@ -10,6 +10,8 @@ import { EmptyNewsletterState } from "@/components/EmptyNewsletterState";
 import { FolderSidebar, FolderSidebarSkeleton, type FolderData } from "@/components/FolderSidebar";
 import { SenderFolderSidebar } from "@/components/newsletters/SenderFolderSidebar";
 import { InlineReaderPane } from "@/components/newsletters/InlineReaderPane";
+import { WelcomeSidebar } from "@/components/newsletters/WelcomeSidebar";
+import { WelcomeReaderPane } from "@/components/newsletters/WelcomeReaderPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useOptimisticNewsletterFavorite } from "@/hooks/useOptimisticNewsletterFavorite";
 import { Button, Sheet, SheetContent, SheetTitle, SheetTrigger } from "@hushletter/ui";
@@ -579,8 +581,9 @@ function NewslettersPage() {
   // ── Desktop layout: split-pane ──
   // Left: SenderFolderSidebar | Right: InlineReaderPane or empty state
   const desktopLayout = isGlobalEmpty ? (
-    <div className="hidden md:flex h-full items-center justify-center">
-      <EmptyNewsletterState dedicatedEmail={dedicatedEmail} />
+    <div className="hidden md:flex h-full">
+      <WelcomeSidebar />
+      <WelcomeReaderPane dedicatedEmail={dedicatedEmail} />
     </div>
   ) : (
     <div className="hidden md:flex h-full">
@@ -607,8 +610,8 @@ function NewslettersPage() {
 
   // ── Mobile layout: card list (existing behavior) ──
   const mobileLayout = isGlobalEmpty ? (
-    <div className="md:hidden flex flex-col h-full items-center justify-center">
-      <EmptyNewsletterState dedicatedEmail={dedicatedEmail} />
+    <div className="md:hidden flex flex-col h-full">
+      <WelcomeReaderPane dedicatedEmail={dedicatedEmail} />
     </div>
   ) : (
     <div className="md:hidden flex flex-col h-full">

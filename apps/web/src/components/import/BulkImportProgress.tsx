@@ -37,7 +37,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { readFileAsArrayBuffer, getParserErrorMessage } from "./-emlUtils";
+import { readFileAsArrayBuffer, getParserErrorMessage } from "./emlUtils";
 import { m } from "@/paraglide/messages.js";
 
 interface BulkImportProgressProps {

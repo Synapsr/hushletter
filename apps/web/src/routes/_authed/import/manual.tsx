@@ -18,10 +18,10 @@ import { api } from "@hushletter/backend";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
 import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
-import { EmlDropZone } from "./-EmlDropZone";
-import { EmlPreview } from "./-EmlPreview";
-import { BulkImportProgress } from "./-BulkImportProgress";
-import { readFileAsArrayBuffer, getParserErrorMessage } from "./-emlUtils";
+import { EmlDropZone } from "@/components/import/EmlDropZone";
+import { EmlPreview } from "@/components/import/EmlPreview";
+import { BulkImportProgress } from "@/components/import/BulkImportProgress";
+import { readFileAsArrayBuffer, getParserErrorMessage } from "@/components/import/emlUtils";
 import { m } from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/import/manual")({

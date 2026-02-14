@@ -23,12 +23,21 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
       onCreate: async (ctx, authUser) => {
         const dedicatedEmail = generateDedicatedEmail(authUser._id)
         // Store in app users table with link to Better Auth user
-        await ctx.db.insert("users", {
+        const userId = await ctx.db.insert("users", {
           email: authUser.email,
           name: authUser.name ?? undefined,
           createdAt: Date.now(),
           authId: authUser._id,
           dedicatedEmail,
+          plan: "free",
+        })
+
+        await ctx.db.insert("userUsageCounters", {
+          userId,
+          totalStored: 0,
+          unlockedStored: 0,
+          lockedStored: 0,
+          updatedAt: Date.now(),
         })
       },
     },
@@ -113,6 +122,9 @@ export const getCurrentUser = query({
       dedicatedEmail: user?.dedicatedEmail ?? null,
       onboardingCompletedAt: user?.onboardingCompletedAt ?? null,
       createdAt: user?.createdAt ?? null,
+      plan: user?.plan ?? "free",
+      proExpiresAt: user?.proExpiresAt ?? null,
+      vanityEmail: user?.vanityEmail ?? null,
     }
   },
 })

@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import { Button, Input } from "@hushletter/ui";
-import { Mail, FolderOpen, Compass, Check, X, Loader2, ArrowLeft, ArrowRight } from "lucide-react";
+import { Button } from "@hushletter/ui";
+import { Mail, FolderOpen, Compass, Check, ArrowLeft, ArrowRight } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
 import { toast } from "sonner";
 
@@ -22,12 +22,6 @@ type CurrentUserData = {
   onboardingCompletedAt: number | null;
   createdAt: number | null;
 } | null;
-
-// Type for checkPrefixAvailability
-type PrefixAvailability = {
-  available: boolean;
-  reason: "UNAUTHORIZED" | "INVALID_FORMAT" | "TAKEN" | "OWN_EMAIL" | "AVAILABLE";
-};
 
 // ---------------------------------------------------------------------------
 // CSS Keyframes (injected via <style> tag, same pattern as landing pages)
@@ -71,9 +65,8 @@ function OnboardingPage() {
   const [animKey, setAnimKey] = useState(0);
 
   // Check if onboarding already completed — redirect to newsletters
-  const { data: currentUser } = useQuery(
-    convexQuery(api.auth.getCurrentUser, {})
-  ) as { data: CurrentUserData | undefined };
+  const { data: currentUserData } = useQuery(convexQuery(api.auth.getCurrentUser, {}));
+  const currentUser = currentUserData as CurrentUserData | undefined;
 
   useEffect(() => {
     if (currentUser?.onboardingCompletedAt) {
@@ -95,7 +88,7 @@ function OnboardingPage() {
   }, [isTransitioning, step]);
 
   // Determine animation style based on transition state
-  const getStepAnimationStyle = (): React.CSSProperties => {
+  const getStepAnimationStyle = (): CSSProperties => {
     if (isTransitioning) {
       return {
         animation: direction === "forward"
@@ -141,8 +134,7 @@ function OnboardingPage() {
           ) : (
             <StepChoosePrefix
               onBack={() => goToStep(1)}
-              userName={currentUser?.name ?? null}
-              userEmail={currentUser?.email ?? null}
+              dedicatedEmail={currentUser?.dedicatedEmail ?? null}
             />
           )}
         </div>
@@ -238,56 +230,21 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
 // ---------------------------------------------------------------------------
 function StepChoosePrefix({
   onBack,
-  userName,
-  userEmail,
+  dedicatedEmail,
 }: {
   onBack: () => void;
-  userName: string | null;
-  userEmail: string | null;
+  dedicatedEmail: string | null;
 }) {
   const navigate = useNavigate();
-
-  // Derive default prefix from name or email
-  const defaultPrefix = derivePrefix(userName, userEmail);
-
-  const [prefix, setPrefix] = useState(defaultPrefix);
-  const [debouncedPrefix, setDebouncedPrefix] = useState(defaultPrefix);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Debounce prefix for availability check
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedPrefix(prefix.toLowerCase().trim());
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [prefix]);
-
-  // Availability check (reactive Convex query)
-  const shouldCheck = debouncedPrefix.length >= 3;
-  const { data: availability, isPending: isChecking } = useQuery({
-    ...convexQuery(api.users.checkPrefixAvailability, { prefix: debouncedPrefix }),
-    enabled: shouldCheck,
-  }) as { data: PrefixAvailability | undefined; isPending: boolean };
-
-  // Email domain
-  const { data: emailDomain } = useQuery(
-    convexQuery(api.users.getEmailDomain, {})
-  ) as { data: string | undefined };
-
-  // Mutations
-  const claimPrefix = useMutation(api.users.claimEmailPrefix);
-
-  const isAvailable = shouldCheck && !isChecking && availability?.available === true;
-  const isTaken = shouldCheck && !isChecking && availability?.reason === "TAKEN";
-  const isInvalidFormat = shouldCheck && !isChecking && availability?.reason === "INVALID_FORMAT";
-  const domain = emailDomain ?? "...";
+  const complete = useMutation(api.users.completeOnboarding);
 
   const handleSubmit = async () => {
-    if (!isAvailable || isSubmitting) return;
+    if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
-      await claimPrefix({ prefix: debouncedPrefix });
+      await complete({});
       // Brief delay for success feel before redirect
       await new Promise((r) => setTimeout(r, 400));
       navigate({ to: "/newsletters" });
@@ -318,72 +275,6 @@ function StepChoosePrefix({
         className="space-y-4"
         style={{ animation: "onb-fade-in-up 500ms ease-out 100ms both" }}
       >
-        <div className="space-y-2">
-          <label
-            htmlFor="prefix-input"
-            className="text-sm font-medium text-foreground"
-          >
-            {m.onboarding_prefixLabel()}
-          </label>
-          <div className="relative">
-            <Input
-              id="prefix-input"
-              value={prefix}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setPrefix(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
-              }
-              placeholder={m.onboarding_prefixPlaceholder()}
-              className="pr-10 font-mono"
-              autoFocus
-              maxLength={20}
-            />
-            {/* Status icon */}
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              {shouldCheck && isChecking && (
-                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground transition-opacity duration-200" />
-              )}
-              {isAvailable && (
-                <Check
-                  className="w-4 h-4 text-emerald-500"
-                  style={{ animation: "onb-check-pop 300ms ease-out both" }}
-                />
-              )}
-              {(isTaken || isInvalidFormat) && (
-                <X className="w-4 h-4 text-red-400 transition-opacity duration-200" />
-              )}
-            </div>
-          </div>
-
-          {/* Status text */}
-          <div className="h-5">
-            {shouldCheck && isChecking && (
-              <p className="text-xs text-muted-foreground transition-opacity duration-200">
-                {m.onboarding_prefixChecking()}
-              </p>
-            )}
-            {isAvailable && (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 transition-opacity duration-200">
-                {m.onboarding_prefixAvailable()}
-              </p>
-            )}
-            {isTaken && (
-              <p className="text-xs text-red-500 dark:text-red-400 transition-opacity duration-200">
-                {m.onboarding_prefixTaken()}
-              </p>
-            )}
-            {isInvalidFormat && (
-              <p className="text-xs text-red-500 dark:text-red-400 transition-opacity duration-200">
-                {m.onboarding_prefixInvalid()}
-              </p>
-            )}
-            {!shouldCheck && prefix.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {m.onboarding_prefixInvalid()}
-              </p>
-            )}
-          </div>
-        </div>
-
         {/* Email preview */}
         <div
           className="rounded-xl border border-border/60 bg-muted/50 p-4 space-y-1.5"
@@ -393,8 +284,10 @@ function StepChoosePrefix({
             {m.onboarding_emailPreview()}
           </p>
           <p className="text-lg font-mono font-semibold text-foreground tracking-tight transition-all duration-200">
-            {prefix || "..."}
-            <span className="text-muted-foreground font-normal">@{domain}</span>
+            {dedicatedEmail ?? "..."}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Want a custom address? That’s available on Hushletter Pro in Settings.
           </p>
         </div>
       </div>
@@ -415,14 +308,10 @@ function StepChoosePrefix({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!isAvailable || isSubmitting}
+            disabled={isSubmitting}
             className="flex-1 gap-2 transition-transform hover:scale-[1.01] active:scale-[0.99]"
           >
-            {isSubmitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Check className="w-4 h-4" />
-            )}
+            <Check className="w-4 h-4" />
             {m.onboarding_completeButton()}
           </Button>
         </div>
@@ -430,25 +319,4 @@ function StepChoosePrefix({
       </div>
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Derive a prefix suggestion from the user's name or email.
- * Sanitizes to match prefix format rules (lowercase alphanumeric + hyphens).
- */
-function derivePrefix(name: string | null, email: string | null): string {
-  const raw = name || (email ? email.split("@")[0] : "");
-  // Replace dots, underscores, spaces with hyphens, strip invalid chars
-  const sanitized = raw
-    .toLowerCase()
-    .replace(/[._\s]+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/^-+|-+$/g, "") // trim leading/trailing hyphens
-    .slice(0, 20);
-
-  return sanitized.length >= 3 ? sanitized : "";
 }

@@ -15,9 +15,10 @@ import {
   normalizeForHash,
   computeContentHash,
 } from "./_internal/contentNormalization"
+import { HARD_NEWSLETTERS_CAP, UNLOCKED_NEWSLETTERS_CAP, isUserPro } from "./entitlements"
 
 /** Content availability status for newsletters */
-export type ContentStatus = "available" | "missing" | "error"
+export type ContentStatus = "available" | "missing" | "error" | "locked"
 
 /**
  * Lightweight shape for newsletter list UIs.
@@ -35,6 +36,7 @@ type NewsletterListItem = {
   isRead: boolean
   isHidden: boolean
   isPrivate: boolean
+  isLockedByPlan: boolean
   readProgress?: number
   hasSummary: boolean
   source?: "email" | "gmail" | "manual" | "community"
@@ -48,36 +50,38 @@ type NewsletterListPageResult = {
 }
 
 function toNewsletterListItem(
-  newsletter: {
-    _id: Id<"userNewsletters">
-    subject: string
-    senderEmail: string
-    senderName?: string
-    receivedAt: number
-    isRead: boolean
-    isHidden: boolean
-    isPrivate: boolean
-    readProgress?: number
-    source?: "email" | "gmail" | "manual" | "community"
-    isFavorited?: boolean
-  },
-  hasSummary: boolean
-): NewsletterListItem {
-  return {
-    _id: newsletter._id,
-    subject: newsletter.subject,
-    senderEmail: newsletter.senderEmail,
-    senderName: newsletter.senderName,
-    receivedAt: newsletter.receivedAt,
-    isRead: newsletter.isRead,
-    isHidden: newsletter.isHidden,
-    isPrivate: newsletter.isPrivate,
-    readProgress: newsletter.readProgress,
-    hasSummary,
-    source: newsletter.source,
-    isFavorited: newsletter.isFavorited,
-  }
-}
+	  newsletter: {
+	    _id: Id<"userNewsletters">
+	    subject: string
+	    senderEmail: string
+	    senderName?: string
+	    receivedAt: number
+	    isRead: boolean
+	    isHidden: boolean
+	    isPrivate: boolean
+	    isLockedByPlan?: boolean
+	    readProgress?: number
+	    source?: "email" | "gmail" | "manual" | "community"
+	    isFavorited?: boolean
+	  },
+	  hasSummary: boolean
+	): NewsletterListItem {
+	  return {
+	    _id: newsletter._id,
+	    subject: newsletter.subject,
+	    senderEmail: newsletter.senderEmail,
+	    senderName: newsletter.senderName,
+	    receivedAt: newsletter.receivedAt,
+	    isRead: newsletter.isRead,
+	    isHidden: newsletter.isHidden,
+	    isPrivate: newsletter.isPrivate,
+	    isLockedByPlan: Boolean(newsletter.isLockedByPlan),
+	    readProgress: newsletter.readProgress,
+	    hasSummary,
+	    source: newsletter.source,
+	    isFavorited: newsletter.isFavorited,
+	  }
+	}
 
 async function enrichNewsletterListItems(
   ctx: { db: { get: (id: any) => Promise<any> } },
@@ -227,6 +231,11 @@ export const storeNewsletterContent = internalAction({
         duplicateReason: "message_id" | "content_hash"
         existingId: Id<"userNewsletters">
       }
+    | {
+        skipped: true
+        reason: "plan_limit"
+        hardCap: number
+      }
   > => {
     console.log(
       `[newsletters] storeNewsletterContent called: user=${args.userId}, sender=${args.senderId}, ` +
@@ -294,6 +303,50 @@ export const storeNewsletterContent = internalAction({
       }
     }
 
+    // ========================================
+    // PLAN LIMITS (Free → Pro)
+    // Enforce BEFORE any expensive R2 operations
+    // ========================================
+    const entitlements = await ctx.runQuery(
+      internal.entitlements.getUserEntitlementsByUserId,
+      { userId: args.userId }
+    )
+
+    let isLockedByPlan = false
+
+    if (!entitlements.isPro) {
+      let usage = await ctx.runQuery(internal.entitlements.getUserUsageCounters, {
+        userId: args.userId,
+      })
+
+      if (!usage) {
+        const fallback = await ctx.runQuery(
+          internal.entitlements.computeUserUsageCountersFallback,
+          { userId: args.userId }
+        )
+        usage = {
+          totalStored: fallback.totalStored,
+          unlockedStored: fallback.unlockedStored,
+          lockedStored: fallback.lockedStored,
+        }
+        await ctx.runMutation(internal.entitlements.upsertUserUsageCounters, {
+          userId: args.userId,
+          totalStored: usage.totalStored,
+          unlockedStored: usage.unlockedStored,
+          lockedStored: usage.lockedStored,
+        })
+      }
+
+      if (usage.totalStored >= HARD_NEWSLETTERS_CAP) {
+        console.log(
+          `[newsletters] Plan limit: user already at hard cap (totalStored=${usage.totalStored})`
+        )
+        return { skipped: true, reason: "plan_limit", hardCap: HARD_NEWSLETTERS_CAP }
+      }
+
+      isLockedByPlan = usage.unlockedStored >= UNLOCKED_NEWSLETTERS_CAP
+    }
+
     const contentType = args.htmlContent ? "text/html" : "text/plain"
     const ext = args.htmlContent ? "html" : "txt"
 
@@ -335,12 +388,20 @@ export const storeNewsletterContent = internalAction({
         senderName: args.senderName,
         receivedAt: args.receivedAt,
         isPrivate: true, // Story 9.2: Always true for user ingestion
+        isLockedByPlan,
         privateR2Key: r2Key,
         contentId: undefined, // Story 9.2: Never set for user ingestion
         source: args.source, // Story 9.2: Track ingestion source
         messageId: args.messageId, // Story 8.4: For duplicate detection
       }
     )
+
+    await ctx.runMutation(internal.entitlements.incrementUserUsageCounters, {
+      userId: args.userId,
+      totalDelta: 1,
+      unlockedDelta: isLockedByPlan ? 0 : 1,
+      lockedDelta: isLockedByPlan ? 1 : 0,
+    })
 
     // Increment sender.newsletterCount after successful storage
     await ctx.runMutation(internal.senders.incrementNewsletterCount, {
@@ -476,6 +537,7 @@ export const createUserNewsletter = internalMutation({
     senderName: v.optional(v.string()),
     receivedAt: v.number(),
     isPrivate: v.boolean(),
+    isLockedByPlan: v.optional(v.boolean()),
     contentId: v.optional(v.id("newsletterContent")),
     privateR2Key: v.optional(v.string()),
     // Story 9.2: Track ingestion source
@@ -503,6 +565,7 @@ export const createUserNewsletter = internalMutation({
       isHidden: false,
       isFavorited: false,
       isPrivate: args.isPrivate,
+      isLockedByPlan: args.isLockedByPlan ?? false,
       source: args.source, // Story 9.2: Track ingestion source
       messageId: args.messageId, // Story 8.4: Store for duplicate detection
     })
@@ -516,6 +579,7 @@ export const createUserNewsletter = internalMutation({
       receivedAt: args.receivedAt,
       isHidden: false,
       isRead: false,
+      isLockedByPlan: args.isLockedByPlan ?? false,
     })
 
     return userNewsletterId
@@ -556,9 +620,15 @@ export const getUserNewsletter = query({
       throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
     }
 
+    const isPro = isUserPro({ plan: user.plan ?? "free", proExpiresAt: user.proExpiresAt })
+
     // Determine content status
-    const contentStatus: ContentStatus =
+    let contentStatus: ContentStatus =
       userNewsletter.contentId || userNewsletter.privateR2Key ? "available" : "missing"
+
+    if (!isPro && userNewsletter.isLockedByPlan) {
+      contentStatus = "locked"
+    }
 
     const progressDoc = await ctx.db
       .query("newsletterReadProgress")
@@ -632,6 +702,24 @@ export const getUserNewsletterWithContent = action({
     // Privacy check - user can only access their own newsletters
     if (userNewsletter.userId !== user._id) {
       throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    const isPro = isUserPro({ plan: user.plan ?? "free", proExpiresAt: user.proExpiresAt })
+
+    if (!isPro && userNewsletter.isLockedByPlan) {
+      const progressDoc = await ctx.runQuery(
+        internal.newsletters.getNewsletterReadProgressInternal,
+        { userId: user._id, userNewsletterId: args.userNewsletterId }
+      )
+      const effectiveReadProgress =
+        progressDoc?.progress ?? userNewsletter.readProgress
+
+      return {
+        ...userNewsletter,
+        readProgress: effectiveReadProgress,
+        contentUrl: null,
+        contentStatus: "locked",
+      }
     }
 
     // Determine R2 key based on public/private path
@@ -1220,16 +1308,17 @@ export const setReadProgress = mutation({
 
       const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
       if (!searchMeta) {
-        await ctx.db.insert("newsletterSearchMeta", {
-          userId: user._id,
-          userNewsletterId: args.userNewsletterId,
-          subject: userNewsletter.subject,
-          senderEmail: userNewsletter.senderEmail,
-          senderName: userNewsletter.senderName,
-          receivedAt: userNewsletter.receivedAt,
-          isHidden: userNewsletter.isHidden,
-          isRead: true,
-        })
+	        await ctx.db.insert("newsletterSearchMeta", {
+	          userId: user._id,
+	          userNewsletterId: args.userNewsletterId,
+	          subject: userNewsletter.subject,
+	          senderEmail: userNewsletter.senderEmail,
+	          senderName: userNewsletter.senderName,
+	          receivedAt: userNewsletter.receivedAt,
+	          isHidden: userNewsletter.isHidden,
+	          isRead: true,
+	          isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+	        })
       } else if (!searchMeta.isRead) {
         await ctx.db.patch(searchMeta._id, { isRead: true })
       }
@@ -1280,17 +1369,18 @@ export const markNewsletterRead = mutation({
     }
 
     const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
-    if (!searchMeta) {
-      await ctx.db.insert("newsletterSearchMeta", {
-        userId: user._id,
-        userNewsletterId: args.userNewsletterId,
-        subject: userNewsletter.subject,
-        senderEmail: userNewsletter.senderEmail,
-        senderName: userNewsletter.senderName,
-        receivedAt: userNewsletter.receivedAt,
-        isHidden: userNewsletter.isHidden,
-        isRead: true,
-      })
+	    if (!searchMeta) {
+	      await ctx.db.insert("newsletterSearchMeta", {
+	        userId: user._id,
+	        userNewsletterId: args.userNewsletterId,
+	        subject: userNewsletter.subject,
+	        senderEmail: userNewsletter.senderEmail,
+	        senderName: userNewsletter.senderName,
+	        receivedAt: userNewsletter.receivedAt,
+	        isHidden: userNewsletter.isHidden,
+	        isRead: true,
+	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+	      })
     } else if (!searchMeta.isRead) {
       await ctx.db.patch(searchMeta._id, { isRead: true })
     }
@@ -1331,17 +1421,18 @@ export const markNewsletterUnread = mutation({
     })
 
     const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
-    if (!searchMeta) {
-      await ctx.db.insert("newsletterSearchMeta", {
-        userId: user._id,
-        userNewsletterId: args.userNewsletterId,
-        subject: userNewsletter.subject,
-        senderEmail: userNewsletter.senderEmail,
-        senderName: userNewsletter.senderName,
-        receivedAt: userNewsletter.receivedAt,
-        isHidden: userNewsletter.isHidden,
-        isRead: false,
-      })
+	    if (!searchMeta) {
+	      await ctx.db.insert("newsletterSearchMeta", {
+	        userId: user._id,
+	        userNewsletterId: args.userNewsletterId,
+	        subject: userNewsletter.subject,
+	        senderEmail: userNewsletter.senderEmail,
+	        senderName: userNewsletter.senderName,
+	        receivedAt: userNewsletter.receivedAt,
+	        isHidden: userNewsletter.isHidden,
+	        isRead: false,
+	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+	      })
     } else if (searchMeta.isRead) {
       await ctx.db.patch(searchMeta._id, { isRead: false })
     }
@@ -1391,16 +1482,17 @@ export const updateNewsletterReadProgress = mutation({
 
       const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
       if (!searchMeta) {
-        await ctx.db.insert("newsletterSearchMeta", {
-          userId: user._id,
-          userNewsletterId: args.userNewsletterId,
-          subject: userNewsletter.subject,
-          senderEmail: userNewsletter.senderEmail,
-          senderName: userNewsletter.senderName,
-          receivedAt: userNewsletter.receivedAt,
-          isHidden: userNewsletter.isHidden,
-          isRead: true,
-        })
+	        await ctx.db.insert("newsletterSearchMeta", {
+	          userId: user._id,
+	          userNewsletterId: args.userNewsletterId,
+	          subject: userNewsletter.subject,
+	          senderEmail: userNewsletter.senderEmail,
+	          senderName: userNewsletter.senderName,
+	          receivedAt: userNewsletter.receivedAt,
+	          isHidden: userNewsletter.isHidden,
+	          isRead: true,
+	          isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+	        })
       } else if (!searchMeta.isRead) {
         await ctx.db.patch(searchMeta._id, { isRead: true })
       }
@@ -1441,17 +1533,18 @@ export const hideNewsletter = mutation({
     })
 
     const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
-    if (!searchMeta) {
-      await ctx.db.insert("newsletterSearchMeta", {
-        userId: user._id,
-        userNewsletterId: args.userNewsletterId,
-        subject: userNewsletter.subject,
-        senderEmail: userNewsletter.senderEmail,
-        senderName: userNewsletter.senderName,
-        receivedAt: userNewsletter.receivedAt,
-        isHidden: true,
-        isRead: userNewsletter.isRead,
-      })
+	    if (!searchMeta) {
+	      await ctx.db.insert("newsletterSearchMeta", {
+	        userId: user._id,
+	        userNewsletterId: args.userNewsletterId,
+	        subject: userNewsletter.subject,
+	        senderEmail: userNewsletter.senderEmail,
+	        senderName: userNewsletter.senderName,
+	        receivedAt: userNewsletter.receivedAt,
+	        isHidden: true,
+	        isRead: userNewsletter.isRead,
+	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+	      })
     } else if (!searchMeta.isHidden) {
       await ctx.db.patch(searchMeta._id, { isHidden: true })
     }
@@ -1491,17 +1584,18 @@ export const unhideNewsletter = mutation({
     })
 
     const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
-    if (!searchMeta) {
-      await ctx.db.insert("newsletterSearchMeta", {
-        userId: user._id,
-        userNewsletterId: args.userNewsletterId,
-        subject: userNewsletter.subject,
-        senderEmail: userNewsletter.senderEmail,
-        senderName: userNewsletter.senderName,
-        receivedAt: userNewsletter.receivedAt,
-        isHidden: false,
-        isRead: userNewsletter.isRead,
-      })
+	    if (!searchMeta) {
+	      await ctx.db.insert("newsletterSearchMeta", {
+	        userId: user._id,
+	        userNewsletterId: args.userNewsletterId,
+	        subject: userNewsletter.subject,
+	        senderEmail: userNewsletter.senderEmail,
+	        senderName: userNewsletter.senderName,
+	        receivedAt: userNewsletter.receivedAt,
+	        isHidden: false,
+	        isRead: userNewsletter.isRead,
+	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+	      })
     } else if (searchMeta.isHidden) {
       await ctx.db.patch(searchMeta._id, { isHidden: false })
     }
@@ -1941,14 +2035,15 @@ async function backfillNewsletterSearchMetaRecentImpl(
 
   for (const newsletter of newsletters) {
     const current = metaByNewsletterId.get(newsletter._id)
-    const desired = {
-      subject: newsletter.subject,
-      senderEmail: newsletter.senderEmail,
-      senderName: newsletter.senderName,
-      receivedAt: newsletter.receivedAt,
-      isHidden: newsletter.isHidden,
-      isRead: newsletter.isRead,
-    }
+	    const desired = {
+	      subject: newsletter.subject,
+	      senderEmail: newsletter.senderEmail,
+	      senderName: newsletter.senderName,
+	      receivedAt: newsletter.receivedAt,
+	      isHidden: newsletter.isHidden,
+	      isRead: newsletter.isRead,
+	      isLockedByPlan: Boolean(newsletter.isLockedByPlan),
+	    }
 
     if (!current) {
       await ctx.db.insert("newsletterSearchMeta", {
@@ -1968,8 +2063,10 @@ async function backfillNewsletterSearchMetaRecentImpl(
       patch.senderName = desired.senderName
     if (current.receivedAt !== desired.receivedAt)
       patch.receivedAt = desired.receivedAt
-    if (current.isHidden !== desired.isHidden) patch.isHidden = desired.isHidden
-    if (current.isRead !== desired.isRead) patch.isRead = desired.isRead
+	    if (current.isHidden !== desired.isHidden) patch.isHidden = desired.isHidden
+	    if (current.isRead !== desired.isRead) patch.isRead = desired.isRead
+	    if (current.isLockedByPlan !== desired.isLockedByPlan)
+	      patch.isLockedByPlan = desired.isLockedByPlan
 
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(current._id, patch)
@@ -2185,6 +2282,21 @@ export const deleteUserNewsletter = mutation({
     const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
     if (searchMeta) {
       await ctx.db.delete(searchMeta._id)
+    }
+
+    const counters = await ctx.db
+      .query("userUsageCounters")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first()
+
+    if (counters) {
+      const wasLocked = Boolean(userNewsletter.isLockedByPlan)
+      await ctx.db.patch(counters._id, {
+        totalStored: Math.max(0, counters.totalStored - 1),
+        unlockedStored: Math.max(0, counters.unlockedStored - (wasLocked ? 0 : 1)),
+        lockedStored: Math.max(0, counters.lockedStored - (wasLocked ? 1 : 0)),
+        updatedAt: Date.now(),
+      })
     }
 
     // Delete the userNewsletter record

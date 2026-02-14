@@ -36,7 +36,7 @@ interface NewsletterMetadata {
   isFavorited?: boolean;
   isPrivate: boolean;
   readProgress?: number;
-  contentStatus: "available" | "missing" | "error";
+  contentStatus: "available" | "missing" | "error" | "locked";
   source?: "email" | "gmail" | "manual" | "community";
 }
 
@@ -93,6 +93,11 @@ export function InlineReaderPane({
   const [estimatedReadMinutes, setEstimatedReadMinutes] = useState<
     number | null
   >(null);
+  const { data: entitlementsData } = useQuery(
+    convexQuery(api.entitlements.getEntitlements, {}),
+  );
+  const entitlements = entitlementsData as { isPro?: boolean } | undefined;
+  const isPro = Boolean(entitlements?.isPro);
   const { data, isPending } = useQuery(
     convexQuery(api.newsletters.getUserNewsletter, {
       userNewsletterId: newsletterId,
@@ -127,6 +132,30 @@ export function InlineReaderPane({
         style={{ backgroundColor: paneBackgroundColor }}
       >
         {m.newsletters_notFound()}
+      </div>
+    );
+  }
+
+  if (newsletter.contentStatus === "locked") {
+    return (
+      <div
+        className="flex-1 flex items-center justify-center p-6"
+        style={{ backgroundColor: paneBackgroundColor }}
+      >
+        <div className="w-full max-w-md rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-foreground mb-2">
+            Upgrade to read this newsletter
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            You’ve hit the Free plan reading limit. New arrivals are stored but locked until you upgrade.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button render={<a href="/settings" />}>Upgrade to Pro</Button>
+            <Button variant="outline" render={<a href="/settings" />}>
+              View plan
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -242,6 +271,7 @@ export function InlineReaderPane({
         onBackgroundChange={setBackground}
         onFontChange={setFont}
         onFontSizeChange={setFontSize}
+        isPro={isPro}
       />
 
       {favoriteFeedback && (

@@ -13,19 +13,12 @@ let scanProgressReturn: unknown = undefined
 let detectedSendersReturn: unknown = []
 let startScanFn = vi.fn().mockResolvedValue({ success: true })
 
-// Call counter to distinguish between first and second useQuery call
-let useQueryCallCount = 0
-
 // Mock Convex hooks - vi.mock is hoisted, so we use a closure pattern
 vi.mock("convex/react", () => ({
-  useQuery: () => {
-    // Component calls useQuery twice: first for getScanProgress, then for getDetectedSenders
-    // We use call order to determine which mock to return
-    useQueryCallCount++
-    if (useQueryCallCount % 2 === 1) {
-      return scanProgressReturn // First call: scan progress
-    }
-    return detectedSendersReturn // Second call: detected senders
+  useQuery: (queryRef: string) => {
+    if (queryRef === "getScanProgress") return scanProgressReturn
+    if (queryRef === "getDetectedSenders") return detectedSendersReturn
+    return undefined
   },
   useAction: () => startScanFn,
 }))
@@ -47,7 +40,6 @@ describe("SenderScanner", () => {
     scanProgressReturn = undefined
     detectedSendersReturn = []
     startScanFn = vi.fn().mockResolvedValue({ success: true })
-    useQueryCallCount = 0 // Reset call counter for each test
   })
 
   describe("Loading state", () => {

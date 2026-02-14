@@ -20,6 +20,7 @@ import {
   NEWSLETTER_THRESHOLD,
   type EmailHeaders,
 } from "./_internal/newsletterDetection"
+import { isUserPro } from "./entitlements"
 import type { GmailMessageDetail } from "./gmailApi"
 import type { Id } from "./_generated/dataModel"
 
@@ -654,6 +655,18 @@ export const startScan = action({
         return { success: false, error: "Please sign in to scan your Gmail." }
       }
 
+      if (
+        !isUserPro({
+          plan: authUser.plan ?? "free",
+          proExpiresAt: authUser.proExpiresAt ?? undefined,
+        })
+      ) {
+        return {
+          success: false,
+          error: "Hushletter Pro is required to scan and import from Gmail.",
+        }
+      }
+
       // Get the app user record by authId
       const user = await ctx.runQuery(internal.gmail.getUserByAuthId, {
         authId: authUser.id,
@@ -1096,6 +1109,13 @@ export const approveSelectedSenders = mutation({
       })
     }
 
+    if (!isUserPro({ plan: user.plan ?? "free", proExpiresAt: user.proExpiresAt })) {
+      throw new ConvexError({
+        code: "PRO_REQUIRED",
+        message: "Hushletter Pro is required to import from Gmail.",
+      })
+    }
+
     // Get all selected senders for this user (treating undefined as true)
     const selectedSenders = await ctx.db
       .query("detectedSenders")
@@ -1305,6 +1325,15 @@ export const startHistoricalImport = action({
       const authUser = await ctx.runQuery(api.auth.getCurrentUser)
       if (!authUser) {
         return { success: false, error: "Please sign in to import emails." }
+      }
+
+      if (
+        !isUserPro({
+          plan: authUser.plan ?? "free",
+          proExpiresAt: authUser.proExpiresAt ?? undefined,
+        })
+      ) {
+        return { success: false, error: "Hushletter Pro is required to import from Gmail." }
       }
 
       // Get the app user record by authId
@@ -1533,6 +1562,9 @@ export const processAndStoreImportedEmail = internalAction({
 
     // Story 8.4: Handle duplicate detection (Phase 2 content-hash check)
     if (result.skipped) {
+      if (result.reason === "plan_limit") {
+        return { skipped: true }
+      }
       // Phase 2 duplicate detected - return existing ID
       return { skipped: true, userNewsletterId: result.existingId }
     }

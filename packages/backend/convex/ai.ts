@@ -29,6 +29,7 @@ import { v, ConvexError } from "convex/values"
 import { internal, api } from "./_generated/api"
 import { generateCompletion } from "./lib/openrouter"
 import type { Id } from "./_generated/dataModel"
+import { AI_DAILY_LIMIT, isUserPro } from "./entitlements"
 
 /** System prompt for consistent, useful summaries */
 const SUMMARY_SYSTEM_PROMPT = `You are a helpful assistant that summarizes newsletter content.
@@ -84,6 +85,13 @@ export const generateSummary = action({
       })
     }
 
+    if (!isUserPro({ plan: user.plan ?? "free", proExpiresAt: user.proExpiresAt })) {
+      throw new ConvexError({
+        code: "PRO_REQUIRED",
+        message: "Hushletter Pro is required for AI summaries.",
+      })
+    }
+
     // Get newsletter metadata to check if public/private and ownership
     const newsletter = await ctx.runQuery(internal.ai.getNewsletterForSummary, {
       userNewsletterId,
@@ -124,97 +132,166 @@ export const generateSummary = action({
       }
     }
 
-    // Get newsletter content (validates access internally)
-    const result = await ctx.runAction(api.newsletters.getUserNewsletterWithContent, {
-      userNewsletterId,
+    // Call the AI (no cached summary, or regenerating).
+    if (
+      forceRegenerate &&
+      typeof newsletter.lastSummaryRequestAt === "number" &&
+      Date.now() - newsletter.lastSummaryRequestAt < 60_000
+    ) {
+      throw new ConvexError({
+        code: "AI_COOLDOWN",
+        message: "Please wait a moment before regenerating this summary.",
+      })
+    }
+
+    const acquired = await ctx.runMutation(internal.ai.tryAcquireAiInFlight, {
+      userId: user._id,
     })
-
-    if (result.contentStatus !== "available" || !result.contentUrl) {
+    if (!acquired) {
       throw new ConvexError({
-        code: "CONTENT_UNAVAILABLE",
-        message: "Newsletter content is not available for summarization",
-      })
-    }
-
-    // Fetch content from R2
-    const response = await fetch(result.contentUrl)
-    if (!response.ok) {
-      throw new ConvexError({
-        code: "CONTENT_FETCH_ERROR",
-        message: "Failed to fetch newsletter content",
-      })
-    }
-
-    const html = await response.text()
-
-    // Strip HTML to plain text (reduce tokens, cleaner input)
-    const plainText = stripHtmlToText(html)
-
-    // Truncate to reasonable length (prevent token overflow)
-    const truncatedText = plainText.slice(0, MAX_CONTENT_LENGTH)
-
-    // Get API key from environment
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) {
-      throw new ConvexError({
-        code: "AI_CONFIG_ERROR",
-        message: "AI service is not configured",
+        code: "AI_BUSY",
+        message: "Another summary is already being generated. Please wait.",
       })
     }
 
     try {
-      const summary = await generateCompletion(
-        {
-          apiKey,
-          model: "openai/gpt-oss-120b",
-
-
-          timeout: 25000, // 25s timeout (NFR3: 10s target, allow buffer for edge cases)
-        },
-        SUMMARY_SYSTEM_PROMPT,
-        `Summarize this newsletter:\n\n${truncatedText}`
-      )
-
-      // Determine where to store the summary
-      const isFirstGenerationForPublic =
-        !forceRegenerate && !newsletter.isPrivate && newsletter.contentId
-
-      if (isFirstGenerationForPublic) {
-        // FIRST GENERATION (PUBLIC): Store on shared newsletterContent (benefits all users)
-        await ctx.runMutation(internal.ai.storeSharedSummary, {
-          contentId: newsletter.contentId as Id<"newsletterContent">,
-          summary,
-        })
-        return { summary, isShared: true }
-      } else {
-        // REGENERATION or PRIVATE: Store on user's record (personal summary)
-        await ctx.runMutation(internal.ai.storePrivateSummary, {
-          userNewsletterId,
-          summary,
-        })
-        return { summary, isShared: false }
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message === "AI_TIMEOUT") {
-        throw new ConvexError({
-          code: "AI_TIMEOUT",
-          message: "Summary generation took too long. Please try again.",
-        })
-      }
-
-      // Re-throw ConvexErrors (from content fetch, etc.)
-      if (error instanceof ConvexError) {
-        throw error
-      }
-
-      console.error("[generateSummary] AI error:", error)
-      throw new ConvexError({
-        code: "AI_UNAVAILABLE",
-        message: "AI service is temporarily unavailable. Please try again later.",
+      const day = new Date().toISOString().slice(0, 10)
+      const used = await ctx.runQuery(internal.ai.getAiUsageDaily, {
+        userId: user._id,
+        day,
       })
+      if (used >= AI_DAILY_LIMIT) {
+        throw new ConvexError({
+          code: "AI_LIMIT_REACHED",
+          message:
+            "You’ve reached today’s AI summary limit. Please try again tomorrow.",
+        })
+      }
+
+      await ctx.runMutation(internal.ai.setLastSummaryRequestAt, {
+        userNewsletterId,
+        at: Date.now(),
+      })
+
+      return await generateSummaryWithExistingLogic(ctx, {
+        userNewsletterId,
+        forceRegenerate,
+        newsletter,
+        day,
+        userId: user._id,
+      })
+    } finally {
+      await ctx.runMutation(internal.ai.releaseAiInFlight, { userId: user._id })
     }
   },
 })
+
+async function generateSummaryWithExistingLogic(
+  ctx: any,
+  args: {
+    userNewsletterId: Id<"userNewsletters">
+    forceRegenerate?: boolean
+    newsletter: any
+    day: string
+    userId: Id<"users">
+  }
+): Promise<{ summary: string; isShared: boolean }> {
+  // Get newsletter content (validates access internally)
+  const result = await ctx.runAction(api.newsletters.getUserNewsletterWithContent, {
+    userNewsletterId: args.userNewsletterId,
+  })
+
+  if (result.contentStatus !== "available" || !result.contentUrl) {
+    throw new ConvexError({
+      code: "CONTENT_UNAVAILABLE",
+      message: "Newsletter content is not available for summarization",
+    })
+  }
+
+  // Fetch content from R2
+  const response = await fetch(result.contentUrl)
+  if (!response.ok) {
+    throw new ConvexError({
+      code: "CONTENT_FETCH_ERROR",
+      message: "Failed to fetch newsletter content",
+    })
+  }
+
+  const html = await response.text()
+
+  // Strip HTML to plain text (reduce tokens, cleaner input)
+  const plainText = stripHtmlToText(html)
+
+  // Truncate to reasonable length (prevent token overflow)
+  const truncatedText = plainText.slice(0, MAX_CONTENT_LENGTH)
+
+  // Get API key from environment
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) {
+    throw new ConvexError({
+      code: "AI_CONFIG_ERROR",
+      message: "AI service is not configured",
+    })
+  }
+
+  try {
+    const summary = await generateCompletion(
+      {
+        apiKey,
+        model: "openai/gpt-oss-120b",
+        timeout: 25000, // 25s timeout (NFR3: 10s target, allow buffer for edge cases)
+      },
+      SUMMARY_SYSTEM_PROMPT,
+      `Summarize this newsletter:\n\n${truncatedText}`
+    )
+
+    // Determine where to store the summary
+    const isFirstGenerationForPublic =
+      !args.forceRegenerate && !args.newsletter.isPrivate && args.newsletter.contentId
+
+    if (isFirstGenerationForPublic) {
+      // FIRST GENERATION (PUBLIC): Store on shared newsletterContent (benefits all users)
+      await ctx.runMutation(internal.ai.storeSharedSummary, {
+        contentId: args.newsletter.contentId as Id<"newsletterContent">,
+        summary,
+      })
+      await ctx.runMutation(internal.ai.incrementAiUsageDaily, {
+        userId: args.userId,
+        day: args.day,
+      })
+      return { summary, isShared: true }
+    }
+
+    // REGENERATION or PRIVATE: Store on user's record (personal summary)
+    await ctx.runMutation(internal.ai.storePrivateSummary, {
+      userNewsletterId: args.userNewsletterId,
+      summary,
+    })
+    await ctx.runMutation(internal.ai.incrementAiUsageDaily, {
+      userId: args.userId,
+      day: args.day,
+    })
+    return { summary, isShared: false }
+  } catch (error) {
+    if (error instanceof Error && error.message === "AI_TIMEOUT") {
+      throw new ConvexError({
+        code: "AI_TIMEOUT",
+        message: "Summary generation took too long. Please try again.",
+      })
+    }
+
+    // Re-throw ConvexErrors (from content fetch, etc.)
+    if (error instanceof ConvexError) {
+      throw error
+    }
+
+    console.error("[generateSummary] AI error:", error)
+    throw new ConvexError({
+      code: "AI_UNAVAILABLE",
+      message: "AI service is temporarily unavailable. Please try again later.",
+    })
+  }
+}
 
 /**
  * Get summary for a newsletter (resolves personal vs shared)
@@ -247,6 +324,13 @@ export const getNewsletterSummary = query({
 
     if (!user) {
       return { summary: null, isShared: false, generatedAt: null }
+    }
+
+    if (!isUserPro({ plan: user.plan ?? "free", proExpiresAt: user.proExpiresAt })) {
+      throw new ConvexError({
+        code: "PRO_REQUIRED",
+        message: "Hushletter Pro is required for AI summaries.",
+      })
     }
 
     const newsletter = await ctx.db.get(userNewsletterId)
@@ -343,6 +427,83 @@ export const storePrivateSummary = internalMutation({
       summary,
       summaryGeneratedAt: Date.now(),
     })
+  },
+})
+
+export const setLastSummaryRequestAt = internalMutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+    at: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userNewsletterId, { lastSummaryRequestAt: args.at })
+  },
+})
+
+export const getAiUsageDaily = internalQuery({
+  args: { userId: v.id("users"), day: v.string() },
+  handler: async (ctx, args): Promise<number> => {
+    const existing = await ctx.db
+      .query("aiUsageDaily")
+      .withIndex("by_userId_day", (q) => q.eq("userId", args.userId).eq("day", args.day))
+      .first()
+    return existing?.count ?? 0
+  },
+})
+
+export const incrementAiUsageDaily = internalMutation({
+  args: { userId: v.id("users"), day: v.string() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("aiUsageDaily")
+      .withIndex("by_userId_day", (q) => q.eq("userId", args.userId).eq("day", args.day))
+      .first()
+
+    if (!existing) {
+      await ctx.db.insert("aiUsageDaily", {
+        userId: args.userId,
+        day: args.day,
+        count: 1,
+        updatedAt: Date.now(),
+      })
+      return
+    }
+
+    await ctx.db.patch(existing._id, {
+      count: existing.count + 1,
+      updatedAt: Date.now(),
+    })
+  },
+})
+
+export const tryAcquireAiInFlight = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args): Promise<boolean> => {
+    const existing = await ctx.db
+      .query("aiInFlight")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first()
+
+    if (existing) return false
+
+    await ctx.db.insert("aiInFlight", {
+      userId: args.userId,
+      startedAt: Date.now(),
+    })
+    return true
+  },
+})
+
+export const releaseAiInFlight = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("aiInFlight")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first()
+    if (existing) {
+      await ctx.db.delete(existing._id)
+    }
   },
 })
 

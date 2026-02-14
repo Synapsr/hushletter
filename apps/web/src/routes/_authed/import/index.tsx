@@ -80,9 +80,12 @@ function SenderScannerError(props: FallbackProps) {
 }
 
 function ImportPage() {
+  const entitlements = useQuery(api.entitlements.getEntitlements) as { isPro?: boolean } | null | undefined;
+  const isPro = Boolean(entitlements?.isPro);
+
   // Query Gmail connection status to conditionally show scanner
   // Story 4.2: Task 5.1 - Show SenderScanner only when Gmail is connected
-  const gmailAccount = useQuery(api.gmail.getGmailAccount);
+  const gmailAccount = useQuery(api.gmail.getGmailAccount, isPro ? {} : ("skip" as any));
   const isGmailConnected = gmailAccount !== null && gmailAccount !== undefined;
 
   return (
@@ -93,17 +96,35 @@ function ImportPage() {
       </p>
 
       <div className="space-y-6">
-        {/* Gmail Connection Section with Error Boundary */}
-        <ErrorBoundary FallbackComponent={GmailConnectError}>
-          <GmailConnect />
-        </ErrorBoundary>
+        {!isPro ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Upgrade for Gmail sync</CardTitle>
+              <CardDescription>
+                Gmail import/sync is available on Hushletter Pro.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button render={<Link to="/settings" hash="billing" />} className="gap-2">
+                Upgrade to Pro <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Gmail Connection Section with Error Boundary */}
+            <ErrorBoundary FallbackComponent={GmailConnectError}>
+              <GmailConnect />
+            </ErrorBoundary>
 
-        {/* Newsletter Scanner - shown only when Gmail is connected */}
-        {/* Story 4.2: Task 5.1 - Conditionally show SenderScanner */}
-        {isGmailConnected && (
-          <ErrorBoundary FallbackComponent={SenderScannerError}>
-            <SenderScanner />
-          </ErrorBoundary>
+            {/* Newsletter Scanner - shown only when Gmail is connected */}
+            {/* Story 4.2: Task 5.1 - Conditionally show SenderScanner */}
+            {isGmailConnected && (
+              <ErrorBoundary FallbackComponent={SenderScannerError}>
+                <SenderScanner />
+              </ErrorBoundary>
+            )}
+          </>
         )}
 
         {/* Manual Import Section - Story 8.2 */}

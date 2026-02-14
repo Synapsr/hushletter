@@ -370,6 +370,26 @@ export const receiveImportEmail = httpAction(async (ctx, request) => {
     // Story 8.4: Handle duplicate detection (AC #1, #2 - silent skip, no error)
     // FR33: "Duplicate emails are not imported (no error shown to user)"
     if (result.skipped) {
+      if (result.reason === "plan_limit") {
+        console.log(
+          `[importIngestion] Plan limit reached: hardCap=${result.hardCap}, user=${user._id}`
+        )
+        return new Response(
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            reason: "plan_limit",
+            hardCap: result.hardCap,
+            senderId: sender._id,
+            folderId,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      }
+
       console.log(
         `[importIngestion] Duplicate detected (${result.duplicateReason}): ` +
           `existingId=${result.existingId}, messageId=${validatedMessageId ?? "none"}`

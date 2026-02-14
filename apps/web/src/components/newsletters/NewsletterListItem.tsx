@@ -2,7 +2,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { m } from "@/paraglide/messages.js";
 import type { NewsletterData } from "@/components/NewsletterCard";
-import { Star } from "lucide-react";
+import { Star, LockKeyhole } from "lucide-react";
 
 interface NewsletterListItemProps {
   newsletter: NewsletterData;
@@ -85,7 +85,12 @@ export function NewsletterListItem({
                 newsletter.isRead ? "text-muted-foreground" : "text-foreground",
               )}
             >
-              {newsletter.subject}
+              <span className="inline-flex items-center gap-1 min-w-0">
+                {newsletter.isLockedByPlan && (
+                  <LockKeyhole className="h-3.5 w-3.5 text-violet-500 shrink-0" aria-hidden="true" />
+                )}
+                <span className="truncate">{newsletter.subject}</span>
+              </span>
             </p>
             <time className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">
               {formatRelativeTime(newsletter.receivedAt)}

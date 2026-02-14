@@ -18,6 +18,27 @@ export const findByDedicatedEmail = internalQuery({
 })
 
 /**
+ * Find a user by an inbound email address (dedicated or vanity alias).
+ * Used by email ingestion to support Pro vanity aliases without breaking
+ * the stable dedicated receiver address.
+ */
+export const findByInboundEmail = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const byDedicated = await ctx.db
+      .query("users")
+      .withIndex("by_dedicatedEmail", (q) => q.eq("dedicatedEmail", args.email))
+      .first()
+    if (byDedicated) return byDedicated
+
+    return await ctx.db
+      .query("users")
+      .withIndex("by_vanityEmail", (q) => q.eq("vanityEmail", args.email))
+      .first()
+  },
+})
+
+/**
  * Find a user by their auth ID (Better Auth subject)
  * Used for permission checks in actions
  */

@@ -75,12 +75,13 @@ describe("emailGeneration", () => {
       expect(isValidDedicatedEmail("ab123456@wrong.domain.com")).toBe(false)
     })
 
-    it("rejects email with wrong prefix length", async () => {
+    it("rejects email with invalid prefix length (too short / too long)", async () => {
       process.env.EMAIL_DOMAIN = "newsletters.example.com"
       const { isValidDedicatedEmail } = await import("./emailGeneration")
 
-      expect(isValidDedicatedEmail("abc@newsletters.example.com")).toBe(false)
-      expect(isValidDedicatedEmail("abcdefghijk@newsletters.example.com")).toBe(false)
+      // Custom prefixes are allowed (3-20 chars), but <3 and >20 must be rejected.
+      expect(isValidDedicatedEmail("ab@newsletters.example.com")).toBe(false)
+      expect(isValidDedicatedEmail(`${"a".repeat(21)}@newsletters.example.com`)).toBe(false)
     })
 
     it("rejects email with invalid characters in prefix", async () => {

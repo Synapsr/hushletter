@@ -32,13 +32,13 @@ describe("DisconnectConfirmDialog (Story 4.5)", () => {
       expect(screen.queryByText("Disconnect Gmail?")).toBeNull()
     })
 
-    it("displays connected Gmail address", async () => {
-      await act(async () => {
-        render(<DisconnectConfirmDialog {...defaultProps} />)
-      })
+	    it("displays connected Gmail address", async () => {
+	      await act(async () => {
+	        render(<DisconnectConfirmDialog {...defaultProps} />)
+	      })
 
-      expect(screen.getByText("user@gmail.com")).toBeTruthy()
-    })
+	      expect(document.body.textContent).toContain("user@gmail.com")
+	    })
 
     it("explains what will be removed", async () => {
       await act(async () => {

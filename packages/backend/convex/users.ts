@@ -7,6 +7,7 @@ import {
   buildDedicatedEmail,
   getEmailDomain as getEmailDomainInternal,
 } from "./_internal/emailGeneration"
+import { isUserPro } from "./entitlements"
 
 /**
  * Update the current user's profile information.
@@ -62,6 +63,19 @@ export const checkPrefixAvailability = query({
       return { available: false, reason: "UNAUTHORIZED" as const }
     }
 
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+
+    if (!currentUser) {
+      return { available: false, reason: "UNAUTHORIZED" as const }
+    }
+
+    if (!isUserPro({ plan: currentUser.plan ?? "free", proExpiresAt: currentUser.proExpiresAt })) {
+      return { available: false, reason: "PRO_REQUIRED" as const }
+    }
+
     const prefix = args.prefix.toLowerCase().trim()
 
     if (!isValidCustomPrefix(prefix)) {
@@ -69,22 +83,24 @@ export const checkPrefixAvailability = query({
     }
 
     const dedicatedEmail = buildDedicatedEmail(prefix)
-    const existingUser = await ctx.db
+    const existingDedicated = await ctx.db
       .query("users")
       .withIndex("by_dedicatedEmail", (q) => q.eq("dedicatedEmail", dedicatedEmail))
       .first()
 
-    if (existingUser) {
-      // Allow user to reclaim their own current prefix
-      const currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
-        .first()
+    const existingVanity = await ctx.db
+      .query("users")
+      .withIndex("by_vanityEmail", (q) => q.eq("vanityEmail", dedicatedEmail))
+      .first()
 
-      if (currentUser && currentUser._id === existingUser._id) {
-        return { available: true, reason: "OWN_EMAIL" as const }
-      }
+    const existingUser = existingDedicated ?? existingVanity
+
+    if (existingUser && existingUser._id !== currentUser._id) {
       return { available: false, reason: "TAKEN" as const }
+    }
+
+    if (dedicatedEmail === currentUser.dedicatedEmail || dedicatedEmail === currentUser.vanityEmail) {
+      return { available: true, reason: "OWN_EMAIL" as const }
     }
 
     return { available: true, reason: "AVAILABLE" as const }
@@ -121,6 +137,13 @@ export const claimEmailPrefix = mutation({
       })
     }
 
+    if (!isUserPro({ plan: user.plan ?? "free", proExpiresAt: user.proExpiresAt })) {
+      throw new ConvexError({
+        code: "PRO_REQUIRED",
+        message: "Hushletter Pro is required to claim a custom email prefix.",
+      })
+    }
+
     const prefix = args.prefix.toLowerCase().trim()
 
     if (!isValidCustomPrefix(prefix)) {
@@ -131,11 +154,18 @@ export const claimEmailPrefix = mutation({
     }
 
     // Atomic check: is the email taken by someone else?
-    const dedicatedEmail = buildDedicatedEmail(prefix)
-    const existingUser = await ctx.db
+    const vanityEmail = buildDedicatedEmail(prefix)
+    const existingDedicated = await ctx.db
       .query("users")
-      .withIndex("by_dedicatedEmail", (q) => q.eq("dedicatedEmail", dedicatedEmail))
+      .withIndex("by_dedicatedEmail", (q) => q.eq("dedicatedEmail", vanityEmail))
       .first()
+
+    const existingVanity = await ctx.db
+      .query("users")
+      .withIndex("by_vanityEmail", (q) => q.eq("vanityEmail", vanityEmail))
+      .first()
+
+    const existingUser = existingDedicated ?? existingVanity
 
     if (existingUser && existingUser._id !== user._id) {
       throw new ConvexError({
@@ -145,11 +175,11 @@ export const claimEmailPrefix = mutation({
     }
 
     await ctx.db.patch(user._id, {
-      dedicatedEmail,
-      onboardingCompletedAt: Date.now(),
+      vanityEmail,
+      onboardingCompletedAt: user.onboardingCompletedAt ?? Date.now(),
     })
 
-    return { success: true, dedicatedEmail }
+    return { success: true, dedicatedEmail: vanityEmail }
   },
 })
 

@@ -8,7 +8,15 @@ import { z } from "zod";
 import { useState, useEffect, useRef } from "react";
 import { DedicatedEmailDisplay } from "@/components/DedicatedEmailDisplay";
 import { HiddenFoldersSection } from "@/components/HiddenFoldersSection";
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from "@hushletter/ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+} from "@hushletter/ui";
 import {
   Pencil,
   X,
@@ -16,11 +24,14 @@ import {
   Mail,
   AlertCircle,
   Shield,
+  CreditCard,
   ChevronRight,
   FolderIcon,
 } from "lucide-react";
 import { DisconnectConfirmDialog } from "../import/-DisconnectConfirmDialog";
 import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authed/settings/")({
   component: SettingsPage,
@@ -39,6 +50,9 @@ type CurrentUserData = {
   email: string;
   name: string | null;
   dedicatedEmail: string | null;
+  plan: "free" | "pro";
+  proExpiresAt: number | null;
+  vanityEmail: string | null;
 } | null;
 
 // Type for Gmail account data
@@ -48,7 +62,7 @@ type GmailAccountData = { email: string; connectedAt: number } | null;
  * Gmail Integration Settings Section
  * Story 4.5: Task 4 (AC #1) - Disconnect option in settings
  */
-function GmailSettingsSection() {
+function GmailSettingsSection({ isPro }: { isPro: boolean }) {
   const queryClient = useQueryClient();
   const disconnectGmail = useAction(api.gmail.disconnectGmail);
 
@@ -64,10 +78,38 @@ function GmailSettingsSection() {
     data,
     isPending,
     error: queryError,
-  } = useQuery(convexQuery(api.gmail.getGmailAccount, {}));
+  } = useQuery(convexQuery(api.gmail.getGmailAccount, isPro ? {} : "skip"));
   const gmailAccount = data as GmailAccountData | undefined;
 
   const isConnected = gmailAccount !== null && gmailAccount !== undefined;
+
+  if (!isPro) {
+    return (
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            {m.settings_gmailIntegration()}
+          </CardTitle>
+          <CardDescription>{m.settings_gmailDescription()}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Gmail sync is available on Hushletter Pro.
+          </p>
+          <Button
+            onClick={() =>
+              document
+                .getElementById("billing")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+          >
+            Upgrade to Pro
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const handleConfirmDisconnect = async () => {
     setIsDisconnecting(true);
@@ -124,10 +166,18 @@ function GmailSettingsSection() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-green-700 dark:text-green-400">{m.settings_gmailConnected()}</p>
-                  <p className="text-sm text-muted-foreground">{gmailAccount.email}</p>
+                  <p className="font-medium text-green-700 dark:text-green-400">
+                    {m.settings_gmailConnected()}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {gmailAccount.email}
+                  </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDialogOpen(true)}
+                >
                   {m.settings_gmailDisconnect()}
                 </Button>
               </div>
@@ -141,7 +191,9 @@ function GmailSettingsSection() {
               <p className="text-sm text-muted-foreground">
                 {m.settings_gmailNotConnected()}
               </p>
-              <Button render={<Link to="/import" />} variant="outline">{m.settings_gmailConnectButton()}</Button>
+              <Button render={<Link to="/import" />} variant="outline">
+                {m.settings_gmailConnectButton()}
+              </Button>
             </div>
           )}
         </CardContent>
@@ -266,11 +318,118 @@ function ProfileNameEditForm({
 }
 
 function SettingsPage() {
-  const { data, isPending } = useQuery(convexQuery(api.auth.getCurrentUser, {}));
+  const queryClient = useQueryClient();
+  const { data, isPending } = useQuery(
+    convexQuery(api.auth.getCurrentUser, {}),
+  );
   const user = data as CurrentUserData;
+  const { data: entitlementsData } = useQuery(
+    convexQuery(api.entitlements.getEntitlements, {}),
+  );
+	  const entitlements = entitlementsData as
+	    | {
+	        isPro?: boolean;
+	        unlockedCap?: number;
+	        hardCap?: number;
+	        aiDailyLimit?: number;
+	        usage?: {
+	          unlockedStored?: number | null;
+	          lockedStored?: number | null;
+	          totalStored?: number | null;
+	        };
+	      }
+	    | undefined;
+	  const isPro = Boolean(entitlements?.isPro);
+
+  const [vanityPrefix, setVanityPrefix] = useState("");
+  const [debouncedVanityPrefix, setDebouncedVanityPrefix] = useState("");
+  const [vanityPending, setVanityPending] = useState(false);
+  const [vanityError, setVanityError] = useState<string | null>(null);
+  const claimVanityEmail = useConvexMutation(api.users.claimEmailPrefix);
+
+  useEffect(() => {
+    const trimmed = vanityPrefix.toLowerCase().trim();
+    const t = setTimeout(() => setDebouncedVanityPrefix(trimmed), 300);
+    return () => clearTimeout(t);
+  }, [vanityPrefix]);
+
+  const { data: vanityAvailabilityData, isPending: vanityAvailabilityPending } =
+    useQuery(
+      convexQuery(
+        api.users.checkPrefixAvailability,
+        isPro && debouncedVanityPrefix.length > 0
+          ? { prefix: debouncedVanityPrefix }
+          : "skip",
+      ),
+    );
+  const vanityAvailability = vanityAvailabilityData as
+    | { available: boolean; reason: string }
+    | undefined;
+
+  const createCheckout = useAction(api.billing.createProCheckoutUrl);
+  const createPortal = useAction(api.billing.createCustomerPortalUrl);
+  const [billingPending, setBillingPending] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
+
+  const locale = getLocale();
+  const currency = locale.startsWith("fr")
+    ? ("eur" as const)
+    : ("usd" as const);
+  const currencySymbol = currency === "eur" ? "€" : "$";
+
+  const handleUpgrade = async (interval: "month" | "year") => {
+    setBillingPending(true);
+    setBillingError(null);
+    try {
+      const { url } = await createCheckout({ interval, currency });
+      window.location.href = url;
+    } catch (error) {
+      console.error("[settings] Failed to start checkout:", error);
+      setBillingError("Unable to start checkout. Please try again.");
+    } finally {
+      setBillingPending(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setBillingPending(true);
+    setBillingError(null);
+    try {
+      const { url } = await createPortal({});
+      window.location.href = url;
+    } catch (error) {
+      console.error("[settings] Failed to open customer portal:", error);
+      setBillingError("Unable to open billing portal. Please try again.");
+    } finally {
+      setBillingPending(false);
+    }
+  };
+
   const [isEditingName, setIsEditingName] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClaimVanity = async () => {
+    if (!isPro) {
+      document
+        .getElementById("billing")
+        ?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    setVanityPending(true);
+    setVanityError(null);
+    try {
+      await claimVanityEmail({ prefix: debouncedVanityPrefix });
+      await queryClient.invalidateQueries();
+      toast.success("Custom address saved");
+      setVanityPrefix("");
+    } catch (error) {
+      console.error("[settings] Failed to claim vanity prefix:", error);
+      setVanityError("Unable to save custom address. Please try again.");
+    } finally {
+      setVanityPending(false);
+    }
+  };
 
   // Cleanup timeout on unmount to prevent memory leaks
   useEffect(() => {
@@ -288,7 +447,10 @@ function SettingsPage() {
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current);
     }
-    successTimeoutRef.current = setTimeout(() => setShowSuccessMessage(false), 3000);
+    successTimeoutRef.current = setTimeout(
+      () => setShowSuccessMessage(false),
+      3000,
+    );
   };
 
   if (isPending) {
@@ -303,10 +465,153 @@ function SettingsPage() {
   }
 
   const dedicatedEmail = user?.dedicatedEmail;
+  const domain =
+    (dedicatedEmail ?? user?.vanityEmail ?? "").split("@")[1] ?? "";
+  const vanityPreview =
+    debouncedVanityPrefix && domain
+      ? `${debouncedVanityPrefix}@${domain}`
+      : null;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">{m.settings_title()}</h1>
+    <div className="container mx-auto px-4 py-8 overflow-y-auto h-full">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+        {m.settings_title()}
+      </h1>
+
+      {/* Billing / Plan */}
+      <Card className="mb-6" id="billing">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Plan
+          </CardTitle>
+          <CardDescription>
+            {currencySymbol}9/month · {currencySymbol}90/year · + tax/VAT where
+            applicable
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {billingError && (
+            <p className="text-sm text-destructive" role="alert">
+              {billingError}
+            </p>
+          )}
+
+	          {!isPro ? (
+	            <>
+	              {typeof entitlements?.usage?.unlockedStored === "number" &&
+	                typeof entitlements?.unlockedCap === "number" && (
+	                  <div className="text-sm text-muted-foreground">
+	                    Free history: {entitlements.usage.unlockedStored}/
+	                    {entitlements.unlockedCap} readable newsletters
+	                  </div>
+	                )}
+
+	              {(typeof entitlements?.usage?.totalStored === "number" ||
+	                typeof entitlements?.usage?.lockedStored === "number") &&
+	                typeof entitlements?.hardCap === "number" && (
+	                  <div className="text-sm text-muted-foreground">
+	                    Stored:{" "}
+	                    {typeof entitlements?.usage?.totalStored === "number"
+	                      ? entitlements.usage.totalStored
+	                      : "—"}
+	                    /{entitlements.hardCap}
+	                    {typeof entitlements?.usage?.lockedStored === "number"
+	                      ? ` · Locked: ${entitlements.usage.lockedStored}`
+	                      : ""}
+	                  </div>
+	                )}
+
+	              <div className="rounded-lg border bg-card p-3">
+	                <p className="text-sm font-medium mb-2">What Pro unlocks</p>
+	                <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+	                  <li>AI summaries ({entitlements?.aiDailyLimit ?? 50}/day)</li>
+	                  <li>Gmail import and sync</li>
+	                  <li>Vanity email alias (keep your original address too)</li>
+	                  <li>Premium reader appearance controls</li>
+	                  <li>Unlocks any locked newsletters</li>
+	                </ul>
+	              </div>
+
+	              {typeof entitlements?.usage?.unlockedStored === "number" &&
+	                typeof entitlements?.unlockedCap === "number" &&
+	                entitlements.usage.unlockedStored >=
+	                  Math.floor(entitlements.unlockedCap * 0.95) && (
+	                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
+	                    You’re close to the Free plan limit. New newsletters may
+	                    become locked until you upgrade.
+	                  </div>
+	                )}
+
+              {typeof entitlements?.usage?.unlockedStored === "number" &&
+                typeof entitlements?.unlockedCap === "number" &&
+                entitlements.usage.unlockedStored >=
+                  Math.floor(entitlements.unlockedCap * 0.8) &&
+                entitlements.usage.unlockedStored <
+                  Math.floor(entitlements.unlockedCap * 0.95) && (
+                  <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+                    You’re approaching the Free plan limit.
+                  </div>
+                )}
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={billingPending}
+                  onClick={() => handleUpgrade("month")}
+                >
+                  Upgrade monthly ({currencySymbol}9)
+                </Button>
+                <Button
+                  disabled={billingPending}
+                  variant="outline"
+                  onClick={() => handleUpgrade("year")}
+                >
+                  Upgrade yearly ({currencySymbol}90)
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                30-day money-back guarantee.
+              </p>
+            </>
+	          ) : (
+	            <>
+	              <div className="flex items-center justify-between gap-4">
+	                <div>
+	                  <p className="text-sm font-medium">Hushletter Pro</p>
+	                  {user?.proExpiresAt ? (
+	                    <p className="text-sm text-muted-foreground">
+	                      Renews until{" "}
+	                      {new Date(user.proExpiresAt).toLocaleDateString()}
+	                    </p>
+	                  ) : (
+	                    <p className="text-sm text-muted-foreground">
+	                      Subscription active
+	                    </p>
+	                  )}
+	                </div>
+	                <Button
+	                  disabled={billingPending}
+	                  variant="outline"
+	                  onClick={handleManageSubscription}
+	                >
+	                  Manage subscription
+	                </Button>
+	              </div>
+
+	              <div className="rounded-lg border bg-card p-3">
+	                <p className="text-sm font-medium mb-2">Included with Pro</p>
+	                <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+	                  <li>AI summaries ({entitlements?.aiDailyLimit ?? 50}/day)</li>
+	                  <li>Gmail import and sync</li>
+	                  <li>Vanity email alias (keep your original address too)</li>
+	                  <li>Premium reader appearance controls</li>
+	                  <li>All newsletters readable</li>
+	                </ul>
+	              </div>
+	            </>
+	          )}
+        </CardContent>
+      </Card>
 
       {/* Privacy Settings Section - Story 6.2: Task 5 */}
       <Card className="mb-6">
@@ -315,9 +620,7 @@ function SettingsPage() {
             <Shield className="h-5 w-5" />
             {m.settings_privacySettings()}
           </CardTitle>
-          <CardDescription>
-            {m.settings_privacyDescription()}
-          </CardDescription>
+          <CardDescription>{m.settings_privacyDescription()}</CardDescription>
         </CardHeader>
         <CardContent>
           <Link
@@ -342,7 +645,9 @@ function SettingsPage() {
             <FolderIcon className="h-5 w-5" />
             {m.settings_hiddenFolders()}
           </CardTitle>
-          <CardDescription>{m.settings_hiddenFoldersDescription()}</CardDescription>
+          <CardDescription>
+            {m.settings_hiddenFoldersDescription()}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <HiddenFoldersSection />
@@ -350,15 +655,13 @@ function SettingsPage() {
       </Card>
 
       {/* Gmail Integration Section - Story 4.5: Task 4 */}
-      <GmailSettingsSection />
+      <GmailSettingsSection isPro={isPro} />
 
       {/* Email Settings Section */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>{m.settings_yourNewsletterEmail()}</CardTitle>
-          <CardDescription>
-            {m.settings_emailInfo()}
-          </CardDescription>
+          <CardDescription>{m.settings_emailInfo()}</CardDescription>
         </CardHeader>
         <CardContent>
           {dedicatedEmail ? (
@@ -376,9 +679,108 @@ function SettingsPage() {
               </div>
             </div>
           ) : (
-            <p className="text-muted-foreground">
-              {m.settings_emailInfo()}
+            <p className="text-muted-foreground">{m.settings_emailInfo()}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Vanity Email (Pro) */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Custom address (Pro)</CardTitle>
+          <CardDescription>
+            Claim one custom prefix as an alias. Your original address keeps
+            receiving forever.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {user?.vanityEmail ? (
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Current alias</p>
+              <p className="font-mono text-sm font-semibold">
+                {user.vanityEmail}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No alias claimed yet.
             </p>
+          )}
+
+          {!isPro ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Custom addresses are available on Hushletter Pro.
+              </p>
+              <Button
+                onClick={() =>
+                  document
+                    .getElementById("billing")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+              >
+                Upgrade to Pro
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="vanity-prefix">
+                  Prefix
+                </label>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Input
+                    id="vanity-prefix"
+                    value={vanityPrefix}
+                    onChange={(e) => setVanityPrefix(e.target.value)}
+                    placeholder="your-name"
+                    className="max-w-xs"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                  <Button
+                    type="button"
+                    disabled={
+                      vanityPending ||
+                      vanityAvailabilityPending ||
+                      !debouncedVanityPrefix ||
+                      vanityAvailability?.available === false
+                    }
+                    onClick={handleClaimVanity}
+                  >
+                    Save
+                  </Button>
+                </div>
+                {vanityPreview && (
+                  <p className="text-xs text-muted-foreground">
+                    Preview: <span className="font-mono">{vanityPreview}</span>
+                  </p>
+                )}
+              </div>
+
+              {vanityAvailabilityPending && debouncedVanityPrefix ? (
+                <p className="text-xs text-muted-foreground">
+                  Checking availability…
+                </p>
+              ) : vanityAvailability ? (
+                vanityAvailability.available ? (
+                  <p className="text-xs text-green-700 dark:text-green-400">
+                    Available
+                  </p>
+                ) : (
+                  <p className="text-xs text-destructive">
+                    Unavailable ({vanityAvailability.reason})
+                  </p>
+                )
+              ) : null}
+
+              {vanityError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {vanityError}
+                </p>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -392,11 +794,15 @@ function SettingsPage() {
         <CardContent>
           <dl className="space-y-4">
             <div>
-              <dt className="text-sm font-medium text-muted-foreground">{m.settings_accountEmail()}</dt>
+              <dt className="text-sm font-medium text-muted-foreground">
+                {m.settings_accountEmail()}
+              </dt>
               <dd className="text-base">{user?.email ?? "—"}</dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-muted-foreground mb-1">{m.settings_accountDisplayName()}</dt>
+              <dt className="text-sm font-medium text-muted-foreground mb-1">
+                {m.settings_accountDisplayName()}
+              </dt>
               <dd>
                 {isEditingName ? (
                   <ProfileNameEditForm
@@ -406,7 +812,9 @@ function SettingsPage() {
                   />
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{user?.name || m.settings_accountNotSet()}</span>
+                    <span className="text-base">
+                      {user?.name || m.settings_accountNotSet()}
+                    </span>
                     <Button
                       variant="ghost"
                       size="icon-xs"

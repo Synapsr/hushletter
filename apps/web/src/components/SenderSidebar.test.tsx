@@ -8,6 +8,10 @@ import {
   type FolderData,
 } from "./SenderSidebar"
 
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({ children }: { children: unknown }) => <a>{children}</a>,
+}))
+
 // Mock sender data - sorted alphabetically by displayName as query would return
 const mockSenders: SenderData[] = [
   {
@@ -67,22 +71,26 @@ let mockFoldersQueryReturn: { data: FolderData[] | undefined; isPending: boolean
   data: mockFolders,
   isPending: false,
 }
+let mockFollowedQueryReturn: { data: unknown[] | undefined; isPending: boolean } = {
+  data: [],
+  isPending: false,
+}
 
 // Mock @tanstack/react-query useQuery to return mock data
 // Story 3.3: Updated to handle both senders and folders queries
-// SenderSidebar calls senders query first, then folders query
+// SenderSidebar calls senders query first, then followed senders, then folders
 vi.mock("@tanstack/react-query", async () => {
   const actual = await vi.importActual("@tanstack/react-query")
   return {
     ...actual,
     useQuery: () => {
-      // Alternate between senders and folders based on call order
-      // First call is senders, second call is folders
       queryCallCount++
-      if (queryCallCount % 2 === 0) {
-        return mockFoldersQueryReturn
+      const mod = (queryCallCount - 1) % 3
+      if (mod === 0) return mockSendersQueryReturn
+      if (mod === 1) {
+        return mockFollowedQueryReturn
       }
-      return mockSendersQueryReturn
+      return mockFoldersQueryReturn
     },
   }
 })
@@ -111,6 +119,10 @@ describe("SenderSidebar", () => {
     }
     mockFoldersQueryReturn = {
       data: mockFolders,
+      isPending: false,
+    }
+    mockFollowedQueryReturn = {
+      data: [],
       isPending: false,
     }
   })

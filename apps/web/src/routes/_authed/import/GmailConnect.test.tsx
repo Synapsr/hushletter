@@ -2,12 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// Mock modules before importing components
-const mockLinkSocial = vi.fn();
-const mockNavigate = vi.fn();
-let mockSearchParams: { error?: string } = {};
-let mockQueryData: { email: string; connectedAt: number } | null = null;
-let mockQueryError: Error | null = null;
+// Vitest hoists `vi.mock(...)` calls, so all referenced mocks/state must be hoisted too.
+const hoisted = vi.hoisted(() => ({
+  mockLinkSocial: vi.fn(),
+  mockDisconnectGmail: vi.fn(),
+  mockNavigate: vi.fn(),
+  searchParams: {} as { error?: string },
+  queryData: null as { email: string; connectedAt: number } | null,
+  queryError: null as Error | null,
+}));
 
 vi.mock("@convex-dev/react-query", () => ({
   convexQuery: vi.fn(),
@@ -15,7 +18,7 @@ vi.mock("@convex-dev/react-query", () => ({
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
-    linkSocial: mockLinkSocial,
+    linkSocial: hoisted.mockLinkSocial,
   },
 }));
 
@@ -29,15 +32,14 @@ vi.mock("@hushletter/backend", () => ({
 }));
 
 // Mock Convex useAction hook
-const mockDisconnectGmail = vi.fn();
 vi.mock("convex/react", () => ({
-  useAction: vi.fn(() => mockDisconnectGmail),
+  useAction: vi.fn(() => hoisted.mockDisconnectGmail),
 }));
 
 // Mock TanStack Router hooks
 vi.mock("@tanstack/react-router", () => ({
-  useSearch: vi.fn(() => mockSearchParams),
-  useNavigate: vi.fn(() => mockNavigate),
+  useSearch: vi.fn(() => hoisted.searchParams),
+  useNavigate: vi.fn(() => hoisted.mockNavigate),
 }));
 
 // Mock useQuery to return our controlled data
@@ -46,9 +48,9 @@ vi.mock("@tanstack/react-query", async () => {
   return {
     ...actual,
     useQuery: vi.fn(() => ({
-      data: mockQueryData,
+      data: hoisted.queryData,
       isPending: false,
-      error: mockQueryError,
+      error: hoisted.queryError,
     })),
   };
 });
@@ -62,9 +64,9 @@ function renderWithProviders(
   searchParams: { error?: string } = {},
   queryError: Error | null = null,
 ) {
-  mockSearchParams = searchParams;
-  mockQueryData = queryData;
-  mockQueryError = queryError;
+  hoisted.searchParams = searchParams;
+  hoisted.queryData = queryData;
+  hoisted.queryError = queryError;
 
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -82,7 +84,7 @@ function renderWithProviders(
 describe("GmailConnect Component (Story 4.1)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSearchParams = {};
+    hoisted.searchParams = {};
   });
 
   describe("Disconnected State (AC #1)", () => {
@@ -105,7 +107,7 @@ describe("GmailConnect Component (Story 4.1)", () => {
     });
 
     it("shows connecting state when Connect Gmail clicked", async () => {
-      mockLinkSocial.mockImplementation(() => new Promise(() => {}));
+      hoisted.mockLinkSocial.mockImplementation(() => new Promise(() => {}));
 
       await act(async () => {
         renderWithProviders(null);
@@ -195,16 +197,16 @@ describe("GmailConnect Component (Story 4.1)", () => {
 
       const retryButton = screen.getByRole("button", { name: /try again/i });
 
-      await act(async () => {
-        fireEvent.click(retryButton);
-      });
+	      await act(async () => {
+	        fireEvent.click(retryButton);
+	      });
 
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/import",
-        search: {},
-        replace: true,
-      });
-    });
+	      expect(hoisted.mockNavigate).toHaveBeenCalledWith({
+	        to: "/import",
+	        search: {},
+	        replace: true,
+	      });
+	    });
 
     // Note: Tests that error display exists for failures
     // The actual error catching is verified by showing error states from URL params
@@ -298,11 +300,11 @@ describe("GmailConnect Disconnect Flow (Story 4.5)", () => {
     connectedAt: Date.now(),
   };
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockSearchParams = {};
-    mockDisconnectGmail.mockResolvedValue({ success: true });
-  });
+	  beforeEach(() => {
+	    vi.clearAllMocks();
+	    hoisted.searchParams = {};
+	    hoisted.mockDisconnectGmail.mockResolvedValue({ success: true });
+	  });
 
   describe("AC#1: Confirmation Dialog", () => {
     it("opens confirmation dialog on disconnect button click", async () => {
@@ -342,13 +344,13 @@ describe("GmailConnect Disconnect Flow (Story 4.5)", () => {
 
       // Click confirm button
       const confirmButton = screen.getByRole("button", { name: /^disconnect$/i });
-      await act(async () => {
-        fireEvent.click(confirmButton);
-      });
+	      await act(async () => {
+	        fireEvent.click(confirmButton);
+	      });
 
-      expect(mockDisconnectGmail).toHaveBeenCalled();
-    });
-  });
+	      expect(hoisted.mockDisconnectGmail).toHaveBeenCalled();
+	    });
+	  });
 
   describe("AC#2: UI Updates After Disconnect", () => {
     it("calls disconnectGmail and handles success flow", async () => {
@@ -372,12 +374,12 @@ describe("GmailConnect Disconnect Flow (Story 4.5)", () => {
         fireEvent.click(confirmButton);
       });
 
-      // Verify disconnectGmail was called - UI update happens via queryClient.invalidateQueries()
-      await waitFor(() => {
-        expect(mockDisconnectGmail).toHaveBeenCalled();
-      });
-    });
-  });
+	      // Verify disconnectGmail was called - UI update happens via queryClient.invalidateQueries()
+	      await waitFor(() => {
+	        expect(hoisted.mockDisconnectGmail).toHaveBeenCalled();
+	      });
+	    });
+	  });
 
   describe("AC#4: Reconnection", () => {
     it("shows DisconnectedState with Connect Gmail button when not connected", async () => {

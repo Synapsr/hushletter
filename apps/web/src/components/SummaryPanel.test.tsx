@@ -27,11 +27,24 @@ vi.mock("@tanstack/react-query", async () => {
   const actual = await vi.importActual("@tanstack/react-query")
   return {
     ...actual,
-    useQuery: () => ({
-      data: mockSummaryData(),
-      isPending: false,
-      error: null,
-    }),
+    useQuery: (options: any) => {
+      const queryKey = options?.queryKey as unknown[] | undefined
+      const apiFn = queryKey?.[0]
+
+      if (apiFn === "getEntitlements") {
+        return {
+          data: { isPro: true },
+          isPending: false,
+          error: null,
+        }
+      }
+
+      return {
+        data: mockSummaryData(),
+        isPending: false,
+        error: null,
+      }
+    },
   }
 })
 
@@ -41,6 +54,9 @@ vi.mock("@convex-dev/react-query", () => ({
 
 vi.mock("@hushletter/backend", () => ({
   api: {
+    entitlements: {
+      getEntitlements: "getEntitlements",
+    },
     ai: {
       getNewsletterSummary: "getNewsletterSummary",
       generateSummary: "generateSummary",
@@ -65,6 +81,11 @@ describe("SummaryPanel", () => {
     vi.clearAllMocks()
     mockGenerateSummary.mockReset()
     mockSummaryData.mockReset()
+    try {
+      localStorage.removeItem("newsletter-manager:summary-collapsed")
+    } catch {
+      // ignore
+    }
   })
 
   describe("Empty State (No Summary)", () => {

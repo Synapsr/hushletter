@@ -56,7 +56,7 @@ interface NewsletterMetadata {
   isFavorited?: boolean;
   isPrivate: boolean;
   readProgress?: number;
-  contentStatus: "available" | "missing" | "error";
+  contentStatus: "available" | "missing" | "error" | "locked";
   /** Story 9.10: Newsletter source for unified folder view display */
   source?: "email" | "gmail" | "manual" | "community";
 }
@@ -583,18 +583,37 @@ function NewsletterDetailPage() {
         isUpdating={false}
       />
 
-      {/* Story 5.1: AI Summary panel (collapsible, above content per UX spec)
-          Wrapped in error boundary per NFR11 - AI failure should not block reading
-          Code review fix (MEDIUM-2): Uses FallbackComponent with retry capability */}
-      <ErrorBoundary FallbackComponent={SummaryErrorFallback}>
-        <SummaryPanel userNewsletterId={userNewsletterId} />
-      </ErrorBoundary>
+      {newsletter.contentStatus === "locked" ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Upgrade to read this newsletter</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              You’ve reached the Free plan history limit. Hushletter Pro unlocks
+              all locked newsletters and keeps everything readable.
+            </p>
+            <Button onClick={() => (window.location.href = "/settings")}>
+              Upgrade to Pro
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Story 5.1: AI Summary panel (collapsible, above content per UX spec)
+              Wrapped in error boundary per NFR11 - AI failure should not block reading
+              Code review fix (MEDIUM-2): Uses FallbackComponent with retry capability */}
+          <ErrorBoundary FallbackComponent={SummaryErrorFallback}>
+            <SummaryPanel userNewsletterId={userNewsletterId} />
+          </ErrorBoundary>
 
-      {/* Newsletter content with error boundary and scroll tracking (Story 3.4) */}
-      <NewsletterContent
-        newsletterId={userNewsletterId}
-        initialProgress={shouldResume ? newsletter.readProgress : undefined}
-      />
+          {/* Newsletter content with error boundary and scroll tracking (Story 3.4) */}
+          <NewsletterContent
+            newsletterId={userNewsletterId}
+            initialProgress={shouldResume ? newsletter.readProgress : undefined}
+          />
+        </>
+      )}
     </div>
   );
 }

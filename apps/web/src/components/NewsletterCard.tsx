@@ -5,7 +5,7 @@ import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { Button, Card, CardContent, Tooltip, TooltipTrigger, TooltipContent } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
-import { EyeOff, Eye, Sparkles, Lock, Mail, Globe, Star } from "lucide-react";
+import { EyeOff, Eye, Sparkles, Lock, LockKeyhole, Mail, Globe, Star } from "lucide-react";
 import { SummaryPreview } from "./SummaryPreview";
 import { m } from "@/paraglide/messages.js";
 
@@ -19,6 +19,7 @@ export interface NewsletterData {
   isRead: boolean;
   isHidden: boolean;
   isPrivate: boolean;
+  isLockedByPlan?: boolean;
   readProgress?: number;
   /** Story 5.2: Indicates if AI summary is available */
   hasSummary?: boolean;
@@ -117,6 +118,15 @@ export function NewsletterCard({
   const favoriteValue = isFavorited ?? Boolean(newsletter.isFavorited);
   // Story 9.10 (code review fix): Extract source info computation from IIFE in JSX
   const sourceInfo = getSourceIndicatorInfo(newsletter.source);
+  const progressPercent =
+    typeof newsletter.readProgress === "number"
+      ? Math.round(newsletter.readProgress)
+      : null;
+  const showProgressIndicator =
+    progressPercent !== null &&
+    progressPercent > 0 &&
+    progressPercent < 100 &&
+    !newsletter.isRead;
 
   // Code review fix (HIGH-1): Track feedback state for AC1 confirmation
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -238,6 +248,20 @@ export function NewsletterCard({
                     </TooltipTrigger>
                     <TooltipContent>{sourceInfo.tooltip}</TooltipContent>
                   </Tooltip>
+                  {/* Plan lock indicator - newsletter stored but locked on Free plan */}
+                  {newsletter.isLockedByPlan && (
+                    <Tooltip>
+                      <TooltipTrigger className="inline-flex">
+                        <LockKeyhole
+                          className="h-3.5 w-3.5 text-violet-500"
+                          aria-label="Locked newsletter"
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        This newsletter is locked on the Free plan. Upgrade to Pro to read.
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   {/* Story 6.2: Privacy indicator - lock icon for private newsletters */}
                   {newsletter.isPrivate && (
                     <Tooltip>
@@ -286,6 +310,11 @@ export function NewsletterCard({
                 {favoriteFeedback && (
                   <span className="text-xs text-destructive" role="status">
                     {favoriteFeedback}
+                  </span>
+                )}
+                {!feedback && showProgressIndicator && (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {progressPercent}% read
                   </span>
                 )}
               </div>

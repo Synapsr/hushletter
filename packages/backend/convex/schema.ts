@@ -3,28 +3,36 @@ import { v } from "convex/values"
 
 export default defineSchema({
   // Users table - application user data linked to Better Auth
-	  users: defineTable({
-	    email: v.string(),
-	    name: v.optional(v.string()),
-	    createdAt: v.number(),
-	    // Link to Better Auth user record
-	    authId: v.optional(v.string()),
-	    // Dedicated email address for receiving newsletters (Story 1.4)
-	    dedicatedEmail: v.optional(v.string()),
-	    // Public share token for dedicatedEmail (revocable/rotatable)
-	    dedicatedEmailShareToken: v.optional(v.string()),
-	    dedicatedEmailShareTokenUpdatedAt: v.optional(v.number()),
-	    // Story 6.1: Track if user has seen the community sharing onboarding
-	    hasSeenSharingOnboarding: v.optional(v.boolean()),
+		  users: defineTable({
+		    email: v.string(),
+		    name: v.optional(v.string()),
+		    createdAt: v.number(),
+		    // Link to Better Auth user record
+		    authId: v.optional(v.string()),
+		    // Dedicated email address for receiving newsletters (Story 1.4)
+		    dedicatedEmail: v.optional(v.string()),
+		    // Billing plan and subscription state (Pricing: Free → Pro)
+		    plan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
+		    proExpiresAt: v.optional(v.number()), // Unix timestamp ms
+		    polarCustomerId: v.optional(v.string()),
+		    polarSubscriptionId: v.optional(v.string()),
+		    // Pro vanity email alias (keeps dedicatedEmail as stable receiver)
+		    vanityEmail: v.optional(v.string()),
+		    // Public share token for dedicatedEmail (revocable/rotatable)
+		    dedicatedEmailShareToken: v.optional(v.string()),
+		    dedicatedEmailShareTokenUpdatedAt: v.optional(v.number()),
+		    // Story 6.1: Track if user has seen the community sharing onboarding
+		    hasSeenSharingOnboarding: v.optional(v.boolean()),
 	    // Story 7.1: Admin role flag - only set via direct DB edit or migration
 	    isAdmin: v.optional(v.boolean()),
 	    // Onboarding: timestamp when user completed the post-signup onboarding flow
 	    onboardingCompletedAt: v.optional(v.number()),
-	  })
-	    .index("by_email", ["email"])
-	    .index("by_authId", ["authId"])
-	    .index("by_dedicatedEmail", ["dedicatedEmail"])
-	    .index("by_dedicatedEmailShareToken", ["dedicatedEmailShareToken"]),
+		  })
+		    .index("by_email", ["email"])
+		    .index("by_authId", ["authId"])
+		    .index("by_dedicatedEmail", ["dedicatedEmail"])
+		    .index("by_vanityEmail", ["vanityEmail"])
+		    .index("by_dedicatedEmailShareToken", ["dedicatedEmailShareToken"]),
 
   // ============================================================
   // Epic 2.5: Shared Content Schema
@@ -66,25 +74,29 @@ export default defineSchema({
   // Story 5.1: Task 1.2 - Added summary fields for personal/private summaries
   // Story 8.4: Task 1 - Added messageId for duplicate detection
   // Story 9.1: Task 1.3, 1.4, 1.6 - Added folderId (required at app-level), source, and index
-  userNewsletters: defineTable({
-    userId: v.id("users"),
-    senderId: v.id("senders"),
-    folderId: v.optional(v.id("folders")), // Story 9.1: Required at app-level after migration
-    contentId: v.optional(v.id("newsletterContent")), // If public
-    privateR2Key: v.optional(v.string()), // If private
-    subject: v.string(),
-    senderEmail: v.string(),
-    senderName: v.optional(v.string()),
-    receivedAt: v.number(), // Unix timestamp ms
-    isRead: v.boolean(),
-    isHidden: v.boolean(),
-    isFavorited: v.optional(v.boolean()),
-    isPrivate: v.boolean(),
-    readProgress: v.optional(v.number()), // 0-100 percentage
-    // Public share token for this specific newsletter (revocable/rotatable)
-    shareToken: v.optional(v.string()),
-    shareTokenUpdatedAt: v.optional(v.number()),
-    // Story 5.1: AI Summary (personal for private newsletters, or user-regenerated summaries)
+	  userNewsletters: defineTable({
+	    userId: v.id("users"),
+	    senderId: v.id("senders"),
+	    folderId: v.optional(v.id("folders")), // Story 9.1: Required at app-level after migration
+	    contentId: v.optional(v.id("newsletterContent")), // If public
+	    privateR2Key: v.optional(v.string()), // If private
+	    subject: v.string(),
+	    senderEmail: v.string(),
+	    senderName: v.optional(v.string()),
+	    receivedAt: v.number(), // Unix timestamp ms
+	    isRead: v.boolean(),
+	    isHidden: v.boolean(),
+	    isFavorited: v.optional(v.boolean()),
+	    isPrivate: v.boolean(),
+	    // Plan-based access control: stored but locked for Free after cap
+	    isLockedByPlan: v.optional(v.boolean()),
+	    // AI summary cooldown tracking (per newsletter)
+	    lastSummaryRequestAt: v.optional(v.number()),
+	    readProgress: v.optional(v.number()), // 0-100 percentage
+	    // Public share token for this specific newsletter (revocable/rotatable)
+	    shareToken: v.optional(v.string()),
+	    shareTokenUpdatedAt: v.optional(v.number()),
+	    // Story 5.1: AI Summary (personal for private newsletters, or user-regenerated summaries)
     summary: v.optional(v.string()),
     summaryGeneratedAt: v.optional(v.number()), // Unix timestamp ms
     // Story 8.4: Email Message-ID header for duplicate detection (without angle brackets)
@@ -139,18 +151,19 @@ export default defineSchema({
   // Lightweight per-user newsletter search metadata (subject + sender only).
   // Exists to keep typeahead search bounded/low-bandwidth without scanning
   // large `userNewsletters` documents on every keystroke.
-  newsletterSearchMeta: defineTable({
-    userId: v.id("users"),
-    userNewsletterId: v.id("userNewsletters"),
-    subject: v.string(),
-    senderEmail: v.string(),
-    senderName: v.optional(v.string()),
-    receivedAt: v.number(), // Unix timestamp ms
-    isHidden: v.boolean(),
-    isRead: v.boolean(),
-  })
-    .index("by_userId_receivedAt", ["userId", "receivedAt"])
-    .index("by_userId_userNewsletterId", ["userId", "userNewsletterId"]),
+	  newsletterSearchMeta: defineTable({
+	    userId: v.id("users"),
+	    userNewsletterId: v.id("userNewsletters"),
+	    subject: v.string(),
+	    senderEmail: v.string(),
+	    senderName: v.optional(v.string()),
+	    receivedAt: v.number(), // Unix timestamp ms
+	    isHidden: v.boolean(),
+	    isRead: v.boolean(),
+	    isLockedByPlan: v.optional(v.boolean()),
+	  })
+	    .index("by_userId_receivedAt", ["userId", "receivedAt"])
+	    .index("by_userId_userNewsletterId", ["userId", "userNewsletterId"]),
 
   // Global sender registry (not user-scoped)
   // Story 2.5.1: Task 1 - Refactored senders table
@@ -205,7 +218,7 @@ export default defineSchema({
    * - IDs of moved items to restore their original folder
    * - TTL for undo window (30 seconds)
    */
-  folderMergeHistory: defineTable({
+		  folderMergeHistory: defineTable({
     mergeId: v.string(), // UUID for identifying this merge operation
     userId: v.id("users"),
     sourceFolderName: v.string(),
@@ -215,13 +228,54 @@ export default defineSchema({
     movedNewsletterIds: v.array(v.id("userNewsletters")),
     createdAt: v.number(), // Unix timestamp ms
     expiresAt: v.number(), // Unix timestamp ms - undo window expiry
-  })
-    .index("by_mergeId", ["mergeId"])
-    .index("by_userId", ["userId"])
-    .index("by_expiresAt", ["expiresAt"]),
+		  })
+		    .index("by_mergeId", ["mergeId"])
+		    .index("by_userId", ["userId"]),
 
-  // ============================================================
-  // Epic 4: Gmail Import Tables
+	  // ============================================================
+	  // Pricing: Usage + Billing (Free → Pro)
+	  // ============================================================
+
+	  /**
+	   * Per-user usage counters to avoid expensive counts for caps/warnings.
+	   * Stored values are best-effort and updated transactionally on key writes.
+	   */
+	  userUsageCounters: defineTable({
+	    userId: v.id("users"),
+	    totalStored: v.number(),
+	    unlockedStored: v.number(),
+	    lockedStored: v.number(),
+	    updatedAt: v.number(), // Unix timestamp ms
+	  }).index("by_userId", ["userId"]),
+
+	  /**
+	   * Idempotency store for Polar webhook events.
+	   */
+	  billingWebhookEvents: defineTable({
+	    eventId: v.string(),
+	    receivedAt: v.number(), // Unix timestamp ms
+	  }).index("by_eventId", ["eventId"]),
+
+	  /**
+	   * Daily AI usage per user (for Pro fair-use limits).
+	   */
+	  aiUsageDaily: defineTable({
+	    userId: v.id("users"),
+	    day: v.string(), // YYYY-MM-DD (UTC)
+	    count: v.number(),
+	    updatedAt: v.number(),
+	  }).index("by_userId_day", ["userId", "day"]),
+
+	  /**
+	   * Per-user in-flight AI generation lock (enforces 1 concurrent generation).
+	   */
+		  aiInFlight: defineTable({
+		    userId: v.id("users"),
+		    startedAt: v.number(),
+		  }).index("by_userId", ["userId"]),
+
+	  // ============================================================
+	  // Epic 4: Gmail Import Tables
   // Story 4.2: Newsletter Sender Scanning
   // ============================================================
 

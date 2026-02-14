@@ -186,9 +186,9 @@ export const receiveEmail = httpAction(async (ctx, request) => {
     console.error("[emailIngestion] Failed to create delivery log:", error)
   }
 
-  // Lookup user by dedicated email address
-  const user = await ctx.runQuery(internal._internal.users.findByDedicatedEmail, {
-    dedicatedEmail: validatedTo,
+  // Lookup user by dedicated email address or Pro vanity alias
+  const user = await ctx.runQuery(internal._internal.users.findByInboundEmail, {
+    email: validatedTo,
   })
 
   if (!user) {
@@ -267,6 +267,39 @@ export const receiveEmail = httpAction(async (ctx, request) => {
 
     // Story 8.4: Handle duplicate detection (silent success, no error)
     if (result.skipped) {
+      if (result.reason === "plan_limit") {
+        console.log(
+          `[emailIngestion] Plan limit reached: hardCap=${result.hardCap}, user=${user._id}`
+        )
+        if (deliveryLogId) {
+          try {
+            await ctx.runMutation(internal.admin.updateDeliveryStatus, {
+              logId: deliveryLogId,
+              status: "failed",
+              errorMessage: `Plan storage limit reached (hard cap ${result.hardCap})`,
+              errorCode: "PLAN_STORAGE_LIMIT",
+            })
+          } catch (logError) {
+            console.error("[emailIngestion] Failed to update delivery log for plan limit:", logError)
+          }
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            userId: user._id,
+            senderId: sender._id,
+            skipped: true,
+            reason: "plan_limit",
+            hardCap: result.hardCap,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      }
+
       console.log(
         `[emailIngestion] Duplicate detected (${result.duplicateReason}): existingId=${result.existingId}`
       )

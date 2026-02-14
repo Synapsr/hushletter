@@ -9,6 +9,7 @@ import { Sparkles, RefreshCw, ChevronDown, ChevronUp, Users } from "lucide-react
 import { ConvexError } from "convex/values";
 import { useSummaryPreferences } from "@/hooks/useSummaryPreferences";
 import { m } from "@/paraglide/messages.js";
+import { Link } from "@tanstack/react-router";
 
 interface SummaryPanelProps {
   /** userNewsletter document ID - typed for Convex safety */
@@ -45,9 +46,17 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { data: entitlements } = useQuery(convexQuery(api.entitlements.getEntitlements, {}));
+  const isPro = Boolean((entitlements as { isPro?: boolean } | undefined)?.isPro);
+
   // Query for existing summary (resolves shared vs private automatically)
   // Returns: { summary: string | null, isShared: boolean, generatedAt: number | null }
-  const { data } = useQuery(convexQuery(api.ai.getNewsletterSummary, { userNewsletterId }));
+  const { data } = useQuery(
+    convexQuery(
+      api.ai.getNewsletterSummary,
+      isPro ? { userNewsletterId } : "skip",
+    ),
+  );
   // Code review fix: Trust the query return type, avoid manual type guards
   const summaryData = data as SummaryData | undefined;
 
@@ -107,8 +116,21 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
 
       {!isCollapsed && (
         <CardContent>
+          {!isPro && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                AI summaries are included with Hushletter Pro.
+              </p>
+              <div className="flex justify-end">
+                <Button render={<Link to="/settings" />} size="sm">
+                  Upgrade to Pro
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Error state - Story 5.2 Task 5.2: Informative error message */}
-          {error && (
+          {isPro && error && (
             <div
               className="text-sm text-destructive mb-4 p-3 bg-destructive/10 rounded-lg"
               role="alert"
@@ -119,7 +141,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
           )}
 
           {/* Loading state - animated skeleton */}
-          {isGenerating && (
+          {isPro && isGenerating && (
             <div className="space-y-2 animate-pulse" aria-label={m.summaryPanel_generatingSummary()}>
               <div className="h-4 bg-muted rounded w-full" />
               <div className="h-4 bg-muted rounded w-5/6" />
@@ -128,7 +150,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
           )}
 
           {/* Summary content - Story 5.2 Task 4.3: fade-in animation */}
-          {!isGenerating && hasSummary && summaryData?.summary && (
+          {isPro && !isGenerating && hasSummary && summaryData?.summary && (
             <div className="space-y-2 animate-in fade-in duration-300">
               {/* Shared summary indicator (community summary) */}
               {isSharedSummary && (
@@ -156,7 +178,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
           )}
 
           {/* Generate/Regenerate button */}
-          {!isGenerating && (
+          {isPro && !isGenerating && (
             <div className="mt-4 flex justify-end">
               <Button
                 variant={hasSummary ? "outline" : "default"}
@@ -181,7 +203,7 @@ export function SummaryPanel({ userNewsletterId }: SummaryPanelProps) {
           )}
 
           {/* Empty state guidance - only when no summary and not generating */}
-          {!isGenerating && !hasSummary && !error && (
+          {isPro && !isGenerating && !hasSummary && !error && (
             <p className="text-sm text-muted-foreground mb-4">
               {m.summaryPanel_emptyStateGuidance()}
             </p>

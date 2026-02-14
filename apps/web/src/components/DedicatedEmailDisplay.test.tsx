@@ -1,20 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import { render, screen, waitFor, act, fireEvent } from "@testing-library/react"
 import { DedicatedEmailDisplay } from "./DedicatedEmailDisplay"
 
-// Mock clipboard API
 const mockWriteText = vi.fn()
 
 describe("DedicatedEmailDisplay", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Setup clipboard mock
-    Object.assign(navigator, {
-      clipboard: {
-        writeText: mockWriteText,
-      },
-    })
+    try {
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: mockWriteText },
+        configurable: true,
+      })
+    } catch {
+      // ignore
+    }
   })
 
   afterEach(() => {
@@ -43,25 +43,24 @@ describe("DedicatedEmailDisplay", () => {
 
   describe("Copy Functionality (AC2)", () => {
     it("copies email to clipboard when button is clicked", async () => {
-      const user = userEvent.setup()
       mockWriteText.mockResolvedValue(undefined)
-
       render(<DedicatedEmailDisplay email="abc12345@newsletters.example.com" />)
 
       const copyButton = screen.getByRole("button", { name: "Copy email address" })
-      await user.click(copyButton)
+      fireEvent.click(copyButton)
 
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Copied!" })).toBeInTheDocument()
+      })
       expect(mockWriteText).toHaveBeenCalledWith("abc12345@newsletters.example.com")
     })
 
     it("shows success state after copying", async () => {
-      const user = userEvent.setup()
       mockWriteText.mockResolvedValue(undefined)
-
       render(<DedicatedEmailDisplay email="test@example.com" />)
 
       const copyButton = screen.getByRole("button", { name: "Copy email address" })
-      await user.click(copyButton)
+      fireEvent.click(copyButton)
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: "Copied!" })).toBeInTheDocument()
@@ -69,13 +68,11 @@ describe("DedicatedEmailDisplay", () => {
     })
 
     it("shows error state when copy fails", async () => {
-      const user = userEvent.setup()
       mockWriteText.mockRejectedValue(new Error("Clipboard access denied"))
-
       render(<DedicatedEmailDisplay email="test@example.com" />)
 
       const copyButton = screen.getByRole("button", { name: "Copy email address" })
-      await user.click(copyButton)
+      fireEvent.click(copyButton)
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: "Failed to copy" })).toBeInTheDocument()
@@ -85,24 +82,24 @@ describe("DedicatedEmailDisplay", () => {
 
     it("resets to idle state after success timeout", async () => {
       vi.useFakeTimers()
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       mockWriteText.mockResolvedValue(undefined)
 
       render(<DedicatedEmailDisplay email="test@example.com" />)
 
       const copyButton = screen.getByRole("button", { name: "Copy email address" })
-      await user.click(copyButton)
+      fireEvent.click(copyButton)
 
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Copied!" })).toBeInTheDocument()
+      await act(async () => {
+        await Promise.resolve()
       })
+      expect(screen.getByRole("button", { name: "Copied!" })).toBeInTheDocument()
 
       // Advance time by 2 seconds (success timeout)
-      vi.advanceTimersByTime(2000)
-
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Copy email address" })).toBeInTheDocument()
+      await act(async () => {
+        vi.advanceTimersByTime(2000)
       })
+
+      expect(screen.getByRole("button", { name: "Copy email address" })).toBeInTheDocument()
     })
   })
 })

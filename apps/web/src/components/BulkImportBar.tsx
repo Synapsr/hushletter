@@ -6,6 +6,7 @@ import { Button } from "@hushletter/ui";
 import { Download, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
 
 /**
  * Props for BulkImportBar component
@@ -34,6 +35,7 @@ export function BulkImportBar({
   onImportComplete,
 }: BulkImportBarProps) {
   const [isImporting, setIsImporting] = useState(false);
+  const locale = getLocale();
 
   const bulkImport = useMutation(api.community.bulkImportFromCommunity);
 
@@ -81,7 +83,13 @@ export function BulkImportBar({
           <>
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
             <span className="text-sm text-muted-foreground">
-              {m.bulkImport_importing({ count: selectedIds.size })}
+              {locale.startsWith("fr")
+                ? selectedIds.size === 1
+                  ? "Import de 1 newsletter..."
+                  : `Import de ${selectedIds.size} newsletters...`
+                : selectedIds.size === 1
+                  ? "Importing 1 newsletter..."
+                  : `Importing ${selectedIds.size} newsletters...`}
             </span>
           </>
         ) : (

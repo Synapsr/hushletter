@@ -132,6 +132,18 @@ export const importEmlNewsletter = action({
 
     // 6. Story 8.4: Handle duplicate detection (FR33 - no error, silent skip)
     if (result.skipped) {
+      if (result.reason === "plan_limit") {
+        console.log(
+          `[manualImport] Plan limit reached: hardCap=${result.hardCap}, user=${userDoc._id}`
+        )
+        return {
+          skipped: true,
+          reason: "plan_limit",
+          hardCap: result.hardCap,
+          senderId: sender._id,
+        }
+      }
+
       console.log(
         `[manualImport] Duplicate detected (${result.duplicateReason}): existingId=${result.existingId}`
       )

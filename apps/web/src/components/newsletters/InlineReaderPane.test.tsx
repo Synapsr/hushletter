@@ -16,11 +16,14 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 vi.mock("@convex-dev/react-query", () => ({
-  convexQuery: vi.fn(() => ({ queryKey: ["mock-query"] })),
+  convexQuery: (queryRef: string) => ({ queryKey: [queryRef] }),
 }));
 
 vi.mock("@hushletter/backend", () => ({
   api: {
+    entitlements: {
+      getEntitlements: "getEntitlements",
+    },
     newsletters: {
       getUserNewsletter: "getUserNewsletter",
       hideNewsletter: "hideNewsletter",
@@ -98,9 +101,15 @@ const baseNewsletter = {
 };
 
 function renderPane(overrides?: Partial<typeof baseNewsletter>) {
-  mockUseQuery.mockReturnValue({
-    data: { ...baseNewsletter, ...overrides },
-    isPending: false,
+  mockUseQuery.mockImplementation((query: any) => {
+    const key = query?.queryKey?.[0];
+    if (key === "getEntitlements") {
+      return { data: { isPro: false }, isPending: false };
+    }
+    return {
+      data: { ...baseNewsletter, ...overrides },
+      isPending: false,
+    };
   });
 
   return render(
@@ -211,5 +220,11 @@ describe("InlineReaderPane archive/unarchive flow", () => {
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith(m.newsletters_failedToRestore());
     });
+  });
+
+  it("shows upgrade paywall for locked newsletters", async () => {
+    renderPane({ contentStatus: "locked" as const });
+    expect(screen.getByText("Upgrade to read this newsletter")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Upgrade to Pro" })).toBeTruthy();
   });
 });

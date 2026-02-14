@@ -16,10 +16,12 @@ import { SenderReview } from "./-SenderReview"
 // Mock Convex react hooks
 const mockUseQuery = vi.fn()
 const mockUseMutation = vi.fn()
+const mockUseAction = vi.fn()
 
 vi.mock("convex/react", () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
   useMutation: (...args: unknown[]) => mockUseMutation(...args),
+  useAction: (...args: unknown[]) => mockUseAction(...args),
 }))
 
 // Mock the api module
@@ -32,6 +34,7 @@ vi.mock("@hushletter/backend", () => ({
       selectAllSenders: "selectAllSenders",
       deselectAllSenders: "deselectAllSenders",
       approveSelectedSenders: "approveSelectedSenders",
+      startHistoricalImport: "startHistoricalImport",
     },
   },
 }))
@@ -81,6 +84,7 @@ const mockUpdateSelection = vi.fn()
 const mockSelectAll = vi.fn()
 const mockDeselectAll = vi.fn()
 const mockApproveSelected = vi.fn()
+const mockStartHistoricalImport = vi.fn()
 
 describe("SenderReview", () => {
   beforeEach(() => {
@@ -113,11 +117,19 @@ describe("SenderReview", () => {
       return vi.fn()
     })
 
+    mockUseAction.mockImplementation((actionRef: string) => {
+      if (actionRef === "startHistoricalImport") {
+        return mockStartHistoricalImport
+      }
+      return vi.fn()
+    })
+
     // Default: mutations resolve successfully
     mockUpdateSelection.mockResolvedValue(undefined)
     mockSelectAll.mockResolvedValue({ updatedCount: 1 })
     mockDeselectAll.mockResolvedValue({ updatedCount: 2 })
     mockApproveSelected.mockResolvedValue({ approvedCount: 2 })
+    mockStartHistoricalImport.mockResolvedValue({ success: true })
   })
 
   describe("AC#1: Default Selection", () => {
@@ -369,7 +381,7 @@ describe("SenderReview", () => {
       await waitFor(() => {
         expect(screen.getByText("Senders Approved!")).toBeInTheDocument()
         expect(
-          screen.getByText(/2 senders approved for import/i)
+          screen.getByText(/2 senders ready for import/i)
         ).toBeInTheDocument()
       })
     })
@@ -379,10 +391,12 @@ describe("SenderReview", () => {
     it("deselected senders have muted styling (opacity)", () => {
       render(<SenderReview />)
 
-      // The third sender is deselected
-      // Check that it has the muted styling class
-      const senderRows = document.querySelectorAll(".border.rounded-lg")
-      expect(senderRows[2]).toHaveClass("opacity-60")
+      const senderRow = screen
+        .getByText("promo@spam.com")
+        .closest("div.border.rounded-lg")
+
+      expect(senderRow).toBeTruthy()
+      expect(senderRow).toHaveClass("opacity-60")
     })
 
     it("selected senders do not have muted styling", () => {
@@ -520,7 +534,7 @@ describe("SenderReview", () => {
       expect(onBack).toHaveBeenCalled()
     })
 
-    it("calls onStartImport when Done button is clicked after approval", async () => {
+    it("calls onStartImport when Start Import is clicked after approval", async () => {
       const onStartImport = vi.fn()
       const user = userEvent.setup()
       render(<SenderReview onStartImport={onStartImport} />)
@@ -536,8 +550,8 @@ describe("SenderReview", () => {
         expect(screen.getByText("Senders Approved!")).toBeInTheDocument()
       })
 
-      const doneButton = screen.getByRole("button", { name: /done/i })
-      await user.click(doneButton)
+      const startImportButton = screen.getByRole("button", { name: /start import/i })
+      await user.click(startImportButton)
 
       expect(onStartImport).toHaveBeenCalled()
     })

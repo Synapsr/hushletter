@@ -1,4 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { useAction } from "convex/react";
+import { api } from "@hushletter/backend";
+import { getLocale } from "@/paraglide/runtime.js";
 import React, { useState, useEffect, useRef } from "react";
 
 export const Route = createFileRoute("/{-$locale}/")({
@@ -94,7 +99,33 @@ function useCounter(target: number, isInView: boolean, duration = 2000) {
   return count;
 }
 
-function LandingPage() {
+export function LandingPage() {
+  const locale = getLocale();
+  const currency = locale.startsWith("fr") ? ("eur" as const) : ("usd" as const);
+  const currencySymbol = currency === "eur" ? "€" : "$";
+
+  const { data: currentUserData } = useQuery(convexQuery(api.auth.getCurrentUser, {}));
+  const currentUser = currentUserData as { id: string } | null | undefined;
+  const isAuthed = Boolean(currentUser?.id);
+
+  const createCheckout = useAction(api.billing.createProCheckoutUrl);
+  const [checkoutPending, setCheckoutPending] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const handleUpgrade = async (interval: "month" | "year") => {
+    setCheckoutPending(true);
+    setCheckoutError(null);
+    try {
+      const { url } = await createCheckout({ interval, currency });
+      window.location.href = url;
+    } catch (error) {
+      console.error("[landing] Failed to start checkout:", error);
+      setCheckoutError("Unable to start checkout. Please try again.");
+    } finally {
+      setCheckoutPending(false);
+    }
+  };
+
   return (
     <>
       <style>{`
@@ -935,6 +966,173 @@ function LandingPage() {
         </div>
 
         <StatsSection />
+
+        {/* PRICING */}
+        <section id="pricing" className="py-24 bg-white">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="text-center mb-12">
+              <h2 className="font-display text-4xl font-bold text-gray-900 mb-3">
+                Simple pricing
+              </h2>
+              <p className="font-body text-lg text-gray-500">
+                Free stays usable. Pro unlocks AI + Gmail + custom address.
+              </p>
+              <p className="mt-2 text-sm text-gray-400">
+                {currencySymbol}9/month · {currencySymbol}90/year · + tax/VAT where applicable
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+              {/* Free */}
+              <div className="rounded-3xl border border-gray-100 bg-gray-50 p-8 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Free</p>
+                    <p className="mt-2 font-display text-4xl font-bold text-gray-900">
+                      {currencySymbol}0
+                      <span className="text-base font-body font-semibold text-gray-500">
+                        /month
+                      </span>
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Great for getting organized — with a hard upgrade wall once you hit the cap.
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="mt-6 space-y-3 text-sm text-gray-700">
+                  <li className="flex gap-2">
+                    <span className="mt-0.5 text-gray-900">✓</span>
+                    Dedicated newsletter address (auto-generated)
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-0.5 text-gray-900">✓</span>
+                    Core reading + folders + sender organization
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-0.5 text-gray-900">✓</span>
+                    Community/browsing/sharing features
+                  </li>
+                </ul>
+
+                <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4">
+                  <p className="text-sm font-semibold text-gray-900">Storage limits</p>
+                  <ul className="mt-2 space-y-2 text-sm text-gray-700">
+                    <li className="flex gap-2">
+                      <span className="mt-0.5 text-gray-900">•</span>
+                      First <strong>1,000</strong> newsletters are readable
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="mt-0.5 text-gray-900">•</span>
+                      After 1,000: new arrivals are stored but <strong>locked (Pro-only)</strong>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="mt-0.5 text-gray-900">•</span>
+                      Hard cap at <strong>2,000 stored</strong> (new arrivals stop storing)
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="mt-6">
+                  <Link
+                    to="/{-$locale}/signup"
+                    className="inline-flex w-full items-center justify-center rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800 transition-colors"
+                  >
+                    Create account
+                  </Link>
+                </div>
+              </div>
+
+              {/* Pro */}
+              <div className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Hushletter Pro</p>
+                    <p className="mt-2 font-display text-4xl font-bold text-gray-900">
+                      {currencySymbol}9
+                      <span className="text-base font-body font-semibold text-gray-500">
+                        /month
+                      </span>
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Or {currencySymbol}90/year (2 months free)
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Designed to cover AI + email infrastructure while keeping Free delightful.
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="mt-6 space-y-3 text-sm text-gray-700">
+                  <li className="flex gap-2">
+                    <span className="mt-0.5 text-gray-900">✓</span>
+                    AI summaries (fair use: 50/day)
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-0.5 text-gray-900">✓</span>
+                    Gmail import & sync
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-0.5 text-gray-900">✓</span>
+                    Vanity email alias (keep your original address too)
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-0.5 text-gray-900">✓</span>
+                    Pro reading controls (fonts & backgrounds)
+                  </li>
+                </ul>
+
+                {checkoutError && (
+                  <p className="mt-4 text-sm text-rose-600" role="alert">
+                    {checkoutError}
+                  </p>
+                )}
+
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {isAuthed ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={checkoutPending}
+                        onClick={() => handleUpgrade("month")}
+                        className="inline-flex w-full items-center justify-center rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-60 disabled:hover:bg-gray-900 transition-colors"
+                      >
+                        Upgrade monthly
+                      </button>
+                      <button
+                        type="button"
+                        disabled={checkoutPending}
+                        onClick={() => handleUpgrade("year")}
+                        className="inline-flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                      >
+                        Upgrade yearly
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        to="/{-$locale}/signup"
+                        className="inline-flex w-full items-center justify-center rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800 transition-colors"
+                      >
+                        Create account
+                      </Link>
+                      <Link
+                        to="/{-$locale}/login"
+                        className="inline-flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50 transition-colors"
+                      >
+                        Log in
+                      </Link>
+                    </>
+                  )}
+                </div>
+
+                <p className="mt-4 text-sm text-gray-500">
+                  No trial. 30-day money-back guarantee.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* CTA */}
         <section className="py-20 bg-white">

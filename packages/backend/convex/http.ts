@@ -7,6 +7,7 @@ import {
   verifyUser,
   logRejection,
 } from "./importIngestion"
+import { handlePolarWebhook } from "./billingWebhook"
 
 const http = httpRouter()
 
@@ -52,6 +53,13 @@ http.route({
   path: "/api/email/import/log-rejection",
   method: "POST",
   handler: logRejection,
+})
+
+// Polar billing webhooks (subscription status, etc.)
+http.route({
+  path: "/api/billing/polar/webhook",
+  method: "POST",
+  handler: handlePolarWebhook,
 })
 
 // Register Better Auth routes with CORS enabled for client-side framework compatibility

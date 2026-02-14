@@ -49,6 +49,8 @@ interface ReaderActionBarProps {
   onBackgroundChange?: (value: ReaderBackgroundPreference) => void;
   onFontChange?: (value: ReaderFontPreference) => void;
   onFontSizeChange?: (value: ReaderFontSizePreference) => void;
+  /** Pro-only: reader appearance controls */
+  isPro?: boolean;
   senderName?: string;
   subject?: string;
   date?: string;
@@ -71,6 +73,7 @@ export function ReaderActionBar({
   onBackgroundChange,
   onFontChange,
   onFontSizeChange,
+  isPro = false,
   senderName,
   subject,
 }: ReaderActionBarProps) {
@@ -133,6 +136,7 @@ export function ReaderActionBar({
             <TooltipContent>{m.reader_star()}</TooltipContent>
           </Tooltip>
 
+          {/* TODO: Highlight feature – hidden until implemented
           <Tooltip>
             <TooltipTrigger
               render={
@@ -143,6 +147,7 @@ export function ReaderActionBar({
             />
             <TooltipContent>{m.reader_highlight()}</TooltipContent>
           </Tooltip>
+          */}
         </div>
       </TooltipProvider>
 
@@ -192,114 +197,129 @@ export function ReaderActionBar({
             }
           />
           <PopoverContent align="end" className="w-72">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium">Reader appearance</p>
+            {!isPro ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">Reader appearance</p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Reader appearance controls are included with Hushletter Pro.
+                </p>
+                <Button className="w-full" render={<a href="/settings" />}>
+                  Upgrade to Pro
+                </Button>
               </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">Reader appearance</p>
+                </div>
 
-              <div className="space-y-1">
-                <label
-                  className="text-xs text-muted-foreground"
-                  htmlFor="reader-background"
-                >
-                  Background
-                </label>
-                <Select
-                  value={preferences?.background}
-                  onValueChange={(value) => {
-                    if (value !== null && onBackgroundChange) {
-                      onBackgroundChange(value as ReaderBackgroundPreference);
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    id="reader-background"
-                    className="h-8 text-xs"
-                    aria-label="Reader background"
+                <div className="space-y-1">
+                  <label
+                    className="text-xs text-muted-foreground"
+                    htmlFor="reader-background"
                   >
-                    <SelectValue placeholder="Background" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(READER_BACKGROUND_OPTIONS).map(
-                      ([value, option]) => (
-                        <SelectItem key={value} value={value}>
-                          {option.label}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+                    Background
+                  </label>
+                  <Select
+                    value={preferences?.background}
+                    onValueChange={(value) => {
+                      if (value !== null && onBackgroundChange) {
+                        onBackgroundChange(value as ReaderBackgroundPreference);
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      id="reader-background"
+                      className="h-8 text-xs"
+                      aria-label="Reader background"
+                    >
+                      <SelectValue placeholder="Background" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(READER_BACKGROUND_OPTIONS).map(
+                        ([value, option]) => (
+                          <SelectItem key={value} value={value}>
+                            {option.label}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-1">
-                <label
-                  className="text-xs text-muted-foreground"
-                  htmlFor="reader-font"
-                >
-                  Font
-                </label>
-                <Select
-                  value={preferences?.font}
-                  onValueChange={(value) => {
-                    if (value !== null && onFontChange) {
-                      onFontChange(value as ReaderFontPreference);
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    id="reader-font"
-                    className="h-8 text-xs"
-                    aria-label="Reader font"
+                <div className="space-y-1">
+                  <label
+                    className="text-xs text-muted-foreground"
+                    htmlFor="reader-font"
                   >
-                    <SelectValue placeholder="Font" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(READER_FONT_OPTIONS).map(
-                      ([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+                    Font
+                  </label>
+                  <Select
+                    value={preferences?.font}
+                    onValueChange={(value) => {
+                      if (value !== null && onFontChange) {
+                        onFontChange(value as ReaderFontPreference);
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      id="reader-font"
+                      className="h-8 text-xs"
+                      aria-label="Reader font"
+                    >
+                      <SelectValue placeholder="Font" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(READER_FONT_OPTIONS).map(
+                        ([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-1">
-                <label
-                  className="text-xs text-muted-foreground"
-                  htmlFor="reader-font-size"
-                >
-                  Font size
-                </label>
-                <Select
-                  value={preferences?.fontSize}
-                  onValueChange={(value) => {
-                    if (value !== null && onFontSizeChange) {
-                      onFontSizeChange(value as ReaderFontSizePreference);
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    id="reader-font-size"
-                    className="h-8 text-xs"
-                    aria-label="Reader font size"
+                <div className="space-y-1">
+                  <label
+                    className="text-xs text-muted-foreground"
+                    htmlFor="reader-font-size"
                   >
-                    <SelectValue placeholder="Font size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(READER_FONT_SIZE_OPTIONS).map(
-                      ([value, option]) => (
-                        <SelectItem key={value} value={value}>
-                          {option.label}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
+                    Font size
+                  </label>
+                  <Select
+                    value={preferences?.fontSize}
+                    onValueChange={(value) => {
+                      if (value !== null && onFontSizeChange) {
+                        onFontSizeChange(value as ReaderFontSizePreference);
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      id="reader-font-size"
+                      className="h-8 text-xs"
+                      aria-label="Reader font size"
+                    >
+                      <SelectValue placeholder="Font size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(READER_FONT_SIZE_OPTIONS).map(
+                        ([value, option]) => (
+                          <SelectItem key={value} value={value}>
+                            {option.label}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+            )}
           </PopoverContent>
         </Popover>
       </div>

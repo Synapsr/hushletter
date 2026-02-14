@@ -2,7 +2,13 @@ import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import { Tabs, TabsList, TabsTrigger, ScrollArea } from "@hushletter/ui";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  ScrollArea,
+  Button,
+} from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import { EyeOff, AlertCircle } from "lucide-react";
 import { SenderFolderItem } from "./SenderFolderItem";
@@ -30,7 +36,13 @@ interface SenderFolderSidebarProps {
   onFilterSelect: (filter: FilterType | null) => void;
   getIsFavorited: (newsletterId: string, serverValue?: boolean) => boolean;
   isFavoritePending: (newsletterId: string) => boolean;
-  onToggleFavorite: (newsletterId: string, currentValue: boolean) => Promise<void>;
+  onToggleFavorite: (
+    newsletterId: string,
+    currentValue: boolean,
+  ) => Promise<void>;
+  canLoadMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 function isFolderData(item: unknown): item is FolderData {
@@ -74,6 +86,9 @@ export function SenderFolderSidebar({
   getIsFavorited,
   isFavoritePending,
   onToggleFavorite,
+  canLoadMore,
+  isLoadingMore,
+  onLoadMore,
 }: SenderFolderSidebarProps) {
   const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>(
     selectedFilter === FILTER_STARRED ? "starred" : "all",
@@ -198,13 +213,16 @@ export function SenderFolderSidebar({
       aria-label={m.newsletters_folderNavigation()}
     >
       {/* Header */}
-      <div className="p-3 pb-0">
-        <h2 className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase px-2 mb-2">
+      <div className="p-2 pb-0">
+        {/* <h2 className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase px-2 mb-2">
           {m.sidebar_senderFolders()}
-        </h2>
+        </h2> */}
 
         {/* Filter tabs */}
-        <Tabs value={sidebarFilter} onValueChange={(val) => handleTabChange(val as SidebarFilter)}>
+        <Tabs
+          value={sidebarFilter}
+          onValueChange={(val) => handleTabChange(val as SidebarFilter)}
+        >
           <TabsList className="w-full h-8">
             <TabsTrigger value="all" className="flex-1 text-xs h-7">
               {m.sidebar_filterAll()}
@@ -245,6 +263,20 @@ export function SenderFolderSidebar({
                     onToggleFavorite={onToggleFavorite}
                   />
                 ))}
+                {canLoadMore && onLoadMore && (
+                  <div className="px-2 py-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      disabled={Boolean(isLoadingMore)}
+                      onClick={() => onLoadMore()}
+                    >
+                      {isLoadingMore ? "Loading..." : "Load more"}
+                    </Button>
+                  </div>
+                )}
               </div>
             )
           ) : sidebarFilter === "starred" ? (
@@ -270,6 +302,20 @@ export function SenderFolderSidebar({
                     onToggleFavorite={onToggleFavorite}
                   />
                 ))}
+                {canLoadMore && onLoadMore && (
+                  <div className="px-2 py-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      disabled={Boolean(isLoadingMore)}
+                      onClick={() => onLoadMore()}
+                    >
+                      {isLoadingMore ? "Loading..." : "Load more"}
+                    </Button>
+                  </div>
+                )}
               </div>
             )
           ) : foldersPending ? (
@@ -310,31 +356,34 @@ export function SenderFolderSidebar({
           )}
 
           {/* Hidden section */}
-          {!hiddenCountPending && ((hiddenCount ?? 0) > 0 || selectedFilter === FILTER_HIDDEN) && (
-            <>
-              <div className="h-px bg-border my-2 mx-2" role="separator" />
-              <button
-                onClick={handleHiddenClick}
-                aria-current={selectedFilter === "hidden" ? "page" : undefined}
-                className={cn(
-                  "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
-                  "hover:bg-accent transition-colors text-left",
-                  selectedFilter === "hidden" && "bg-accent font-medium",
-                )}
-              >
-                <div className="flex items-center gap-2 truncate flex-1 mr-2">
-                  <EyeOff
-                    className="h-4 w-4 flex-shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  <span className="truncate">{m.folder_hidden()}</span>
-                </div>
-                <span className="text-muted-foreground text-xs flex-shrink-0">
-                  {hiddenCount ?? visibleHiddenNewsletters.length}
-                </span>
-              </button>
-            </>
-          )}
+          {!hiddenCountPending &&
+            ((hiddenCount ?? 0) > 0 || selectedFilter === FILTER_HIDDEN) && (
+              <>
+                <div className="h-px bg-border my-2 mx-2" role="separator" />
+                <button
+                  onClick={handleHiddenClick}
+                  aria-current={
+                    selectedFilter === "hidden" ? "page" : undefined
+                  }
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
+                    "hover:bg-accent transition-colors text-left",
+                    selectedFilter === "hidden" && "bg-accent font-medium",
+                  )}
+                >
+                  <div className="flex items-center gap-2 truncate flex-1 mr-2">
+                    <EyeOff
+                      className="h-4 w-4 flex-shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <span className="truncate">{m.folder_hidden()}</span>
+                  </div>
+                  <span className="text-muted-foreground text-xs flex-shrink-0">
+                    {hiddenCount ?? visibleHiddenNewsletters.length}
+                  </span>
+                </button>
+              </>
+            )}
         </div>
       </ScrollArea>
     </aside>

@@ -31,6 +31,20 @@
 | Email         | React Email, Resend             |
 | PDF           | @react-pdf/renderer                 |
 
+## Performance And Bandwidth Guidelines
+
+### Convex + TanStack Query (`@convex-dev/react-query`)
+
+- **Never rely on React Query `enabled:` to “turn off” Convex**. If a query must be conditional, pass Convex args as `"skip"`: `convexQuery(fn, condition ? args : "skip")`. Otherwise the query can still get cached and subscribed.
+- Prefer **“reactive head + non-reactive tail” pagination** for long lists: subscribe to only the newest page via a query (head), and fetch older pages via actions (tail) for infinite scroll / “Load more”.
+- Keep **list query payloads lightweight** (metadata only). Avoid returning large optional fields (e.g. full summaries or content) in list endpoints.
+- Avoid **high-frequency writes to hot list documents**. If the UI needs continuous updates (ex: scroll progress), write to a separate table and only patch the main doc for coarse state transitions (ex: `isRead` at 100%).
+- Prefer selective indexes and avoid “collect everything then filter in JS” for user lists. Keep dependency sets small so reactive queries don’t re-run unnecessarily.
+
+### Measuring
+
+- Use Convex logs + hour aggregation to find the top bandwidth consumers: `bunx convex logs --success --jsonl --history 20000 | node scripts/convex-bandwidth.mjs --utc`
+
 ## Monorepo Architecture
 
 This project uses **Turborepo** with **bun workspaces** for monorepo management.

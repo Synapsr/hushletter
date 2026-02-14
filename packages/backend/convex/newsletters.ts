@@ -10,7 +10,7 @@ import { internal } from "./_generated/api"
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
 import { r2 } from "./r2"
-import type { Id } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 import {
   normalizeForHash,
   computeContentHash,
@@ -18,6 +18,145 @@ import {
 
 /** Content availability status for newsletters */
 export type ContentStatus = "available" | "missing" | "error"
+
+/**
+ * Lightweight shape for newsletter list UIs.
+ *
+ * Important: userNewsletters can include large optional fields (e.g. `summary`).
+ * Most list UIs only need metadata plus `hasSummary`, so we intentionally omit
+ * summary text to reduce bandwidth.
+ */
+type NewsletterListItem = {
+  _id: Id<"userNewsletters">
+  subject: string
+  senderEmail: string
+  senderName?: string
+  receivedAt: number
+  isRead: boolean
+  isHidden: boolean
+  isPrivate: boolean
+  readProgress?: number
+  hasSummary: boolean
+  source?: "email" | "gmail" | "manual" | "community"
+  isFavorited?: boolean
+}
+
+type NewsletterListPageResult = {
+  page: NewsletterListItem[]
+  isDone: boolean
+  continueCursor: string | null
+}
+
+function toNewsletterListItem(
+  newsletter: {
+    _id: Id<"userNewsletters">
+    subject: string
+    senderEmail: string
+    senderName?: string
+    receivedAt: number
+    isRead: boolean
+    isHidden: boolean
+    isPrivate: boolean
+    readProgress?: number
+    source?: "email" | "gmail" | "manual" | "community"
+    isFavorited?: boolean
+  },
+  hasSummary: boolean
+): NewsletterListItem {
+  return {
+    _id: newsletter._id,
+    subject: newsletter.subject,
+    senderEmail: newsletter.senderEmail,
+    senderName: newsletter.senderName,
+    receivedAt: newsletter.receivedAt,
+    isRead: newsletter.isRead,
+    isHidden: newsletter.isHidden,
+    isPrivate: newsletter.isPrivate,
+    readProgress: newsletter.readProgress,
+    hasSummary,
+    source: newsletter.source,
+    isFavorited: newsletter.isFavorited,
+  }
+}
+
+async function enrichNewsletterListItems(
+  ctx: { db: { get: (id: any) => Promise<any> } },
+  newsletters: Array<Doc<"userNewsletters">>
+): Promise<NewsletterListItem[]> {
+  const contentIds = newsletters
+    .filter((n) => !n.isPrivate && n.contentId && !n.summary)
+    .map((n) => n.contentId!)
+
+  const uniqueContentIds = [...new Set(contentIds)]
+  const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+  const contentMap = new Map(
+    contents
+      .filter((c): c is NonNullable<typeof c> => c !== null)
+      .map((c) => [c._id, c])
+  )
+
+  return newsletters.map((newsletter) => {
+    let hasSummary = Boolean(newsletter.summary)
+
+    if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+      const content = contentMap.get(newsletter.contentId)
+      hasSummary = Boolean(content?.summary)
+    }
+
+    return toNewsletterListItem(newsletter, hasSummary)
+  })
+}
+
+async function upsertNewsletterReadProgress(
+  ctx: {
+    db: {
+      query: (table: "newsletterReadProgress") => any
+      patch: (id: any, value: any) => Promise<void>
+      insert: (table: "newsletterReadProgress", value: any) => Promise<any>
+    }
+  },
+  args: {
+    userId: Id<"users">
+    userNewsletterId: Id<"userNewsletters">
+    progress: number
+  }
+) {
+  const existing = await ctx.db
+    .query("newsletterReadProgress")
+    .withIndex("by_userId_userNewsletterId", (q: any) =>
+      q.eq("userId", args.userId).eq("userNewsletterId", args.userNewsletterId)
+    )
+    .first()
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      progress: args.progress,
+      updatedAt: Date.now(),
+    })
+    return
+  }
+
+  await ctx.db.insert("newsletterReadProgress", {
+    userId: args.userId,
+    userNewsletterId: args.userNewsletterId,
+    progress: args.progress,
+    updatedAt: Date.now(),
+  })
+}
+
+async function getHiddenFolderIdSet(
+  ctx: { db: { query: (table: "folders") => any } },
+  userId: Id<"users">
+): Promise<Set<Id<"folders">>> {
+  const folders = await ctx.db
+    .query("folders")
+    .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+    .collect()
+
+  return new Set(
+    folders.filter((folder: any) => folder.isHidden).map((folder: any) => folder._id)
+  )
+}
 
 /**
  * Store newsletter content in R2 and create userNewsletter record
@@ -397,7 +536,17 @@ export const getUserNewsletter = query({
     const contentStatus: ContentStatus =
       userNewsletter.contentId || userNewsletter.privateR2Key ? "available" : "missing"
 
-    return { ...userNewsletter, contentStatus }
+    const progressDoc = await ctx.db
+      .query("newsletterReadProgress")
+      .withIndex("by_userId_userNewsletterId", (q) =>
+        q.eq("userId", user._id).eq("userNewsletterId", args.userNewsletterId)
+      )
+      .first()
+
+    const effectiveReadProgress =
+      progressDoc?.progress ?? userNewsletter.readProgress
+
+    return { ...userNewsletter, readProgress: effectiveReadProgress, contentStatus }
   },
 })
 
@@ -494,7 +643,19 @@ export const getUserNewsletterWithContent = action({
       }
     }
 
-    return { ...userNewsletter, contentUrl, contentStatus }
+    const progressDoc = await ctx.runQuery(
+      internal.newsletters.getNewsletterReadProgressInternal,
+      { userId: user._id, userNewsletterId: args.userNewsletterId }
+    )
+    const effectiveReadProgress =
+      progressDoc?.progress ?? userNewsletter.readProgress
+
+    return {
+      ...userNewsletter,
+      readProgress: effectiveReadProgress,
+      contentUrl,
+      contentStatus,
+    }
   },
 })
 
@@ -517,6 +678,21 @@ export const getNewsletterContentInternal = internalQuery({
   args: { contentId: v.id("newsletterContent") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.contentId)
+  },
+})
+
+export const getNewsletterReadProgressInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("newsletterReadProgress")
+      .withIndex("by_userId_userNewsletterId", (q) =>
+        q.eq("userId", args.userId).eq("userNewsletterId", args.userNewsletterId)
+      )
+      .first()
   },
 })
 
@@ -579,16 +755,16 @@ export const listUserNewsletters = query({
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
     // Story 9.10: Include source field for unified folder view display
-    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
-      let hasSummary = Boolean(newsletter.summary)
+	    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
+	      let hasSummary = Boolean(newsletter.summary)
 
-      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-        const content = contentMap.get(newsletter.contentId)
-        hasSummary = Boolean(content?.summary)
-      }
+	      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+	        const content = contentMap.get(newsletter.contentId)
+	        hasSummary = Boolean(content?.summary)
+	      }
 
-      return { ...newsletter, hasSummary, source: newsletter.source }
-    })
+	      return toNewsletterListItem(newsletter, hasSummary)
+	    })
 
     return enrichedNewsletters
   },
@@ -665,16 +841,16 @@ export const listUserNewslettersBySender = query({
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
     // Story 9.10: Include source field for unified folder view display
-    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
-      let hasSummary = Boolean(newsletter.summary)
+	    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
+	      let hasSummary = Boolean(newsletter.summary)
 
-      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-        const content = contentMap.get(newsletter.contentId)
-        hasSummary = Boolean(content?.summary)
-      }
+	      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+	        const content = contentMap.get(newsletter.contentId)
+	        hasSummary = Boolean(content?.summary)
+	      }
 
-      return { ...newsletter, hasSummary, source: newsletter.source }
-    })
+	      return toNewsletterListItem(newsletter, hasSummary)
+	    })
 
     return enrichedNewsletters
   },
@@ -710,42 +886,25 @@ export const listUserNewslettersByFolder = query({
 
     if (!user) return []
 
-    // Get senders matching the folder filter
-    const allSettings = await ctx.db
-      .query("userSenderSettings")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect()
+    const folderId = args.folderId
 
-    const matchingSenderIds = allSettings
-      .filter((s) => {
-        if (args.folderId === null) {
-          // "Uncategorized" - senders with no folder
-          return s.folderId === undefined
-        }
-        return s.folderId === args.folderId
-      })
-      .map((s) => s.senderId)
+    // Epic 9+ folder-centric schema: newsletters carry folderId directly.
+    // This avoids scanning all senders/settings/newsletters to assemble folder views.
+    if (folderId === null) {
+      // "Uncategorized" is legacy; avoid an expensive full scan.
+      return []
+    }
 
-    // Get newsletters from matching senders
-    const newsletters = await ctx.db
+    const newslettersInFolder = await ctx.db
       .query("userNewsletters")
-      .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
+      .withIndex("by_userId_folderId_receivedAt", (q) =>
+        q.eq("userId", user._id).eq("folderId", folderId)
+      )
       .order("desc")
       .collect()
 
-    // Filter to only newsletters from matching senders AND exclude hidden (Story 3.5 AC2)
-    const filteredNewsletters = newsletters.filter(
-      (n) => matchingSenderIds.includes(n.senderId) && !n.isHidden
-    )
-
-    // Batch-fetch all unique senders to avoid N+1 queries
-    const uniqueSenderIds = [...new Set(filteredNewsletters.map((n) => n.senderId))]
-    const senders = await Promise.all(uniqueSenderIds.map((id) => ctx.db.get(id)))
-    const senderMap = new Map(
-      senders
-        .filter((s): s is NonNullable<typeof s> => s !== null)
-        .map((s) => [s._id, s])
-    )
+    // Story 3.5 AC2: Exclude hidden newsletters
+    const filteredNewsletters = newslettersInFolder.filter((n) => !n.isHidden)
 
     // Story 5.2: Batch-fetch contentIds to avoid N+1 queries (code review fix)
     const contentIds = filteredNewsletters
@@ -760,26 +919,184 @@ export const listUserNewslettersByFolder = query({
         .map((c) => [c._id, c])
     )
 
-    // Derive hasSummary for each newsletter and enrich with sender info (O(1) lookups)
-    // Story 9.10: Include source field for unified folder view display
+    // Derive hasSummary for each newsletter (O(1) lookup)
     const enrichedNewsletters = filteredNewsletters.map((newsletter) => {
-      const sender = senderMap.get(newsletter.senderId)
-
       let hasSummary = Boolean(newsletter.summary)
       if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
         const content = contentMap.get(newsletter.contentId)
         hasSummary = Boolean(content?.summary)
       }
 
-      return {
-        ...newsletter,
-        senderDisplayName: sender?.name || sender?.email || newsletter.senderEmail,
-        hasSummary,
-        source: newsletter.source,
-      }
+      return toNewsletterListItem(newsletter, hasSummary)
     })
 
     return enrichedNewsletters
+  },
+})
+
+// ============================================================
+// Bandwidth Optimization: Reactive Head + Non-reactive Tail Pagination
+// ============================================================
+
+export const listUserNewslettersByFolderHead = query({
+  args: {
+    folderId: v.id("folders"),
+    numItems: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return { page: [], isDone: true, continueCursor: null }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return { page: [], isDone: true, continueCursor: null }
+
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_folderId_receivedAt", (q) =>
+        q.eq("userId", user._id).eq("folderId", args.folderId)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems ?? 20, cursor: null })
+
+    const visiblePage = result.page.filter((n) => !n.isHidden)
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+
+    return { ...result, page: enriched }
+  },
+})
+
+export const listUserNewslettersByFolderPageInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+    folderId: v.id("folders"),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_folderId_receivedAt", (q) =>
+        q.eq("userId", args.userId).eq("folderId", args.folderId)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems, cursor: args.cursor })
+
+    const visiblePage = result.page.filter((n) => !n.isHidden)
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+
+    return { ...result, page: enriched }
+  },
+})
+
+export const listUserNewslettersByFolderPage = action({
+  args: {
+    folderId: v.id("folders"),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args): Promise<NewsletterListPageResult> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
+      authId: identity.subject,
+    })
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    return await ctx.runQuery(internal.newsletters.listUserNewslettersByFolderPageInternal, {
+      userId: user._id,
+      folderId: args.folderId,
+      cursor: args.cursor,
+      numItems: args.numItems,
+    })
+  },
+})
+
+export const listAllNewslettersHead = query({
+  args: {
+    numItems: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return { page: [], isDone: true, continueCursor: null }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return { page: [], isDone: true, continueCursor: null }
+
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id)
+
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .paginate({ numItems: args.numItems ?? 30, cursor: null })
+
+    const visiblePage = result.page.filter(
+      (n) => !n.isHidden && (!n.folderId || !hiddenFolderIds.has(n.folderId))
+    )
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+
+    return { ...result, page: enriched }
+  },
+})
+
+export const listAllNewslettersPageInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId)
+
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_receivedAt", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .paginate({ numItems: args.numItems, cursor: args.cursor })
+
+    const visiblePage = result.page.filter(
+      (n) => !n.isHidden && (!n.folderId || !hiddenFolderIds.has(n.folderId))
+    )
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+
+    return { ...result, page: enriched }
+  },
+})
+
+export const listAllNewslettersPage = action({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args): Promise<NewsletterListPageResult> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
+      authId: identity.subject,
+    })
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    return await ctx.runQuery(internal.newsletters.listAllNewslettersPageInternal, {
+      userId: user._id,
+      cursor: args.cursor,
+      numItems: args.numItems,
+    })
   },
 })
 
@@ -834,6 +1151,53 @@ export const toggleHidden = internalMutation({
 })
 
 /**
+ * Set read progress for a newsletter (public mutation).
+ *
+ * Stores progress outside `userNewsletters` so high-frequency updates don't cause
+ * list/count queries to re-run.
+ */
+export const setReadProgress = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+    progress: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    if (!userNewsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user || userNewsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    const clampedProgress = Math.max(0, Math.min(100, args.progress))
+
+    await upsertNewsletterReadProgress(ctx, {
+      userId: user._id,
+      userNewsletterId: args.userNewsletterId,
+      progress: clampedProgress,
+    })
+
+    // Only update the primary newsletter doc when we transition to "read".
+    // Intermediate progress updates must not touch `userNewsletters`.
+    if (clampedProgress === 100 && !userNewsletter.isRead) {
+      await ctx.db.patch(args.userNewsletterId, { isRead: true })
+    }
+  },
+})
+
+/**
  * Mark newsletter as read (public mutation)
  * Story 3.4: AC3, AC4 - Manual/auto mark as read
  */
@@ -863,10 +1227,17 @@ export const markNewsletterRead = mutation({
       throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
     }
 
-    await ctx.db.patch(args.userNewsletterId, {
-      isRead: true,
-      readProgress: args.readProgress ?? 100,
+    const clampedProgress = Math.max(0, Math.min(100, args.readProgress ?? 100))
+
+    await upsertNewsletterReadProgress(ctx, {
+      userId: user._id,
+      userNewsletterId: args.userNewsletterId,
+      progress: clampedProgress,
     })
+
+    if (!userNewsletter.isRead) {
+      await ctx.db.patch(args.userNewsletterId, { isRead: true })
+    }
   },
 })
 
@@ -937,10 +1308,15 @@ export const updateNewsletterReadProgress = mutation({
     // Clamp progress to 0-100
     const clampedProgress = Math.max(0, Math.min(100, args.readProgress))
 
-    await ctx.db.patch(args.userNewsletterId, {
-      readProgress: clampedProgress,
-      isRead: clampedProgress >= 100,
+    await upsertNewsletterReadProgress(ctx, {
+      userId: user._id,
+      userNewsletterId: args.userNewsletterId,
+      progress: clampedProgress,
     })
+
+    if (clampedProgress === 100 && !userNewsletter.isRead) {
+      await ctx.db.patch(args.userNewsletterId, { isRead: true })
+    }
   },
 })
 
@@ -1096,18 +1472,103 @@ export const listFavoritedNewsletters = query({
         .map((c) => [c._id, c])
     )
 
-    const enrichedNewsletters = visibleFavorites.map((newsletter) => {
-      let hasSummary = Boolean(newsletter.summary)
+	    const enrichedNewsletters = visibleFavorites.map((newsletter) => {
+	      let hasSummary = Boolean(newsletter.summary)
 
-      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-        const content = contentMap.get(newsletter.contentId)
-        hasSummary = Boolean(content?.summary)
-      }
+	      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+	        const content = contentMap.get(newsletter.contentId)
+	        hasSummary = Boolean(content?.summary)
+	      }
 
-      return { ...newsletter, hasSummary, source: newsletter.source }
-    })
+	      return toNewsletterListItem(newsletter, hasSummary)
+	    })
 
     return enrichedNewsletters
+  },
+})
+
+export const listFavoritedNewslettersHead = query({
+  args: {
+    numItems: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return { page: [], isDone: true, continueCursor: null }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return { page: [], isDone: true, continueCursor: null }
+
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id)
+
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_isFavorited_isHidden_receivedAt", (q) =>
+        q.eq("userId", user._id).eq("isFavorited", true).eq("isHidden", false)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems ?? 30, cursor: null })
+
+    const visiblePage = result.page.filter(
+      (n) => !n.folderId || !hiddenFolderIds.has(n.folderId)
+    )
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+
+    return { ...result, page: enriched }
+  },
+})
+
+export const listFavoritedNewslettersPageInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId)
+
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_isFavorited_isHidden_receivedAt", (q) =>
+        q.eq("userId", args.userId).eq("isFavorited", true).eq("isHidden", false)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems, cursor: args.cursor })
+
+    const visiblePage = result.page.filter(
+      (n) => !n.folderId || !hiddenFolderIds.has(n.folderId)
+    )
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+
+    return { ...result, page: enriched }
+  },
+})
+
+export const listFavoritedNewslettersPage = action({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args): Promise<NewsletterListPageResult> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
+      authId: identity.subject,
+    })
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    return await ctx.runQuery(internal.newsletters.listFavoritedNewslettersPageInternal, {
+      userId: user._id,
+      cursor: args.cursor,
+      numItems: args.numItems,
+    })
   },
 })
 
@@ -1130,14 +1591,14 @@ export const listHiddenNewsletters = query({
 
     if (!user) return []
 
-    const newsletters = await ctx.db
+    // Efficient: query hidden newsletters directly via compound index.
+    const hiddenNewsletters = await ctx.db
       .query("userNewsletters")
-      .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
+      .withIndex("by_userId_isHidden_receivedAt", (q) =>
+        q.eq("userId", user._id).eq("isHidden", true)
+      )
       .order("desc")
       .collect()
-
-    // Return ONLY hidden newsletters
-    const hiddenNewsletters = newsletters.filter((n) => n.isHidden)
 
     // Story 5.2: Derive hasSummary for each newsletter
     // Code review fix: Batch-fetch contentIds to avoid N+1 queries
@@ -1155,18 +1616,91 @@ export const listHiddenNewsletters = query({
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
     // Story 9.10: Include source field for unified folder view display
-    const enrichedNewsletters = hiddenNewsletters.map((newsletter) => {
-      let hasSummary = Boolean(newsletter.summary)
+	    const enrichedNewsletters = hiddenNewsletters.map((newsletter) => {
+	      let hasSummary = Boolean(newsletter.summary)
 
-      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-        const content = contentMap.get(newsletter.contentId)
-        hasSummary = Boolean(content?.summary)
-      }
+	      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+	        const content = contentMap.get(newsletter.contentId)
+	        hasSummary = Boolean(content?.summary)
+	      }
 
-      return { ...newsletter, hasSummary, source: newsletter.source }
-    })
+	      return toNewsletterListItem(newsletter, hasSummary)
+	    })
 
     return enrichedNewsletters
+  },
+})
+
+export const listHiddenNewslettersHead = query({
+  args: {
+    numItems: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return { page: [], isDone: true, continueCursor: null }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return { page: [], isDone: true, continueCursor: null }
+
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_isHidden_receivedAt", (q) =>
+        q.eq("userId", user._id).eq("isHidden", true)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems ?? 30, cursor: null })
+
+    const enriched = await enrichNewsletterListItems(ctx, result.page)
+    return { ...result, page: enriched }
+  },
+})
+
+export const listHiddenNewslettersPageInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_isHidden_receivedAt", (q) =>
+        q.eq("userId", args.userId).eq("isHidden", true)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems, cursor: args.cursor })
+
+    const enriched = await enrichNewsletterListItems(ctx, result.page)
+    return { ...result, page: enriched }
+  },
+})
+
+export const listHiddenNewslettersPage = action({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args): Promise<NewsletterListPageResult> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
+      authId: identity.subject,
+    })
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    return await ctx.runQuery(internal.newsletters.listHiddenNewslettersPageInternal, {
+      userId: user._id,
+      cursor: args.cursor,
+      numItems: args.numItems,
+    })
   },
 })
 
@@ -1197,14 +1731,57 @@ export const getHiddenNewsletterCount = query({
 
     if (!user) return 0
 
-    // Count hidden newsletters
     const hiddenNewsletters = await ctx.db
       .query("userNewsletters")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .filter((q) => q.eq(q.field("isHidden"), true))
+      .withIndex("by_userId_isHidden_receivedAt", (q) =>
+        q.eq("userId", user._id).eq("isHidden", true)
+      )
       .collect()
 
     return hiddenNewsletters.length
+  },
+})
+
+/**
+ * Get count of favorited newsletters.
+ *
+ * Used by navigation UI (sidebar) which only needs a count, not the full list.
+ * Returning a number here avoids sending potentially large arrays over the wire.
+ */
+export const getFavoritedNewsletterCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return 0
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return 0
+
+    const favoritedNewsletters = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_isFavorited_isHidden_receivedAt", (q) =>
+        q.eq("userId", user._id).eq("isFavorited", true).eq("isHidden", false)
+      )
+      .collect()
+
+    const folders = await ctx.db
+      .query("folders")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+    const hiddenFolderIds = new Set(
+      folders.filter((folder) => folder.isHidden).map((folder) => folder._id)
+    )
+
+    const visibleFavorites = favoritedNewsletters.filter(
+      (newsletter) =>
+        !newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId)
+    )
+
+    return visibleFavorites.length
   },
 })
 

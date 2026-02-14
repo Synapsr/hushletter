@@ -103,8 +103,8 @@ export function FolderSidebar({
     convexQuery(api.newsletters.getHiddenNewsletterCount, {}),
   );
 
-  const { data: favoritedNewsletters, isPending: favoritedPending } = useQuery(
-    convexQuery(api.newsletters.listFavoritedNewsletters, {}),
+  const { data: favoritedCount, isPending: favoritedCountPending } = useQuery(
+    convexQuery(api.newsletters.getFavoritedNewsletterCount, {}),
   );
 
   // Code review fix: Validate folder data at runtime to ensure type safety
@@ -143,7 +143,8 @@ export function FolderSidebar({
   if (foldersPending) return <FolderSidebarSkeleton />;
 
   const isAllSelected = !selectedFolderId && !selectedFilter;
-  const favoritedCount = ((favoritedNewsletters ?? []) as unknown[]).length;
+  const starredCount =
+    typeof favoritedCount === "number" ? favoritedCount : 0;
 
   // Handle "All Newsletters" click - clear all filters
   const handleAllClick = () => {
@@ -262,25 +263,30 @@ export function FolderSidebar({
       )}
 
       {/* Starred section */}
-      {favoritedPending ? (
+      {favoritedCountPending ? (
         <div className="h-10 bg-muted rounded-lg animate-pulse mt-2" />
       ) : (
         <>
           <div className="h-px bg-border my-2" role="separator" />
           <button
             onClick={handleStarredClick}
-            aria-current={selectedFilter === "starred" ? "page" : undefined}
+            aria-current={selectedFilter === FILTER_STARRED ? "page" : undefined}
             className={cn(
               "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
               "hover:bg-accent transition-colors text-left",
-              selectedFilter === "starred" && "bg-accent font-medium",
+              selectedFilter === FILTER_STARRED && "bg-accent font-medium",
             )}
           >
             <div className="flex items-center gap-2 truncate flex-1 mr-2">
-              <Star className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+              <Star
+                className="h-4 w-4 flex-shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
               <span className="truncate">{m.sidebar_filterStarred()}</span>
             </div>
-            <span className="text-muted-foreground text-xs flex-shrink-0">{favoritedCount}</span>
+            <span className="text-muted-foreground text-xs flex-shrink-0">
+              {starredCount}
+            </span>
           </button>
         </>
       )}

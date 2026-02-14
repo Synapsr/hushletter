@@ -285,11 +285,15 @@ function CommunityBrowsePage() {
     error: searchError,
     refetch: refetchSearch,
   } = useQuery({
-    ...convexQuery(api.community.searchCommunityNewsletters, {
-      searchQuery: deferredSearchQuery,
-      limit: 50,
-    }),
-    enabled: deferredSearchQuery.length > 0 && tab !== "senders",
+    ...convexQuery(
+      api.community.searchCommunityNewsletters,
+      deferredSearchQuery.length > 0 && tab !== "senders"
+        ? {
+            searchQuery: deferredSearchQuery,
+            limit: 50,
+          }
+        : "skip",
+    ),
   });
 
   // Check if search results may be incomplete (MEDIUM-6 fix)
@@ -310,10 +314,12 @@ function CommunityBrowsePage() {
   );
 
   const { data: ownershipData } = useQuery({
-    ...convexQuery(api.community.checkUserHasNewsletters, {
-      contentIds: contentIdsForOwnershipCheck,
-    }),
-    enabled: contentIdsForOwnershipCheck.length > 0 && tab !== "senders",
+    ...convexQuery(
+      api.community.checkUserHasNewsletters,
+      contentIdsForOwnershipCheck.length > 0 && tab !== "senders"
+        ? { contentIds: contentIdsForOwnershipCheck }
+        : "skip",
+    ),
   });
 
   // Create ownership lookup map
@@ -329,8 +335,10 @@ function CommunityBrowsePage() {
     error: sendersError,
     refetch: refetchSenders,
   } = useQuery({
-    ...convexQuery(api.community.listTopCommunitySenders, { limit: 30 }),
-    enabled: tab === "senders",
+    ...convexQuery(
+      api.community.listTopCommunitySenders,
+      tab === "senders" ? { limit: 30 } : "skip",
+    ),
   });
 
   // Flatten paginated results

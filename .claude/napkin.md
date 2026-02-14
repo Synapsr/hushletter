@@ -6,9 +6,13 @@
 | 2026-02-13 | self | Tried reading `.claude/napkin.md` before it existed | Create `.claude/napkin.md` at session start when missing |
 | 2026-02-13 | self | Large multi-hunk patch to `newsletters.ts` failed due drifted context | Apply smaller targeted patches for long files with active local changes |
 | 2026-02-13 | self | Ran test path with `$id` unquoted and shell expanded it away | Quote route test paths containing `$` (e.g. `'.../$id.test.tsx'`) |
+| 2026-02-14 | self | Tried reading `apps/web/src/routes/_authed/newsletters/$id.tsx` without quoting `$id` and the shell stripped it | Always single-quote paths containing `$` in shell commands (and in tooling args) |
+| 2026-02-14 | self | New Convex `action()` exports referencing `internal.*` caused TS self-referential inference errors (TS7022/TS7023) | Add explicit `handler` return type annotations (e.g. `Promise<{page,isDone,continueCursor}>`) to break cycles |
 | 2026-02-13 | self | Used a stale context block in `apply_patch` while editing `SenderFolderItem.tsx` and patch failed | Re-read current numbered lines (`nl -ba`) and patch tight ranges after each file mutation |
 | 2026-02-13 | self | React component tests emitted `act(...)` warnings after async click handlers updated state | Wrap event triggers and async callback invocations in `await act(async () => { ... })` for stable/no-noise tests |
+| 2026-02-14 | self | Started a long-running `convex logs` capture with a `nohup bash -lc` wrapper and accidentally single-quoted a variable in the kill scheduler, so it never terminated the stream | Prefer direct `nohup bunx convex logs ... &` and schedule kill with the literal PID (or a fully-expanded path), not a shell variable inside single quotes |
 | 2026-02-13 | self | Used `rg` with a newline escape in a single-line regex and got a parse error | Use simpler single-line patterns or enable multiline mode explicitly (`-U`) when needed |
+| 2026-02-14 | self | Used `rg` regex look-ahead without `--pcre2` and hit "look-around not supported" | Avoid look-around in ripgrep patterns or use `rg --pcre2` when needed |
 | 2026-02-13 | self | Assumed backend lived in `convex/` at repo root and ran `rg` against a non-existent path | Verify monorepo package location first (`packages/backend/convex`) before search commands |
 | 2026-02-13 | self | Tried forwarding test file args via `bun run test ...` and hit Bun script parsing help output | Run focused tests with direct runner invocation (`bun x vitest run <path>`) when script arg forwarding is unclear |
 | 2026-02-13 | self | Added a new `hiddenPending` prop in `SenderFolderSidebar` that collided with an existing local query alias | Rename local query state aliases immediately when introducing similarly named props to avoid transform-time duplicate symbol errors |
@@ -37,9 +41,15 @@
 - For URL-driven filters in TanStack Router, use a short-lived local `pendingFilter` override so tabs/content update immediately and skeletons render before search params settle.
 - For collapsible rows that unmount across filter/tab branches, keep expansion state in the parent keyed by row id; local row state is lost on remount.
 - Keep Docker build focused on app build/run, and perform Convex deployment as a separate explicit step/script in monorepos.
+- Convex bandwidth: keep list queries lightweight (omit large optional fields like `summary` from list responses) and avoid React Query refetch-on-focus defaults when using `@convex-dev/react-query` (set `refetchOnWindowFocus:false`, add a non-zero `staleTime`).
+- Convex bandwidth: don’t prefetch expensive lists that aren’t needed for the active UI state (e.g. only fetch hidden/starred lists when those filters are active).
+- Convex bandwidth: gate conditional queries with Convex args `"skip"` (do not use `enabled:` expecting it to stop Convex subscriptions).
+- Convex bandwidth: for long lists, use “reactive head query + action tail pages” to keep subscriptions bounded.
+- Convex bandwidth: store high-frequency progress/telemetry writes in separate tables; only patch list docs for state transitions.
 
 ## Patterns That Don't Work
 - Using broad `queryClient.invalidateQueries()` for high-frequency UI actions causes avoidable jitter.
+- Convex bandwidth: writing to `userNewsletters` on every scroll tick causes many reactive list/count queries to re-execute.
 
 ## Domain Notes
 - Newsletters list already supports hidden filtering via route search params and separate hidden query.

@@ -1,5 +1,7 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
+import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import {
@@ -8,6 +10,7 @@ import {
   CollapsiblePanel,
   Badge,
   ScrollArea,
+  Button,
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
@@ -54,22 +57,77 @@ export function SenderFolderItem({
   onToggleFavorite,
   onHideSuccess,
 }: SenderFolderItemProps) {
-  // Lazy-load newsletters only when expanded
-  const { data: newsletters, isPending } = useQuery({
-    ...convexQuery(api.newsletters.listUserNewslettersByFolder, {
-      folderId: folder._id as Id<"folders">,
-    }),
-    enabled: isExpanded,
-    staleTime: 30_000,
-  });
+  const folderId = folder._id as Id<"folders">;
 
-  const newsletterList = (newsletters ?? []) as NewsletterData[];
+  // Reactive head page (subscribed) only while expanded.
+  const { data: head, isPending: headPending } = useQuery(
+    convexQuery(
+      api.newsletters.listUserNewslettersByFolderHead,
+      isExpanded ? { folderId, numItems: 20 } : "skip",
+    ),
+  );
+
+  const loadPage = useAction(api.newsletters.listUserNewslettersByFolderPage);
+  const [tailPages, setTailPages] = useState<NewsletterData[][]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [isDone, setIsDone] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    setTailPages([]);
+    setCursor(null);
+    setIsDone(true);
+    setIsLoadingMore(false);
+  }, [isExpanded, folderId]);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    if (!head) return;
+    if (cursor !== null || tailPages.length > 0) return;
+
+    const data = head as unknown as { continueCursor: string | null; isDone: boolean };
+    setCursor(data.continueCursor);
+    setIsDone(data.isDone);
+  }, [isExpanded, head, cursor, tailPages.length]);
+
+  const headPage = useMemo(() => {
+    const data = head as unknown as { page?: NewsletterData[] } | undefined;
+    return (data?.page ?? []) as NewsletterData[];
+  }, [head]);
+
+  const mergedNewsletters = useMemo(() => {
+    const merged: NewsletterData[] = [];
+    const seen = new Set<string>();
+    for (const newsletter of [...headPage, ...tailPages.flat()]) {
+      const id = String(newsletter._id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      merged.push(newsletter);
+    }
+    return merged;
+  }, [headPage, tailPages]);
 
   // Apply sidebar filter
   const filteredNewsletters =
     sidebarFilter === "unread"
-      ? newsletterList.filter((n) => !n.isRead)
-      : newsletterList;
+      ? mergedNewsletters.filter((n) => !n.isRead)
+      : mergedNewsletters;
+
+  const canLoadMore = isExpanded && !isDone && cursor !== null;
+  const handleLoadMore = useCallback(async () => {
+    if (!canLoadMore || isLoadingMore || cursor === null) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await loadPage({ folderId, cursor, numItems: 50 });
+      const page = (result.page ?? []) as NewsletterData[];
+      setTailPages((prev) => [...prev, page]);
+      setCursor(result.continueCursor ?? null);
+      setIsDone(result.isDone ?? true);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [canLoadMore, isLoadingMore, cursor, loadPage, folderId]);
 
   const handleFolderSelect = () => {
     onFolderSelect(folder._id);
@@ -142,7 +200,7 @@ export function SenderFolderItem({
         render={<ScrollArea scrollFade className="max-h-[245px]" />}
       >
         <div className="ml-4 border-l border-border pl-2 py-1 space-y-0.5 ">
-          {isPending ? (
+          {headPending ? (
             // Loading skeleton for newsletter items
             <div className="space-y-1 py-1">
               {[1, 2].map((i) => (
@@ -161,20 +219,37 @@ export function SenderFolderItem({
                   })}
             </p>
           ) : (
-            filteredNewsletters.map((newsletter) => (
-              <NewsletterListItem
-                key={newsletter._id}
-                newsletter={newsletter}
-                isSelected={selectedNewsletterId === newsletter._id}
-                isFavorited={getIsFavorited(
-                  newsletter._id,
-                  Boolean(newsletter.isFavorited),
-                )}
-                isFavoritePending={isFavoritePending(newsletter._id)}
-                onClick={onNewsletterSelect}
-                onToggleFavorite={onToggleFavorite}
-              />
-            ))
+            <>
+              {filteredNewsletters.map((newsletter) => (
+                <NewsletterListItem
+                  key={newsletter._id}
+                  newsletter={newsletter}
+                  isSelected={selectedNewsletterId === newsletter._id}
+                  isFavorited={getIsFavorited(
+                    newsletter._id,
+                    Boolean(newsletter.isFavorited),
+                  )}
+                  isFavoritePending={isFavoritePending(newsletter._id)}
+                  onClick={onNewsletterSelect}
+                  onToggleFavorite={onToggleFavorite}
+                />
+              ))}
+
+              {canLoadMore && (
+                <div className="px-3 py-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="w-full"
+                    disabled={isLoadingMore}
+                    onClick={() => void handleLoadMore()}
+                  >
+                    {isLoadingMore ? "Loading..." : "Load more"}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </CollapsiblePanel>

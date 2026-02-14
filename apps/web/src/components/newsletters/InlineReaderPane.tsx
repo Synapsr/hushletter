@@ -102,7 +102,6 @@ export function InlineReaderPane({
 
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
   const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
-  const markRead = useMutation(api.newsletters.markNewsletterRead);
 
   useEffect(() => {
     setEstimatedReadMinutes(null);
@@ -169,10 +168,6 @@ export function InlineReaderPane({
     } finally {
       setIsArchivePending(false);
     }
-  };
-
-  const handleReadingComplete = () => {
-    markRead({ userNewsletterId: newsletterId, readProgress: 100 });
   };
 
   const handleContentReset = () => {
@@ -285,7 +280,6 @@ export function InlineReaderPane({
             <ReaderView
               userNewsletterId={newsletterId}
               initialProgress={newsletter.readProgress}
-              onReadingComplete={handleReadingComplete}
               className="max-h-none overflow-visible"
               preferences={preferences}
               onEstimatedReadMinutesChange={setEstimatedReadMinutes}

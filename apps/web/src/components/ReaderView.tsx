@@ -487,7 +487,7 @@ export function ReaderView({
 
   // Story 3.4: Mutation for updating read progress
   const updateReadProgress = useMutation(
-    api.newsletters.updateNewsletterReadProgress,
+    api.newsletters.setReadProgress,
   );
 
   // Story 3.4: Track scroll progress with debounce
@@ -495,7 +495,7 @@ export function ReaderView({
     containerRef: scrollContainerRef,
     onProgress: (progress) => {
       // Update progress in database
-      updateReadProgress({ userNewsletterId, readProgress: progress });
+      updateReadProgress({ userNewsletterId, progress });
 
       // Notify parent when reading is complete (AC3)
       if (progress === 100 && onReadingComplete) {

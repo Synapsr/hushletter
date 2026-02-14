@@ -104,13 +104,27 @@ export default defineSchema({
     .index("by_receivedAt", ["receivedAt"]) // Story 7.1: Admin recent activity queries
     .index("by_userId_messageId", ["userId", "messageId"]) // Story 8.4: Duplicate detection
     .index("by_userId_folderId", ["userId", "folderId"]) // Story 9.1: Task 1.6 - For folder queries
+    .index("by_userId_folderId_receivedAt", ["userId", "folderId", "receivedAt"]) // Perf: folder view sorted by date
     .index("by_userId_isFavorited_isHidden_receivedAt", [
       "userId",
       "isFavorited",
       "isHidden",
       "receivedAt",
     ])
+    .index("by_userId_isHidden_receivedAt", ["userId", "isHidden", "receivedAt"]) // Perf: hidden list + count
     .index("by_reviewStatus", ["reviewStatus"]), // Story 9.7: Task 1.4 - For moderation queue filtering
+
+  // Per-user read progress for newsletters.
+  // Stored outside `userNewsletters` so high-frequency progress updates don't force
+  // unrelated list/count queries to re-execute.
+  newsletterReadProgress: defineTable({
+    userId: v.id("users"),
+    userNewsletterId: v.id("userNewsletters"),
+    progress: v.number(), // 0-100 percentage
+    updatedAt: v.number(), // Unix timestamp ms
+  })
+    .index("by_userId_userNewsletterId", ["userId", "userNewsletterId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   // Global sender registry (not user-scoped)
   // Story 2.5.1: Task 1 - Refactored senders table

@@ -128,12 +128,6 @@ export function NewsletterCard({
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
   const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
 
-  // Story 3.4 AC5: Show progress for partially read newsletters (0 < progress < 100)
-  const isPartiallyRead =
-    newsletter.readProgress !== undefined &&
-    newsletter.readProgress > 0 &&
-    newsletter.readProgress < 100;
-
   // Story 3.5: Handle hide/unhide with event stopping to prevent navigation
   // Code review fix (HIGH-1): Added feedback for AC1 confirmation requirement
   const handleHideClick = async (e: React.MouseEvent) => {
@@ -289,12 +283,6 @@ export function NewsletterCard({
                     </time>
                   )}
                 </div>
-                {/* Story 3.4 AC5: Progress indicator for partially read */}
-                {isPartiallyRead && !feedback && (
-                  <span className="text-xs text-muted-foreground">
-                    {m.newsletters_readProgress({ progress: newsletter.readProgress ?? 0 })}
-                  </span>
-                )}
                 {favoriteFeedback && (
                   <span className="text-xs text-destructive" role="status">
                     {favoriteFeedback}

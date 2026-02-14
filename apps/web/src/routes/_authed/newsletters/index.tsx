@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
+import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { NewsletterCard, type NewsletterData } from "@/components/NewsletterCard";
@@ -281,33 +282,165 @@ function NewslettersPage() {
   const isFilteringByFolder =
     !!folderIdParam && !isFilteringByHidden && !isFilteringByStarred;
 
-  // Get newsletters by folder
-  const { data: newslettersByFolder, isPending: newslettersByFolderPending } =
-    useQuery({
-      ...convexQuery(api.newsletters.listUserNewslettersByFolder, {
-        folderId: folderIdParam as Id<"folders">,
-      }),
-      enabled: isFilteringByFolder,
-    });
+  // Reactive head pages (subscribed) for the active list only.
+  // Important: with @convex-dev/react-query, you must pass args === "skip" to avoid subscriptions.
+  const { data: allHead, isPending: allHeadPending } = useQuery(
+    convexQuery(
+      api.newsletters.listAllNewslettersHead,
+      !isDesktop &&
+      !isFilteringByFolder &&
+      !isFilteringByHidden &&
+      !isFilteringByStarred
+        ? { numItems: 30 }
+        : "skip",
+    ),
+  );
 
-  // Get all newsletters when no folder is selected
-  const { data: allNewsletters, isPending: allNewslettersPending } = useQuery({
-    ...convexQuery(api.newsletters.listUserNewslettersBySender, {
-      senderId: undefined,
-    }),
-    enabled: !isFilteringByFolder && !isFilteringByHidden && !isFilteringByStarred,
-  });
+  const { data: folderHead, isPending: folderHeadPending } = useQuery(
+    convexQuery(
+      api.newsletters.listUserNewslettersByFolderHead,
+      !isDesktop && isFilteringByFolder
+        ? { folderId: folderIdParam as Id<"folders">, numItems: 30 }
+        : "skip",
+    ),
+  );
 
-  // Fetch hidden newsletters
-  const { data: hiddenNewsletters, isPending: hiddenNewslettersPending } =
-    useQuery(convexQuery(api.newsletters.listHiddenNewsletters, {}));
+  const { data: hiddenHead, isPending: hiddenHeadPending } = useQuery(
+    convexQuery(
+      api.newsletters.listHiddenNewslettersHead,
+      isFilteringByHidden ? { numItems: 30 } : "skip",
+    ),
+  );
 
-  // Fetch favorited newsletters (starred view)
-  const { data: favoritedNewsletters, isPending: favoritedNewslettersPending } =
-    useQuery({
-      ...convexQuery(api.newsletters.listFavoritedNewsletters, {}),
-      enabled: isFilteringByStarred,
-    });
+  const { data: favoritedHead, isPending: favoritedHeadPending } = useQuery(
+    convexQuery(
+      api.newsletters.listFavoritedNewslettersHead,
+      isFilteringByStarred ? { numItems: 30 } : "skip",
+    ),
+  );
+
+  const listKey = useMemo(() => {
+    if (isFilteringByHidden) return "hidden";
+    if (isFilteringByStarred) return "starred";
+    if (isFilteringByFolder) return `folder:${folderIdParam}`;
+    return "all";
+  }, [isFilteringByHidden, isFilteringByStarred, isFilteringByFolder, folderIdParam]);
+
+  const activeHead = isFilteringByHidden
+    ? hiddenHead
+    : isFilteringByStarred
+      ? favoritedHead
+      : isFilteringByFolder
+        ? folderHead
+        : allHead;
+
+  const activeHeadPending = isFilteringByHidden
+    ? hiddenHeadPending
+    : isFilteringByStarred
+      ? favoritedHeadPending
+      : isFilteringByFolder
+        ? folderHeadPending
+        : allHeadPending;
+
+  const listAllPage = useAction(api.newsletters.listAllNewslettersPage);
+  const listFolderPage = useAction(api.newsletters.listUserNewslettersByFolderPage);
+  const listHiddenPage = useAction(api.newsletters.listHiddenNewslettersPage);
+  const listFavoritedPage = useAction(api.newsletters.listFavoritedNewslettersPage);
+
+  const [tailPages, setTailPages] = useState<NewsletterData[][]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [isDone, setIsDone] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setTailPages([]);
+    setCursor(null);
+    setIsDone(true);
+    setIsLoadingMore(false);
+  }, [listKey]);
+
+  useEffect(() => {
+    if (!activeHead) return;
+    if (cursor !== null || tailPages.length > 0) return;
+    const data = activeHead as unknown as { continueCursor: string | null; isDone: boolean };
+    setCursor(data.continueCursor);
+    setIsDone(data.isDone);
+  }, [activeHead, cursor, tailPages.length]);
+
+  const headPage = useMemo(() => {
+    const data = activeHead as unknown as { page?: NewsletterData[] } | undefined;
+    return (data?.page ?? []) as NewsletterData[];
+  }, [activeHead]);
+
+  const mergedActiveList = useMemo(() => {
+    const merged: NewsletterData[] = [];
+    const seen = new Set<string>();
+    for (const newsletter of [...headPage, ...tailPages.flat()]) {
+      const id = String(newsletter._id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      merged.push(newsletter);
+    }
+    return merged;
+  }, [headPage, tailPages]);
+
+  const canLoadMore = !isDone && cursor !== null;
+  const handleLoadMore = useCallback(async () => {
+    if (!canLoadMore || isLoadingMore || cursor === null) return;
+    setIsLoadingMore(true);
+    try {
+      const numItems = 50;
+      const result = isFilteringByFolder
+        ? await listFolderPage({
+            folderId: folderIdParam as Id<"folders">,
+            cursor,
+            numItems,
+          })
+        : isFilteringByHidden
+          ? await listHiddenPage({ cursor, numItems })
+          : isFilteringByStarred
+            ? await listFavoritedPage({ cursor, numItems })
+            : await listAllPage({ cursor, numItems });
+
+      const page = (result.page ?? []) as NewsletterData[];
+      setTailPages((prev) => [...prev, page]);
+      setCursor(result.continueCursor ?? null);
+      setIsDone(result.isDone ?? true);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    canLoadMore,
+    isLoadingMore,
+    cursor,
+    isFilteringByFolder,
+    isFilteringByHidden,
+    isFilteringByStarred,
+    listFolderPage,
+    listHiddenPage,
+    listFavoritedPage,
+    listAllPage,
+    folderIdParam,
+  ]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node) return;
+    if (!canLoadMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void handleLoadMore();
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [canLoadMore, handleLoadMore]);
 
   const selectedFolder = useMemo(() => {
     if (!folderIdParam) return null;
@@ -315,21 +448,15 @@ function NewslettersPage() {
   }, [folders, folderIdParam]);
 
   const favoriteSnapshots = useMemo(() => {
-    const allSnapshots = [
-      ...((allNewsletters ?? []) as NewsletterData[]),
-      ...((newslettersByFolder ?? []) as NewsletterData[]),
-      ...((hiddenNewsletters ?? []) as NewsletterData[]),
-      ...((favoritedNewsletters ?? []) as NewsletterData[]),
-    ];
     const deduped = new Map<string, { _id: string; isFavorited?: boolean }>();
-    for (const newsletter of allSnapshots) {
+    for (const newsletter of mergedActiveList) {
       deduped.set(newsletter._id, {
         _id: newsletter._id,
         isFavorited: newsletter.isFavorited,
       });
     }
     return [...deduped.values()];
-  }, [allNewsletters, newslettersByFolder, hiddenNewsletters, favoritedNewsletters]);
+  }, [mergedActiveList]);
 
   const favoriteController = useOptimisticNewsletterFavorite(favoriteSnapshots);
   const getIsFavorited = favoriteController.getIsFavorited;
@@ -371,23 +498,11 @@ function NewslettersPage() {
   };
 
   const isInitialPagePending = userPending || foldersPending;
-  const activeListPending = isFilteringByHidden
-    ? hiddenNewslettersPending
-    : isFilteringByStarred
-      ? favoritedNewslettersPending
-      : isFilteringByFolder
-        ? newslettersByFolderPending
-        : allNewslettersPending;
+  const activeListPending = activeHeadPending;
 
   const dedicatedEmail = user?.dedicatedEmail ?? null;
 
-  const newsletterList = isFilteringByHidden
-    ? ((hiddenNewsletters ?? []) as NewsletterData[])
-    : isFilteringByStarred
-      ? ((favoritedNewsletters ?? []) as NewsletterData[])
-    : isFilteringByFolder
-      ? ((newslettersByFolder ?? []) as NewsletterData[])
-      : ((allNewsletters ?? []) as NewsletterData[]);
+  const newsletterList = mergedActiveList;
 
   const visibleNewsletterList = useMemo(() => {
     if (!isFilteringByStarred) return newsletterList;
@@ -396,13 +511,10 @@ function NewslettersPage() {
     );
   }, [isFilteringByStarred, newsletterList, getIsFavorited]);
 
-  const visibleFavoritedNewsletters = useMemo(
-    () =>
-      ((favoritedNewsletters ?? []) as NewsletterData[]).filter((newsletter) =>
-        getIsFavorited(newsletter._id, Boolean(newsletter.isFavorited)),
-      ),
-    [favoritedNewsletters, getIsFavorited],
-  );
+  const visibleFavoritedNewsletters = useMemo(() => {
+    if (!isFilteringByStarred) return [];
+    return visibleNewsletterList;
+  }, [isFilteringByStarred, visibleNewsletterList]);
 
   const autoSelectedStarredNewsletterId = getStarredAutoSelectionId({
     isDesktop,
@@ -428,10 +540,17 @@ function NewslettersPage() {
     selectedFolderId: folderIdParam ?? null,
     selectedNewsletterId: effectiveNewsletterId ?? null,
     selectedFilter: effectiveFilter,
-    hiddenNewsletters: ((hiddenNewsletters ?? []) as NewsletterData[]),
-    hiddenPending: hiddenNewslettersPending,
+    hiddenNewsletters: isFilteringByHidden ? newsletterList : [],
+    hiddenPending: isFilteringByHidden ? activeListPending : false,
     favoritedNewsletters: visibleFavoritedNewsletters,
-    favoritedPending: favoritedNewslettersPending,
+    favoritedPending: isFilteringByStarred ? activeListPending : false,
+    canLoadMore: (isFilteringByHidden || isFilteringByStarred) ? canLoadMore : false,
+    isLoadingMore: (isFilteringByHidden || isFilteringByStarred) ? isLoadingMore : false,
+    onLoadMore: (isFilteringByHidden || isFilteringByStarred)
+      ? () => {
+          void handleLoadMore();
+        }
+      : undefined,
     onFolderSelect: handleFolderSelect,
     onNewsletterSelect: handleNewsletterSelect,
     onFilterSelect: handleFilterSelect,
@@ -558,6 +677,12 @@ function NewslettersPage() {
                 onToggleFavorite={onToggleFavorite}
               />
             ))}
+            {canLoadMore && <div ref={loadMoreRef} className="h-10" />}
+            {isLoadingMore && (
+              <div className="text-center text-sm text-muted-foreground py-4">
+                Loading more...
+              </div>
+            )}
           </div>
         )}
       </main>

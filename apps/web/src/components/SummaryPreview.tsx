@@ -40,10 +40,12 @@ export function SummaryPreview({ userNewsletterId }: SummaryPreviewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Only fetch when expanded (lazy loading)
-  const { data, isPending } = useQuery({
-    ...convexQuery(api.ai.getNewsletterSummary, { userNewsletterId }),
-    enabled: isExpanded,
-  });
+  const { data, isPending } = useQuery(
+    convexQuery(
+      api.ai.getNewsletterSummary,
+      isExpanded ? { userNewsletterId } : "skip",
+    ),
+  );
 
   // Code review fix: Trust the query return type, avoid manual type guards
   const summaryData = data as SummaryData | undefined;

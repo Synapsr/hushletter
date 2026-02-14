@@ -33,6 +33,7 @@ describe("newsletters API exports", () => {
   it("should export public mutation functions for read status (Story 3.4)", () => {
     expect(api.newsletters.markNewsletterRead).toBeDefined()
     expect(api.newsletters.markNewsletterUnread).toBeDefined()
+    expect(api.newsletters.setReadProgress).toBeDefined()
     expect(api.newsletters.updateNewsletterReadProgress).toBeDefined()
   })
 
@@ -47,6 +48,17 @@ describe("newsletters API exports", () => {
   it("should export listHiddenNewsletters query (Story 3.5)", () => {
     expect(api.newsletters.listHiddenNewsletters).toBeDefined()
     expect(api.newsletters.listFavoritedNewsletters).toBeDefined()
+  })
+
+  it("should export paginated head queries + page actions (bandwidth optimization)", () => {
+    expect(api.newsletters.listAllNewslettersHead).toBeDefined()
+    expect(api.newsletters.listAllNewslettersPage).toBeDefined()
+    expect(api.newsletters.listUserNewslettersByFolderHead).toBeDefined()
+    expect(api.newsletters.listUserNewslettersByFolderPage).toBeDefined()
+    expect(api.newsletters.listHiddenNewslettersHead).toBeDefined()
+    expect(api.newsletters.listHiddenNewslettersPage).toBeDefined()
+    expect(api.newsletters.listFavoritedNewslettersHead).toBeDefined()
+    expect(api.newsletters.listFavoritedNewslettersPage).toBeDefined()
   })
 
   it("should export internal functions", () => {
@@ -917,10 +929,10 @@ describe("reading progress acceptance criteria (Story 3.4)", () => {
   it("AC1: Scroll progress tracking stores percentage in database", () => {
     const ac1 = {
       trigger: "User scrolls through newsletter content",
-      action: "updateNewsletterReadProgress mutation called",
-      result: "readProgress field updated with percentage",
+      action: "setReadProgress mutation called",
+      result: "newsletterReadProgress record updated with percentage",
     }
-    expect(ac1.action).toContain("updateNewsletterReadProgress")
+    expect(ac1.action).toContain("setReadProgress")
   })
 
   it("AC2: Resume reading shows progress and allows resume", () => {
@@ -936,7 +948,7 @@ describe("reading progress acceptance criteria (Story 3.4)", () => {
     const ac3 = {
       condition: "readProgress >= 100",
       action: "isRead automatically set to true",
-      trigger: "updateNewsletterReadProgress with progress=100",
+      trigger: "setReadProgress with progress=100",
     }
     expect(ac3.condition).toContain("100")
   })
@@ -953,10 +965,10 @@ describe("reading progress acceptance criteria (Story 3.4)", () => {
   it("AC5: Visual read status indicators", () => {
     const ac5 = {
       unread: "Bold text, primary border, indicator dot",
-      partiallyRead: "Shows 'X% read' badge",
+      partiallyRead: "Progress shown in reader header only",
       read: "Muted text color",
     }
-    expect(ac5.partiallyRead).toContain("% read")
+    expect(ac5.partiallyRead).toContain("reader")
   })
 
   it("AC6: Unread counts in navigation (verified from Story 3.1, 3.3)", () => {
@@ -1233,20 +1245,20 @@ describe("hasSummary derivation logic (Story 5.2)", () => {
     })
   })
 
-  describe("listUserNewslettersByFolder", () => {
-    it("includes hasSummary in response", () => {
-      const expectedFields = ["_id", "subject", "senderDisplayName", "hasSummary"]
-      expect(expectedFields).toContain("hasSummary")
-    })
+	  describe("listUserNewslettersByFolder", () => {
+	    it("includes hasSummary in response", () => {
+	      const expectedFields = ["_id", "subject", "senderName", "hasSummary"]
+	      expect(expectedFields).toContain("hasSummary")
+	    })
 
-    it("enriches with both senderDisplayName and hasSummary", () => {
-      const enrichmentLogic = {
-        senderDisplayName: "sender?.name || sender?.email || newsletter.senderEmail",
-        hasSummary: "Boolean(newsletter.summary) || Boolean(content?.summary)",
-      }
-      expect(enrichmentLogic.hasSummary).toContain("summary")
-    })
-  })
+	    it("enriches with both senderName and hasSummary", () => {
+	      const enrichmentLogic = {
+	        senderName: "sender?.name ?? newsletter.senderName",
+	        hasSummary: "Boolean(newsletter.summary) || Boolean(content?.summary)",
+	      }
+	      expect(enrichmentLogic.hasSummary).toContain("summary")
+	    })
+	  })
 
   describe("listHiddenNewsletters", () => {
     it("includes hasSummary for hidden newsletters too", () => {
@@ -1657,17 +1669,17 @@ describe("Source Field in Query Responses (Story 9.10)", () => {
     })
   })
 
-  describe("listUserNewslettersByFolder", () => {
-    it("includes source field in response for mixed source display", () => {
-      const responseFields = [
-        "_id",
-        "subject",
-        "senderDisplayName",
-        "hasSummary",
-        "source", // Story 9.10 addition
-      ]
-      expect(responseFields).toContain("source")
-    })
+	  describe("listUserNewslettersByFolder", () => {
+	    it("includes source field in response for mixed source display", () => {
+	      const responseFields = [
+	        "_id",
+	        "subject",
+	        "senderName",
+	        "hasSummary",
+	        "source", // Story 9.10 addition
+	      ]
+	      expect(responseFields).toContain("source")
+	    })
 
     it("sorts newsletters by receivedAt regardless of source", () => {
       const sortBehavior = {

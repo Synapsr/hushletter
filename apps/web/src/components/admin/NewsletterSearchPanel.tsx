@@ -65,13 +65,17 @@ export function NewsletterSearchPanel() {
     },
   });
 
-  const { data: results, isPending } = useQuery({
-    ...convexQuery(api.admin.searchNewsletters, {
-      ...searchParams,
-      limit: 50,
-    }),
-    enabled: hasSearched,
-  });
+  const { data: results, isPending } = useQuery(
+    convexQuery(
+      api.admin.searchNewsletters,
+      hasSearched
+        ? {
+            ...searchParams,
+            limit: 50,
+          }
+        : "skip",
+    ),
+  );
 
   return (
     <div className="space-y-6">

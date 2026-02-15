@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth/minimal"
+import { emailOTP } from "better-auth/plugins"
 import { createClient, type GenericCtx, type AuthFunctions } from "@convex-dev/better-auth"
 import { convex } from "@convex-dev/better-auth/plugins"
 import { components, internal } from "./_generated/api"
@@ -52,11 +53,39 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
   return betterAuth({
     baseURL: siteUrl,
     database: authComponent.adapter(ctx),
-    // Email/password authentication - MVP setup without email verification
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: false, // MVP - add verification in future story
+      requireEmailVerification: true,
       minPasswordLength: 8,
+      sendResetPassword: async ({ user, url }) => {
+        const resendApiKey = process.env.RESEND_API_KEY
+        if (!resendApiKey) {
+          console.error("RESEND_API_KEY not configured - cannot send reset email")
+          return
+        }
+        const fromEmail = process.env.EMAIL_FROM || "Hushletter <noreply@hushletter.com>"
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: fromEmail,
+            to: [user.email],
+            subject: "Reset your password",
+            html: `<h2>Reset your password</h2>
+              <p>Click below to reset your password. This link expires in 1 hour.</p>
+              <a href="${url}" style="display:inline-block;padding:12px 24px;background:#000;color:#fff;text-decoration:none;border-radius:6px;">Reset Password</a>
+              <p style="margin-top:16px;color:#666;font-size:14px;">If you didn't request this, you can safely ignore this email.</p>`,
+          }),
+        })
+        if (!res.ok) {
+          const body = await res.text().catch(() => "unknown")
+          console.error(`Failed to send reset email: ${res.status} ${body}`)
+        }
+      },
+      resetPasswordTokenExpiresIn: 3600,
     },
     // Account linking configuration
     // Story 4.1: Allow linking Gmail accounts with different emails than login email
@@ -89,8 +118,38 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       },
     },
     plugins: [
-      // Convex plugin required for Convex compatibility
       convex({ authConfig }),
+      emailOTP({
+        otpLength: 6,
+        expiresIn: 300,
+        async sendVerificationOTP({ email, otp, type }) {
+          if (type !== "email-verification") return
+          const resendApiKey = process.env.RESEND_API_KEY
+          if (!resendApiKey) {
+            console.error("RESEND_API_KEY not configured - cannot send OTP email")
+            return
+          }
+          const fromEmail = process.env.EMAIL_FROM || "Hushletter <noreply@hushletter.com>"
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: fromEmail,
+              to: [email],
+              subject: "Your Hushletter verification code",
+              html: `<p>Your verification code is: <strong>${otp}</strong></p><p>This code expires in 5 minutes.</p>`,
+            }),
+          })
+          if (!res.ok) {
+            const body = await res.text().catch(() => "unknown")
+            console.error(`Failed to send OTP email: ${res.status} ${body}`)
+            throw new Error("Failed to send verification email")
+          }
+        },
+      }),
     ],
   })
 }

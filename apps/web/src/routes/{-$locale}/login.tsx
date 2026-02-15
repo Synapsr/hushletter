@@ -105,15 +105,12 @@ function LoginPage() {
           </form.AppForm>
 
           <div className="mt-4 text-center">
-            <button
-              type="button"
+            <Link
+              to="/{-$locale}/forgot-password"
               className="text-sm text-muted-foreground transition-colors hover:text-primary"
-              onClick={() => {
-                // Placeholder for future password reset story
-              }}
             >
               {m.auth_forgotPassword()}
-            </button>
+            </Link>
           </div>
 
           <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">

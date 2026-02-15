@@ -19,7 +19,7 @@ import { m } from "@/paraglide/messages.js";
  * - Community Content shows published content (newsletterContent)
  * - This is for PRE-publication review
  */
-export const Route = createFileRoute("/_authed/admin/moderation")({
+export const Route = createFileRoute("/_authed/_navigation/admin/moderation")({
   component: ModerationPage,
 });
 

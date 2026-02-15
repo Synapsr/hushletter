@@ -24,7 +24,7 @@ import { BulkImportProgress } from "@/components/import/BulkImportProgress";
 import { readFileAsArrayBuffer, getParserErrorMessage } from "@/components/import/emlUtils";
 import { m } from "@/paraglide/messages.js";
 
-export const Route = createFileRoute("/_authed/import/manual")({
+export const Route = createFileRoute("/_authed/_navigation/import/manual")({
   component: ManualImportPage,
 });
 

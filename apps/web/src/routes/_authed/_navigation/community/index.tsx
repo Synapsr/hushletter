@@ -76,7 +76,7 @@ type CommunitySearchParams = {
   tab?: "newsletters" | "senders";
 };
 
-export const Route = createFileRoute("/_authed/community/")({
+export const Route = createFileRoute("/_authed/_navigation/community/")({
   component: CommunityBrowsePage,
   validateSearch: (search: Record<string, unknown>): CommunitySearchParams => {
     // Story 9.8: Added "imports" sort option

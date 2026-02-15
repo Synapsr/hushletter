@@ -1,15 +1,18 @@
 import { useState, useCallback } from "react";
 import {
   Dialog,
-  DialogTrigger,
+  DialogCreateHandle,
   DialogPopup,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogPanel,
+  Button,
 } from "@hushletter/ui";
-import { Button } from "@hushletter/ui";
 import { ArrowLeft } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
 import { ImportMethodPicker } from "./ImportMethodPicker";
 import { ForwardingInstructions } from "./ForwardingInstructions";
 import { EmlUploadStep } from "./EmlUploadStep";
@@ -18,11 +21,6 @@ import { m } from "@/paraglide/messages.js";
 
 type DialogStep = "pick" | "forwarding" | "upload" | "gmail";
 
-interface ImportMethodDialogProps {
-  dedicatedEmail: string | null;
-  children: React.ReactNode;
-}
-
 const stepTitles: Record<DialogStep, () => string> = {
   pick: () => m.importDialog_title(),
   forwarding: () => m.importDialog_forwardingTitle(),
@@ -30,25 +28,35 @@ const stepTitles: Record<DialogStep, () => string> = {
   gmail: () => m.importDialog_gmailTitle(),
 };
 
-export function ImportMethodDialog({ dedicatedEmail, children }: ImportMethodDialogProps) {
-  const [open, setOpen] = useState(false);
+export const importDialogHandle = DialogCreateHandle();
+
+export function ImportMethodDialog() {
   const [step, setStep] = useState<DialogStep>("pick");
 
+  const { data: userData } = useQuery(convexQuery(api.auth.getCurrentUser, {}));
+  const user = userData as {
+    dedicatedEmail: string | null;
+    vanityEmail: string | null;
+  } | null;
+  const dedicatedEmail = user?.vanityEmail ?? user?.dedicatedEmail ?? null;
+
   const handleOpenChange = useCallback((nextOpen: boolean) => {
-    setOpen(nextOpen);
     if (!nextOpen) {
-      setStep("pick");
+      setTimeout(() => {
+        setStep("pick");
+      }, 300);
     }
   }, []);
 
   const handleClose = useCallback(() => {
-    setOpen(false);
-    setStep("pick");
+    importDialogHandle.close();
+    setTimeout(() => {
+      setStep("pick");
+    }, 300);
   }, []);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={children as React.ReactElement} />
+    <Dialog handle={importDialogHandle} onOpenChange={handleOpenChange}>
       <DialogPopup>
         <DialogHeader>
           {step !== "pick" && (
@@ -76,12 +84,8 @@ export function ImportMethodDialog({ dedicatedEmail, children }: ImportMethodDia
           {step === "forwarding" && (
             <ForwardingInstructions dedicatedEmail={dedicatedEmail} />
           )}
-          {step === "upload" && (
-            <EmlUploadStep onClose={handleClose} />
-          )}
-          {step === "gmail" && (
-            <GmailImportStep />
-          )}
+          {step === "upload" && <EmlUploadStep onClose={handleClose} />}
+          {step === "gmail" && <GmailImportStep />}
         </DialogPanel>
       </DialogPopup>
     </Dialog>

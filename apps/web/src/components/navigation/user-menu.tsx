@@ -31,6 +31,7 @@ import {
   Settings,
   Shield,
 } from "lucide-react";
+import { importDialogHandle } from "../import";
 
 export const UserMenu = () => {
   const { data: session } = useSession();
@@ -123,7 +124,7 @@ export const UserMenu = () => {
         <MenuSeparator />
 
         {/* Actions */}
-        <MenuItem onClick={() => navigate({ to: "/import" })}>
+        <MenuItem onClick={() => importDialogHandle.open(null)}>
           <Download className="mr-2 h-4 w-4" />
           Import newsletters
           <MenuShortcut>⌘I</MenuShortcut>

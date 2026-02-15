@@ -18,12 +18,14 @@ import {
   Palette,
   Trash2,
   CreditCard,
+  FolderX,
 } from "lucide-react";
 import { SettingsProfile } from "./settings-profile";
 import { SettingsPassword } from "./settings-password";
 import { SettingsNotifications } from "./settings-notifications";
 import { SettingsAppearance } from "./settings-appearance";
 import { SettingsBilling } from "./settings-billing";
+import { HiddenFoldersSection } from "../HiddenFoldersSection";
 import { useHotkey } from "@tanstack/react-hotkeys";
 
 const tabs = [
@@ -32,6 +34,7 @@ const tabs = [
   { id: "password", label: "Password", icon: Lock },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "hidden-folders", label: "Hidden folders", icon: FolderX },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -39,8 +42,6 @@ type TabId = (typeof tabs)[number]["id"];
 export const SettingsDialog = () => {
   const [activeTab, setActiveTab] = useState<TabId>("profile");
   const [isOpen, setIsOpen] = useState(false);
-
-  useHotkey("Mod+,", () => setIsOpen(true));
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -52,7 +53,7 @@ export const SettingsDialog = () => {
         <SettingsIcon className="size-4" />
       </DialogTrigger>
       <DialogPopup
-        className="max-w-[720px]"
+        className="max-w-[720px] "
         showCloseButton={true}
         bottomStickOnMobile={false}
       >
@@ -95,6 +96,19 @@ export const SettingsDialog = () => {
             {activeTab === "password" && <SettingsPassword />}
             {activeTab === "notifications" && <SettingsNotifications />}
             {activeTab === "appearance" && <SettingsAppearance />}
+            {activeTab === "hidden-folders" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold">Hidden folders</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Folders you've hidden from the sidebar. Unhide them to
+                    restore visibility.
+                  </p>
+                </div>
+                <Separator />
+                <HiddenFoldersSection />
+              </div>
+            )}
           </DialogPanel>
         </div>
       </DialogPopup>

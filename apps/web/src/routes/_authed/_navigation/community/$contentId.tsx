@@ -8,7 +8,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@hushletter/ui
 import { ArrowLeft, Plus, Users, Check, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
 
-export const Route = createFileRoute("/_authed/community/$contentId")({
+export const Route = createFileRoute("/_authed/_navigation/community/$contentId")({
   component: CommunityReaderPage,
 });
 

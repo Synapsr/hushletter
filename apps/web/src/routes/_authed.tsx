@@ -9,8 +9,10 @@ import { api } from "@hushletter/backend";
 import type { RouterContext } from "@/router";
 import { SharedLogo } from "@/components/shared/shared-logo";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
+import { ImportMethodDialog } from "@/components/import/ImportMethodDialog";
 import { UserMenu } from "@/components/navigation/user-menu";
 import { GlobalSearch } from "@/components/navigation/global-search";
+import { useShortcuts } from "@/hooks/use-shortcuts";
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ context, location }) => {
@@ -46,10 +48,13 @@ export const Route = createFileRoute("/_authed")({
 });
 
 function AuthedLayout() {
+  useShortcuts();
   return (
     <div className="h-screen w-screen flex flex-col">
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 ">
         <Outlet />
+        <SettingsDialog />
+        <ImportMethodDialog />
       </main>
     </div>
   );

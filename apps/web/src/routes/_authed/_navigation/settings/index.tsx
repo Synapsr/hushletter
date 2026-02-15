@@ -39,7 +39,7 @@ import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authed/settings/")({
+export const Route = createFileRoute("/_authed/_navigation/settings/")({
   component: SettingsPage,
 });
 
@@ -61,8 +61,13 @@ type CurrentUserData = {
   vanityEmail: string | null;
 } | null;
 
-// Type for Gmail account data
-type GmailAccountData = { email: string; connectedAt: number } | null;
+// Type for Gmail connection data (from gmailConnections.getGmailConnections)
+type GmailConnectionData = {
+  _id: string;
+  email: string;
+  connectedAt: number;
+  source: "betterauth" | "oauth";
+};
 
 /**
  * Gmail Integration Settings Section
@@ -70,24 +75,24 @@ type GmailAccountData = { email: string; connectedAt: number } | null;
  */
 function GmailSettingsSection({ isPro }: { isPro: boolean }) {
   const queryClient = useQueryClient();
-  const disconnectGmail = useAction(api.gmail.disconnectGmail);
+  const removeConnection = useAction(api.gmailConnections.removeConnection);
 
-  // Note: useState for isDisconnecting is required because Convex useAction doesn't
-  // provide isPending like useMutation does. This is an accepted exception per
-  // ReaderView.tsx:104-113 pattern in the codebase.
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [disconnectTarget, setDisconnectTarget] = useState<GmailConnectionData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Query Gmail connection status
+  // Query all Gmail connections
   const {
     data,
     isPending,
     error: queryError,
-  } = useQuery(convexQuery(api.gmail.getGmailAccount, isPro ? {} : "skip"));
-  const gmailAccount = data as GmailAccountData | undefined;
+  } = useQuery(convexQuery(api.gmailConnections.getGmailConnections, isPro ? {} : "skip"));
+  const connections = (data ?? []) as GmailConnectionData[];
 
-  const isConnected = gmailAccount !== null && gmailAccount !== undefined;
+  const isConnected = connections.length > 0;
+  // For backward compat with the single-account display
+  const gmailAccount = isConnected ? connections[0] : null;
 
   if (!isPro) {
     return (
@@ -118,15 +123,16 @@ function GmailSettingsSection({ isPro }: { isPro: boolean }) {
   }
 
   const handleConfirmDisconnect = async () => {
+    if (!disconnectTarget) return;
     setIsDisconnecting(true);
     setError(null);
 
     try {
-      await disconnectGmail({});
+      await removeConnection({ gmailConnectionId: disconnectTarget._id as Parameters<typeof removeConnection>[0]["gmailConnectionId"] });
       await queryClient.invalidateQueries();
-      // Clear any previous error and close dialog on success
       setError(null);
       setIsDialogOpen(false);
+      setDisconnectTarget(null);
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -176,13 +182,16 @@ function GmailSettingsSection({ isPro }: { isPro: boolean }) {
                     {m.settings_gmailConnected()}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {gmailAccount.email}
+                    {gmailAccount!.email}
                   </p>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsDialogOpen(true)}
+                  onClick={() => {
+                    setDisconnectTarget(gmailAccount!);
+                    setIsDialogOpen(true);
+                  }}
                 >
                   {m.settings_gmailDisconnect()}
                 </Button>
@@ -205,13 +214,16 @@ function GmailSettingsSection({ isPro }: { isPro: boolean }) {
         </CardContent>
       </Card>
 
-      {isConnected && (
+      {disconnectTarget && (
         <DisconnectConfirmDialog
           open={isDialogOpen}
-          onOpenChange={setIsDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) setDisconnectTarget(null);
+          }}
           onConfirm={handleConfirmDisconnect}
           isPending={isDisconnecting}
-          gmailAddress={gmailAccount.email}
+          gmailAddress={disconnectTarget.email}
         />
       )}
     </>

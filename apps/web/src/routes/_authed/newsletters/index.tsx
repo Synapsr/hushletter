@@ -768,7 +768,7 @@ function NewslettersPage() {
   );
 
   return (
-    <div className="h-full">
+    <div className="h-screen overflow-hidden">
       {desktopLayout}
       {mobileLayout}
     </div>

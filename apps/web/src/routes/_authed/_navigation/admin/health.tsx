@@ -25,7 +25,7 @@ import { m } from "@/paraglide/messages.js";
  * - R2 storage status (placeholder - requires action)
  * - AI service status (placeholder - requires action)
  */
-export const Route = createFileRoute("/_authed/admin/health")({
+export const Route = createFileRoute("/_authed/_navigation/admin/health")({
   component: AdminHealthPage,
 });
 

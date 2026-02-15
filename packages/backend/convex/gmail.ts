@@ -8,10 +8,10 @@
  * Tokens are NEVER exposed to the client - only connection status and email are returned.
  */
 
-import { query, mutation, internalMutation, internalQuery, action, internalAction, type QueryCtx } from "./_generated/server"
+import { query, mutation, internalMutation, internalQuery, action, internalAction } from "./_generated/server"
 import { v, ConvexError } from "convex/values"
 import { internal, api } from "./_generated/api"
-import { authComponent, createAuth } from "./auth"
+import { authComponent } from "./auth"
 import {
   calculateNewsletterScore,
   extractSenderEmail,
@@ -24,307 +24,78 @@ import { isUserPro } from "./entitlements"
 import type { GmailMessageDetail } from "./gmailApi"
 import type { Id } from "./_generated/dataModel"
 
-// Type for Better Auth account from listUserAccounts
-// Note: Better Auth returns more fields but we only type what we use
-type BetterAuthAccount = {
-  providerId: string
-  accountId: string
-  createdAt: string | Date
-  // idToken is available when using OAuth providers with openid scope
-  // TypeScript doesn't know about this field from the base type, so we add it
-  idToken?: string | null
-}
-
-// Extended type that includes idToken (returned by OAuth providers)
-type BetterAuthAccountWithIdToken = BetterAuthAccount & {
-  idToken?: string | null
-}
-
 /**
- * Decode the payload of a JWT without verification
- * We trust the token since it came from Google OAuth via Better Auth
- *
- * @returns Decoded payload with email if valid and not expired, null otherwise
- */
-function decodeJwtPayload(jwt: string): { email?: string; exp?: number } | null {
-  try {
-    const parts = jwt.split(".")
-    if (parts.length !== 3) return null
-
-    // Decode the payload (second part)
-    const payload = parts[1]
-    // Handle base64url encoding
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/")
-    const decoded = atob(base64)
-    const parsed = JSON.parse(decoded) as { email?: string; exp?: number }
-
-    // Check if token has expired (exp is in seconds, Date.now() is in ms)
-    if (parsed.exp && parsed.exp * 1000 < Date.now()) {
-      // Token expired - still return payload but caller should handle appropriately
-      // Note: Better Auth should refresh tokens, but we check anyway
-      console.warn("[gmail] idToken has expired, email may be stale")
-    }
-
-    return parsed
-  } catch {
-    return null
-  }
-}
-
-/**
- * Internal helper to get Google account from Better Auth
- * Centralizes the account fetching logic to avoid duplication
- */
-async function getGoogleAccount(
-  ctx: QueryCtx
-): Promise<{
-  account: BetterAuthAccount
-  googleEmail: string | null
-  authUserEmail: string
-} | null> {
-  // Get authenticated user - returns null if not authenticated
-  const authUser = await authComponent.safeGetAuthUser(ctx)
-  if (!authUser) {
-    return null
-  }
-
-  // Get Better Auth API to query linked accounts
-  const { auth, headers } = await authComponent.getAuth(createAuth, ctx)
-
-  // List all linked accounts for the current user
-  const accounts = await auth.api.listUserAccounts({ headers })
-
-  // Find Google account - cast to extended type that includes idToken
-  const googleAccount = accounts.find(
-    (account) => account.providerId === "google"
-  ) as BetterAuthAccountWithIdToken | undefined
-
-  if (!googleAccount) {
-    return null
-  }
-
-  // Extract the Google email from the idToken if available
-  // OAuth providers with openid scope include idToken with user info
-  let googleEmail: string | null = null
-  if (googleAccount.idToken) {
-    const payload = decodeJwtPayload(googleAccount.idToken)
-    if (payload?.email) {
-      googleEmail = payload.email
-    }
-  }
-
-  return {
-    account: googleAccount,
-    googleEmail,
-    authUserEmail: authUser.email,
-  }
-}
-
-/**
- * Check if the current user has a connected Gmail account
- * Story 4.1: Task 4.2 (AC #3, #4)
- *
- * Note: Currently unused in UI (getGmailAccount provides same functionality).
- * Kept for Stories 4.2-4.4 which may need lightweight connection checks
- * before initiating expensive operations like email scanning.
- *
- * @returns boolean indicating if Gmail is connected
- * @throws ConvexError if unable to check connection status
+ * Check if the current user has any connected Gmail account
+ * Replaced old Better Auth based check with gmailConnections query
  */
 export const isGmailConnected = query({
   args: {},
   handler: async (ctx): Promise<boolean> => {
-    try {
-      const result = await getGoogleAccount(ctx)
-      return result !== null
-    } catch (error) {
-      // Log for debugging but don't expose internal errors
-      console.error("[gmail.isGmailConnected] Failed to check connection:", error)
-      // Throw structured error so client can handle it
-      throw new ConvexError({
-        code: "INTERNAL_ERROR",
-        message: "Unable to check Gmail connection status. Please try again.",
-      })
-    }
+    const authUser = await authComponent.safeGetAuthUser(ctx)
+    if (!authUser) return false
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+    if (!user) return false
+
+    const connections = await ctx.db
+      .query("gmailConnections")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+
+    return connections.some((c) => c.isActive)
   },
 })
 
 /**
- * Get the connected Gmail account email address
- * Story 4.1: Task 4.3 (AC #4)
- *
- * @returns The Gmail email address if connected, null otherwise
- * Note: Tokens are NEVER returned - only the email address (NFR6 compliance)
+ * Get the first connected Gmail account (backward compat for old UI)
+ * New UI should use gmailConnections.getGmailConnections instead
  */
 export const getGmailAccount = query({
   args: {},
-  handler: async (
-    ctx
-  ): Promise<{ email: string; connectedAt: number } | null> => {
-    try {
-      const result = await getGoogleAccount(ctx)
+  handler: async (ctx): Promise<{ email: string; connectedAt: number } | null> => {
+    const authUser = await authComponent.safeGetAuthUser(ctx)
+    if (!authUser) return null
 
-      if (!result) {
-        return null
-      }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+    if (!user) return null
 
-      const { account, googleEmail, authUserEmail } = result
+    const connection = await ctx.db
+      .query("gmailConnections")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first()
 
-      // The email comes from the Google idToken which contains the actual
-      // Google account email. This allows users to link any Gmail account,
-      // not just one matching their login email (allowDifferentEmails: true)
-      // Fall back to auth user's email if idToken is unavailable (rare edge case)
-      const email = googleEmail ?? authUserEmail
+    if (!connection || !connection.isActive) return null
 
-      return {
-        email,
-        connectedAt: new Date(account.createdAt).getTime(),
-      }
-    } catch (error) {
-      // Log for debugging but don't expose internal errors
-      console.error("[gmail.getGmailAccount] Failed to get account:", error)
-      // Throw structured error so client can handle it
-      throw new ConvexError({
-        code: "INTERNAL_ERROR",
-        message: "Unable to retrieve Gmail account. Please try again.",
-      })
+    return {
+      email: connection.email,
+      connectedAt: connection.connectedAt,
     }
   },
 })
 
 /**
- * Revoke Google OAuth token at Google's endpoint
- * Story 4.5: Task 1.2 (AC #2, #5)
- *
- * This is NON-BLOCKING: disconnect must succeed even if revocation fails.
- * Reasons:
- * - User wants to disconnect; we shouldn't block that
- * - Token may already be expired or invalid
- * - Better Auth will delete the token from our DB regardless
- * - Google will eventually expire the token anyway (1 hour for access tokens)
- *
- * @param accessToken - The Google OAuth access token to revoke
- */
-async function revokeGoogleToken(accessToken: string): Promise<void> {
-  try {
-    const response = await fetch(
-      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(accessToken)}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
-    )
-
-    if (response.ok) {
-      console.log("[gmail.revokeGoogleToken] Successfully revoked Google OAuth token")
-    } else {
-      // Log but don't fail - token may already be expired
-      console.warn(`[gmail.revokeGoogleToken] Token revocation returned status ${response.status}`)
-    }
-  } catch (error) {
-    // Network error - log but continue
-    console.warn("[gmail.revokeGoogleToken] Token revocation network error:", error)
-  }
-}
-
-/**
- * Disconnect Gmail account
- * Story 4.2 fix: Allow users to disconnect and reconnect Gmail
- * Story 4.5: Added Google token revocation before unlinking (AC #2, #5)
- *
- * Flow:
- * 1. Get current access token for revocation
- * 2. Revoke token at Google (non-blocking)
- * 3. Unlink account via Better Auth
- * 4. Clean up scan progress and detected senders (NOT newsletters!)
- *
- * @returns Success status
- * @throws ConvexError if unable to disconnect
- */
-export const disconnectGmail = action({
-  args: {},
-  handler: async (ctx): Promise<{ success: boolean }> => {
-    try {
-      // Get Better Auth API
-      const { auth, headers } = await authComponent.getAuth(createAuth, ctx)
-
-      // Step 1: Get current access token for revocation (Story 4.5)
-      try {
-        const tokenResult = await ctx.runQuery(internal.gmailApi.getAccessToken)
-
-        // Step 2: Revoke token at Google (non-blocking - proceed even if fails)
-        if (tokenResult.accessToken) {
-          await revokeGoogleToken(tokenResult.accessToken)
-        }
-      } catch (error) {
-        // Token may not exist or be invalid - continue with disconnect
-        console.warn("[gmail.disconnectGmail] Could not revoke token (may already be invalid):", error)
-      }
-
-      // Step 3: Unlink the Google account
-      await auth.api.unlinkAccount({
-        body: {
-          providerId: "google",
-        },
-        headers,
-      })
-
-      // Step 4: Clean up scan progress and detected senders (NOT newsletters!)
-      // (they'll need to rescan after reconnecting)
-      const authUser = await ctx.runQuery(api.auth.getCurrentUser)
-      if (authUser) {
-        const user = await ctx.runQuery(internal.gmail.getUserByAuthId, {
-          authId: authUser.id,
-        })
-        if (user) {
-          await ctx.runMutation(internal.gmail.cleanupUserScanData, {
-            userId: user._id,
-          })
-        }
-      }
-
-      return { success: true }
-    } catch (error) {
-      console.error("[gmail.disconnectGmail] Failed to disconnect:", error)
-      throw new ConvexError({
-        code: "INTERNAL_ERROR",
-        message: "Unable to disconnect Gmail. Please try again.",
-      })
-    }
-  },
-})
-
-/**
- * Internal mutation to clean up user's scan data when disconnecting
- * Story 4.5: Task 5 (AC #3) - Newsletter preservation
- *
- * CRITICAL: This mutation ONLY deletes:
- * - gmailScanProgress (scan status)
- * - detectedSenders (pending sender approvals)
- *
- * It NEVER deletes:
- * - userNewsletters (imported newsletters must be preserved!)
- * - newsletterContent (shared content)
- * - gmailImportProgress (import history)
- *
- * This ensures that previously imported newsletters remain in the user's
- * account after disconnecting Gmail (AC #3).
+ * Internal mutation to clean up user's scan data for a specific connection
+ * Newsletter preservation: NEVER deletes userNewsletters or newsletterContent
  */
 export const cleanupUserScanData = internalMutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args): Promise<void> => {
-    // Delete scan progress
+    // Delete all scan progress for this user
     const progress = await ctx.db
       .query("gmailScanProgress")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .first()
-    if (progress) {
-      await ctx.db.delete(progress._id)
+      .collect()
+    for (const p of progress) {
+      await ctx.db.delete(p._id)
     }
 
-    // Delete detected senders (pending approvals only)
+    // Delete detected senders
     const senders = await ctx.db
       .query("detectedSenders")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -332,9 +103,6 @@ export const cleanupUserScanData = internalMutation({
     for (const sender of senders) {
       await ctx.db.delete(sender._id)
     }
-
-    // NOTE: Do NOT delete userNewsletters or newsletterContent!
-    // Imported newsletters must be preserved after Gmail disconnect (Story 4.5 AC #3)
   },
 })
 
@@ -370,77 +138,79 @@ type DetectedSender = {
 }
 
 /**
- * Get current scan progress for the authenticated user
- * Story 4.2: Task 3.5, 5.2 - Progress query for real-time UI feedback
+ * Get current scan progress for a specific Gmail connection
  *
  * @returns Scan progress object or null if no scan has been started
  */
 export const getScanProgress = query({
-  args: {},
-  handler: async (ctx): Promise<ScanProgress | null> => {
+  args: {
+    gmailConnectionId: v.optional(v.id("gmailConnections")),
+  },
+  handler: async (ctx, args): Promise<ScanProgress | null> => {
     const authUser = await authComponent.safeGetAuthUser(ctx)
-    if (!authUser) {
-      return null
+    if (!authUser) return null
+
+    if (args.gmailConnectionId) {
+      const progress = await ctx.db
+        .query("gmailScanProgress")
+        .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
+        .first()
+      return progress as ScanProgress | null
     }
 
-    // Get the app user record
+    // Fallback: get by userId (for backward compat)
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
       .first()
+    if (!user) return null
 
-    if (!user) {
-      return null
-    }
-
-    // Get the most recent scan progress for this user
     const progress = await ctx.db
       .query("gmailScanProgress")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .first()
-
     return progress as ScanProgress | null
   },
 })
 
 /**
- * Get detected senders for the authenticated user
- * Story 4.2: Task 5.2 - Query detected senders for display
- * Story 4.3: Added isSelected and isApproved fields with defaults
+ * Get detected senders for a specific Gmail connection
  *
  * @returns Array of detected senders sorted by email count (descending)
  */
 export const getDetectedSenders = query({
-  args: {},
-  handler: async (ctx): Promise<DetectedSender[]> => {
+  args: {
+    gmailConnectionId: v.optional(v.id("gmailConnections")),
+  },
+  handler: async (ctx, args): Promise<DetectedSender[]> => {
     const authUser = await authComponent.safeGetAuthUser(ctx)
-    if (!authUser) {
-      return []
+    if (!authUser) return []
+
+    let senders
+    if (args.gmailConnectionId) {
+      senders = await ctx.db
+        .query("detectedSenders")
+        .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
+        .collect()
+    } else {
+      // Fallback: get by userId
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+        .first()
+      if (!user) return []
+
+      senders = await ctx.db
+        .query("detectedSenders")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect()
     }
 
-    // Get the app user record
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
-      .first()
-
-    if (!user) {
-      return []
-    }
-
-    // Get all detected senders for this user
-    const senders = await ctx.db
-      .query("detectedSenders")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect()
-
-    // Sort by email count (descending) - most prolific senders first
-    // Story 4.3: Apply defaults for optional isSelected/isApproved fields
     return senders
       .map((sender) => ({
         ...sender,
-        isSelected: sender.isSelected ?? true, // Default to true per AC#1
-        isApproved: sender.isApproved ?? false, // Default to false
+        isSelected: sender.isSelected ?? true,
+        isApproved: sender.isApproved ?? false,
       }))
       .sort((a, b) => b.emailCount - a.emailCount)
   },
@@ -449,27 +219,29 @@ export const getDetectedSenders = query({
 /**
  * Internal mutation to initialize scan progress
  * Story 4.2: Task 3.3, 3.5 - Initialize progress tracking
+ * Scoped by gmailConnectionId for multi-account support
  */
 export const initScanProgress = internalMutation({
   args: {
     userId: v.id("users"),
+    gmailConnectionId: v.id("gmailConnections"),
     totalEmails: v.number(),
   },
   handler: async (ctx, args): Promise<Id<"gmailScanProgress">> => {
-    // Delete any existing scan progress for this user
+    // Delete any existing scan progress for this connection
     const existingProgress = await ctx.db
       .query("gmailScanProgress")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .first()
+      .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
+      .collect()
 
-    if (existingProgress) {
-      await ctx.db.delete(existingProgress._id)
+    for (const p of existingProgress) {
+      await ctx.db.delete(p._id)
     }
 
-    // Delete existing detected senders (clean slate for rescan)
+    // Delete existing detected senders for this connection (clean slate for rescan)
     const existingSenders = await ctx.db
       .query("detectedSenders")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
       .collect()
 
     for (const sender of existingSenders) {
@@ -479,6 +251,7 @@ export const initScanProgress = internalMutation({
     // Create new scan progress record
     return await ctx.db.insert("gmailScanProgress", {
       userId: args.userId,
+      gmailConnectionId: args.gmailConnectionId,
       status: "scanning",
       totalEmails: args.totalEmails,
       processedEmails: 0,
@@ -543,10 +316,12 @@ export const completeScan = internalMutation({
 /**
  * Internal mutation to add or update a detected sender
  * Story 4.2: Task 3.4, 3.6 - Store scan results
+ * Scoped by gmailConnectionId for multi-account support
  */
 export const upsertDetectedSender = internalMutation({
   args: {
     userId: v.id("users"),
+    gmailConnectionId: v.id("gmailConnections"),
     email: v.string(),
     name: v.optional(v.string()),
     domain: v.string(),
@@ -555,7 +330,7 @@ export const upsertDetectedSender = internalMutation({
     sampleSubjects: v.array(v.string()),
   },
   handler: async (ctx, args): Promise<void> => {
-    // Check if sender already exists for this user
+    // Check if sender already exists for this user+email combo
     const existingSender = await ctx.db
       .query("detectedSenders")
       .withIndex("by_userId_email", (q) =>
@@ -564,20 +339,18 @@ export const upsertDetectedSender = internalMutation({
       .first()
 
     if (existingSender) {
-      // Update existing sender with new data
-      // Note: isSelected and isApproved are NOT reset on rescan - preserve user's previous selections
       await ctx.db.patch(existingSender._id, {
         name: args.name ?? existingSender.name,
+        gmailConnectionId: args.gmailConnectionId,
         emailCount: args.emailCount,
         confidenceScore: Math.max(args.confidenceScore, existingSender.confidenceScore),
         sampleSubjects: args.sampleSubjects,
         detectedAt: Date.now(),
       })
     } else {
-      // Insert new detected sender
-      // Story 4.3: New senders default to isSelected: true (per AC#1) and isApproved: false
       await ctx.db.insert("detectedSenders", {
         userId: args.userId,
+        gmailConnectionId: args.gmailConnectionId,
         email: args.email,
         name: args.name,
         domain: args.domain,
@@ -585,8 +358,8 @@ export const upsertDetectedSender = internalMutation({
         confidenceScore: args.confidenceScore,
         sampleSubjects: args.sampleSubjects,
         detectedAt: Date.now(),
-        isSelected: true, // Story 4.3: Senders are selected by default (AC#1)
-        isApproved: false, // Story 4.3: Not approved until user confirms import
+        isSelected: true,
+        isApproved: false,
       })
     }
   },
@@ -634,22 +407,16 @@ function extractHeaders(message: GmailMessageDetail): EmailHeaders {
 /**
  * Start Gmail scan action
  * Story 4.2: Task 3.1 - Main scan action with progress tracking
- *
- * This action:
- * 1. Lists all potential newsletter emails from Gmail (pre-filtered by search query)
- * 2. Fetches headers for each email in batches
- * 3. Analyzes headers using heuristics to detect newsletters
- * 4. Aggregates results by sender
- * 5. Updates progress in real-time
+ * Now scoped by gmailConnectionId for multi-account support
  */
 export const startScan = action({
-  args: {},
-  handler: async (ctx): Promise<{ success: boolean; error?: string }> => {
-    // Track progressId outside try block so we can update it on error
+  args: {
+    gmailConnectionId: v.id("gmailConnections"),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; error?: string }> => {
     let progressId: Id<"gmailScanProgress"> | null = null
 
     try {
-      // Get authenticated user
       const authUser = await ctx.runQuery(api.auth.getCurrentUser)
       if (!authUser) {
         return { success: false, error: "Please sign in to scan your Gmail." }
@@ -661,24 +428,19 @@ export const startScan = action({
           proExpiresAt: authUser.proExpiresAt ?? undefined,
         })
       ) {
-        return {
-          success: false,
-          error: "Hushletter Pro is required to scan and import from Gmail.",
-        }
+        return { success: false, error: "Hushletter Pro is required to scan and import from Gmail." }
       }
 
-      // Get the app user record by authId
       const user = await ctx.runQuery(internal.gmail.getUserByAuthId, {
         authId: authUser.id,
       })
-
       if (!user) {
         return { success: false, error: "User account not found." }
       }
 
-      // Check for existing scan in progress to prevent race conditions
+      // Check for existing scan in progress for this connection
       const existingProgress = await ctx.runQuery(internal.gmail.getExistingScanProgress, {
-        userId: user._id,
+        gmailConnectionId: args.gmailConnectionId,
       })
       if (existingProgress?.status === "scanning") {
         return { success: false, error: "A scan is already in progress. Please wait for it to complete." }
@@ -686,14 +448,15 @@ export const startScan = action({
 
       // Step 1: Get initial list of potential newsletter messages
       const initialList = await ctx.runAction(internal.gmailApi.listNewsletterMessages, {
+        gmailConnectionId: args.gmailConnectionId,
         maxResults: 100,
       })
 
       const totalEstimate = initialList.total ?? initialList.messages.length
 
-      // Initialize scan progress
       progressId = await ctx.runMutation(internal.gmail.initScanProgress, {
         userId: user._id,
+        gmailConnectionId: args.gmailConnectionId,
         totalEmails: totalEstimate,
       })
 
@@ -701,10 +464,11 @@ export const startScan = action({
       let allMessageIds: string[] = initialList.messages.map((m) => m.id)
       let nextPageToken = initialList.nextPageToken
       let pageCount = 1
-      const MAX_PAGES = 10 // Limit to ~1000 emails for MVP
+      const MAX_PAGES = 10
 
       while (nextPageToken && pageCount < MAX_PAGES) {
         const nextPage = await ctx.runAction(internal.gmailApi.listNewsletterMessages, {
+          gmailConnectionId: args.gmailConnectionId,
           maxResults: 100,
           pageToken: nextPageToken,
         })
@@ -714,7 +478,6 @@ export const startScan = action({
       }
 
       // Step 2: Fetch message details and analyze in batches
-      // Aggregate by sender
       const senderMap = new Map<
         string,
         {
@@ -733,21 +496,17 @@ export const startScan = action({
       for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {
         const batchIds = allMessageIds.slice(i, i + BATCH_SIZE)
 
-        // Fetch message details
         const messages = await ctx.runAction(internal.gmailApi.getMessageDetails, {
+          gmailConnectionId: args.gmailConnectionId,
           messageIds: batchIds,
-          logSampleMessage: i === 0, // Log detailed info for first batch only
+          logSampleMessage: i === 0,
         })
 
-        console.log("[gmail.startScan] Messages received for batch:", messages.length)
-
-        // Analyze each message
         let skippedLowScore = 0
         let skippedNoFrom = 0
         for (const message of messages) {
           const headers = extractHeaders(message)
 
-          // Skip if no "from" header (shouldn't happen but be safe)
           if (!headers.from) {
             skippedNoFrom++
             continue
@@ -755,21 +514,6 @@ export const startScan = action({
 
           const score = calculateNewsletterScore(headers)
 
-          // Log first few messages for debugging
-          if (processedCount + messages.indexOf(message) < 10) {
-            console.log("[gmail.startScan] Sample message analysis:", {
-              from: headers.from.substring(0, 50),
-              subject: headers.subject?.substring(0, 40),
-              hasListUnsubscribe: !!headers["list-unsubscribe"],
-              hasListId: !!headers["list-id"],
-              precedence: headers.precedence,
-              score,
-              threshold: NEWSLETTER_THRESHOLD,
-              passesThreshold: score >= NEWSLETTER_THRESHOLD,
-            })
-          }
-
-          // Only include if above threshold
           if (score >= NEWSLETTER_THRESHOLD) {
             const senderEmail = extractSenderEmail(headers.from)
             const existing = senderMap.get(senderEmail)
@@ -777,11 +521,9 @@ export const startScan = action({
             if (existing) {
               existing.emailCount++
               existing.maxScore = Math.max(existing.maxScore, score)
-              // Keep up to 5 sample subjects
               if (existing.subjects.length < 5 && headers.subject) {
                 existing.subjects.push(headers.subject)
               }
-              // Update name if we have one and existing doesn't
               if (!existing.name && headers.from) {
                 existing.name = extractSenderName(headers.from)
               }
@@ -800,17 +542,8 @@ export const startScan = action({
           }
         }
 
-        console.log("[gmail.startScan] Batch complete:", {
-          batchSize: batchIds.length,
-          messagesReceived: messages.length,
-          skippedNoFrom,
-          skippedLowScore,
-          uniqueSendersFound: senderMap.size,
-        })
-
         processedCount += batchIds.length
 
-        // Update progress
         await ctx.runMutation(internal.gmail.updateScanProgress, {
           progressId,
           processedEmails: processedCount,
@@ -822,6 +555,7 @@ export const startScan = action({
       for (const sender of senderMap.values()) {
         await ctx.runMutation(internal.gmail.upsertDetectedSender, {
           userId: user._id,
+          gmailConnectionId: args.gmailConnectionId,
           email: sender.email,
           name: sender.name ?? undefined,
           domain: sender.domain,
@@ -831,7 +565,6 @@ export const startScan = action({
         })
       }
 
-      // Mark scan complete
       await ctx.runMutation(internal.gmail.completeScan, {
         progressId,
         status: "complete",
@@ -849,7 +582,6 @@ export const startScan = action({
             ? error.message
             : "An unexpected error occurred"
 
-      // Update scan progress to error status if we have a progress record
       if (progressId) {
         try {
           await ctx.runMutation(internal.gmail.completeScan, {
@@ -858,7 +590,6 @@ export const startScan = action({
             error: errorMessage,
           })
         } catch (updateError) {
-          // Log but don't throw - we want to return the original error
           console.error("[gmail.startScan] Failed to update progress to error:", updateError)
         }
       }
@@ -884,14 +615,14 @@ export const getUserByAuthId = internalQuery({
 
 /**
  * Internal query to check for existing scan progress
- * Used to prevent concurrent scans (race condition fix)
+ * Scoped by gmailConnectionId for multi-account support
  */
 export const getExistingScanProgress = internalQuery({
-  args: { userId: v.id("users") },
+  args: { gmailConnectionId: v.id("gmailConnections") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("gmailScanProgress")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
       .first()
   },
 })
@@ -1158,62 +889,65 @@ type ImportProgress = {
 }
 
 /**
- * Get current import progress for the authenticated user
- * Story 4.4: Task 1.5 (AC #1, #5) - Progress query for real-time UI feedback
+ * Get current import progress for a specific Gmail connection
  *
  * @returns Import progress object or null if no import has been started
  */
 export const getImportProgress = query({
-  args: {},
-  handler: async (ctx): Promise<ImportProgress | null> => {
+  args: {
+    gmailConnectionId: v.optional(v.id("gmailConnections")),
+  },
+  handler: async (ctx, args): Promise<ImportProgress | null> => {
     const authUser = await authComponent.safeGetAuthUser(ctx)
-    if (!authUser) {
-      return null
+    if (!authUser) return null
+
+    if (args.gmailConnectionId) {
+      const progress = await ctx.db
+        .query("gmailImportProgress")
+        .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
+        .first()
+      return progress as ImportProgress | null
     }
 
-    // Get the app user record
+    // Fallback: get by userId
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
       .first()
+    if (!user) return null
 
-    if (!user) {
-      return null
-    }
-
-    // Get the most recent import progress for this user
     const progress = await ctx.db
       .query("gmailImportProgress")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .first()
-
     return progress as ImportProgress | null
   },
 })
 
 /**
  * Internal mutation to initialize import progress
- * Story 4.4: Task 1.2 (AC #1) - Initialize progress tracking
+ * Scoped by gmailConnectionId for multi-account support
  */
 export const initImportProgress = internalMutation({
   args: {
     userId: v.id("users"),
+    gmailConnectionId: v.id("gmailConnections"),
     totalEmails: v.number(),
   },
   handler: async (ctx, args): Promise<Id<"gmailImportProgress">> => {
-    // Delete any existing import progress for this user
+    // Delete any existing import progress for this connection
     const existingProgress = await ctx.db
       .query("gmailImportProgress")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .first()
+      .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
+      .collect()
 
-    if (existingProgress) {
-      await ctx.db.delete(existingProgress._id)
+    for (const p of existingProgress) {
+      await ctx.db.delete(p._id)
     }
 
-    // Create new import progress record
     return await ctx.db.insert("gmailImportProgress", {
       userId: args.userId,
+      gmailConnectionId: args.gmailConnectionId,
       status: "importing",
       totalEmails: args.totalEmails,
       importedEmails: 0,
@@ -1274,54 +1008,46 @@ export const completeImport = internalMutation({
 
 /**
  * Internal query to check for existing import progress
- * Used to prevent concurrent imports (race condition fix)
+ * Scoped by gmailConnectionId for multi-account support
  */
 export const getExistingImportProgress = internalQuery({
-  args: { userId: v.id("users") },
+  args: { gmailConnectionId: v.id("gmailConnections") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("gmailImportProgress")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
       .first()
   },
 })
 
 /**
  * Internal query to get approved senders for import
- * Story 4.4: Task 5.1 - Get senders approved by user
+ * Scoped by gmailConnectionId for multi-account support
  */
 export const getApprovedSenders = internalQuery({
-  args: { userId: v.id("users") },
+  args: { gmailConnectionId: v.id("gmailConnections") },
   handler: async (ctx, args) => {
     const senders = await ctx.db
       .query("detectedSenders")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
       .collect()
 
-    // Return only approved senders
     return senders.filter((s) => s.isApproved === true)
   },
 })
 
 /**
  * Start historical email import action
- * Story 4.4: Task 5 (AC #1, #2, #4, #5, #6)
- *
- * This action:
- * 1. Gets approved senders from detectedSenders
- * 2. Fetches all message IDs for each sender
- * 3. Initializes import progress
- * 4. Processes emails in batches with progress updates
- * 5. Handles errors per-email (don't fail entire import)
+ * Now scoped by gmailConnectionId for multi-account support
  */
 export const startHistoricalImport = action({
-  args: {},
-  handler: async (ctx): Promise<{ success: boolean; error?: string }> => {
-    // Track progressId outside try block so we can update it on error
+  args: {
+    gmailConnectionId: v.id("gmailConnections"),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; error?: string }> => {
     let progressId: Id<"gmailImportProgress"> | null = null
 
     try {
-      // Get authenticated user
       const authUser = await ctx.runQuery(api.auth.getCurrentUser)
       if (!authUser) {
         return { success: false, error: "Please sign in to import emails." }
@@ -1336,26 +1062,24 @@ export const startHistoricalImport = action({
         return { success: false, error: "Hushletter Pro is required to import from Gmail." }
       }
 
-      // Get the app user record by authId
       const user = await ctx.runQuery(internal.gmail.getUserByAuthId, {
         authId: authUser.id,
       })
-
       if (!user) {
         return { success: false, error: "User account not found." }
       }
 
-      // Check for existing import in progress to prevent race conditions
+      // Check for existing import in progress for this connection
       const existingProgress = await ctx.runQuery(internal.gmail.getExistingImportProgress, {
-        userId: user._id,
+        gmailConnectionId: args.gmailConnectionId,
       })
       if (existingProgress?.status === "importing") {
         return { success: false, error: "An import is already in progress. Please wait for it to complete." }
       }
 
-      // Get approved senders
+      // Get approved senders for this connection
       const approvedSenders = await ctx.runQuery(internal.gmail.getApprovedSenders, {
-        userId: user._id,
+        gmailConnectionId: args.gmailConnectionId,
       })
 
       if (approvedSenders.length === 0) {
@@ -1364,16 +1088,14 @@ export const startHistoricalImport = action({
 
       console.log(`[gmail.startHistoricalImport] Starting import for ${approvedSenders.length} senders`)
 
-      // Estimate total emails from sender email counts
       const totalEstimate = approvedSenders.reduce((sum, s) => sum + s.emailCount, 0)
 
-      // Initialize import progress
       progressId = await ctx.runMutation(internal.gmail.initImportProgress, {
         userId: user._id,
+        gmailConnectionId: args.gmailConnectionId,
         totalEmails: totalEstimate,
       })
 
-      // Process each sender's emails
       let importedCount = 0
       let failedCount = 0
       let skippedCount = 0
@@ -1383,12 +1105,12 @@ export const startHistoricalImport = action({
       for (const sender of approvedSenders) {
         console.log(`[gmail.startHistoricalImport] Processing sender: ${sender.email}`)
 
-        // Fetch all message IDs for this sender (paginated)
         let allMessageIds: string[] = []
         let pageToken: string | undefined
 
         do {
           const page = await ctx.runAction(internal.gmailApi.listMessagesFromSender, {
+            gmailConnectionId: args.gmailConnectionId,
             senderEmail: sender.email,
             maxResults: 100,
             pageToken,
@@ -1397,18 +1119,14 @@ export const startHistoricalImport = action({
           pageToken = page.nextPageToken
         } while (pageToken)
 
-        console.log(`[gmail.startHistoricalImport] Found ${allMessageIds.length} messages from ${sender.email}`)
-
-        // Process in batches
         for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {
           const batchIds = allMessageIds.slice(i, i + BATCH_SIZE)
 
-          // Fetch full content for batch
           const fullMessages = await ctx.runAction(internal.gmailApi.getFullMessageContents, {
+            gmailConnectionId: args.gmailConnectionId,
             messageIds: batchIds,
           })
 
-          // Process each message
           for (const message of fullMessages) {
             try {
               const result = await ctx.runAction(internal.gmail.processAndStoreImportedEmail, {
@@ -1429,11 +1147,9 @@ export const startHistoricalImport = action({
                 messageId: message.id,
                 error: error instanceof Error ? error.message : "Unknown error",
               })
-              // Continue processing other emails (AC#4)
             }
           }
 
-          // Update progress after each batch (AC#1, #5)
           await ctx.runMutation(internal.gmail.updateImportProgress, {
             progressId,
             importedEmails: importedCount,
@@ -1443,13 +1159,10 @@ export const startHistoricalImport = action({
         }
       }
 
-      // Mark import complete (AC#3)
       await ctx.runMutation(internal.gmail.completeImport, {
         progressId,
         status: "complete",
       })
-
-      console.log(`[gmail.startHistoricalImport] Import complete: ${importedCount} imported, ${skippedCount} skipped, ${failedCount} failed`)
 
       return { success: true }
     } catch (error) {
@@ -1462,7 +1175,6 @@ export const startHistoricalImport = action({
             ? error.message
             : "An unexpected error occurred"
 
-      // Update import progress to error status if we have a progress record
       if (progressId) {
         try {
           await ctx.runMutation(internal.gmail.completeImport, {
@@ -1471,7 +1183,6 @@ export const startHistoricalImport = action({
             error: errorMessage,
           })
         } catch (updateError) {
-          // Log but don't throw - we want to return the original error
           console.error("[gmail.startHistoricalImport] Failed to update progress to error:", updateError)
         }
       }

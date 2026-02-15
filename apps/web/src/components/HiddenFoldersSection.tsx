@@ -2,20 +2,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { toast } from "sonner";
-import { Link } from "@tanstack/react-router";
-import { Button, Skeleton } from "@hushletter/ui";
-import { FolderIcon, Eye, AlertCircle, ExternalLink } from "lucide-react";
+import {
+  Button,
+  Skeleton,
+  Badge,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@hushletter/ui";
+import { FolderIcon, Eye, AlertCircle, EyeOff } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
-
-/**
- * HiddenFoldersSection - Settings component for managing hidden folders
- * Story 9.5: Task 4.5, 5.1-5.4 - Hidden folders in settings (AC #7, #8)
- *
- * Features:
- * - Lists hidden folders with newsletter/sender counts
- * - Unhide button to restore folder to sidebar
- * - Code Review Fix MEDIUM-4: Navigation to view folder contents
- */
+import { AnimatePresence, motion } from "motion/react";
 
 /** Type for hidden folder data */
 interface HiddenFolderData {
@@ -48,9 +48,9 @@ export function HiddenFoldersSection() {
   } = useQuery(convexQuery(api.folders.listHiddenFolders, {}));
 
   const hiddenFolders =
-    (hiddenFoldersRaw as unknown[] | undefined)?.filter(isHiddenFolderData) ?? [];
+    (hiddenFoldersRaw as unknown[] | undefined)?.filter(isHiddenFolderData) ??
+    [];
 
-  // Code Review Fix MEDIUM-1: Use specific query keys for invalidation
   const unhideMutation = useMutation({
     mutationFn: useConvexMutation(api.folders.unhideFolder),
     onSuccess: () => {
@@ -65,17 +65,22 @@ export function HiddenFoldersSection() {
 
   if (isPending) {
     return (
-      <div className="space-y-2" role="status" aria-label={m.hiddenFolders_loadingAriaLabel()}>
-        <Skeleton className="h-16 w-full rounded-lg" />
-        <Skeleton className="h-16 w-full rounded-lg" />
+      <div
+        className="space-y-3"
+        role="status"
+        aria-label={m.hiddenFolders_loadingAriaLabel()}
+      >
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-lg" />
+        ))}
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex items-center gap-2 text-destructive text-sm">
-        <AlertCircle className="h-4 w-4" aria-hidden="true" />
+      <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+        <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
         <span>{m.hiddenFolders_loadError()}</span>
       </div>
     );
@@ -83,56 +88,105 @@ export function HiddenFoldersSection() {
 
   if (hiddenFolders.length === 0) {
     return (
-      <p className="text-muted-foreground text-sm">
-        {m.hiddenFolders_noHiddenFolders()}
-      </p>
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-10">
+        <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+          <EyeOff className="size-5 text-muted-foreground" aria-hidden="true" />
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-medium text-foreground">
+            {m.hiddenFolders_noHiddenFolders()}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Hidden folders will appear here.
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <ul className="space-y-2" role="list" aria-label={m.hiddenFolders_listAriaLabel()}>
-      {hiddenFolders.map((folder) => (
-        <li key={folder._id} className="flex items-center justify-between p-3 border rounded-lg">
-          <div className="flex items-center gap-3">
-            <FolderIcon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-            <div>
-              <p className="font-medium">{folder.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {m.hiddenFolders_counts({
-                  newsletterCount: folder.newsletterCount,
-                  senderCount: folder.senderCount,
-                })}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Code Review Fix MEDIUM-4: Add navigation to folder contents (Task 5.4) */}
-            <Link
-              to="/newsletters"
-              search={{ folder: folder._id }}
-              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
-              aria-label={m.hiddenFolders_viewAriaLabel({ folderName: folder.name })}
-            >
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              {m.hiddenFolders_view()}
-            </Link>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                unhideMutation.mutate({
-                  folderId: folder._id as Parameters<typeof unhideMutation.mutate>[0]["folderId"],
-                })
-              }
-              disabled={unhideMutation.isPending}
-              aria-label={m.hiddenFolders_unhideAriaLabel({ folderName: folder.name })}
-            >
-              <Eye className="h-4 w-4 mr-1" aria-hidden="true" />
-              {m.hiddenFolders_unhide()}
-            </Button>
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div className="overflow-hidden rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="h-10 pl-4">Folder</TableHead>
+            <TableHead className="h-10 text-center">Newsletters</TableHead>
+            <TableHead className="h-10 text-center">Senders</TableHead>
+            <TableHead className="h-10 pr-4 text-right">
+              <span className="sr-only">Actions</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <AnimatePresence mode="popLayout">
+            {hiddenFolders.map((folder) => (
+              <motion.tr
+                key={folder._id}
+                layout
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: 24, filter: "blur(4px)" }}
+                transition={{ duration: 0.2 }}
+                className="border-b transition-colors hover:bg-muted/50 last:border-0"
+              >
+                <TableCell className="py-3 pl-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+                      style={{
+                        backgroundColor: folder.color
+                          ? `${folder.color}18`
+                          : undefined,
+                      }}
+                    >
+                      <FolderIcon
+                        className="size-4"
+                        style={{
+                          color: folder.color || undefined,
+                        }}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <span className="font-medium">{folder.name}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="py-3 text-center">
+                  <Badge variant="secondary" className="tabular-nums">
+                    {folder.newsletterCount}
+                  </Badge>
+                </TableCell>
+                <TableCell className="py-3 text-center">
+                  <Badge variant="secondary" className="tabular-nums">
+                    {folder.senderCount}
+                  </Badge>
+                </TableCell>
+                <TableCell className="py-3 pr-4 text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      unhideMutation.mutate({
+                        folderId:
+                          folder._id as Parameters<
+                            typeof unhideMutation.mutate
+                          >[0]["folderId"],
+                      })
+                    }
+                    disabled={unhideMutation.isPending}
+                    aria-label={m.hiddenFolders_unhideAriaLabel({
+                      folderName: folder.name,
+                    })}
+                    className="gap-1.5"
+                  >
+                    <Eye className="size-3.5" aria-hidden="true" />
+                    {m.hiddenFolders_unhide()}
+                  </Button>
+                </TableCell>
+              </motion.tr>
+            ))}
+          </AnimatePresence>
+        </TableBody>
+      </Table>
+    </div>
   );
 }

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
 import { toast } from "sonner";
-import { OnboardingPricingDialog } from "@/components/onboarding/OnboardingPricingDialog";
+import { PricingDialog } from "@/components/pricing-dialog";
 
 export const Route = createFileRoute("/_authed/onboarding")({
   component: OnboardingPage,
@@ -579,9 +579,10 @@ function StepChoosePrefix({
       )}
 
       {/* Pricing Dialog */}
-      <OnboardingPricingDialog
+      <PricingDialog
         open={pricingOpen}
         onOpenChange={setPricingOpen}
+        returnTo="onboarding"
       />
     </div>
   );

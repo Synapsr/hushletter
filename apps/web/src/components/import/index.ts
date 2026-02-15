@@ -1,4 +1,4 @@
-export { ImportMethodDialog } from "./ImportMethodDialog";
+export { ImportMethodDialog, importDialogHandle } from "./ImportMethodDialog";
 export { EmlDropZone } from "./EmlDropZone";
 export { EmlPreview } from "./EmlPreview";
 export { BulkImportProgress } from "./BulkImportProgress";

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { ScrollArea, Button } from "@hushletter/ui";
+import { ScrollArea, Button, DialogTrigger } from "@hushletter/ui";
 import { Copy, Check, Download, ArrowRight, Mail, Rss, Star, BookOpen } from "lucide-react";
 import { SenderAvatar } from "./SenderAvatar";
-import { ImportMethodDialog } from "@/components/import/ImportMethodDialog";
+import { importDialogHandle } from "@/components/import/ImportMethodDialog";
 import { m } from "@/paraglide/messages.js";
 
 interface WelcomeReaderPaneProps {
@@ -126,18 +126,21 @@ export function WelcomeReaderPane({ dedicatedEmail }: WelcomeReaderPaneProps) {
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                 {m.welcome_importSection()}
               </p>
-              <ImportMethodDialog dedicatedEmail={dedicatedEmail}>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between gap-2 h-11"
-                >
-                  <span className="flex items-center gap-2">
-                    <Download className="w-4 h-4" />
-                    {m.emptyState_importNewsletters()}
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </Button>
-              </ImportMethodDialog>
+              <DialogTrigger
+                handle={importDialogHandle}
+                render={
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between gap-2 h-11"
+                  />
+                }
+              >
+                <span className="flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  {m.emptyState_importNewsletters()}
+                </span>
+                <ArrowRight className="w-4 h-4 text-muted-foreground" />
+              </DialogTrigger>
               <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
                 {m.emptyState_importHint()}
               </p>

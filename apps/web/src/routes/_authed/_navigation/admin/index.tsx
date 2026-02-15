@@ -35,7 +35,7 @@ type DateRange = 7 | 30 | 90;
  *
  * All data is fetched via Convex subscriptions for real-time updates.
  */
-export const Route = createFileRoute("/_authed/admin/")({
+export const Route = createFileRoute("/_authed/_navigation/admin/")({
   component: AdminDashboard,
 });
 

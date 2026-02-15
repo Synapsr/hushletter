@@ -9,6 +9,7 @@ import {
   verifyUser,
   logRejection,
 } from "./importIngestion"
+import { handleOAuthCallback } from "./gmailConnections"
 
 const http = httpRouter()
 
@@ -54,6 +55,15 @@ http.route({
   path: "/api/email/import/log-rejection",
   method: "POST",
   handler: logRejection,
+})
+
+// ============================================================
+// Gmail OAuth callback for multi-account connections
+// ============================================================
+http.route({
+  path: "/api/oauth/gmail-callback",
+  method: "GET",
+  handler: handleOAuthCallback,
 })
 
 // Stripe billing webhooks (subscription status, etc.)

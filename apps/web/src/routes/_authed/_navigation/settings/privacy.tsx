@@ -15,7 +15,7 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Chec
 import { PrivacyToggle } from "@/components/PrivacyToggle";
 import { m } from "@/paraglide/messages.js";
 
-export const Route = createFileRoute("/_authed/settings/privacy")({
+export const Route = createFileRoute("/_authed/_navigation/settings/privacy")({
   component: PrivacySettingsPage,
 });
 

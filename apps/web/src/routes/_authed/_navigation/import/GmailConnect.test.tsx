@@ -76,7 +76,10 @@ function renderWithProviders(
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <GmailConnect />
+      <GmailConnect
+        selectedConnectionId={null}
+        onSelectConnection={vi.fn()}
+      />
     </QueryClientProvider>,
   );
 }

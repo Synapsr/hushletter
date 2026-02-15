@@ -1,3 +1,10 @@
+import { authClient } from "@/lib/auth-client";
+import { getToken } from "@/lib/auth-server";
+import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
+import type { RouterContext } from "@/router";
+import appCss from "@/styles/app.css?url";
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import {
   HeadContent,
   Outlet,
@@ -5,17 +12,10 @@ import {
   createRootRouteWithContext,
   useRouteContext,
 } from "@tanstack/react-router";
-import * as React from "react";
 import { createServerFn } from "@tanstack/react-start";
-import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
-import { Toaster } from "sonner";
-import appCss from "@/styles/app.css?url";
-import { authClient } from "@/lib/auth-client";
-import { getToken } from "@/lib/auth-server";
-import type { RouterContext } from "@/router";
-import { getLocale } from "@/paraglide/runtime.js";
-import { m } from "@/paraglide/messages.js";
 import { Agentation } from "agentation";
+import * as React from "react";
+import { Toaster } from "sonner";
 
 // Server function to get auth token for SSR
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {

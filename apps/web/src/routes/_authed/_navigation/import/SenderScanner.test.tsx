@@ -7,6 +7,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { SenderScanner } from "./-SenderScanner"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
+
+// Mock connection ID for testing
+const mockConnectionId = "test_connection_id" as Id<"gmailConnections">;
 
 // Track what queries return - accessible via globalThis for hoisted mocks
 let scanProgressReturn: unknown = undefined
@@ -46,7 +50,7 @@ describe("SenderScanner", () => {
     it("shows skeleton when queries are loading", () => {
       scanProgressReturn = undefined
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       // Should show loading skeleton with animate-pulse
       const skeleton = document.querySelector(".animate-pulse")
@@ -59,7 +63,7 @@ describe("SenderScanner", () => {
       scanProgressReturn = null
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       expect(screen.getByRole("button", { name: /scan for newsletters/i })).toBeDefined()
       expect(screen.getByText(/find your newsletters/i)).toBeDefined()
@@ -70,7 +74,7 @@ describe("SenderScanner", () => {
       scanProgressReturn = null
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       const scanButton = screen.getByRole("button", {
         name: /scan for newsletters/i,
@@ -91,7 +95,7 @@ describe("SenderScanner", () => {
       }
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       expect(screen.getByText(/scanning your gmail/i)).toBeDefined()
       expect(screen.getByText("45")).toBeDefined() // processed emails
@@ -108,7 +112,7 @@ describe("SenderScanner", () => {
       }
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       expect(screen.getByText("50%")).toBeDefined()
     })
@@ -143,7 +147,7 @@ describe("SenderScanner", () => {
         },
       ]
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       expect(screen.getByText(/scan complete/i)).toBeDefined()
       expect(screen.getByText(/found 2 newsletter senders/i)).toBeDefined()
@@ -181,7 +185,7 @@ describe("SenderScanner", () => {
         },
       ]
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       expect(screen.getByText("High")).toBeDefined()
       expect(screen.getByText("Medium")).toBeDefined()
@@ -205,7 +209,7 @@ describe("SenderScanner", () => {
         },
       ]
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       // Rescan button should be present (it's an icon button with title "Rescan")
       const rescanButton = screen.getByTitle("Rescan")
@@ -223,7 +227,7 @@ describe("SenderScanner", () => {
       }
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       expect(screen.getByText(/no newsletters found/i)).toBeDefined()
       expect(screen.getByRole("button", { name: /scan again/i })).toBeDefined()
@@ -239,7 +243,7 @@ describe("SenderScanner", () => {
       }
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       const rescanButton = screen.getByRole("button", { name: /scan again/i })
       await user.click(rescanButton)
@@ -259,7 +263,7 @@ describe("SenderScanner", () => {
       }
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       expect(screen.getByText(/scan failed/i)).toBeDefined()
       expect(screen.getByText(/gmail token expired/i)).toBeDefined()
@@ -277,7 +281,7 @@ describe("SenderScanner", () => {
       }
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       const retryButton = screen.getByRole("button", { name: /try again/i })
       await user.click(retryButton)
@@ -291,7 +295,7 @@ describe("SenderScanner", () => {
       scanProgressReturn = null
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       const scanButton = screen.getByRole("button", {
         name: /scan for newsletters/i,
@@ -310,7 +314,7 @@ describe("SenderScanner", () => {
       scanProgressReturn = null
       detectedSendersReturn = []
 
-      const { rerender } = render(<SenderScanner />)
+      const { rerender } = render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       // Button is present in idle state
       expect(screen.getByRole("button", { name: /scan for newsletters/i })).toBeDefined()
@@ -323,7 +327,7 @@ describe("SenderScanner", () => {
         sendersFound: 2,
       }
 
-      rerender(<SenderScanner />)
+      rerender(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       // Progress indicator is present during scanning
       expect(screen.getByRole("progressbar")).toBeDefined()
@@ -348,7 +352,7 @@ describe("SenderScanner", () => {
         },
       ]
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       // Name displayed
       expect(screen.getByText("Tech Weekly")).toBeDefined()
@@ -367,7 +371,7 @@ describe("SenderScanner", () => {
       }
       detectedSendersReturn = []
 
-      render(<SenderScanner />)
+      render(<SenderScanner gmailConnectionId={mockConnectionId} />)
 
       // Message indicating no newsletters
       expect(screen.getByText(/no newsletters found/i)).toBeDefined()

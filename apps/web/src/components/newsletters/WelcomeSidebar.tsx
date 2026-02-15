@@ -1,6 +1,7 @@
 import { Tabs, TabsList, TabsTrigger, ScrollArea } from "@hushletter/ui";
 import { SenderAvatar } from "./SenderAvatar";
 import { m } from "@/paraglide/messages.js";
+import { SidebarFooter } from "./SidebarFooter";
 
 /**
  * Lightweight visual stand-in for SenderFolderSidebar when the user has
@@ -24,7 +25,11 @@ export function WelcomeSidebar() {
             <TabsTrigger value="unread" className="flex-1 text-xs h-7" disabled>
               {m.sidebar_filterUnread()}
             </TabsTrigger>
-            <TabsTrigger value="starred" className="flex-1 text-xs h-7" disabled>
+            <TabsTrigger
+              value="starred"
+              className="flex-1 text-xs h-7"
+              disabled
+            >
               {m.sidebar_filterStarred()}
             </TabsTrigger>
           </TabsList>
@@ -56,6 +61,7 @@ export function WelcomeSidebar() {
           </div>
         </div>
       </ScrollArea>
+      <SidebarFooter />
     </aside>
   );
 }

@@ -26,7 +26,7 @@ import { SubscribeInfo } from "@/components/SubscribeInfo";
 import { ArrowLeft, Users, Mail, Loader2 } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
 
-export const Route = createFileRoute("/_authed/community/sender/$senderEmail")({
+export const Route = createFileRoute("/_authed/_navigation/community/sender/$senderEmail")({
   component: SenderDetailPage,
 });
 

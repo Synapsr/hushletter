@@ -8,7 +8,7 @@ import type {
   FunctionTypeFilter,
 } from "@/lib/analytics/analytics-types";
 
-export const Route = createFileRoute("/_authed/admin/analytics")({
+export const Route = createFileRoute("/_authed/_navigation/admin/analytics")({
   component: AdminAnalyticsPage,
 });
 

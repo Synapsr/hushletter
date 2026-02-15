@@ -467,9 +467,9 @@ export function ReaderView({
 }: ReaderViewProps) {
   const { preferences: persistedPreferences } = useReaderPreferences();
   const [contentDocument, setContentDocument] = useState<string | null>(null);
-  const [estimatedReadMinutes, setEstimatedReadMinutes] = useState<number | null>(
-    null,
-  );
+  const [estimatedReadMinutes, setEstimatedReadMinutes] = useState<
+    number | null
+  >(null);
   // Exception: useAction doesn't have isPending, manual loading state required
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -486,9 +486,7 @@ export function ReaderView({
   );
 
   // Story 3.4: Mutation for updating read progress
-  const updateReadProgress = useMutation(
-    api.newsletters.setReadProgress,
-  );
+  const updateReadProgress = useMutation(api.newsletters.setReadProgress);
 
   // Story 3.4: Track scroll progress with debounce
   useScrollProgress({
@@ -619,7 +617,8 @@ export function ReaderView({
 
         if (cancelled) return;
 
-        const nextEstimatedReadMinutes = estimateReadMinutesFromContent(rawContent);
+        const nextEstimatedReadMinutes =
+          estimateReadMinutesFromContent(rawContent);
         const sanitizedDocument = buildReaderDocument(rawContent);
 
         // Cache the sanitized document (LRU eviction if at capacity)
@@ -710,7 +709,8 @@ export function ReaderView({
       data-testid="reader-scroll-container"
       className={cn(DEFAULT_SCROLL_CLASS, className)}
       style={{
-        backgroundColor: READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
+        backgroundColor:
+          READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
       }}
     >
       <iframe
@@ -724,7 +724,8 @@ export function ReaderView({
         style={{
           height: iframeHeight,
           minHeight: MIN_IFRAME_HEIGHT,
-          backgroundColor: READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
+          backgroundColor:
+            READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
         }}
         onLoad={handleIframeLoad}
       />

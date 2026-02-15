@@ -3,14 +3,13 @@
 import { Link } from "@tanstack/react-router";
 import { SharedLogo } from "../shared/shared-logo";
 import { GlobalSearch } from "./global-search";
-import { SettingsDialog } from "../settings/settings-dialog";
 import { UserMenu } from "./user-menu";
 
 type Props = {};
 
 export const Navbar = ({}: Props) => {
   return (
-    <header className="border-b shrink-0">
+    <header className="border-b shrink-0 sticky top-0 z-50 bg-background">
       <div className="px-4 py-3 flex justify-between items-center">
         <Link to="/newsletters">
           <SharedLogo />
@@ -18,7 +17,6 @@ export const Navbar = ({}: Props) => {
 
         <div className="flex items-center gap-2">
           <GlobalSearch />
-          <SettingsDialog />
           <UserMenu />
         </div>
 

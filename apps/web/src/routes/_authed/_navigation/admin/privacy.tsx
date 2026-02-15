@@ -21,7 +21,7 @@ import { m } from "@/paraglide/messages.js";
  * 3. Private senders list with aggregate counts
  * 4. Newsletter investigation search
  */
-export const Route = createFileRoute("/_authed/admin/privacy")({
+export const Route = createFileRoute("/_authed/_navigation/admin/privacy")({
   component: PrivacyReview,
 });
 

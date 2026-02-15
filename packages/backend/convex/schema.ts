@@ -277,13 +277,35 @@ export default defineSchema({
 
 	  // ============================================================
 	  // Epic 4: Gmail Import Tables
-  // Story 4.2: Newsletter Sender Scanning
   // ============================================================
 
-  // Track ongoing Gmail scan progress per user
-  // Story 4.2: Task 3.3 - gmailScanProgress table
+  // Multi-Gmail account connections (independent of Better Auth)
+  // Users can connect multiple Gmail accounts for importing newsletters
+  gmailConnections: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    accessToken: v.string(),
+    refreshToken: v.optional(v.string()),
+    accessTokenExpiresAt: v.number(), // Unix timestamp ms
+    connectedAt: v.number(), // Unix timestamp ms
+    isActive: v.boolean(),
+    source: v.union(v.literal("betterauth"), v.literal("oauth")),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_email", ["userId", "email"]),
+
+  // Anti-CSRF state tokens for custom Gmail OAuth flow
+  oauthStates: defineTable({
+    userId: v.id("users"),
+    state: v.string(),
+    expiresAt: v.number(), // Unix timestamp ms
+  }).index("by_state", ["state"]),
+
+  // Story 4.2: Newsletter Sender Scanning
+  // Track ongoing Gmail scan progress per user+connection
   gmailScanProgress: defineTable({
     userId: v.id("users"),
+    gmailConnectionId: v.optional(v.id("gmailConnections")),
     status: v.union(
       v.literal("scanning"),
       v.literal("complete"),
@@ -295,13 +317,14 @@ export default defineSchema({
     startedAt: v.number(), // Unix timestamp ms
     completedAt: v.optional(v.number()), // Unix timestamp ms
     error: v.optional(v.string()),
-  }).index("by_userId", ["userId"]),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_gmailConnectionId", ["gmailConnectionId"]),
 
   // Store detected newsletter senders before user approval (Story 4.3)
-  // Story 4.2: Task 3.4 - detectedSenders table
-  // Story 4.3: Task 1.1 - Added isSelected and isApproved fields
   detectedSenders: defineTable({
     userId: v.id("users"),
+    gmailConnectionId: v.optional(v.id("gmailConnections")),
     email: v.string(),
     name: v.optional(v.string()),
     domain: v.string(),
@@ -314,22 +337,17 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_userId_email", ["userId", "email"])
-    .index("by_userId_isSelected", ["userId", "isSelected"]), // Story 4.3: For efficient selected count queries
+    .index("by_userId_isSelected", ["userId", "isSelected"])
+    .index("by_gmailConnectionId", ["gmailConnectionId"]),
 
   // ============================================================
   // Story 4.4: Historical Email Import Progress
   // ============================================================
 
-  // Track ongoing Gmail import progress per user
-  // Story 4.4: Task 1.1 - gmailImportProgress table
-  //
-  // Status values:
-  // - "pending": Reserved for future queue-based imports (not currently used)
-  // - "importing": Import actively in progress
-  // - "complete": Import finished successfully
-  // - "error": Import failed with error
+  // Track ongoing Gmail import progress per user+connection
   gmailImportProgress: defineTable({
     userId: v.id("users"),
+    gmailConnectionId: v.optional(v.id("gmailConnections")),
     status: v.union(
       v.literal("pending"), // Reserved for future queue-based imports
       v.literal("importing"),
@@ -343,7 +361,9 @@ export default defineSchema({
     startedAt: v.number(), // Unix timestamp ms
     completedAt: v.optional(v.number()), // Unix timestamp ms
     error: v.optional(v.string()),
-  }).index("by_userId", ["userId"]),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_gmailConnectionId", ["gmailConnectionId"]),
 
   // ============================================================
   // Story 7.1: Admin Dashboard System Health

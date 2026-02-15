@@ -19,7 +19,7 @@ import { m } from "@/paraglide/messages.js";
  * - Success rates by time period
  * - Delivery logs with filtering
  */
-export const Route = createFileRoute("/_authed/admin/delivery")({
+export const Route = createFileRoute("/_authed/_navigation/admin/delivery")({
   component: DeliveryMonitoring,
 });
 

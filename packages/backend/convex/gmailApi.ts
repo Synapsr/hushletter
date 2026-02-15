@@ -13,18 +13,9 @@
 
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
-import { internalQuery, action, internalAction } from "./_generated/server"
+import { internalQuery, action, internalAction, type ActionCtx } from "./_generated/server"
 import { internal } from "./_generated/api"
-import { authComponent, createAuth } from "./auth"
-
-// Type for Better Auth account from listUserAccounts
-type BetterAuthAccount = {
-  providerId: string
-  accountId: string
-  accessToken?: string | null
-  accessTokenExpiresAt?: number | null
-  refreshToken?: string | null
-}
+import type { Id } from "./_generated/dataModel"
 
 // Gmail API types
 export type GmailMessage = {
@@ -77,111 +68,35 @@ export type GmailFullMessage = {
 }
 
 /**
- * Internal query to get Google access token from Better Auth
- * Story 4.2: Task 1.2 - Retrieve token from Better Auth
- *
- * Uses Better Auth's getAccessToken API which automatically handles
- * token refresh when expired. This is the recommended approach.
+ * Internal query to get Google access token from gmailConnections table.
+ * Accepts a gmailConnectionId to support multi-account Gmail connections.
  *
  * This is internal-only and NEVER exposed to the client.
  * Used by actions that need to call Gmail API.
  *
- * @returns Object with accessToken and expiresAt timestamp
- * @throws ConvexError if Gmail not connected or token unavailable
+ * @returns Object with accessToken, expiresAt, and needsRefresh flag
+ * @throws ConvexError if connection not found or token unavailable
  */
 export const getAccessToken = internalQuery({
-  args: {},
-  handler: async (ctx): Promise<{ accessToken: string; expiresAt: number | null }> => {
-    // Get authenticated user
-    const authUser = await authComponent.getAuthUser(ctx)
-    if (!authUser) {
-      throw new ConvexError({
-        code: "UNAUTHORIZED",
-        message: "User not authenticated",
-      })
-    }
+  args: {
+    gmailConnectionId: v.id("gmailConnections"),
+  },
+  handler: async (ctx, args): Promise<{ accessToken: string; expiresAt: number | null; needsRefresh: boolean }> => {
+    const connection = await ctx.db.get(args.gmailConnectionId)
 
-    // Get Better Auth API
-    const { auth, headers } = await authComponent.getAuth(createAuth, ctx)
-
-    // First check if Google account is connected
-    const accounts = (await auth.api.listUserAccounts({
-      headers,
-    })) as BetterAuthAccount[]
-
-    const googleAccount = accounts.find(
-      (account) => account.providerId === "google"
-    )
-
-    console.log("[gmailApi.getAccessToken] Google account found:", {
-      found: !!googleAccount,
-      providerId: googleAccount?.providerId,
-      accountId: googleAccount?.accountId,
-      hasAccessToken: !!googleAccount?.accessToken,
-      hasRefreshToken: !!googleAccount?.refreshToken,
-      expiresAt: googleAccount?.accessTokenExpiresAt,
-    })
-
-    if (!googleAccount) {
+    if (!connection || !connection.isActive) {
       throw new ConvexError({
         code: "NOT_FOUND",
-        message: "Gmail not connected. Please connect your Gmail account first.",
+        message: "Gmail connection not found or inactive.",
       })
     }
 
-    // Use Better Auth's getAccessToken API - handles token refresh automatically
-    try {
-      console.log("[gmailApi.getAccessToken] Requesting token from Better Auth...")
+    const needsRefresh = connection.accessTokenExpiresAt < Date.now() + 5 * 60 * 1000
 
-      const tokenResult = await auth.api.getAccessToken({
-        body: {
-          providerId: "google",
-        },
-        headers,
-      })
-
-      console.log("[gmailApi.getAccessToken] Token result:", {
-        hasAccessToken: !!tokenResult?.accessToken,
-        expiresAt: tokenResult?.accessTokenExpiresAt,
-      })
-
-      if (!tokenResult?.accessToken) {
-        console.error("[gmailApi.getAccessToken] No access token in result:", tokenResult)
-        throw new ConvexError({
-          code: "TOKEN_UNAVAILABLE",
-          message: "Gmail access token not available. Please disconnect and reconnect your Gmail account.",
-        })
-      }
-
-      // Better Auth may return accessTokenExpiresAt as Date or number depending on version
-      let expiresAt: number | null = null
-      if (tokenResult.accessTokenExpiresAt) {
-        expiresAt = typeof tokenResult.accessTokenExpiresAt === 'number'
-          ? tokenResult.accessTokenExpiresAt
-          : tokenResult.accessTokenExpiresAt.getTime()
-      }
-
-      return {
-        accessToken: tokenResult.accessToken,
-        expiresAt,
-      }
-    } catch (error) {
-      // If token refresh fails, user needs to reconnect
-      // Log detailed error info to help diagnose the issue
-      const errorDetails = error instanceof Error
-        ? { name: error.name, message: error.message, stack: error.stack?.substring(0, 500) }
-        : error
-      console.error("[gmailApi.getAccessToken] Token retrieval failed:", JSON.stringify(errorDetails, null, 2))
-
-      // Check if it's a specific Better Auth error
-      if (error && typeof error === 'object' && 'code' in error) {
-        console.error("[gmailApi.getAccessToken] Error code:", (error as { code: string }).code)
-      }
-
-      throw new ConvexError({
-        code: "TOKEN_UNAVAILABLE",
-        message: "Gmail access token expired. Please disconnect and reconnect your Gmail account.",
-      })
+    return {
+      accessToken: connection.accessToken,
+      expiresAt: connection.accessTokenExpiresAt,
+      needsRefresh,
     }
   },
 })
@@ -470,6 +385,24 @@ const NEWSLETTER_SEARCH_QUERY = [
 ].join(" OR ")
 
 /**
+ * Helper to get a fresh access token for a connection, refreshing if needed.
+ */
+async function getFreshAccessToken(
+  ctx: { runQuery: ActionCtx["runQuery"]; runAction: ActionCtx["runAction"] },
+  gmailConnectionId: Id<"gmailConnections">
+): Promise<string> {
+  const tokenResult = await ctx.runQuery(internal.gmailApi.getAccessToken, { gmailConnectionId })
+  if (!tokenResult.needsRefresh) return tokenResult.accessToken
+
+  // Token needs refresh
+  const refreshed = await ctx.runAction(internal.gmailConnections.refreshAccessToken, { gmailConnectionId })
+  if (refreshed) return refreshed.accessToken
+
+  // Refresh failed - try with stale token (might still work)
+  return tokenResult.accessToken
+}
+
+/**
  * Internal action to list Gmail messages for newsletter scanning
  * Story 4.2: Task 3.2 - Paginated Gmail API calls
  *
@@ -477,6 +410,7 @@ const NEWSLETTER_SEARCH_QUERY = [
  */
 export const listNewsletterMessages = internalAction({
   args: {
+    gmailConnectionId: v.id("gmailConnections"),
     maxResults: v.optional(v.number()),
     pageToken: v.optional(v.string()),
   },
@@ -484,8 +418,7 @@ export const listNewsletterMessages = internalAction({
     ctx,
     args
   ): Promise<{ messages: GmailMessage[]; nextPageToken?: string; total?: number }> => {
-    // Get access token from Better Auth
-    const { accessToken } = await ctx.runQuery(internal.gmailApi.getAccessToken)
+    const accessToken = await getFreshAccessToken(ctx, args.gmailConnectionId)
 
     console.log("[gmailApi.listNewsletterMessages] Starting search with query:", NEWSLETTER_SEARCH_QUERY)
 
@@ -516,15 +449,14 @@ export const listNewsletterMessages = internalAction({
  */
 export const getMessageDetails = internalAction({
   args: {
+    gmailConnectionId: v.id("gmailConnections"),
     messageIds: v.array(v.string()),
     logSampleMessage: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<GmailMessageDetail[]> => {
-    // Get access token from Better Auth
-    const { accessToken } = await ctx.runQuery(internal.gmailApi.getAccessToken)
+    const accessToken = await getFreshAccessToken(ctx, args.gmailConnectionId)
 
     // Fetch message details in batches
-    // logSampleMessage is passed from caller to control debug logging
     const results = await batchGetGmailMessages(
       accessToken,
       args.messageIds,
@@ -536,65 +468,33 @@ export const getMessageDetails = internalAction({
 })
 
 /**
- * Public action to check if Gmail token is valid
+ * Public action to check if Gmail token is valid for a given connection
  * Useful for UI to show warning before starting scan
  */
 export const checkGmailAccess = action({
-  args: {},
-  handler: async (ctx): Promise<{ valid: boolean; error?: string }> => {
+  args: {
+    gmailConnectionId: v.id("gmailConnections"),
+  },
+  handler: async (ctx, args): Promise<{ valid: boolean; error?: string }> => {
     try {
-      const { accessToken, expiresAt } = await ctx.runQuery(
-        internal.gmailApi.getAccessToken
-      )
-
-      // Check if token is about to expire (within 5 minutes)
-      if (expiresAt && expiresAt < Date.now() + 5 * 60 * 1000) {
-        return {
-          valid: false,
-          error: "Gmail token is about to expire. Please reconnect your Gmail account.",
-        }
-      }
+      const accessToken = await getFreshAccessToken(ctx, args.gmailConnectionId)
 
       // Try a simple API call to verify token works
       const url = new URL(`${GMAIL_API_BASE}/profile`)
-      console.log("[gmailApi.checkGmailAccess] Testing token with Gmail profile API...")
 
       const response = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
 
-      console.log("[gmailApi.checkGmailAccess] Gmail API response status:", response.status)
-
       if (!response.ok) {
-        // Get the error body for better diagnostics
-        let errorBody = ""
-        try {
-          errorBody = await response.text()
-          console.error("[gmailApi.checkGmailAccess] Gmail API error body:", errorBody)
-        } catch {
-          console.error("[gmailApi.checkGmailAccess] Could not read error body")
-        }
-
         if (response.status === 401) {
-          return {
-            valid: false,
-            error: "Gmail token expired. Please reconnect your Gmail account.",
-          }
+          return { valid: false, error: "Gmail token expired. Please reconnect your Gmail account." }
         }
         if (response.status === 403) {
-          return {
-            valid: false,
-            error: "Gmail access denied. Please ensure you granted the required permissions when connecting.",
-          }
+          return { valid: false, error: "Gmail access denied. Please ensure you granted the required permissions." }
         }
-        return {
-          valid: false,
-          error: `Unable to access Gmail (${response.status}). Please check your permissions.`,
-        }
+        return { valid: false, error: `Unable to access Gmail (${response.status}).` }
       }
-
-      const profile = await response.json()
-      console.log("[gmailApi.checkGmailAccess] Gmail profile retrieved:", profile.emailAddress)
 
       return { valid: true }
     } catch (error) {
@@ -810,11 +710,11 @@ async function batchGetFullGmailMessages(
  */
 export const getFullMessageContents = internalAction({
   args: {
+    gmailConnectionId: v.id("gmailConnections"),
     messageIds: v.array(v.string()),
   },
   handler: async (ctx, args): Promise<GmailFullMessage[]> => {
-    // Get access token from Better Auth
-    const { accessToken } = await ctx.runQuery(internal.gmailApi.getAccessToken)
+    const accessToken = await getFreshAccessToken(ctx, args.gmailConnectionId)
 
     // Fetch full messages in batches with rate limiting
     const results = await batchGetFullGmailMessages(accessToken, args.messageIds)
@@ -834,6 +734,7 @@ export const getFullMessageContents = internalAction({
  */
 export const listMessagesFromSender = internalAction({
   args: {
+    gmailConnectionId: v.id("gmailConnections"),
     senderEmail: v.string(),
     maxResults: v.optional(v.number()),
     pageToken: v.optional(v.string()),
@@ -842,8 +743,7 @@ export const listMessagesFromSender = internalAction({
     ctx,
     args
   ): Promise<{ messages: GmailMessage[]; nextPageToken?: string }> => {
-    // Get access token from Better Auth
-    const { accessToken } = await ctx.runQuery(internal.gmailApi.getAccessToken)
+    const accessToken = await getFreshAccessToken(ctx, args.gmailConnectionId)
 
     // Search for messages from this specific sender
     const query = `from:${args.senderEmail}`

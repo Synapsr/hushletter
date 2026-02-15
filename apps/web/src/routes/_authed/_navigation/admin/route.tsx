@@ -15,7 +15,7 @@ import { m } from "@/paraglide/messages.js";
  * 2. Shows access denied for non-admins
  * 3. Provides admin header navigation for all admin pages
  */
-export const Route = createFileRoute("/_authed/admin")({
+export const Route = createFileRoute("/_authed/_navigation/admin")({
   component: AdminLayout,
 });
 

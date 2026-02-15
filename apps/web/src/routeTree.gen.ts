@@ -24,25 +24,27 @@ import { Route as Char123LocaleChar1251RouteImport } from './routes/{-$locale}/1
 import { Route as ShareTokenRouteImport } from './routes/share/$token'
 import { Route as ShareEmailTokenRouteImport } from './routes/share-email/$token'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
-import { Route as AuthedAdminRouteRouteImport } from './routes/_authed/admin/route'
-import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
+import { Route as AuthedNavigationRouteRouteImport } from './routes/_authed/_navigation/route'
 import { Route as AuthedNewslettersIndexRouteImport } from './routes/_authed/newsletters/index'
-import { Route as AuthedImportIndexRouteImport } from './routes/_authed/import/index'
-import { Route as AuthedCommunityIndexRouteImport } from './routes/_authed/community/index'
-import { Route as AuthedAdminIndexRouteImport } from './routes/_authed/admin/index'
 import { Route as Char123LocaleChar125ShareTokenRouteImport } from './routes/{-$locale}/share/$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as AuthedSettingsPrivacyRouteImport } from './routes/_authed/settings/privacy'
 import { Route as AuthedNewslettersIdRouteImport } from './routes/_authed/newsletters/$id'
-import { Route as AuthedImportManualRouteImport } from './routes/_authed/import/manual'
-import { Route as AuthedCommunityContentIdRouteImport } from './routes/_authed/community/$contentId'
-import { Route as AuthedAdminPrivacyRouteImport } from './routes/_authed/admin/privacy'
-import { Route as AuthedAdminModerationRouteImport } from './routes/_authed/admin/moderation'
-import { Route as AuthedAdminHealthRouteImport } from './routes/_authed/admin/health'
-import { Route as AuthedAdminDeliveryRouteImport } from './routes/_authed/admin/delivery'
-import { Route as AuthedAdminCommunityRouteImport } from './routes/_authed/admin/community'
-import { Route as AuthedAdminAnalyticsRouteImport } from './routes/_authed/admin/analytics'
-import { Route as AuthedCommunitySenderSenderEmailRouteImport } from './routes/_authed/community/sender/$senderEmail'
+import { Route as AuthedNavigationAdminRouteRouteImport } from './routes/_authed/_navigation/admin/route'
+import { Route as AuthedNavigationSettingsIndexRouteImport } from './routes/_authed/_navigation/settings/index'
+import { Route as AuthedNavigationImportIndexRouteImport } from './routes/_authed/_navigation/import/index'
+import { Route as AuthedNavigationCommunityIndexRouteImport } from './routes/_authed/_navigation/community/index'
+import { Route as AuthedNavigationAdminIndexRouteImport } from './routes/_authed/_navigation/admin/index'
+import { Route as AuthedNavigationSettingsPrivacyRouteImport } from './routes/_authed/_navigation/settings/privacy'
+import { Route as AuthedNavigationImportManualRouteImport } from './routes/_authed/_navigation/import/manual'
+import { Route as AuthedNavigationImportCallbackRouteImport } from './routes/_authed/_navigation/import/callback'
+import { Route as AuthedNavigationCommunityContentIdRouteImport } from './routes/_authed/_navigation/community/$contentId'
+import { Route as AuthedNavigationAdminPrivacyRouteImport } from './routes/_authed/_navigation/admin/privacy'
+import { Route as AuthedNavigationAdminModerationRouteImport } from './routes/_authed/_navigation/admin/moderation'
+import { Route as AuthedNavigationAdminHealthRouteImport } from './routes/_authed/_navigation/admin/health'
+import { Route as AuthedNavigationAdminDeliveryRouteImport } from './routes/_authed/_navigation/admin/delivery'
+import { Route as AuthedNavigationAdminCommunityRouteImport } from './routes/_authed/_navigation/admin/community'
+import { Route as AuthedNavigationAdminAnalyticsRouteImport } from './routes/_authed/_navigation/admin/analytics'
+import { Route as AuthedNavigationCommunitySenderSenderEmailRouteImport } from './routes/_authed/_navigation/community/sender/$senderEmail'
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
@@ -123,35 +125,14 @@ const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedAdminRouteRoute = AuthedAdminRouteRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
-  id: '/settings/',
-  path: '/settings/',
+const AuthedNavigationRouteRoute = AuthedNavigationRouteRouteImport.update({
+  id: '/_navigation',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedNewslettersIndexRoute = AuthedNewslettersIndexRouteImport.update({
   id: '/newsletters/',
   path: '/newsletters/',
   getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedImportIndexRoute = AuthedImportIndexRouteImport.update({
-  id: '/import/',
-  path: '/import/',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedCommunityIndexRoute = AuthedCommunityIndexRouteImport.update({
-  id: '/community/',
-  path: '/community/',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedAdminIndexRoute = AuthedAdminIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthedAdminRouteRoute,
 } as any)
 const Char123LocaleChar125ShareTokenRoute =
   Char123LocaleChar125ShareTokenRouteImport.update({
@@ -164,67 +145,110 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedSettingsPrivacyRoute = AuthedSettingsPrivacyRouteImport.update({
-  id: '/settings/privacy',
-  path: '/settings/privacy',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedNewslettersIdRoute = AuthedNewslettersIdRouteImport.update({
   id: '/newsletters/$id',
   path: '/newsletters/$id',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedImportManualRoute = AuthedImportManualRouteImport.update({
-  id: '/import/manual',
-  path: '/import/manual',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedCommunityContentIdRoute =
-  AuthedCommunityContentIdRouteImport.update({
+const AuthedNavigationAdminRouteRoute =
+  AuthedNavigationAdminRouteRouteImport.update({
+    id: '/admin',
+    path: '/admin',
+    getParentRoute: () => AuthedNavigationRouteRoute,
+  } as any)
+const AuthedNavigationSettingsIndexRoute =
+  AuthedNavigationSettingsIndexRouteImport.update({
+    id: '/settings/',
+    path: '/settings/',
+    getParentRoute: () => AuthedNavigationRouteRoute,
+  } as any)
+const AuthedNavigationImportIndexRoute =
+  AuthedNavigationImportIndexRouteImport.update({
+    id: '/import/',
+    path: '/import/',
+    getParentRoute: () => AuthedNavigationRouteRoute,
+  } as any)
+const AuthedNavigationCommunityIndexRoute =
+  AuthedNavigationCommunityIndexRouteImport.update({
+    id: '/community/',
+    path: '/community/',
+    getParentRoute: () => AuthedNavigationRouteRoute,
+  } as any)
+const AuthedNavigationAdminIndexRoute =
+  AuthedNavigationAdminIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedNavigationAdminRouteRoute,
+  } as any)
+const AuthedNavigationSettingsPrivacyRoute =
+  AuthedNavigationSettingsPrivacyRouteImport.update({
+    id: '/settings/privacy',
+    path: '/settings/privacy',
+    getParentRoute: () => AuthedNavigationRouteRoute,
+  } as any)
+const AuthedNavigationImportManualRoute =
+  AuthedNavigationImportManualRouteImport.update({
+    id: '/import/manual',
+    path: '/import/manual',
+    getParentRoute: () => AuthedNavigationRouteRoute,
+  } as any)
+const AuthedNavigationImportCallbackRoute =
+  AuthedNavigationImportCallbackRouteImport.update({
+    id: '/import/callback',
+    path: '/import/callback',
+    getParentRoute: () => AuthedNavigationRouteRoute,
+  } as any)
+const AuthedNavigationCommunityContentIdRoute =
+  AuthedNavigationCommunityContentIdRouteImport.update({
     id: '/community/$contentId',
     path: '/community/$contentId',
-    getParentRoute: () => AuthedRoute,
+    getParentRoute: () => AuthedNavigationRouteRoute,
   } as any)
-const AuthedAdminPrivacyRoute = AuthedAdminPrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => AuthedAdminRouteRoute,
-} as any)
-const AuthedAdminModerationRoute = AuthedAdminModerationRouteImport.update({
-  id: '/moderation',
-  path: '/moderation',
-  getParentRoute: () => AuthedAdminRouteRoute,
-} as any)
-const AuthedAdminHealthRoute = AuthedAdminHealthRouteImport.update({
-  id: '/health',
-  path: '/health',
-  getParentRoute: () => AuthedAdminRouteRoute,
-} as any)
-const AuthedAdminDeliveryRoute = AuthedAdminDeliveryRouteImport.update({
-  id: '/delivery',
-  path: '/delivery',
-  getParentRoute: () => AuthedAdminRouteRoute,
-} as any)
-const AuthedAdminCommunityRoute = AuthedAdminCommunityRouteImport.update({
-  id: '/community',
-  path: '/community',
-  getParentRoute: () => AuthedAdminRouteRoute,
-} as any)
-const AuthedAdminAnalyticsRoute = AuthedAdminAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => AuthedAdminRouteRoute,
-} as any)
-const AuthedCommunitySenderSenderEmailRoute =
-  AuthedCommunitySenderSenderEmailRouteImport.update({
+const AuthedNavigationAdminPrivacyRoute =
+  AuthedNavigationAdminPrivacyRouteImport.update({
+    id: '/privacy',
+    path: '/privacy',
+    getParentRoute: () => AuthedNavigationAdminRouteRoute,
+  } as any)
+const AuthedNavigationAdminModerationRoute =
+  AuthedNavigationAdminModerationRouteImport.update({
+    id: '/moderation',
+    path: '/moderation',
+    getParentRoute: () => AuthedNavigationAdminRouteRoute,
+  } as any)
+const AuthedNavigationAdminHealthRoute =
+  AuthedNavigationAdminHealthRouteImport.update({
+    id: '/health',
+    path: '/health',
+    getParentRoute: () => AuthedNavigationAdminRouteRoute,
+  } as any)
+const AuthedNavigationAdminDeliveryRoute =
+  AuthedNavigationAdminDeliveryRouteImport.update({
+    id: '/delivery',
+    path: '/delivery',
+    getParentRoute: () => AuthedNavigationAdminRouteRoute,
+  } as any)
+const AuthedNavigationAdminCommunityRoute =
+  AuthedNavigationAdminCommunityRouteImport.update({
+    id: '/community',
+    path: '/community',
+    getParentRoute: () => AuthedNavigationAdminRouteRoute,
+  } as any)
+const AuthedNavigationAdminAnalyticsRoute =
+  AuthedNavigationAdminAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => AuthedNavigationAdminRouteRoute,
+  } as any)
+const AuthedNavigationCommunitySenderSenderEmailRoute =
+  AuthedNavigationCommunitySenderSenderEmailRouteImport.update({
     id: '/community/sender/$senderEmail',
     path: '/community/sender/$senderEmail',
-    getParentRoute: () => AuthedRoute,
+    getParentRoute: () => AuthedNavigationRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthedRouteWithChildren
-  '/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/': typeof AuthedNavigationRouteRouteWithChildren
   '/onboarding': typeof AuthedOnboardingRoute
   '/share-email/$token': typeof ShareEmailTokenRoute
   '/share/$token': typeof ShareTokenRoute
@@ -239,27 +263,29 @@ export interface FileRoutesByFullPath {
   '/{-$locale}/reset-password': typeof Char123LocaleChar125ResetPasswordRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
-  '/admin/analytics': typeof AuthedAdminAnalyticsRoute
-  '/admin/community': typeof AuthedAdminCommunityRoute
-  '/admin/delivery': typeof AuthedAdminDeliveryRoute
-  '/admin/health': typeof AuthedAdminHealthRoute
-  '/admin/moderation': typeof AuthedAdminModerationRoute
-  '/admin/privacy': typeof AuthedAdminPrivacyRoute
-  '/community/$contentId': typeof AuthedCommunityContentIdRoute
-  '/import/manual': typeof AuthedImportManualRoute
+  '/admin': typeof AuthedNavigationAdminRouteRouteWithChildren
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
-  '/settings/privacy': typeof AuthedSettingsPrivacyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/{-$locale}/share/$token': typeof Char123LocaleChar125ShareTokenRoute
-  '/admin/': typeof AuthedAdminIndexRoute
-  '/community/': typeof AuthedCommunityIndexRoute
-  '/import/': typeof AuthedImportIndexRoute
   '/newsletters/': typeof AuthedNewslettersIndexRoute
-  '/settings/': typeof AuthedSettingsIndexRoute
-  '/community/sender/$senderEmail': typeof AuthedCommunitySenderSenderEmailRoute
+  '/admin/analytics': typeof AuthedNavigationAdminAnalyticsRoute
+  '/admin/community': typeof AuthedNavigationAdminCommunityRoute
+  '/admin/delivery': typeof AuthedNavigationAdminDeliveryRoute
+  '/admin/health': typeof AuthedNavigationAdminHealthRoute
+  '/admin/moderation': typeof AuthedNavigationAdminModerationRoute
+  '/admin/privacy': typeof AuthedNavigationAdminPrivacyRoute
+  '/community/$contentId': typeof AuthedNavigationCommunityContentIdRoute
+  '/import/callback': typeof AuthedNavigationImportCallbackRoute
+  '/import/manual': typeof AuthedNavigationImportManualRoute
+  '/settings/privacy': typeof AuthedNavigationSettingsPrivacyRoute
+  '/admin/': typeof AuthedNavigationAdminIndexRoute
+  '/community/': typeof AuthedNavigationCommunityIndexRoute
+  '/import/': typeof AuthedNavigationImportIndexRoute
+  '/settings/': typeof AuthedNavigationSettingsIndexRoute
+  '/community/sender/$senderEmail': typeof AuthedNavigationCommunitySenderSenderEmailRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AuthedRouteWithChildren
+  '/': typeof AuthedNavigationRouteRouteWithChildren
   '/onboarding': typeof AuthedOnboardingRoute
   '/share-email/$token': typeof ShareEmailTokenRoute
   '/share/$token': typeof ShareTokenRoute
@@ -274,29 +300,30 @@ export interface FileRoutesByTo {
   '/{-$locale}/reset-password': typeof Char123LocaleChar125ResetPasswordRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
   '/{-$locale}': typeof Char123LocaleChar125IndexRoute
-  '/admin/analytics': typeof AuthedAdminAnalyticsRoute
-  '/admin/community': typeof AuthedAdminCommunityRoute
-  '/admin/delivery': typeof AuthedAdminDeliveryRoute
-  '/admin/health': typeof AuthedAdminHealthRoute
-  '/admin/moderation': typeof AuthedAdminModerationRoute
-  '/admin/privacy': typeof AuthedAdminPrivacyRoute
-  '/community/$contentId': typeof AuthedCommunityContentIdRoute
-  '/import/manual': typeof AuthedImportManualRoute
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
-  '/settings/privacy': typeof AuthedSettingsPrivacyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/{-$locale}/share/$token': typeof Char123LocaleChar125ShareTokenRoute
-  '/admin': typeof AuthedAdminIndexRoute
-  '/community': typeof AuthedCommunityIndexRoute
-  '/import': typeof AuthedImportIndexRoute
   '/newsletters': typeof AuthedNewslettersIndexRoute
-  '/settings': typeof AuthedSettingsIndexRoute
-  '/community/sender/$senderEmail': typeof AuthedCommunitySenderSenderEmailRoute
+  '/admin/analytics': typeof AuthedNavigationAdminAnalyticsRoute
+  '/admin/community': typeof AuthedNavigationAdminCommunityRoute
+  '/admin/delivery': typeof AuthedNavigationAdminDeliveryRoute
+  '/admin/health': typeof AuthedNavigationAdminHealthRoute
+  '/admin/moderation': typeof AuthedNavigationAdminModerationRoute
+  '/admin/privacy': typeof AuthedNavigationAdminPrivacyRoute
+  '/community/$contentId': typeof AuthedNavigationCommunityContentIdRoute
+  '/import/callback': typeof AuthedNavigationImportCallbackRoute
+  '/import/manual': typeof AuthedNavigationImportManualRoute
+  '/settings/privacy': typeof AuthedNavigationSettingsPrivacyRoute
+  '/admin': typeof AuthedNavigationAdminIndexRoute
+  '/community': typeof AuthedNavigationCommunityIndexRoute
+  '/import': typeof AuthedNavigationImportIndexRoute
+  '/settings': typeof AuthedNavigationSettingsIndexRoute
+  '/community/sender/$senderEmail': typeof AuthedNavigationCommunitySenderSenderEmailRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
-  '/_authed/admin': typeof AuthedAdminRouteRouteWithChildren
+  '/_authed/_navigation': typeof AuthedNavigationRouteRouteWithChildren
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/share-email/$token': typeof ShareEmailTokenRoute
   '/share/$token': typeof ShareTokenRoute
@@ -311,30 +338,31 @@ export interface FileRoutesById {
   '/{-$locale}/reset-password': typeof Char123LocaleChar125ResetPasswordRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
-  '/_authed/admin/analytics': typeof AuthedAdminAnalyticsRoute
-  '/_authed/admin/community': typeof AuthedAdminCommunityRoute
-  '/_authed/admin/delivery': typeof AuthedAdminDeliveryRoute
-  '/_authed/admin/health': typeof AuthedAdminHealthRoute
-  '/_authed/admin/moderation': typeof AuthedAdminModerationRoute
-  '/_authed/admin/privacy': typeof AuthedAdminPrivacyRoute
-  '/_authed/community/$contentId': typeof AuthedCommunityContentIdRoute
-  '/_authed/import/manual': typeof AuthedImportManualRoute
+  '/_authed/_navigation/admin': typeof AuthedNavigationAdminRouteRouteWithChildren
   '/_authed/newsletters/$id': typeof AuthedNewslettersIdRoute
-  '/_authed/settings/privacy': typeof AuthedSettingsPrivacyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/{-$locale}/share/$token': typeof Char123LocaleChar125ShareTokenRoute
-  '/_authed/admin/': typeof AuthedAdminIndexRoute
-  '/_authed/community/': typeof AuthedCommunityIndexRoute
-  '/_authed/import/': typeof AuthedImportIndexRoute
   '/_authed/newsletters/': typeof AuthedNewslettersIndexRoute
-  '/_authed/settings/': typeof AuthedSettingsIndexRoute
-  '/_authed/community/sender/$senderEmail': typeof AuthedCommunitySenderSenderEmailRoute
+  '/_authed/_navigation/admin/analytics': typeof AuthedNavigationAdminAnalyticsRoute
+  '/_authed/_navigation/admin/community': typeof AuthedNavigationAdminCommunityRoute
+  '/_authed/_navigation/admin/delivery': typeof AuthedNavigationAdminDeliveryRoute
+  '/_authed/_navigation/admin/health': typeof AuthedNavigationAdminHealthRoute
+  '/_authed/_navigation/admin/moderation': typeof AuthedNavigationAdminModerationRoute
+  '/_authed/_navigation/admin/privacy': typeof AuthedNavigationAdminPrivacyRoute
+  '/_authed/_navigation/community/$contentId': typeof AuthedNavigationCommunityContentIdRoute
+  '/_authed/_navigation/import/callback': typeof AuthedNavigationImportCallbackRoute
+  '/_authed/_navigation/import/manual': typeof AuthedNavigationImportManualRoute
+  '/_authed/_navigation/settings/privacy': typeof AuthedNavigationSettingsPrivacyRoute
+  '/_authed/_navigation/admin/': typeof AuthedNavigationAdminIndexRoute
+  '/_authed/_navigation/community/': typeof AuthedNavigationCommunityIndexRoute
+  '/_authed/_navigation/import/': typeof AuthedNavigationImportIndexRoute
+  '/_authed/_navigation/settings/': typeof AuthedNavigationSettingsIndexRoute
+  '/_authed/_navigation/community/sender/$senderEmail': typeof AuthedNavigationCommunitySenderSenderEmailRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
     | '/onboarding'
     | '/share-email/$token'
     | '/share/$token'
@@ -349,6 +377,11 @@ export interface FileRouteTypes {
     | '/{-$locale}/reset-password'
     | '/{-$locale}/signup'
     | '/{-$locale}/'
+    | '/admin'
+    | '/newsletters/$id'
+    | '/api/auth/$'
+    | '/{-$locale}/share/$token'
+    | '/newsletters/'
     | '/admin/analytics'
     | '/admin/community'
     | '/admin/delivery'
@@ -356,15 +389,12 @@ export interface FileRouteTypes {
     | '/admin/moderation'
     | '/admin/privacy'
     | '/community/$contentId'
+    | '/import/callback'
     | '/import/manual'
-    | '/newsletters/$id'
     | '/settings/privacy'
-    | '/api/auth/$'
-    | '/{-$locale}/share/$token'
     | '/admin/'
     | '/community/'
     | '/import/'
-    | '/newsletters/'
     | '/settings/'
     | '/community/sender/$senderEmail'
   fileRoutesByTo: FileRoutesByTo
@@ -384,6 +414,10 @@ export interface FileRouteTypes {
     | '/{-$locale}/reset-password'
     | '/{-$locale}/signup'
     | '/{-$locale}'
+    | '/newsletters/$id'
+    | '/api/auth/$'
+    | '/{-$locale}/share/$token'
+    | '/newsletters'
     | '/admin/analytics'
     | '/admin/community'
     | '/admin/delivery'
@@ -391,21 +425,18 @@ export interface FileRouteTypes {
     | '/admin/moderation'
     | '/admin/privacy'
     | '/community/$contentId'
+    | '/import/callback'
     | '/import/manual'
-    | '/newsletters/$id'
     | '/settings/privacy'
-    | '/api/auth/$'
-    | '/{-$locale}/share/$token'
     | '/admin'
     | '/community'
     | '/import'
-    | '/newsletters'
     | '/settings'
     | '/community/sender/$senderEmail'
   id:
     | '__root__'
     | '/_authed'
-    | '/_authed/admin'
+    | '/_authed/_navigation'
     | '/_authed/onboarding'
     | '/share-email/$token'
     | '/share/$token'
@@ -420,24 +451,26 @@ export interface FileRouteTypes {
     | '/{-$locale}/reset-password'
     | '/{-$locale}/signup'
     | '/{-$locale}/'
-    | '/_authed/admin/analytics'
-    | '/_authed/admin/community'
-    | '/_authed/admin/delivery'
-    | '/_authed/admin/health'
-    | '/_authed/admin/moderation'
-    | '/_authed/admin/privacy'
-    | '/_authed/community/$contentId'
-    | '/_authed/import/manual'
+    | '/_authed/_navigation/admin'
     | '/_authed/newsletters/$id'
-    | '/_authed/settings/privacy'
     | '/api/auth/$'
     | '/{-$locale}/share/$token'
-    | '/_authed/admin/'
-    | '/_authed/community/'
-    | '/_authed/import/'
     | '/_authed/newsletters/'
-    | '/_authed/settings/'
-    | '/_authed/community/sender/$senderEmail'
+    | '/_authed/_navigation/admin/analytics'
+    | '/_authed/_navigation/admin/community'
+    | '/_authed/_navigation/admin/delivery'
+    | '/_authed/_navigation/admin/health'
+    | '/_authed/_navigation/admin/moderation'
+    | '/_authed/_navigation/admin/privacy'
+    | '/_authed/_navigation/community/$contentId'
+    | '/_authed/_navigation/import/callback'
+    | '/_authed/_navigation/import/manual'
+    | '/_authed/_navigation/settings/privacy'
+    | '/_authed/_navigation/admin/'
+    | '/_authed/_navigation/community/'
+    | '/_authed/_navigation/import/'
+    | '/_authed/_navigation/settings/'
+    | '/_authed/_navigation/community/sender/$senderEmail'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -566,18 +599,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOnboardingRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/admin': {
-      id: '/_authed/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthedAdminRouteRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings/': {
-      id: '/_authed/settings/'
-      path: '/settings'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof AuthedSettingsIndexRouteImport
+    '/_authed/_navigation': {
+      id: '/_authed/_navigation'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedNavigationRouteRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/newsletters/': {
@@ -586,27 +612,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/newsletters/'
       preLoaderRoute: typeof AuthedNewslettersIndexRouteImport
       parentRoute: typeof AuthedRoute
-    }
-    '/_authed/import/': {
-      id: '/_authed/import/'
-      path: '/import'
-      fullPath: '/import/'
-      preLoaderRoute: typeof AuthedImportIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/community/': {
-      id: '/_authed/community/'
-      path: '/community'
-      fullPath: '/community/'
-      preLoaderRoute: typeof AuthedCommunityIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/admin/': {
-      id: '/_authed/admin/'
-      path: '/'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AuthedAdminIndexRouteImport
-      parentRoute: typeof AuthedAdminRouteRoute
     }
     '/{-$locale}/share/$token': {
       id: '/{-$locale}/share/$token'
@@ -622,13 +627,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/settings/privacy': {
-      id: '/_authed/settings/privacy'
-      path: '/settings/privacy'
-      fullPath: '/settings/privacy'
-      preLoaderRoute: typeof AuthedSettingsPrivacyRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/newsletters/$id': {
       id: '/_authed/newsletters/$id'
       path: '/newsletters/$id'
@@ -636,121 +634,190 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedNewslettersIdRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/import/manual': {
-      id: '/_authed/import/manual'
+    '/_authed/_navigation/admin': {
+      id: '/_authed/_navigation/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthedNavigationAdminRouteRouteImport
+      parentRoute: typeof AuthedNavigationRouteRoute
+    }
+    '/_authed/_navigation/settings/': {
+      id: '/_authed/_navigation/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthedNavigationSettingsIndexRouteImport
+      parentRoute: typeof AuthedNavigationRouteRoute
+    }
+    '/_authed/_navigation/import/': {
+      id: '/_authed/_navigation/import/'
+      path: '/import'
+      fullPath: '/import/'
+      preLoaderRoute: typeof AuthedNavigationImportIndexRouteImport
+      parentRoute: typeof AuthedNavigationRouteRoute
+    }
+    '/_authed/_navigation/community/': {
+      id: '/_authed/_navigation/community/'
+      path: '/community'
+      fullPath: '/community/'
+      preLoaderRoute: typeof AuthedNavigationCommunityIndexRouteImport
+      parentRoute: typeof AuthedNavigationRouteRoute
+    }
+    '/_authed/_navigation/admin/': {
+      id: '/_authed/_navigation/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthedNavigationAdminIndexRouteImport
+      parentRoute: typeof AuthedNavigationAdminRouteRoute
+    }
+    '/_authed/_navigation/settings/privacy': {
+      id: '/_authed/_navigation/settings/privacy'
+      path: '/settings/privacy'
+      fullPath: '/settings/privacy'
+      preLoaderRoute: typeof AuthedNavigationSettingsPrivacyRouteImport
+      parentRoute: typeof AuthedNavigationRouteRoute
+    }
+    '/_authed/_navigation/import/manual': {
+      id: '/_authed/_navigation/import/manual'
       path: '/import/manual'
       fullPath: '/import/manual'
-      preLoaderRoute: typeof AuthedImportManualRouteImport
-      parentRoute: typeof AuthedRoute
+      preLoaderRoute: typeof AuthedNavigationImportManualRouteImport
+      parentRoute: typeof AuthedNavigationRouteRoute
     }
-    '/_authed/community/$contentId': {
-      id: '/_authed/community/$contentId'
+    '/_authed/_navigation/import/callback': {
+      id: '/_authed/_navigation/import/callback'
+      path: '/import/callback'
+      fullPath: '/import/callback'
+      preLoaderRoute: typeof AuthedNavigationImportCallbackRouteImport
+      parentRoute: typeof AuthedNavigationRouteRoute
+    }
+    '/_authed/_navigation/community/$contentId': {
+      id: '/_authed/_navigation/community/$contentId'
       path: '/community/$contentId'
       fullPath: '/community/$contentId'
-      preLoaderRoute: typeof AuthedCommunityContentIdRouteImport
-      parentRoute: typeof AuthedRoute
+      preLoaderRoute: typeof AuthedNavigationCommunityContentIdRouteImport
+      parentRoute: typeof AuthedNavigationRouteRoute
     }
-    '/_authed/admin/privacy': {
-      id: '/_authed/admin/privacy'
+    '/_authed/_navigation/admin/privacy': {
+      id: '/_authed/_navigation/admin/privacy'
       path: '/privacy'
       fullPath: '/admin/privacy'
-      preLoaderRoute: typeof AuthedAdminPrivacyRouteImport
-      parentRoute: typeof AuthedAdminRouteRoute
+      preLoaderRoute: typeof AuthedNavigationAdminPrivacyRouteImport
+      parentRoute: typeof AuthedNavigationAdminRouteRoute
     }
-    '/_authed/admin/moderation': {
-      id: '/_authed/admin/moderation'
+    '/_authed/_navigation/admin/moderation': {
+      id: '/_authed/_navigation/admin/moderation'
       path: '/moderation'
       fullPath: '/admin/moderation'
-      preLoaderRoute: typeof AuthedAdminModerationRouteImport
-      parentRoute: typeof AuthedAdminRouteRoute
+      preLoaderRoute: typeof AuthedNavigationAdminModerationRouteImport
+      parentRoute: typeof AuthedNavigationAdminRouteRoute
     }
-    '/_authed/admin/health': {
-      id: '/_authed/admin/health'
+    '/_authed/_navigation/admin/health': {
+      id: '/_authed/_navigation/admin/health'
       path: '/health'
       fullPath: '/admin/health'
-      preLoaderRoute: typeof AuthedAdminHealthRouteImport
-      parentRoute: typeof AuthedAdminRouteRoute
+      preLoaderRoute: typeof AuthedNavigationAdminHealthRouteImport
+      parentRoute: typeof AuthedNavigationAdminRouteRoute
     }
-    '/_authed/admin/delivery': {
-      id: '/_authed/admin/delivery'
+    '/_authed/_navigation/admin/delivery': {
+      id: '/_authed/_navigation/admin/delivery'
       path: '/delivery'
       fullPath: '/admin/delivery'
-      preLoaderRoute: typeof AuthedAdminDeliveryRouteImport
-      parentRoute: typeof AuthedAdminRouteRoute
+      preLoaderRoute: typeof AuthedNavigationAdminDeliveryRouteImport
+      parentRoute: typeof AuthedNavigationAdminRouteRoute
     }
-    '/_authed/admin/community': {
-      id: '/_authed/admin/community'
+    '/_authed/_navigation/admin/community': {
+      id: '/_authed/_navigation/admin/community'
       path: '/community'
       fullPath: '/admin/community'
-      preLoaderRoute: typeof AuthedAdminCommunityRouteImport
-      parentRoute: typeof AuthedAdminRouteRoute
+      preLoaderRoute: typeof AuthedNavigationAdminCommunityRouteImport
+      parentRoute: typeof AuthedNavigationAdminRouteRoute
     }
-    '/_authed/admin/analytics': {
-      id: '/_authed/admin/analytics'
+    '/_authed/_navigation/admin/analytics': {
+      id: '/_authed/_navigation/admin/analytics'
       path: '/analytics'
       fullPath: '/admin/analytics'
-      preLoaderRoute: typeof AuthedAdminAnalyticsRouteImport
-      parentRoute: typeof AuthedAdminRouteRoute
+      preLoaderRoute: typeof AuthedNavigationAdminAnalyticsRouteImport
+      parentRoute: typeof AuthedNavigationAdminRouteRoute
     }
-    '/_authed/community/sender/$senderEmail': {
-      id: '/_authed/community/sender/$senderEmail'
+    '/_authed/_navigation/community/sender/$senderEmail': {
+      id: '/_authed/_navigation/community/sender/$senderEmail'
       path: '/community/sender/$senderEmail'
       fullPath: '/community/sender/$senderEmail'
-      preLoaderRoute: typeof AuthedCommunitySenderSenderEmailRouteImport
-      parentRoute: typeof AuthedRoute
+      preLoaderRoute: typeof AuthedNavigationCommunitySenderSenderEmailRouteImport
+      parentRoute: typeof AuthedNavigationRouteRoute
     }
   }
 }
 
-interface AuthedAdminRouteRouteChildren {
-  AuthedAdminAnalyticsRoute: typeof AuthedAdminAnalyticsRoute
-  AuthedAdminCommunityRoute: typeof AuthedAdminCommunityRoute
-  AuthedAdminDeliveryRoute: typeof AuthedAdminDeliveryRoute
-  AuthedAdminHealthRoute: typeof AuthedAdminHealthRoute
-  AuthedAdminModerationRoute: typeof AuthedAdminModerationRoute
-  AuthedAdminPrivacyRoute: typeof AuthedAdminPrivacyRoute
-  AuthedAdminIndexRoute: typeof AuthedAdminIndexRoute
+interface AuthedNavigationAdminRouteRouteChildren {
+  AuthedNavigationAdminAnalyticsRoute: typeof AuthedNavigationAdminAnalyticsRoute
+  AuthedNavigationAdminCommunityRoute: typeof AuthedNavigationAdminCommunityRoute
+  AuthedNavigationAdminDeliveryRoute: typeof AuthedNavigationAdminDeliveryRoute
+  AuthedNavigationAdminHealthRoute: typeof AuthedNavigationAdminHealthRoute
+  AuthedNavigationAdminModerationRoute: typeof AuthedNavigationAdminModerationRoute
+  AuthedNavigationAdminPrivacyRoute: typeof AuthedNavigationAdminPrivacyRoute
+  AuthedNavigationAdminIndexRoute: typeof AuthedNavigationAdminIndexRoute
 }
 
-const AuthedAdminRouteRouteChildren: AuthedAdminRouteRouteChildren = {
-  AuthedAdminAnalyticsRoute: AuthedAdminAnalyticsRoute,
-  AuthedAdminCommunityRoute: AuthedAdminCommunityRoute,
-  AuthedAdminDeliveryRoute: AuthedAdminDeliveryRoute,
-  AuthedAdminHealthRoute: AuthedAdminHealthRoute,
-  AuthedAdminModerationRoute: AuthedAdminModerationRoute,
-  AuthedAdminPrivacyRoute: AuthedAdminPrivacyRoute,
-  AuthedAdminIndexRoute: AuthedAdminIndexRoute,
+const AuthedNavigationAdminRouteRouteChildren: AuthedNavigationAdminRouteRouteChildren =
+  {
+    AuthedNavigationAdminAnalyticsRoute: AuthedNavigationAdminAnalyticsRoute,
+    AuthedNavigationAdminCommunityRoute: AuthedNavigationAdminCommunityRoute,
+    AuthedNavigationAdminDeliveryRoute: AuthedNavigationAdminDeliveryRoute,
+    AuthedNavigationAdminHealthRoute: AuthedNavigationAdminHealthRoute,
+    AuthedNavigationAdminModerationRoute: AuthedNavigationAdminModerationRoute,
+    AuthedNavigationAdminPrivacyRoute: AuthedNavigationAdminPrivacyRoute,
+    AuthedNavigationAdminIndexRoute: AuthedNavigationAdminIndexRoute,
+  }
+
+const AuthedNavigationAdminRouteRouteWithChildren =
+  AuthedNavigationAdminRouteRoute._addFileChildren(
+    AuthedNavigationAdminRouteRouteChildren,
+  )
+
+interface AuthedNavigationRouteRouteChildren {
+  AuthedNavigationAdminRouteRoute: typeof AuthedNavigationAdminRouteRouteWithChildren
+  AuthedNavigationCommunityContentIdRoute: typeof AuthedNavigationCommunityContentIdRoute
+  AuthedNavigationImportCallbackRoute: typeof AuthedNavigationImportCallbackRoute
+  AuthedNavigationImportManualRoute: typeof AuthedNavigationImportManualRoute
+  AuthedNavigationSettingsPrivacyRoute: typeof AuthedNavigationSettingsPrivacyRoute
+  AuthedNavigationCommunityIndexRoute: typeof AuthedNavigationCommunityIndexRoute
+  AuthedNavigationImportIndexRoute: typeof AuthedNavigationImportIndexRoute
+  AuthedNavigationSettingsIndexRoute: typeof AuthedNavigationSettingsIndexRoute
+  AuthedNavigationCommunitySenderSenderEmailRoute: typeof AuthedNavigationCommunitySenderSenderEmailRoute
 }
 
-const AuthedAdminRouteRouteWithChildren =
-  AuthedAdminRouteRoute._addFileChildren(AuthedAdminRouteRouteChildren)
+const AuthedNavigationRouteRouteChildren: AuthedNavigationRouteRouteChildren = {
+  AuthedNavigationAdminRouteRoute: AuthedNavigationAdminRouteRouteWithChildren,
+  AuthedNavigationCommunityContentIdRoute:
+    AuthedNavigationCommunityContentIdRoute,
+  AuthedNavigationImportCallbackRoute: AuthedNavigationImportCallbackRoute,
+  AuthedNavigationImportManualRoute: AuthedNavigationImportManualRoute,
+  AuthedNavigationSettingsPrivacyRoute: AuthedNavigationSettingsPrivacyRoute,
+  AuthedNavigationCommunityIndexRoute: AuthedNavigationCommunityIndexRoute,
+  AuthedNavigationImportIndexRoute: AuthedNavigationImportIndexRoute,
+  AuthedNavigationSettingsIndexRoute: AuthedNavigationSettingsIndexRoute,
+  AuthedNavigationCommunitySenderSenderEmailRoute:
+    AuthedNavigationCommunitySenderSenderEmailRoute,
+}
+
+const AuthedNavigationRouteRouteWithChildren =
+  AuthedNavigationRouteRoute._addFileChildren(
+    AuthedNavigationRouteRouteChildren,
+  )
 
 interface AuthedRouteChildren {
-  AuthedAdminRouteRoute: typeof AuthedAdminRouteRouteWithChildren
+  AuthedNavigationRouteRoute: typeof AuthedNavigationRouteRouteWithChildren
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
-  AuthedCommunityContentIdRoute: typeof AuthedCommunityContentIdRoute
-  AuthedImportManualRoute: typeof AuthedImportManualRoute
   AuthedNewslettersIdRoute: typeof AuthedNewslettersIdRoute
-  AuthedSettingsPrivacyRoute: typeof AuthedSettingsPrivacyRoute
-  AuthedCommunityIndexRoute: typeof AuthedCommunityIndexRoute
-  AuthedImportIndexRoute: typeof AuthedImportIndexRoute
   AuthedNewslettersIndexRoute: typeof AuthedNewslettersIndexRoute
-  AuthedSettingsIndexRoute: typeof AuthedSettingsIndexRoute
-  AuthedCommunitySenderSenderEmailRoute: typeof AuthedCommunitySenderSenderEmailRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
-  AuthedAdminRouteRoute: AuthedAdminRouteRouteWithChildren,
+  AuthedNavigationRouteRoute: AuthedNavigationRouteRouteWithChildren,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
-  AuthedCommunityContentIdRoute: AuthedCommunityContentIdRoute,
-  AuthedImportManualRoute: AuthedImportManualRoute,
   AuthedNewslettersIdRoute: AuthedNewslettersIdRoute,
-  AuthedSettingsPrivacyRoute: AuthedSettingsPrivacyRoute,
-  AuthedCommunityIndexRoute: AuthedCommunityIndexRoute,
-  AuthedImportIndexRoute: AuthedImportIndexRoute,
   AuthedNewslettersIndexRoute: AuthedNewslettersIndexRoute,
-  AuthedSettingsIndexRoute: AuthedSettingsIndexRoute,
-  AuthedCommunitySenderSenderEmailRoute: AuthedCommunitySenderSenderEmailRoute,
 }
 
 const AuthedRouteWithChildren =

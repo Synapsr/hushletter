@@ -31,7 +31,7 @@ interface CommunitySummary {
  * 4. Content reports queue
  * 5. Moderation audit log
  */
-export const Route = createFileRoute("/_authed/admin/community")({
+export const Route = createFileRoute("/_authed/_navigation/admin/community")({
   component: CommunityManagement,
 });
 

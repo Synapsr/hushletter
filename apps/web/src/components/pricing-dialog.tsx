@@ -12,12 +12,14 @@ import { useAction } from "convex/react";
 import { motion } from "motion/react";
 import { useState } from "react";
 
-export function OnboardingPricingDialog({
+export function PricingDialog({
   open,
   onOpenChange,
+  returnTo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  returnTo?: "settings" | "onboarding" | "import";
 }) {
   const locale = getLocale();
   const currency = locale.startsWith("fr")
@@ -35,7 +37,7 @@ export function OnboardingPricingDialog({
   const [checkoutPending, setCheckoutPending] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [billingInterval, setBillingInterval] = useState<"month" | "year">(
-    "month",
+    "year",
   );
 
   const handleUpgrade = async () => {
@@ -45,7 +47,7 @@ export function OnboardingPricingDialog({
       const { url } = await createCheckout({
         interval: billingInterval,
         currency,
-        returnTo: "onboarding",
+        returnTo,
       });
       window.location.href = url;
     } catch (error) {

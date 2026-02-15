@@ -6,7 +6,11 @@ export const SharedLogo = ({}: Props) => {
   return (
     <div>
       {/* <p className="text-2xl font-bold">Hushletter</p> */}
-      <img src="/hushletter.svg" alt="Hushletter" className="w-auto h-6" />
+      <img
+        src="/hushletter-logo-5.svg"
+        alt="Hushletter"
+        className="w-auto h-8"
+      />
     </div>
   );
 };

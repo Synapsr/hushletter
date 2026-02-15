@@ -12,6 +12,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { SenderReview } from "./-SenderReview"
+import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
+
+// Mock connection ID for testing
+const mockConnectionId = "test_connection_id" as Id<"gmailConnections">;
 
 // Mock Convex react hooks
 const mockUseQuery = vi.fn()
@@ -134,7 +138,7 @@ describe("SenderReview", () => {
 
   describe("AC#1: Default Selection", () => {
     it("renders each sender with a checkbox", () => {
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       // Check that each sender is rendered
       expect(screen.getByText("Example Newsletter")).toBeInTheDocument()
@@ -147,7 +151,7 @@ describe("SenderReview", () => {
     })
 
     it("shows correct count of selected senders", () => {
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       expect(
         screen.getByText("2 of 3 senders selected for import")
@@ -155,7 +159,7 @@ describe("SenderReview", () => {
     })
 
     it("senders are selected by default (isSelected: true shown as checked)", () => {
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const checkboxes = screen.getAllByRole("checkbox")
 
@@ -170,7 +174,7 @@ describe("SenderReview", () => {
   describe("AC#2: Select All / Deselect All", () => {
     it("Select All button calls selectAllSenders mutation", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const selectAllButton = screen.getByRole("button", { name: /^select all$/i })
       await user.click(selectAllButton)
@@ -180,7 +184,7 @@ describe("SenderReview", () => {
 
     it("Deselect All button calls deselectAllSenders mutation", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const deselectAllButton = screen.getByRole("button", {
         name: /^deselect all$/i,
@@ -201,7 +205,7 @@ describe("SenderReview", () => {
         return undefined
       })
 
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const selectAllButton = screen.getByRole("button", { name: /^select all$/i })
       expect(selectAllButton).toBeDisabled()
@@ -218,7 +222,7 @@ describe("SenderReview", () => {
         return undefined
       })
 
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const deselectAllButton = screen.getByRole("button", {
         name: /^deselect all$/i,
@@ -230,7 +234,7 @@ describe("SenderReview", () => {
   describe("AC#3: Sender Detail View", () => {
     it("clicking sender row expands detail view", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       // Sample subjects should not be visible initially
       expect(screen.queryByText("Weekly Update #1")).not.toBeInTheDocument()
@@ -249,7 +253,7 @@ describe("SenderReview", () => {
 
     it("detail shows sample subjects", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       // Click to expand
       const senderRow = screen.getByText("Example Newsletter").closest("div[role='button']")
@@ -264,7 +268,7 @@ describe("SenderReview", () => {
 
     it("detail shows confidence score and domain", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       // Click to expand
       const senderRow = screen.getByText("Example Newsletter").closest("div[role='button']")
@@ -279,7 +283,7 @@ describe("SenderReview", () => {
 
     it("detail shows detected date", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       // Click to expand
       const senderRow = screen.getByText("Example Newsletter").closest("div[role='button']")
@@ -292,7 +296,7 @@ describe("SenderReview", () => {
 
     it("clicking again collapses detail", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const senderRow = screen.getByText("Example Newsletter").closest("div[role='button']")
 
@@ -312,7 +316,7 @@ describe("SenderReview", () => {
 
   describe("AC#4: Import Trigger", () => {
     it("Import button shows count of selected senders", () => {
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       expect(
         screen.getByRole("button", { name: /import 2 senders/i })
@@ -330,7 +334,7 @@ describe("SenderReview", () => {
         return undefined
       })
 
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const importButton = screen.getByRole("button", { name: /import 0 senders/i })
       expect(importButton).toBeDisabled()
@@ -338,7 +342,7 @@ describe("SenderReview", () => {
 
     it("clicking Import shows confirmation view", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const importButton = screen.getByRole("button", { name: /import 2 senders/i })
       await user.click(importButton)
@@ -353,7 +357,7 @@ describe("SenderReview", () => {
 
     it("confirming import calls approveSelectedSenders mutation", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       // Go to confirm view
       const importButton = screen.getByRole("button", { name: /import 2 senders/i })
@@ -368,7 +372,7 @@ describe("SenderReview", () => {
 
     it("shows success view after approval", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       // Go to confirm view
       const importButton = screen.getByRole("button", { name: /import 2 senders/i })
@@ -389,7 +393,7 @@ describe("SenderReview", () => {
 
   describe("AC#5: Visual Feedback", () => {
     it("deselected senders have muted styling (opacity)", () => {
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const senderRow = screen
         .getByText("promo@spam.com")
@@ -400,7 +404,7 @@ describe("SenderReview", () => {
     })
 
     it("selected senders do not have muted styling", () => {
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const senderRows = document.querySelectorAll(".border.rounded-lg")
       expect(senderRows[0]).not.toHaveClass("opacity-60")
@@ -409,7 +413,7 @@ describe("SenderReview", () => {
 
     it("clicking checkbox updates selection state (optimistic update)", async () => {
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const checkboxes = screen.getAllByRole("checkbox")
       await user.click(checkboxes[0])
@@ -425,7 +429,7 @@ describe("SenderReview", () => {
     it("shows error message when selection update fails", async () => {
       mockUpdateSelection.mockRejectedValue(new Error("Network error"))
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const checkboxes = screen.getAllByRole("checkbox")
       await user.click(checkboxes[0])
@@ -441,7 +445,7 @@ describe("SenderReview", () => {
     it("error can be dismissed", async () => {
       mockUpdateSelection.mockRejectedValue(new Error("Network error"))
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const checkboxes = screen.getAllByRole("checkbox")
       await user.click(checkboxes[0])
@@ -459,7 +463,7 @@ describe("SenderReview", () => {
     it("shows error when select all fails", async () => {
       mockSelectAll.mockRejectedValue(new Error("Server error"))
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const selectAllButton = screen.getByRole("button", { name: /^select all$/i })
       await user.click(selectAllButton)
@@ -475,7 +479,7 @@ describe("SenderReview", () => {
     it("shows error when approval fails", async () => {
       mockApproveSelected.mockRejectedValue(new Error("Approval failed"))
       const user = userEvent.setup()
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       // Go to confirm view
       const importButton = screen.getByRole("button", { name: /import 2 senders/i })
@@ -498,7 +502,7 @@ describe("SenderReview", () => {
     it("shows loading skeleton when data is undefined", () => {
       mockUseQuery.mockReturnValue(undefined)
 
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       // Should show loading skeleton (has animate-pulse class)
       const skeleton = document.querySelector(".animate-pulse")
@@ -516,7 +520,7 @@ describe("SenderReview", () => {
         return undefined
       })
 
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       expect(screen.getByText("No Senders to Review")).toBeInTheDocument()
     })
@@ -526,7 +530,7 @@ describe("SenderReview", () => {
     it("calls onBack when Back button is clicked", async () => {
       const onBack = vi.fn()
       const user = userEvent.setup()
-      render(<SenderReview onBack={onBack} />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} onBack={onBack} />)
 
       const backButton = screen.getByRole("button", { name: /back/i })
       await user.click(backButton)
@@ -537,7 +541,7 @@ describe("SenderReview", () => {
     it("calls onStartImport when Start Import is clicked after approval", async () => {
       const onStartImport = vi.fn()
       const user = userEvent.setup()
-      render(<SenderReview onStartImport={onStartImport} />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} onStartImport={onStartImport} />)
 
       // Go through the flow
       const importButton = screen.getByRole("button", { name: /import 2 senders/i })
@@ -559,14 +563,14 @@ describe("SenderReview", () => {
 
   describe("Accessibility", () => {
     it("has aria-live region for count updates", () => {
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const description = screen.getByText(/2 of 3 senders selected for import/i)
       expect(description).toHaveAttribute("aria-live", "polite")
     })
 
     it("checkboxes have accessible labels", () => {
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       expect(
         screen.getByRole("checkbox", { name: /select example newsletter for import/i })
@@ -577,7 +581,7 @@ describe("SenderReview", () => {
     })
 
     it("sender rows have aria-expanded attribute", () => {
-      render(<SenderReview />)
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       const senderRow = screen.getByText("Example Newsletter").closest("div[role='button']")
       expect(senderRow).toHaveAttribute("aria-expanded", "false")

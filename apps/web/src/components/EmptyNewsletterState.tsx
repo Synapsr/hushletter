@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Button } from "@hushletter/ui";
+import { Button, DialogTrigger } from "@hushletter/ui";
 import { Mail, Download, Copy, Check, ArrowRight } from "lucide-react";
-import { ImportMethodDialog } from "@/components/import/ImportMethodDialog";
+import { importDialogHandle } from "@/components/import/ImportMethodDialog";
 import { m } from "@/paraglide/messages.js";
 
 interface EmptyNewsletterStateProps {
@@ -111,18 +111,21 @@ export function EmptyNewsletterState({ dedicatedEmail }: EmptyNewsletterStatePro
         className="w-full"
         style={{ animation: "empty-fade-in-up 500ms ease-out 300ms both" }}
       >
-        <ImportMethodDialog dedicatedEmail={dedicatedEmail}>
-          <Button
-            variant="outline"
-            className="w-full justify-between gap-2 h-11"
-          >
-            <span className="flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              {m.emptyState_importNewsletters()}
-            </span>
-            <ArrowRight className="w-4 h-4 text-muted-foreground" />
-          </Button>
-        </ImportMethodDialog>
+        <DialogTrigger
+          handle={importDialogHandle}
+          render={
+            <Button
+              variant="outline"
+              className="w-full justify-between gap-2 h-11"
+            />
+          }
+        >
+          <span className="flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            {m.emptyState_importNewsletters()}
+          </span>
+          <ArrowRight className="w-4 h-4 text-muted-foreground" />
+        </DialogTrigger>
         <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
           {m.emptyState_importHint()}
         </p>

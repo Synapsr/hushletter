@@ -76,9 +76,7 @@ export function SettingsBilling() {
 
   const unlockedStored = entitlements?.usage?.unlockedStored ?? null;
   const lockedStored = entitlements?.usage?.lockedStored ?? null;
-  const totalStored = entitlements?.usage?.totalStored ?? null;
   const unlockedCap = entitlements?.unlockedCap ?? 1000;
-  const hardCap = entitlements?.hardCap ?? 2000;
   const aiDailyLimit = entitlements?.aiDailyLimit ?? 50;
   const at95 =
     typeof unlockedStored === "number" &&
@@ -94,10 +92,6 @@ export function SettingsBilling() {
           100,
           Math.max(0, Math.round((unlockedStored / unlockedCap) * 100)),
         )
-      : null;
-  const storedPct =
-    typeof totalStored === "number" && hardCap > 0
-      ? Math.min(100, Math.max(0, Math.round((totalStored / hardCap) * 100)))
       : null;
   const progressColor = at95
     ? "bg-amber-500"

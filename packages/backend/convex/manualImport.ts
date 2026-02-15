@@ -27,6 +27,12 @@ export type ImportEmlResult =
     }
   | {
       skipped: true
+      reason: "plan_limit"
+      hardCap: number
+      senderId: Id<"senders">
+    }
+  | {
+      skipped: true
       reason: "duplicate"
       duplicateReason: "message_id" | "content_hash"
       existingId: Id<"userNewsletters">

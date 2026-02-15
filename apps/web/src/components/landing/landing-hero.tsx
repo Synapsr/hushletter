@@ -63,52 +63,6 @@ const floatingEnvelopes: Array<{
   },
 ];
 
-const mockEmails = [
-  {
-    color: "bg-violet-400",
-    sender: "Stratechery",
-    subject: "The AI Value Chain",
-    time: "2m",
-    bold: true,
-  },
-  {
-    color: "bg-blue-400",
-    sender: "Dense Discovery",
-    subject: "Issue #287: Design Systems",
-    time: "1h",
-    bold: true,
-  },
-  {
-    color: "bg-emerald-400",
-    sender: "The Hustle",
-    subject: "Why startups are moving...",
-    time: "3h",
-    bold: false,
-  },
-  {
-    color: "bg-amber-400",
-    sender: "Morning Brew",
-    subject: "Markets are shifting fast",
-    time: "5h",
-    bold: false,
-  },
-  {
-    color: "bg-rose-400",
-    sender: "Lenny's Newsletter",
-    subject: "How to build products...",
-    time: "1d",
-    bold: false,
-  },
-];
-
-const mockFolders = [
-  { color: "bg-violet-400", name: "Stratechery", count: "3" },
-  { color: "bg-blue-400", name: "Dense Discovery", count: "5" },
-  { color: "bg-emerald-400", name: "The Hustle", count: "8" },
-  { color: "bg-amber-400", name: "Morning Brew", count: "4" },
-  { color: "bg-rose-400", name: "Lenny's", count: "4" },
-];
-
 export function LandingHero() {
   return (
     <section className="relative min-h-[85vh] flex items-center overflow-hidden">

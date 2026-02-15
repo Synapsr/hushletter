@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
@@ -9,7 +10,7 @@ import {
 } from "./SenderSidebar"
 
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children }: { children: unknown }) => <a>{children}</a>,
+  Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
 }))
 
 // Mock sender data - sorted alphabetically by displayName as query would return

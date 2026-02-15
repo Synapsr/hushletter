@@ -174,20 +174,35 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
 
             if (cancelledRef.current) return;
 
-            // 3. Story 8.4: Handle duplicate detection (AC #6)
+            // 3. Handle server-side skips (duplicates, plan limit, etc.)
             if (result.skipped) {
-              setResults((prev) =>
-                prev.map((r, i) =>
-                  i === fileIndex
-                    ? {
-                        ...r,
-                        status: "duplicate",
-                        duplicateReason: result.duplicateReason,
-                        userNewsletterId: result.existingId,
-                      }
-                    : r,
-                ),
-              );
+              if (result.reason === "duplicate") {
+                setResults((prev) =>
+                  prev.map((r, i) =>
+                    i === fileIndex
+                      ? {
+                          ...r,
+                          status: "duplicate",
+                          duplicateReason: result.duplicateReason,
+                          userNewsletterId: result.existingId,
+                        }
+                      : r,
+                  ),
+                );
+              } else {
+                // Plan limit reached (Free hard cap / unlock cap)
+                setResults((prev) =>
+                  prev.map((r, i) =>
+                    i === fileIndex
+                      ? {
+                          ...r,
+                          status: "skipped",
+                          error: `Plan limit reached (cap: ${result.hardCap}).`,
+                        }
+                      : r,
+                  ),
+                );
+              }
               continue;
             }
 

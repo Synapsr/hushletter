@@ -26,7 +26,6 @@ import { SettingsNotifications } from "./settings-notifications";
 import { SettingsAppearance } from "./settings-appearance";
 import { SettingsBilling } from "./settings-billing";
 import { HiddenFoldersSection } from "../HiddenFoldersSection";
-import { useHotkey } from "@tanstack/react-hotkeys";
 
 const tabs = [
   { id: "profile", label: "Edit profile", icon: User },

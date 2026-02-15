@@ -16,6 +16,7 @@ import {
 } from "@/components/FolderSidebar";
 import { SenderFolderSidebar } from "@/components/newsletters/SenderFolderSidebar";
 import { InlineReaderPane } from "@/components/newsletters/InlineReaderPane";
+import { ContentSkeleton } from "@/components/ReaderView";
 import { WelcomeSidebar } from "@/components/newsletters/WelcomeSidebar";
 import { WelcomeReaderPane } from "@/components/newsletters/WelcomeReaderPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -171,49 +172,26 @@ function NewsletterListSkeleton() {
 function ReaderPaneSkeleton() {
   return (
     <div className="flex-1 min-w-0 flex flex-col">
-      {/* Header bar */}
-      <div className="border-b px-6 py-4 flex items-center gap-4">
-        <Skeleton className="size-10 rounded-full" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-3 w-52" />
+      {/* Action bar skeleton — matches ReaderActionBar's px-6 py-2 border-b */}
+      <div className="flex items-center justify-between px-6 py-2 border-b bg-background/95">
+        <div className="flex items-center gap-1">
+          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="h-8 w-8 rounded-md" />
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <Skeleton className="h-2.5 w-20" />
+          <Skeleton className="h-3 w-32" />
         </div>
         <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-8 rounded-md" />
           <Skeleton className="h-8 w-8 rounded-md" />
           <Skeleton className="h-8 w-8 rounded-md" />
         </div>
       </div>
 
-      {/* Content area */}
-      <div className="flex-1 overflow-hidden p-8 space-y-8">
-        {/* Subject */}
-        <div className="space-y-3">
-          <Skeleton className="h-7 w-4/5" />
-          <Skeleton className="h-3.5 w-40" />
-        </div>
-
-        {/* Body paragraphs */}
-        <div className="space-y-3">
-          <Skeleton className="h-3.5 w-full" />
-          <Skeleton className="h-3.5 w-11/12" />
-          <Skeleton className="h-3.5 w-4/5" />
-          <Skeleton className="h-3.5 w-full" />
-          <Skeleton className="h-3.5 w-3/5" />
-        </div>
-
-        <div className="space-y-3">
-          <Skeleton className="h-3.5 w-full" />
-          <Skeleton className="h-3.5 w-5/6" />
-          <Skeleton className="h-3.5 w-2/3" />
-        </div>
-
-        {/* Image placeholder */}
-        <Skeleton className="h-44 w-full rounded-lg" />
-
-        <div className="space-y-3">
-          <Skeleton className="h-3.5 w-full" />
-          <Skeleton className="h-3.5 w-4/5" />
-        </div>
+      {/* Content skeleton — matches ScrollArea > .px-6.pt-6.pb-12.max-w-3xl.mx-auto */}
+      <div className="flex-1 overflow-hidden px-6 pt-6 pb-12 max-w-3xl mx-auto w-full">
+        <ContentSkeleton />
       </div>
     </div>
   );

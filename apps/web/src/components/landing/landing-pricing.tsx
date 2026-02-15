@@ -6,7 +6,7 @@ import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import { getLocale } from "@/paraglide/runtime.js";
 import { m } from "@/paraglide/messages.js";
-import { CircleCheck, Star } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import NumberFlow from "@number-flow/react";
 import { motion } from "motion/react";
 import { LandingButton } from "./landing-button";

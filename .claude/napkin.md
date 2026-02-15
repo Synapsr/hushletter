@@ -4,6 +4,7 @@
 | Date | Source | What Went Wrong | What To Do Instead |
 |------|--------|----------------|-------------------|
 | 2026-02-15 | self | Docker (clean install) failed to bundle because `apps/web` imported `class-variance-authority` without declaring it in `apps/web/package.json` | If a workspace imports a module directly, list it in that workspace’s `dependencies` even if another workspace also depends on it |
+| 2026-02-15 | self | Added a new variant to a discriminated union (`ImportEmlResult` with `reason: "plan_limit"`) but didn’t update all call sites, causing TS2339 on missing fields like `existingId` | When expanding unions, update consumers to narrow on the discriminant (`reason`) before accessing variant-only fields |
 | 2026-02-14 | self | Used `bun -C apps/web ...` but this Bun version doesn't support `-C` | `cd apps/web` then run `bun run <script>` |
 | 2026-02-14 | self | Tried using `python` for a quick text edit but it isn't installed in this environment | Use `node`, `perl`, or shell tools for small scripted edits |
 | 2026-02-14 | self | Imported Convex Stripe component config without the `.js` suffix and module resolution would fail | Use `@convex-dev/stripe/convex.config.js` (some Convex components require the explicit `.js`) |

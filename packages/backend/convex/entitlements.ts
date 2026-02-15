@@ -1,6 +1,6 @@
 import { internalMutation, internalQuery, query } from "./_generated/server"
 import { v, ConvexError } from "convex/values"
-import type { Doc, Id } from "./_generated/dataModel"
+import type { Doc } from "./_generated/dataModel"
 
 export const UNLOCKED_NEWSLETTERS_CAP = 1000
 export const HARD_NEWSLETTERS_CAP = 2000

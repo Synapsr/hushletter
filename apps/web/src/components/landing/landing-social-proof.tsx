@@ -1,5 +1,4 @@
 import { m } from "@/paraglide/messages.js";
-import { Star } from "lucide-react";
 import { IconCarambolaFilled } from "@tabler/icons-react";
 
 const testimonials = [

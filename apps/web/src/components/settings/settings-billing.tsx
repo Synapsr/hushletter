@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
+import { getLocale } from "@/paraglide/runtime.js";
 import {
   Button,
   Separator,
@@ -29,9 +30,9 @@ type EntitlementsData = {
 };
 
 export function SettingsBilling() {
-  // Polar is currently configured for USD-only pricing.
-  const currency = "usd" as const;
-  const currencySymbol = "$";
+  const locale = getLocale();
+  const currency = locale.startsWith("fr") ? ("eur" as const) : ("usd" as const);
+  const currencySymbol = currency === "eur" ? "€" : "$";
 
   const { data: entitlementsData, isPending } = useQuery(
     convexQuery(api.entitlements.getEntitlements, {}),

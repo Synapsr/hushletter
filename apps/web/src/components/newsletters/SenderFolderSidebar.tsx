@@ -17,6 +17,7 @@ import { NewsletterListItem } from "./NewsletterListItem";
 import type { FolderData } from "@/components/FolderSidebar";
 import type { NewsletterData } from "@/components/NewsletterCard";
 import { m } from "@/paraglide/messages.js";
+import { SidebarFooter } from "./SidebarFooter";
 
 type SidebarFilter = "all" | "unread" | "starred";
 
@@ -125,8 +126,9 @@ export function SenderFolderSidebar({
   }, [folders]);
 
   const selectedNewsletterFolderId = useMemo(() => {
-    const folderId = (selectedNewsletterMeta as { folderId?: unknown } | null | undefined)
-      ?.folderId;
+    const folderId = (
+      selectedNewsletterMeta as { folderId?: unknown } | null | undefined
+    )?.folderId;
     return typeof folderId === "string" ? folderId : null;
   }, [selectedNewsletterMeta]);
 
@@ -407,6 +409,7 @@ export function SenderFolderSidebar({
             )}
         </div>
       </ScrollArea>
+      <SidebarFooter />
     </aside>
   );
 }

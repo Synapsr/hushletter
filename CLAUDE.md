@@ -27,7 +27,7 @@
 | Validation    | Zod                                 |
 | UI            | Tailwind CSS 4, shadcn/ui, Base ui |
 | Forms         | Tanstack Form                     |
-| Payments      | Polar                      |
+| Payments      | Stripe                      |
 | Email         | React Email, Resend             |
 | PDF           | @react-pdf/renderer                 |
 

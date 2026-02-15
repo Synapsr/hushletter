@@ -15,6 +15,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Input,
 } from "@hushletter/ui";
 import {
@@ -322,24 +328,27 @@ function SettingsPage() {
   const { data, isPending } = useQuery(
     convexQuery(api.auth.getCurrentUser, {}),
   );
+
+  console.log("data", data);
   const user = data as CurrentUserData;
   const { data: entitlementsData } = useQuery(
     convexQuery(api.entitlements.getEntitlements, {}),
   );
-	  const entitlements = entitlementsData as
-	    | {
-	        isPro?: boolean;
-	        unlockedCap?: number;
-	        hardCap?: number;
-	        aiDailyLimit?: number;
-	        usage?: {
-	          unlockedStored?: number | null;
-	          lockedStored?: number | null;
-	          totalStored?: number | null;
-	        };
-	      }
-	    | undefined;
-	  const isPro = Boolean(entitlements?.isPro);
+  console.log("entitlementsData", entitlementsData);
+  const entitlements = entitlementsData as
+    | {
+        isPro?: boolean;
+        unlockedCap?: number;
+        hardCap?: number;
+        aiDailyLimit?: number;
+        usage?: {
+          unlockedStored?: number | null;
+          lockedStored?: number | null;
+          totalStored?: number | null;
+        };
+      }
+    | undefined;
+  const isPro = Boolean(entitlements?.isPro);
 
   const [vanityPrefix, setVanityPrefix] = useState("");
   const [debouncedVanityPrefix, setDebouncedVanityPrefix] = useState("");
@@ -368,12 +377,19 @@ function SettingsPage() {
 
   const createCheckout = useAction(api.billing.createProCheckoutUrl);
   const createPortal = useAction(api.billing.createCustomerPortalUrl);
+  const syncProStatus = useAction(api.billing.syncProStatusFromStripe);
   const [billingPending, setBillingPending] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingSuccessOpen, setBillingSuccessOpen] = useState(false);
+  const [billingSyncPending, setBillingSyncPending] = useState(false);
+  const [billingSyncError, setBillingSyncError] = useState<string | null>(null);
+  const autoSyncedRef = useRef(false);
 
-  // Polar is currently configured for USD-only pricing.
-  const currency = "usd" as const;
-  const currencySymbol = "$";
+  const locale = getLocale();
+  const currency = locale.startsWith("fr")
+    ? ("eur" as const)
+    : ("usd" as const);
+  const currencySymbol = currency === "eur" ? "€" : "$";
 
   const handleUpgrade = async (interval: "month" | "year") => {
     setBillingPending(true);
@@ -402,6 +418,80 @@ function SettingsPage() {
       setBillingPending(false);
     }
   };
+
+  const handleBillingSync = async () => {
+    setBillingSyncPending(true);
+    setBillingSyncError(null);
+    try {
+      const res = await syncProStatus({});
+      if (!res.ok) {
+        setBillingSyncError(
+          res.reason === "no_subscription_found"
+            ? "Payment received, but subscription is still activating. Try again in a moment."
+            : "Could not sync subscription status from Stripe. Please try again.",
+        );
+      } else {
+        // Ensure UI flips immediately even if reactive queries are momentarily stale.
+        await queryClient.invalidateQueries();
+      }
+    } catch (error) {
+      console.error("[settings] Failed to sync Pro status:", error);
+      setBillingSyncError(
+        "Could not sync subscription status from Stripe. Please try again.",
+      );
+    } finally {
+      setBillingSyncPending(false);
+    }
+  };
+
+  useEffect(() => {
+    // If the Stripe component already has an active subscription, but the app user doc
+    // hasn't been updated yet, this silently fixes it when opening Settings.
+    if (autoSyncedRef.current) return;
+    if (entitlementsData === undefined) return;
+    if (Boolean(entitlements?.isPro)) {
+      autoSyncedRef.current = true;
+      return;
+    }
+
+    autoSyncedRef.current = true;
+    void (async () => {
+      try {
+        const res = await syncProStatus({});
+        if (res.ok && res.isProNow) {
+          await queryClient.invalidateQueries();
+        }
+      } catch {
+        // Silent: free users (or transient issues) shouldn't see an error just for visiting settings.
+      }
+    })();
+  }, [entitlementsData, entitlements?.isPro, queryClient, syncProStatus]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const billing = params.get("billing");
+    if (billing !== "success" && billing !== "cancel") return;
+
+    // Remove the param so refresh doesn't re-trigger the modal/side effects.
+    params.delete("billing");
+    const next = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${next ? `?${next}` : ""}`,
+    );
+
+    if (billing === "cancel") {
+      toast.info("Checkout canceled");
+      return;
+    }
+
+    setBillingSuccessOpen(true);
+
+    // Smooth activation: pull status from Stripe so the UI updates even if
+    // webhooks are delayed/misconfigured in dev.
+    void handleBillingSync();
+  }, [syncProStatus]);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -471,368 +561,439 @@ function SettingsPage() {
       : null;
 
   return (
-    <div className="container mx-auto px-4 py-8 overflow-y-auto h-full">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-        {m.settings_title()}
-      </h1>
+    <>
+      <Dialog
+        open={billingSuccessOpen}
+        onOpenChange={(open) => {
+          setBillingSuccessOpen(open);
+          if (!open) setBillingSyncError(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {isPro ? "Welcome to Hushletter Pro" : "Activating your Pro plan"}
+            </DialogTitle>
+            <DialogDescription>
+              {isPro
+                ? "Your subscription is active. Here’s what you can do now."
+                : "This usually takes a few seconds. If it takes longer, you can retry the sync."}
+            </DialogDescription>
+          </DialogHeader>
 
-      {/* Billing / Plan */}
-      <Card className="mb-6" id="billing">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Plan
-          </CardTitle>
-          <CardDescription>
-            {currencySymbol}9/month · {currencySymbol}90/year · + tax/VAT where
-            applicable
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {billingError && (
-            <p className="text-sm text-destructive" role="alert">
-              {billingError}
-            </p>
-          )}
+          <div className="space-y-3">
+            {billingSyncError && (
+              <p className="text-sm text-destructive" role="alert">
+                {billingSyncError}
+              </p>
+            )}
 
-	          {!isPro ? (
-	            <>
-	              {typeof entitlements?.usage?.unlockedStored === "number" &&
-	                typeof entitlements?.unlockedCap === "number" && (
-	                  <div className="text-sm text-muted-foreground">
-	                    Free history: {entitlements.usage.unlockedStored}/
-	                    {entitlements.unlockedCap} readable newsletters
-	                  </div>
-	                )}
-
-	              {(typeof entitlements?.usage?.totalStored === "number" ||
-	                typeof entitlements?.usage?.lockedStored === "number") &&
-	                typeof entitlements?.hardCap === "number" && (
-	                  <div className="text-sm text-muted-foreground">
-	                    Stored:{" "}
-	                    {typeof entitlements?.usage?.totalStored === "number"
-	                      ? entitlements.usage.totalStored
-	                      : "—"}
-	                    /{entitlements.hardCap}
-	                    {typeof entitlements?.usage?.lockedStored === "number"
-	                      ? ` · Locked: ${entitlements.usage.lockedStored}`
-	                      : ""}
-	                  </div>
-	                )}
-
-	              <div className="rounded-lg border bg-card p-3">
-	                <p className="text-sm font-medium mb-2">What Pro unlocks</p>
-	                <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-	                  <li>AI summaries ({entitlements?.aiDailyLimit ?? 50}/day)</li>
-	                  <li>Gmail import and sync</li>
-	                  <li>Vanity email alias (keep your original address too)</li>
-	                  <li>Premium reader appearance controls</li>
-	                  <li>Unlocks any locked newsletters</li>
-	                </ul>
-	              </div>
-
-	              {typeof entitlements?.usage?.unlockedStored === "number" &&
-	                typeof entitlements?.unlockedCap === "number" &&
-	                entitlements.usage.unlockedStored >=
-	                  Math.floor(entitlements.unlockedCap * 0.95) && (
-	                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
-	                    You’re close to the Free plan limit. New newsletters may
-	                    become locked until you upgrade.
-	                  </div>
-	                )}
-
-              {typeof entitlements?.usage?.unlockedStored === "number" &&
-                typeof entitlements?.unlockedCap === "number" &&
-                entitlements.usage.unlockedStored >=
-                  Math.floor(entitlements.unlockedCap * 0.8) &&
-                entitlements.usage.unlockedStored <
-                  Math.floor(entitlements.unlockedCap * 0.95) && (
-                  <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-                    You’re approaching the Free plan limit.
-                  </div>
-                )}
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={billingPending}
-                  onClick={() => handleUpgrade("month")}
-                >
-                  Upgrade monthly ({currencySymbol}9)
-                </Button>
-                <Button
-                  disabled={billingPending}
-                  variant="outline"
-                  onClick={() => handleUpgrade("year")}
-                >
-                  Upgrade yearly ({currencySymbol}90)
-                </Button>
+            {!isPro ? (
+              <div className="text-sm text-muted-foreground">
+                {billingSyncPending
+                  ? "Syncing subscription status from Stripe…"
+                  : "Waiting for subscription activation…"}
               </div>
-              <p className="text-sm text-muted-foreground">
-                30-day money-back guarantee.
-              </p>
-            </>
-	          ) : (
-	            <>
-	              <div className="flex items-center justify-between gap-4">
-	                <div>
-	                  <p className="text-sm font-medium">Hushletter Pro</p>
-	                  {user?.proExpiresAt ? (
-	                    <p className="text-sm text-muted-foreground">
-	                      Renews until{" "}
-	                      {new Date(user.proExpiresAt).toLocaleDateString()}
-	                    </p>
-	                  ) : (
-	                    <p className="text-sm text-muted-foreground">
-	                      Subscription active
-	                    </p>
-	                  )}
-	                </div>
-	                <Button
-	                  disabled={billingPending}
-	                  variant="outline"
-	                  onClick={handleManageSubscription}
-	                >
-	                  Manage subscription
-	                </Button>
-	              </div>
+            ) : (
+              <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                <li>AI summaries</li>
+                <li>Gmail import and sync</li>
+                <li>Vanity email alias</li>
+                <li>Premium reader appearance controls</li>
+                <li>Unlocks any locked newsletters</li>
+              </ul>
+            )}
+          </div>
 
-	              <div className="rounded-lg border bg-card p-3">
-	                <p className="text-sm font-medium mb-2">Included with Pro</p>
-	                <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-	                  <li>AI summaries ({entitlements?.aiDailyLimit ?? 50}/day)</li>
-	                  <li>Gmail import and sync</li>
-	                  <li>Vanity email alias (keep your original address too)</li>
-	                  <li>Premium reader appearance controls</li>
-	                  <li>All newsletters readable</li>
-	                </ul>
-	              </div>
-	            </>
-	          )}
-        </CardContent>
-      </Card>
-
-      {/* Privacy Settings Section - Story 6.2: Task 5 */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            {m.settings_privacySettings()}
-          </CardTitle>
-          <CardDescription>{m.settings_privacyDescription()}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            to="/settings/privacy"
-            className="flex items-center justify-between p-3 -mx-3 rounded-lg hover:bg-muted/50 transition-colors group"
-          >
-            <div>
-              <p className="font-medium">{m.settings_privacySettings()}</p>
-              <p className="text-sm text-muted-foreground">
-                {m.settings_privacyDescription()}
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-          </Link>
-        </CardContent>
-      </Card>
-
-      {/* Hidden Folders Section - Story 9.5: Task 5.1 */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FolderIcon className="h-5 w-5" />
-            {m.settings_hiddenFolders()}
-          </CardTitle>
-          <CardDescription>
-            {m.settings_hiddenFoldersDescription()}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <HiddenFoldersSection />
-        </CardContent>
-      </Card>
-
-      {/* Gmail Integration Section - Story 4.5: Task 4 */}
-      <GmailSettingsSection isPro={isPro} />
-
-      {/* Email Settings Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>{m.settings_yourNewsletterEmail()}</CardTitle>
-          <CardDescription>{m.settings_emailInfo()}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {dedicatedEmail ? (
-            <div className="space-y-4">
-              <DedicatedEmailDisplay email={dedicatedEmail} />
-              <div className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  <strong>{m.settings_emailHowToUse()}</strong>
-                </p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>{m.settings_emailStep1()}</li>
-                  <li>{m.settings_emailStep2()}</li>
-                  <li>{m.settings_emailStep3()}</li>
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <p className="text-muted-foreground">{m.settings_emailInfo()}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Vanity Email (Pro) */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Custom address (Pro)</CardTitle>
-          <CardDescription>
-            Claim one custom prefix as an alias. Your original address keeps
-            receiving forever.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {user?.vanityEmail ? (
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Current alias</p>
-              <p className="font-mono text-sm font-semibold">
-                {user.vanityEmail}
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No alias claimed yet.
-            </p>
-          )}
-
-          {!isPro ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Custom addresses are available on Hushletter Pro.
-              </p>
+          <DialogFooter>
+            {!isPro && (
               <Button
-                onClick={() =>
-                  document
-                    .getElementById("billing")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
+                type="button"
+                variant="outline"
+                onClick={() => void handleBillingSync()}
+                disabled={billingSyncPending}
               >
-                Upgrade to Pro
+                Retry sync
               </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-sm font-medium" htmlFor="vanity-prefix">
-                  Prefix
-                </label>
-                <div className="flex flex-wrap gap-2 items-center">
-                  <Input
-                    id="vanity-prefix"
-                    value={vanityPrefix}
-                    onChange={(e) => setVanityPrefix(e.target.value)}
-                    placeholder="your-name"
-                    className="max-w-xs"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                  />
+            )}
+            <Button type="button" onClick={() => setBillingSuccessOpen(false)}>
+              {isPro ? "Continue" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="container mx-auto px-4 py-8 overflow-y-auto h-full">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+          {m.settings_title()}
+        </h1>
+
+        {/* Billing / Plan */}
+        <Card className="mb-6" id="billing">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Plan
+            </CardTitle>
+            <CardDescription>
+              {currencySymbol}9/month · {currencySymbol}90/year · + tax/VAT
+              where applicable
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {billingError && (
+              <p className="text-sm text-destructive" role="alert">
+                {billingError}
+              </p>
+            )}
+
+            {!isPro ? (
+              <>
+                {typeof entitlements?.usage?.unlockedStored === "number" &&
+                  typeof entitlements?.unlockedCap === "number" && (
+                    <div className="text-sm text-muted-foreground">
+                      Free history: {entitlements.usage.unlockedStored}/
+                      {entitlements.unlockedCap} readable newsletters
+                    </div>
+                  )}
+
+                {(typeof entitlements?.usage?.totalStored === "number" ||
+                  typeof entitlements?.usage?.lockedStored === "number") &&
+                  typeof entitlements?.hardCap === "number" && (
+                    <div className="text-sm text-muted-foreground">
+                      Stored:{" "}
+                      {typeof entitlements?.usage?.totalStored === "number"
+                        ? entitlements.usage.totalStored
+                        : "—"}
+                      /{entitlements.hardCap}
+                      {typeof entitlements?.usage?.lockedStored === "number"
+                        ? ` · Locked: ${entitlements.usage.lockedStored}`
+                        : ""}
+                    </div>
+                  )}
+
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="text-sm font-medium mb-2">What Pro unlocks</p>
+                  <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                    <li>
+                      AI summaries ({entitlements?.aiDailyLimit ?? 50}/day)
+                    </li>
+                    <li>Gmail import and sync</li>
+                    <li>Vanity email alias (keep your original address too)</li>
+                    <li>Premium reader appearance controls</li>
+                    <li>Unlocks any locked newsletters</li>
+                  </ul>
+                </div>
+
+                {typeof entitlements?.usage?.unlockedStored === "number" &&
+                  typeof entitlements?.unlockedCap === "number" &&
+                  entitlements.usage.unlockedStored >=
+                    Math.floor(entitlements.unlockedCap * 0.95) && (
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
+                      You’re close to the Free plan limit. New newsletters may
+                      become locked until you upgrade.
+                    </div>
+                  )}
+
+                {typeof entitlements?.usage?.unlockedStored === "number" &&
+                  typeof entitlements?.unlockedCap === "number" &&
+                  entitlements.usage.unlockedStored >=
+                    Math.floor(entitlements.unlockedCap * 0.8) &&
+                  entitlements.usage.unlockedStored <
+                    Math.floor(entitlements.unlockedCap * 0.95) && (
+                    <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+                      You’re approaching the Free plan limit.
+                    </div>
+                  )}
+
+                <div className="flex flex-wrap gap-2">
                   <Button
-                    type="button"
-                    disabled={
-                      vanityPending ||
-                      vanityAvailabilityPending ||
-                      !debouncedVanityPrefix ||
-                      vanityAvailability?.available === false
-                    }
-                    onClick={handleClaimVanity}
+                    disabled={billingPending}
+                    onClick={() => handleUpgrade("month")}
                   >
-                    Save
+                    Upgrade monthly ({currencySymbol}9)
+                  </Button>
+                  <Button
+                    disabled={billingPending}
+                    variant="outline"
+                    onClick={() => handleUpgrade("year")}
+                  >
+                    Upgrade yearly ({currencySymbol}90)
                   </Button>
                 </div>
-                {vanityPreview && (
+                <p className="text-sm text-muted-foreground">
+                  30-day money-back guarantee.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Hushletter Pro</p>
+                    {user?.proExpiresAt ? (
+                      <p className="text-sm text-muted-foreground">
+                        Renews until{" "}
+                        {new Date(user.proExpiresAt).toLocaleDateString()}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Subscription active
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    disabled={billingPending}
+                    variant="outline"
+                    onClick={handleManageSubscription}
+                  >
+                    Manage subscription
+                  </Button>
+                </div>
+
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="text-sm font-medium mb-2">Included with Pro</p>
+                  <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                    <li>
+                      AI summaries ({entitlements?.aiDailyLimit ?? 50}/day)
+                    </li>
+                    <li>Gmail import and sync</li>
+                    <li>Vanity email alias (keep your original address too)</li>
+                    <li>Premium reader appearance controls</li>
+                    <li>All newsletters readable</li>
+                  </ul>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Privacy Settings Section - Story 6.2: Task 5 */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              {m.settings_privacySettings()}
+            </CardTitle>
+            <CardDescription>{m.settings_privacyDescription()}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link
+              to="/settings/privacy"
+              className="flex items-center justify-between p-3 -mx-3 rounded-lg hover:bg-muted/50 transition-colors group"
+            >
+              <div>
+                <p className="font-medium">{m.settings_privacySettings()}</p>
+                <p className="text-sm text-muted-foreground">
+                  {m.settings_privacyDescription()}
+                </p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </Link>
+          </CardContent>
+        </Card>
+
+        {/* Hidden Folders Section - Story 9.5: Task 5.1 */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FolderIcon className="h-5 w-5" />
+              {m.settings_hiddenFolders()}
+            </CardTitle>
+            <CardDescription>
+              {m.settings_hiddenFoldersDescription()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HiddenFoldersSection />
+          </CardContent>
+        </Card>
+
+        {/* Gmail Integration Section - Story 4.5: Task 4 */}
+        <GmailSettingsSection isPro={isPro} />
+
+        {/* Email Settings Section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>{m.settings_yourNewsletterEmail()}</CardTitle>
+            <CardDescription>{m.settings_emailInfo()}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {dedicatedEmail ? (
+              <div className="space-y-4">
+                <DedicatedEmailDisplay email={dedicatedEmail} />
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <p>
+                    <strong>{m.settings_emailHowToUse()}</strong>
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>{m.settings_emailStep1()}</li>
+                    <li>{m.settings_emailStep2()}</li>
+                    <li>{m.settings_emailStep3()}</li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">{m.settings_emailInfo()}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Vanity Email (Pro) */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Custom address (Pro)</CardTitle>
+            <CardDescription>
+              Claim one custom prefix as an alias. Your original address keeps
+              receiving forever.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {user?.vanityEmail ? (
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Current alias</p>
+                <p className="font-mono text-sm font-semibold">
+                  {user.vanityEmail}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No alias claimed yet.
+              </p>
+            )}
+
+            {!isPro ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Custom addresses are available on Hushletter Pro.
+                </p>
+                <Button
+                  onClick={() =>
+                    document
+                      .getElementById("billing")
+                      ?.scrollIntoView({ behavior: "smooth" })
+                  }
+                >
+                  Upgrade to Pro
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="vanity-prefix"
+                  >
+                    Prefix
+                  </label>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Input
+                      id="vanity-prefix"
+                      value={vanityPrefix}
+                      onChange={(e) => setVanityPrefix(e.target.value)}
+                      placeholder="your-name"
+                      className="max-w-xs"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                    <Button
+                      type="button"
+                      disabled={
+                        vanityPending ||
+                        vanityAvailabilityPending ||
+                        !debouncedVanityPrefix ||
+                        vanityAvailability?.available === false
+                      }
+                      onClick={handleClaimVanity}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                  {vanityPreview && (
+                    <p className="text-xs text-muted-foreground">
+                      Preview:{" "}
+                      <span className="font-mono">{vanityPreview}</span>
+                    </p>
+                  )}
+                </div>
+
+                {vanityAvailabilityPending && debouncedVanityPrefix ? (
                   <p className="text-xs text-muted-foreground">
-                    Preview: <span className="font-mono">{vanityPreview}</span>
+                    Checking availability…
+                  </p>
+                ) : vanityAvailability ? (
+                  vanityAvailability.available ? (
+                    <p className="text-xs text-green-700 dark:text-green-400">
+                      Available
+                    </p>
+                  ) : (
+                    <p className="text-xs text-destructive">
+                      Unavailable ({vanityAvailability.reason})
+                    </p>
+                  )
+                ) : null}
+
+                {vanityError && (
+                  <p className="text-sm text-destructive" role="alert">
+                    {vanityError}
                   </p>
                 )}
               </div>
+            )}
+          </CardContent>
+        </Card>
 
-              {vanityAvailabilityPending && debouncedVanityPrefix ? (
-                <p className="text-xs text-muted-foreground">
-                  Checking availability…
-                </p>
-              ) : vanityAvailability ? (
-                vanityAvailability.available ? (
-                  <p className="text-xs text-green-700 dark:text-green-400">
-                    Available
-                  </p>
-                ) : (
-                  <p className="text-xs text-destructive">
-                    Unavailable ({vanityAvailability.reason})
-                  </p>
-                )
-              ) : null}
-
-              {vanityError && (
-                <p className="text-sm text-destructive" role="alert">
-                  {vanityError}
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Account Info Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{m.settings_accountInfo()}</CardTitle>
-          <CardDescription>{m.settings_accountInfo()}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="space-y-4">
-            <div>
-              <dt className="text-sm font-medium text-muted-foreground">
-                {m.settings_accountEmail()}
-              </dt>
-              <dd className="text-base">{user?.email ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-muted-foreground mb-1">
-                {m.settings_accountDisplayName()}
-              </dt>
-              <dd>
-                {isEditingName ? (
-                  <ProfileNameEditForm
-                    currentName={user?.name ?? null}
-                    onSuccess={handleEditSuccess}
-                    onCancel={() => setIsEditingName(false)}
-                  />
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">
-                      {user?.name || m.settings_accountNotSet()}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => setIsEditingName(true)}
-                      aria-label={m.settings_editDisplayName()}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-                {showSuccessMessage && (
-                  <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                    {m.settings_nameUpdated()}
-                  </p>
-                )}
-              </dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
-    </div>
+        {/* Account Info Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{m.settings_accountInfo()}</CardTitle>
+            <CardDescription>{m.settings_accountInfo()}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-4">
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground">
+                  {m.settings_accountEmail()}
+                </dt>
+                <dd className="text-base">{user?.email ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground mb-1">
+                  {m.settings_accountDisplayName()}
+                </dt>
+                <dd>
+                  {isEditingName ? (
+                    <ProfileNameEditForm
+                      currentName={user?.name ?? null}
+                      onSuccess={handleEditSuccess}
+                      onCancel={() => setIsEditingName(false)}
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">
+                        {user?.name || m.settings_accountNotSet()}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => setIsEditingName(true)}
+                        aria-label={m.settings_editDisplayName()}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                  {showSuccessMessage && (
+                    <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                      {m.settings_nameUpdated()}
+                    </p>
+                  )}
+                </dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }

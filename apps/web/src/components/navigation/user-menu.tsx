@@ -10,6 +10,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
+  Button,
   Menu,
   MenuGroup,
   MenuGroupLabel,
@@ -19,7 +20,17 @@ import {
   MenuShortcut,
   MenuTrigger,
 } from "@hushletter/ui/components";
-import { Check, Copy, Download, ExternalLink, LogOut, Settings, Shield } from "lucide-react";
+import {
+  Check,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
+  Copy,
+  Download,
+  ExternalLink,
+  LogOut,
+  Settings,
+  Shield,
+} from "lucide-react";
 
 export const UserMenu = () => {
   const { data: session } = useSession();
@@ -67,11 +78,18 @@ export const UserMenu = () => {
 
   return (
     <Menu>
-      <MenuTrigger className="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-        <Avatar className="size-8">
-          {userImage && <AvatarImage src={userImage} alt={userName} />}
-          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-        </Avatar>
+      <MenuTrigger className="rounded-lg py-2 justify-between flex items-center cursor-pointer hover:bg-accent/50 px-2">
+        <div className="flex items-center gap-2">
+          <Avatar className="size-8">
+            {userImage && <AvatarImage src={userImage} alt={userName} />}
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col text-left">
+            <p className="text-sm font-medium leading-none">{userName}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{userEmail}</p>
+          </div>
+        </div>
+        <ChevronsUpDownIcon className="h-4 w-4 text-muted-foreground" />
       </MenuTrigger>
       <MenuPopup align="end" sideOffset={4}>
         {/* Account info section */}
@@ -128,9 +146,7 @@ export const UserMenu = () => {
         {isAdmin && (
           <>
             <MenuSeparator />
-            <MenuItem
-              onClick={() => window.open("/admin", "_blank")}
-            >
+            <MenuItem onClick={() => window.open("/admin", "_blank")}>
               <Shield className="mr-2 h-4 w-4" />
               Admin dashboard
               <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />

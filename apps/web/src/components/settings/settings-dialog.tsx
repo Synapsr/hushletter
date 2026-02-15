@@ -10,12 +10,21 @@ import {
   Button,
   Separator,
 } from "@hushletter/ui/components";
-import { SettingsIcon, User, Lock, Bell, Palette, Trash2, CreditCard } from "lucide-react";
+import {
+  SettingsIcon,
+  User,
+  Lock,
+  Bell,
+  Palette,
+  Trash2,
+  CreditCard,
+} from "lucide-react";
 import { SettingsProfile } from "./settings-profile";
 import { SettingsPassword } from "./settings-password";
 import { SettingsNotifications } from "./settings-notifications";
 import { SettingsAppearance } from "./settings-appearance";
 import { SettingsBilling } from "./settings-billing";
+import { useHotkey } from "@tanstack/react-hotkeys";
 
 const tabs = [
   { id: "profile", label: "Edit profile", icon: User },
@@ -29,10 +38,14 @@ type TabId = (typeof tabs)[number]["id"];
 
 export const SettingsDialog = () => {
   const [activeTab, setActiveTab] = useState<TabId>("profile");
+  const [isOpen, setIsOpen] = useState(false);
+
+  useHotkey("Mod+,", () => setIsOpen(true));
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger
+        className="hidden"
         data-settings-trigger="true"
         render={<Button variant="outline" size="icon" className="rounded-lg" />}
       >

@@ -88,15 +88,13 @@ export function FloatingSummaryPanel({
           </Button>
         </div>
 
-        <ScrollArea className="flex-1 max-h-[calc(60vh-44px)]">
-          <div className="p-1">
-            <ErrorBoundary FallbackComponent={SummaryErrorFallback}>
-              <SummaryPanel
-                userNewsletterId={userNewsletterId}
-                className="mb-0 border-0 shadow-none rounded-none"
-              />
-            </ErrorBoundary>
-          </div>
+        <ScrollArea scrollFade scrollbarGutter={false} className="">
+          <ErrorBoundary FallbackComponent={SummaryErrorFallback}>
+            <SummaryPanel
+              userNewsletterId={userNewsletterId}
+              className="mb-0 border-0 shadow-none rounded-none"
+            />
+          </ErrorBoundary>
         </ScrollArea>
       </motion.div>
     </motion.div>

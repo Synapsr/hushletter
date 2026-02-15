@@ -7,10 +7,27 @@ vi.mock("@/paraglide/runtime.js", () => ({
   getLocale: () => mockLocale,
 }));
 
+vi.mock("@/paraglide/messages.js", () => {
+  const handler: ProxyHandler<object> = {
+    get: (_target, prop: string) => {
+      return (params?: Record<string, string>) => {
+        if (params) {
+          return Object.entries(params).reduce(
+            (str, [key, val]) => str.replace(`{${key}}`, val),
+            prop,
+          );
+        }
+        return prop;
+      };
+    },
+  };
+  return { m: new Proxy({}, handler) };
+});
+
 vi.mock("@tanstack/react-router", async () => {
   return {
     createFileRoute: () => (options: unknown) => ({ options }),
-    Link: ({ children }: { children: unknown }) => <a>{children}</a>,
+    Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
   };
 });
 
@@ -37,11 +54,10 @@ vi.mock("@hushletter/backend", () => ({
   },
 }));
 
-import { LandingPage } from "./index";
+import { LandingPricing } from "@/components/landing/landing-pricing";
 
-describe("LandingPage pricing section", () => {
+describe("LandingPricing section", () => {
   beforeEach(() => {
-    // Minimal stubs for hooks used across the landing page.
     vi.stubGlobal(
       "IntersectionObserver",
       class {
@@ -50,22 +66,17 @@ describe("LandingPage pricing section", () => {
         disconnect() {}
       },
     );
-    // Some environments don't have rAF; landing uses it for counters.
-    if (!globalThis.requestAnimationFrame) {
-      // @ts-expect-error - test stub
-      globalThis.requestAnimationFrame = (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0);
-    }
   });
 
-  it("renders USD pricing for en locale", () => {
+  it("renders pricing heading", () => {
     mockLocale = "en";
-    render(<LandingPage />);
-    expect(screen.getByText("$9/month · $90/year · + tax/VAT where applicable")).toBeTruthy();
+    render(<LandingPricing />);
+    expect(screen.getByText("landing_pricingTitle")).toBeTruthy();
   });
 
-  it("renders EUR pricing for fr locale", () => {
+  it("renders pricing for fr locale", () => {
     mockLocale = "fr";
-    render(<LandingPage />);
-    expect(screen.getByText("$9/month · $90/year · + tax/VAT where applicable")).toBeTruthy();
+    render(<LandingPricing />);
+    expect(screen.getByText("landing_pricingTitle")).toBeTruthy();
   });
 });

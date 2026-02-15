@@ -1,5 +1,7 @@
 import { httpRouter } from "convex/server"
 import { httpAction } from "./_generated/server"
+import { registerRoutes } from "@convex-dev/stripe"
+import { components, internal } from "./_generated/api"
 import { authComponent, createAuth } from "./auth"
 import { receiveEmail } from "./emailIngestion"
 import {
@@ -7,7 +9,6 @@ import {
   verifyUser,
   logRejection,
 } from "./importIngestion"
-import { handlePolarWebhook } from "./billingWebhook"
 
 const http = httpRouter()
 
@@ -55,11 +56,180 @@ http.route({
   handler: logRejection,
 })
 
-// Polar billing webhooks (subscription status, etc.)
-http.route({
-  path: "/api/billing/polar/webhook",
-  method: "POST",
-  handler: handlePolarWebhook,
+// Stripe billing webhooks (subscription status, etc.)
+registerRoutes(http, components.stripe, {
+  webhookPath: "/stripe/webhook",
+  events: {
+    "checkout.session.completed": async (ctx, event) => {
+      const eventId = String((event as any)?.id ?? "")
+      if (eventId) {
+        const isNew = await ctx.runMutation(internal.billing.recordWebhookEventIfNew, { eventId })
+        if (!isNew) return
+      }
+
+      const session = (event as any)?.data?.object ?? {}
+      const subscriptionId = typeof session?.subscription === "string" ? session.subscription : ""
+      if (!subscriptionId) return
+
+      // Fetch the subscription from Stripe so we can read `metadata.userId` which we
+      // attach via `subscriptionMetadata` at checkout creation time.
+      const apiKey = process.env.STRIPE_SECRET_KEY
+      if (!apiKey) return
+
+      const res = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${apiKey}` },
+      })
+      if (!res.ok) return
+
+      const subscription = await res.json().catch(() => null)
+      const userId = String(subscription?.metadata?.userId ?? "")
+      if (!userId) return
+
+      const stripeCustomerId =
+        typeof subscription?.customer === "string"
+          ? subscription.customer
+          : typeof subscription?.customer?.id === "string"
+            ? subscription.customer.id
+            : undefined
+
+      const result = await ctx.runMutation(internal.billing.applySubscriptionUpdate, {
+        userId,
+        stripeCustomerId,
+        stripeSubscriptionId: typeof subscription?.id === "string" ? subscription.id : undefined,
+        status: typeof subscription?.status === "string" ? subscription.status : undefined,
+        cancelAtPeriodEnd:
+          typeof subscription?.cancel_at_period_end === "boolean"
+            ? subscription.cancel_at_period_end
+            : undefined,
+        currentPeriodEnd:
+          typeof subscription?.current_period_end === "number"
+            ? subscription.current_period_end
+            : undefined,
+        eventType: "checkout.session.completed",
+      })
+
+      if (result.userId && result.becamePro) {
+        await ctx.runMutation(internal.entitlements.unlockAllLockedNewslettersForUser, {
+          userId: result.userId,
+        })
+      }
+    },
+    "customer.subscription.created": async (ctx, event) => {
+      const eventId = String((event as any)?.id ?? "")
+      if (eventId) {
+        const isNew = await ctx.runMutation(internal.billing.recordWebhookEventIfNew, { eventId })
+        if (!isNew) return
+      }
+
+      const subscription = (event as any)?.data?.object ?? {}
+      const userId = String(subscription?.metadata?.userId ?? "")
+      if (!userId) return
+
+      const stripeCustomerId =
+        typeof subscription?.customer === "string"
+          ? subscription.customer
+          : typeof subscription?.customer?.id === "string"
+            ? subscription.customer.id
+            : undefined
+
+      const result = await ctx.runMutation(internal.billing.applySubscriptionUpdate, {
+        userId,
+        stripeCustomerId,
+        stripeSubscriptionId: typeof subscription?.id === "string" ? subscription.id : undefined,
+        status: typeof subscription?.status === "string" ? subscription.status : undefined,
+        cancelAtPeriodEnd:
+          typeof subscription?.cancel_at_period_end === "boolean"
+            ? subscription.cancel_at_period_end
+            : undefined,
+        currentPeriodEnd:
+          typeof subscription?.current_period_end === "number"
+            ? subscription.current_period_end
+            : undefined,
+        eventType: "customer.subscription.created",
+      })
+
+      if (result.userId && result.becamePro) {
+        await ctx.runMutation(internal.entitlements.unlockAllLockedNewslettersForUser, {
+          userId: result.userId,
+        })
+      }
+    },
+    "customer.subscription.updated": async (ctx, event) => {
+      const eventId = String((event as any)?.id ?? "")
+      if (eventId) {
+        const isNew = await ctx.runMutation(internal.billing.recordWebhookEventIfNew, { eventId })
+        if (!isNew) return
+      }
+
+      const subscription = (event as any)?.data?.object ?? {}
+      const userId = String(subscription?.metadata?.userId ?? "")
+      if (!userId) return
+
+      const stripeCustomerId =
+        typeof subscription?.customer === "string"
+          ? subscription.customer
+          : typeof subscription?.customer?.id === "string"
+            ? subscription.customer.id
+            : undefined
+
+      const result = await ctx.runMutation(internal.billing.applySubscriptionUpdate, {
+        userId,
+        stripeCustomerId,
+        stripeSubscriptionId: typeof subscription?.id === "string" ? subscription.id : undefined,
+        status: typeof subscription?.status === "string" ? subscription.status : undefined,
+        cancelAtPeriodEnd:
+          typeof subscription?.cancel_at_period_end === "boolean"
+            ? subscription.cancel_at_period_end
+            : undefined,
+        currentPeriodEnd:
+          typeof subscription?.current_period_end === "number"
+            ? subscription.current_period_end
+            : undefined,
+        eventType: "customer.subscription.updated",
+      })
+
+      if (result.userId && result.becamePro) {
+        await ctx.runMutation(internal.entitlements.unlockAllLockedNewslettersForUser, {
+          userId: result.userId,
+        })
+      }
+    },
+    "customer.subscription.deleted": async (ctx, event) => {
+      const eventId = String((event as any)?.id ?? "")
+      if (eventId) {
+        const isNew = await ctx.runMutation(internal.billing.recordWebhookEventIfNew, { eventId })
+        if (!isNew) return
+      }
+
+      const subscription = (event as any)?.data?.object ?? {}
+      const userId = String(subscription?.metadata?.userId ?? "")
+      if (!userId) return
+
+      const stripeCustomerId =
+        typeof subscription?.customer === "string"
+          ? subscription.customer
+          : typeof subscription?.customer?.id === "string"
+            ? subscription.customer.id
+            : undefined
+
+      await ctx.runMutation(internal.billing.applySubscriptionUpdate, {
+        userId,
+        stripeCustomerId,
+        stripeSubscriptionId: typeof subscription?.id === "string" ? subscription.id : undefined,
+        status: typeof subscription?.status === "string" ? subscription.status : undefined,
+        cancelAtPeriodEnd:
+          typeof subscription?.cancel_at_period_end === "boolean"
+            ? subscription.cancel_at_period_end
+            : undefined,
+        currentPeriodEnd:
+          typeof subscription?.current_period_end === "number"
+            ? subscription.current_period_end
+            : undefined,
+        eventType: "customer.subscription.deleted",
+      })
+    },
+  },
 })
 
 // Register Better Auth routes with CORS enabled for client-side framework compatibility

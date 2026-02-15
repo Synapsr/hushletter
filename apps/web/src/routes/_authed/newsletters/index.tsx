@@ -5,16 +5,29 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
-import { NewsletterCard, type NewsletterData } from "@/components/NewsletterCard";
+import {
+  NewsletterCard,
+  type NewsletterData,
+} from "@/components/NewsletterCard";
 import { EmptyNewsletterState } from "@/components/EmptyNewsletterState";
-import { FolderSidebar, FolderSidebarSkeleton, type FolderData } from "@/components/FolderSidebar";
+import {
+  FolderSidebar,
+  FolderSidebarSkeleton,
+  type FolderData,
+} from "@/components/FolderSidebar";
 import { SenderFolderSidebar } from "@/components/newsletters/SenderFolderSidebar";
 import { InlineReaderPane } from "@/components/newsletters/InlineReaderPane";
 import { WelcomeSidebar } from "@/components/newsletters/WelcomeSidebar";
 import { WelcomeReaderPane } from "@/components/newsletters/WelcomeReaderPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useOptimisticNewsletterFavorite } from "@/hooks/useOptimisticNewsletterFavorite";
-import { Button, Sheet, SheetContent, SheetTitle, SheetTrigger } from "@hushletter/ui";
+import {
+  Button,
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@hushletter/ui";
 import { Menu, Inbox } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
 
@@ -59,7 +72,12 @@ export function getStarredAutoSelectionId({
   selectedNewsletterId,
   newsletters,
 }: GetStarredAutoSelectionIdArgs): string | null {
-  if (!isDesktop || !isFilteringByStarred || isPending || newsletters.length === 0) {
+  if (
+    !isDesktop ||
+    !isFilteringByStarred ||
+    isPending ||
+    newsletters.length === 0
+  ) {
     return null;
   }
 
@@ -77,8 +95,10 @@ export function getStarredAutoSelectionId({
 export const Route = createFileRoute("/_authed/newsletters/")({
   component: NewslettersPage,
   validateSearch: (search: Record<string, unknown>): NewsletterSearchParams => {
-    const folder = typeof search.folder === "string" ? search.folder : undefined;
-    const filter = typeof search.filter === "string" ? search.filter : undefined;
+    const folder =
+      typeof search.folder === "string" ? search.folder : undefined;
+    const filter =
+      typeof search.filter === "string" ? search.filter : undefined;
     const newsletter =
       typeof search.newsletter === "string" ? search.newsletter : undefined;
 
@@ -115,7 +135,10 @@ function NewsletterListSkeleton() {
   return (
     <div className="space-y-4">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="animate-pulse bg-card border rounded-xl p-4 space-y-2">
+        <div
+          key={i}
+          className="animate-pulse bg-card border rounded-xl p-4 space-y-2"
+        >
           <div className="flex justify-between">
             <div className="h-4 bg-muted rounded w-1/4" />
             <div className="h-3 bg-muted rounded w-16" />
@@ -204,14 +227,16 @@ function NewslettersPage() {
 
   // Mobile sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pendingFilter, setPendingFilter] = useState<FilterType | null | undefined>(
-    undefined,
-  );
+  const [pendingFilter, setPendingFilter] = useState<
+    FilterType | null | undefined
+  >(undefined);
   const effectiveFilter: FilterType | null =
     pendingFilter !== undefined ? pendingFilter : (filterParam ?? null);
   const isFilterTransitioning =
     pendingFilter !== undefined && (filterParam ?? null) !== pendingFilter;
-  const effectiveNewsletterId = isFilterTransitioning ? undefined : newsletterIdParam;
+  const effectiveNewsletterId = isFilterTransitioning
+    ? undefined
+    : newsletterIdParam;
 
   useEffect(() => {
     if (pendingFilter === undefined) return;
@@ -239,7 +264,7 @@ function NewslettersPage() {
     } catch {
       // localStorage unavailable
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDesktop]);
 
   // Persist selected newsletter to localStorage
@@ -290,9 +315,9 @@ function NewslettersPage() {
     convexQuery(
       api.newsletters.listAllNewslettersHead,
       !isDesktop &&
-      !isFilteringByFolder &&
-      !isFilteringByHidden &&
-      !isFilteringByStarred
+        !isFilteringByFolder &&
+        !isFilteringByHidden &&
+        !isFilteringByStarred
         ? { numItems: 30 }
         : "skip",
     ),
@@ -326,7 +351,12 @@ function NewslettersPage() {
     if (isFilteringByStarred) return "starred";
     if (isFilteringByFolder) return `folder:${folderIdParam}`;
     return "all";
-  }, [isFilteringByHidden, isFilteringByStarred, isFilteringByFolder, folderIdParam]);
+  }, [
+    isFilteringByHidden,
+    isFilteringByStarred,
+    isFilteringByFolder,
+    folderIdParam,
+  ]);
 
   const activeHead = isFilteringByHidden
     ? hiddenHead
@@ -336,18 +366,30 @@ function NewslettersPage() {
         ? folderHead
         : allHead;
 
-  const activeHeadPending = isFilteringByHidden
-    ? hiddenHeadPending
-    : isFilteringByStarred
-      ? favoritedHeadPending
-      : isFilteringByFolder
-        ? folderHeadPending
-        : allHeadPending;
+  // On desktop, allHead and folderHead queries are skipped (their data comes
+  // from SenderFolderSidebar instead). Skipped queries report isPending=true
+  // permanently, so treat them as not pending to avoid an infinite skeleton.
+  const isActiveQuerySkipped =
+    isDesktop && !isFilteringByHidden && !isFilteringByStarred;
+
+  const activeHeadPending = isActiveQuerySkipped
+    ? false
+    : isFilteringByHidden
+      ? hiddenHeadPending
+      : isFilteringByStarred
+        ? favoritedHeadPending
+        : isFilteringByFolder
+          ? folderHeadPending
+          : allHeadPending;
 
   const listAllPage = useAction(api.newsletters.listAllNewslettersPage);
-  const listFolderPage = useAction(api.newsletters.listUserNewslettersByFolderPage);
+  const listFolderPage = useAction(
+    api.newsletters.listUserNewslettersByFolderPage,
+  );
   const listHiddenPage = useAction(api.newsletters.listHiddenNewslettersPage);
-  const listFavoritedPage = useAction(api.newsletters.listFavoritedNewslettersPage);
+  const listFavoritedPage = useAction(
+    api.newsletters.listFavoritedNewslettersPage,
+  );
 
   const [tailPages, setTailPages] = useState<NewsletterData[][]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -365,13 +407,18 @@ function NewslettersPage() {
   useEffect(() => {
     if (!activeHead) return;
     if (cursor !== null || tailPages.length > 0) return;
-    const data = activeHead as unknown as { continueCursor: string | null; isDone: boolean };
+    const data = activeHead as unknown as {
+      continueCursor: string | null;
+      isDone: boolean;
+    };
     setCursor(data.continueCursor);
     setIsDone(data.isDone);
   }, [activeHead, cursor, tailPages.length]);
 
   const headPage = useMemo(() => {
-    const data = activeHead as unknown as { page?: NewsletterData[] } | undefined;
+    const data = activeHead as unknown as
+      | { page?: NewsletterData[] }
+      | undefined;
     return (data?.page ?? []) as NewsletterData[];
   }, [activeHead]);
 
@@ -530,7 +577,10 @@ function NewslettersPage() {
     if (!autoSelectedStarredNewsletterId) return;
     navigate({
       to: "/newsletters",
-      search: { filter: FILTER_STARRED, newsletter: autoSelectedStarredNewsletterId },
+      search: {
+        filter: FILTER_STARRED,
+        newsletter: autoSelectedStarredNewsletterId,
+      },
       replace: true,
     });
   }, [autoSelectedStarredNewsletterId, navigate]);
@@ -546,13 +596,16 @@ function NewslettersPage() {
     hiddenPending: isFilteringByHidden ? activeListPending : false,
     favoritedNewsletters: visibleFavoritedNewsletters,
     favoritedPending: isFilteringByStarred ? activeListPending : false,
-    canLoadMore: (isFilteringByHidden || isFilteringByStarred) ? canLoadMore : false,
-    isLoadingMore: (isFilteringByHidden || isFilteringByStarred) ? isLoadingMore : false,
-    onLoadMore: (isFilteringByHidden || isFilteringByStarred)
-      ? () => {
-          void handleLoadMore();
-        }
-      : undefined,
+    canLoadMore:
+      isFilteringByHidden || isFilteringByStarred ? canLoadMore : false,
+    isLoadingMore:
+      isFilteringByHidden || isFilteringByStarred ? isLoadingMore : false,
+    onLoadMore:
+      isFilteringByHidden || isFilteringByStarred
+        ? () => {
+            void handleLoadMore();
+          }
+        : undefined,
     onFolderSelect: handleFolderSelect,
     onNewsletterSelect: handleNewsletterSelect,
     onFilterSelect: handleFilterSelect,
@@ -629,7 +682,11 @@ function NewslettersPage() {
           >
             <Menu className="h-4 w-4" />
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-72" showCloseButton={false}>
+          <SheetContent
+            side="left"
+            className="p-0 w-72"
+            showCloseButton={false}
+          >
             <SheetTitle className="sr-only">
               {m.newsletters_folderNavigation()}
             </SheetTitle>

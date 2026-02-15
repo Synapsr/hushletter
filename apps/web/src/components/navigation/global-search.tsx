@@ -81,7 +81,9 @@ export const GlobalSearch = ({}: Props) => {
   const deferredQuery = useDeferredValue(query);
   const navigate = useNavigate();
   const convex = useConvex();
-  const backfillSearchMeta = useMutation(api.newsletters.backfillNewsletterSearchMetaRecent);
+  const backfillSearchMeta = useMutation(
+    api.newsletters.backfillNewsletterSearchMetaRecent,
+  );
   const backfilledRef = useRef(false);
   const [isIndexing, setIsIndexing] = useState(false);
   const [lastOpenedId, setLastOpenedId] = useState<string | null>(null);
@@ -99,7 +101,11 @@ export const GlobalSearch = ({}: Props) => {
     }
   }, [open]);
 
-  const { data: results, isFetching, refetch } = useQuery({
+  const {
+    data: results,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ["globalSearch", trimmedQuery],
     queryFn: async () => {
       return (await convex.query(api.newsletters.searchUserNewslettersMeta, {
@@ -169,7 +175,12 @@ export const GlobalSearch = ({}: Props) => {
           {
             value: "Recent",
             items: [
-              { kind: "info", value: "loading-last", label: "Loading...", disabled: true },
+              {
+                kind: "info",
+                value: "loading-last",
+                label: "Loading...",
+                disabled: true,
+              },
             ],
           },
         ];
@@ -237,14 +248,23 @@ export const GlobalSearch = ({}: Props) => {
             {
               kind: "info",
               value: "searching",
-              label: isIndexing ? "Indexing recent newsletters..." : "Searching...",
+              label: isIndexing
+                ? "Indexing recent newsletters..."
+                : "Searching...",
               disabled: true,
             },
           ] satisfies Item[])
         : newsletterItems;
 
     return [{ value: "Newsletters", items: effectiveItems }];
-  }, [trimmedQuery, results, isFetching, isIndexing, lastOpened, isFetchingLastOpened]);
+  }, [
+    trimmedQuery,
+    results,
+    isFetching,
+    isIndexing,
+    lastOpened,
+    isFetchingLastOpened,
+  ]);
 
   function handleItemClick(item: Item) {
     if (item.disabled) return;
@@ -284,16 +304,23 @@ export const GlobalSearch = ({}: Props) => {
           />
         } */
         render={
-          <Button variant="outline" size="default">
-            <SearchIcon className="size-4" />
-            <span className="text-sm text-muted-foreground pr-2">Search</span>
+          <Button variant="ghost" size="default" className="justify-between">
+            <div className="flex items-center gap-2">
+              <SearchIcon className="size-4" />
+              <span className="text-sm text-muted-foreground pr-2">Search</span>
+            </div>
             <Kbd>{formatForDisplay("Mod+K")}</Kbd>
           </Button>
         }
       />
 
       <CommandDialogPopup>
-        <Command items={items} mode="none" value={query} onValueChange={setQuery}>
+        <Command
+          items={items}
+          mode="none"
+          value={query}
+          onValueChange={setQuery}
+        >
           <CommandInput placeholder="Search newsletters by subject or sender..." />
           <CommandPanel>
             <CommandEmpty>No results found.</CommandEmpty>

@@ -52,39 +52,42 @@ describe("Billing webhook integration", () => {
     expect(second).toBe(false)
   })
 
-  it("keeps Pro until current_period_end when subscription is canceled", async () => {
+  it("keeps Pro until current_period_end when subscription is canceled (Stripe seconds)", async () => {
     const t = makeT()
     const authId = "auth_canceled"
     const userId = await seedUser(t, authId, "free")
-    const periodEnd = Date.now() + 3 * 24 * 60 * 60 * 1000
+    const periodEndMs = Date.now() + 3 * 24 * 60 * 60 * 1000
+    const periodEndSeconds = Math.floor(periodEndMs / 1000)
 
     await t.mutation(internal.billing.applySubscriptionUpdate, {
-      externalCustomerId: authId,
-      polarCustomerId: "cus_1",
-      polarSubscriptionId: "sub_1",
+      userId: authId,
+      stripeCustomerId: "cus_1",
+      stripeSubscriptionId: "sub_1",
       status: "canceled",
-      currentPeriodEndMs: periodEnd,
-      eventType: "subscription.updated",
+      currentPeriodEnd: periodEndSeconds,
+      eventType: "customer.subscription.updated",
     })
 
     const user = await getUser(t, userId)
     expect(user?.plan).toBe("pro")
-    expect(user?.proExpiresAt).toBe(periodEnd)
+    expect(user?.proExpiresAt).toBe(periodEndSeconds * 1000)
+    expect(user?.stripeCustomerId).toBe("cus_1")
+    expect(user?.stripeSubscriptionId).toBe("sub_1")
   })
 
   it("reverts to Free once current_period_end is in the past", async () => {
     const t = makeT()
     const authId = "auth_expired"
     const userId = await seedUser(t, authId, "pro", Date.now() + 60_000)
-    const periodEnd = Date.now() - 1
+    const periodEndMs = Date.now() - 1
 
     await t.mutation(internal.billing.applySubscriptionUpdate, {
-      externalCustomerId: authId,
-      polarCustomerId: "cus_2",
-      polarSubscriptionId: "sub_2",
+      userId: authId,
+      stripeCustomerId: "cus_2",
+      stripeSubscriptionId: "sub_2",
       status: "canceled",
-      currentPeriodEndMs: periodEnd,
-      eventType: "subscription.revoked",
+      currentPeriodEnd: periodEndMs,
+      eventType: "customer.subscription.deleted",
     })
 
     const user = await getUser(t, userId)
@@ -92,4 +95,3 @@ describe("Billing webhook integration", () => {
     expect(user?.proExpiresAt).toBeUndefined()
   })
 })
-

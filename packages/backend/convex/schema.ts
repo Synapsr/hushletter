@@ -14,8 +14,8 @@ export default defineSchema({
 		    // Billing plan and subscription state (Pricing: Free → Pro)
 		    plan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
 		    proExpiresAt: v.optional(v.number()), // Unix timestamp ms
-		    polarCustomerId: v.optional(v.string()),
-		    polarSubscriptionId: v.optional(v.string()),
+		    stripeCustomerId: v.optional(v.string()),
+		    stripeSubscriptionId: v.optional(v.string()),
 		    // Pro vanity email alias (keeps dedicatedEmail as stable receiver)
 		    vanityEmail: v.optional(v.string()),
 		    // Public share token for dedicatedEmail (revocable/rotatable)
@@ -227,10 +227,11 @@ export default defineSchema({
     movedSenderSettingIds: v.array(v.id("userSenderSettings")),
     movedNewsletterIds: v.array(v.id("userNewsletters")),
     createdAt: v.number(), // Unix timestamp ms
-    expiresAt: v.number(), // Unix timestamp ms - undo window expiry
+	    expiresAt: v.number(), // Unix timestamp ms - undo window expiry
 		  })
 		    .index("by_mergeId", ["mergeId"])
-		    .index("by_userId", ["userId"]),
+		    .index("by_userId", ["userId"])
+		    .index("by_expiresAt", ["expiresAt"]),
 
 	  // ============================================================
 	  // Pricing: Usage + Billing (Free → Pro)
@@ -249,7 +250,7 @@ export default defineSchema({
 	  }).index("by_userId", ["userId"]),
 
 	  /**
-	   * Idempotency store for Polar webhook events.
+	   * Idempotency store for billing webhook events (Stripe, etc.).
 	   */
 	  billingWebhookEvents: defineTable({
 	    eventId: v.string(),

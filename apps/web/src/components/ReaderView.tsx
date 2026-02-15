@@ -405,9 +405,11 @@ function withReaderDisplayOverrides(
 }
 
 /**
- * Skeleton loader for content
+ * Skeleton loader for content.
+ * Exported so InlineReaderPane can show the same skeleton during metadata loading,
+ * avoiding layout shifts between loading phases.
  */
-function ContentSkeleton() {
+export function ContentSkeleton() {
   return (
     <div className="animate-pulse space-y-4">
       <div className="h-4 bg-muted rounded w-full" />

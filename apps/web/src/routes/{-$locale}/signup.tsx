@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@hushletter/ui";
-import { signUp, emailOtp } from "@/lib/auth-client";
+import { signUp, signIn, emailOtp } from "@/lib/auth-client";
 import { extractNameFromEmail } from "@/lib/utils/error";
 import { useAppForm } from "@/hooks/form/form";
 import { revalidateLogic } from "@tanstack/react-form";
@@ -40,6 +40,7 @@ function SignupPage() {
   const [otpError, setOtpError] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpErrorTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const passwordRef = useRef("");
 
   // Cleanup otpError timeout on unmount
   useEffect(() => {
@@ -94,6 +95,7 @@ function SignupPage() {
     },
     onSuccess: async (_data, variables) => {
       setEmail(variables.email);
+      passwordRef.current = variables.password;
       try {
         await emailOtp.sendVerificationOtp({
           email: variables.email,
@@ -120,7 +122,12 @@ function SignupPage() {
       otpErrorTimerRef.current = setTimeout(() => setOtpError(false), 500);
       toast.error(error.message || m.auth_otpInvalid());
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await signIn.email({
+        email,
+        password: passwordRef.current,
+      });
+      passwordRef.current = "";
       navigate({ to: "/onboarding" });
     },
   });

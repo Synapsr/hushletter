@@ -22,7 +22,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
     user: {
       // Generate dedicated email when a new user is created
       onCreate: async (ctx, authUser) => {
-        const dedicatedEmail = generateDedicatedEmail(authUser._id)
+        const dedicatedEmail = generateDedicatedEmail(authUser._id, authUser.name ?? undefined, authUser.email)
         // Store in app users table with link to Better Auth user
         const userId = await ctx.db.insert("users", {
           email: authUser.email,

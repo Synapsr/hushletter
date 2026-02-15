@@ -97,6 +97,7 @@ export const createProCheckoutUrl = action({
   args: {
     interval: v.union(v.literal("month"), v.literal("year")),
     currency: v.union(v.literal("usd"), v.literal("eur")),
+    returnTo: v.optional(v.union(v.literal("settings"), v.literal("onboarding"))),
   },
   handler: async (ctx, args): Promise<{ url: string }> => {
     const identity = await ctx.auth.getUserIdentity()
@@ -122,12 +123,13 @@ export const createProCheckoutUrl = action({
       stripeCustomerId: customerId,
     })
 
+    const returnPath = args.returnTo === "onboarding" ? "/onboarding" : "/settings"
     const { url } = await stripe.createCheckoutSession(ctx, {
       customerId,
       priceId: getPriceId(args.interval as Interval, args.currency as Currency),
       mode: "subscription",
-      successUrl: `${getSiteUrl()}/settings?billing=success`,
-      cancelUrl: `${getSiteUrl()}/settings?billing=cancel`,
+      successUrl: `${getSiteUrl()}${returnPath}?billing=success`,
+      cancelUrl: `${getSiteUrl()}${returnPath}?billing=cancel`,
       subscriptionMetadata: {
         userId: identity.subject,
       },

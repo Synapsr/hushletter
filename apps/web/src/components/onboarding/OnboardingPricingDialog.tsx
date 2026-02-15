@@ -1,19 +1,24 @@
-import { useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { convexQuery } from "@convex-dev/react-query";
-import { useAction } from "convex/react";
-import { api } from "@hushletter/backend";
-import { getLocale } from "@/paraglide/runtime.js";
+import { LandingButton } from "@/components/landing/landing-button";
+import { FeatureItem } from "@/components/landing/landing-pricing";
 import { m } from "@/paraglide/messages.js";
-import { CircleCheck, Star } from "lucide-react";
+import { getLocale } from "@/paraglide/runtime.js";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@hushletter/backend";
+import { Dialog, DialogContent, DialogPopup } from "@hushletter/ui";
 import NumberFlow from "@number-flow/react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { useAction } from "convex/react";
 import { motion } from "motion/react";
-import { LandingButton } from "./landing-button";
+import { useState } from "react";
 
-export function LandingPricing({
-  returnTo,
-}: { returnTo?: "settings" | "onboarding" } = {}) {
+export function OnboardingPricingDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const locale = getLocale();
   const currency = locale.startsWith("fr")
     ? ("eur" as const)
@@ -40,7 +45,7 @@ export function LandingPricing({
       const { url } = await createCheckout({
         interval: billingInterval,
         currency,
-        returnTo,
+        returnTo: "onboarding",
       });
       window.location.href = url;
     } catch (error) {
@@ -54,20 +59,10 @@ export function LandingPricing({
   const proPriceValue = billingInterval === "month" ? 9 : 7.5;
 
   return (
-    <section id="pricing" className="py-24 bg-white">
-      <div className="max-w-5xl mx-auto px-6">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h2 className="font-display text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            {m.landing_pricingTitle()}
-          </h2>
-          <p className="font-body text-lg text-gray-500 max-w-xl mx-auto">
-            {m.landing_pricingSubtitle()}
-          </p>
-        </div>
-
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogPopup className=" max-w-4xl p-4 space-y-4 overflow-y-auto max-h-[85vh]">
         {/* Monthly / Yearly Toggle */}
-        <div className="flex justify-center mb-12">
+        <div className="flex justify-center">
           <div className="inline-flex items-center rounded-full border border-gray-200 p-1">
             {(["month", "year"] as const).map((interval) => (
               <button
@@ -100,7 +95,7 @@ export function LandingPricing({
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto items-stretch">
           {/* Free Card */}
           <div className="rounded-2xl border border-gray-200 bg-white flex flex-col">
             <div className="p-8 pb-0">
@@ -140,9 +135,9 @@ export function LandingPricing({
 
             <div className="px-8 pb-8">
               <LandingButton
+                onClick={() => onOpenChange(false)}
                 variant="outline"
                 size="full"
-                render={<Link to="/{-$locale}/signup" />}
               >
                 {m.landing_pricingCreateAccount()}
               </LandingButton>
@@ -232,27 +227,10 @@ export function LandingPricing({
           </div>
         </div>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground">
           {m.landing_pricingTaxNote({ symbol: currencySymbol })}
         </p>
-      </div>
-    </section>
-  );
-}
-
-export function FeatureItem({
-  children,
-  muted,
-}: {
-  children: React.ReactNode;
-  muted?: boolean;
-}) {
-  return (
-    <li className={`flex gap-3 ${muted ? "text-muted-foreground" : ""}`}>
-      <CircleCheck
-        className={`w-5 h-5 shrink-0 mt-0.5 ${muted ? "text-muted-foreground" : "text-foreground"}`}
-      />
-      <span>{children}</span>
-    </li>
+      </DialogPopup>
+    </Dialog>
   );
 }

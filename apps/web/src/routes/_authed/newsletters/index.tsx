@@ -118,6 +118,7 @@ type CurrentUserData = {
   email: string;
   name: string | null;
   dedicatedEmail: string | null;
+  vanityEmail: string | null;
 } | null;
 
 /**
@@ -549,7 +550,7 @@ function NewslettersPage() {
   const isInitialPagePending = userPending || foldersPending;
   const activeListPending = activeHeadPending;
 
-  const dedicatedEmail = user?.dedicatedEmail ?? null;
+  const dedicatedEmail = user?.vanityEmail ?? user?.dedicatedEmail ?? null;
 
   const newsletterList = mergedActiveList;
 

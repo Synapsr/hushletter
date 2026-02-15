@@ -1227,7 +1227,6 @@
   "landing_navBlog": "Blog",
   "landing_navLogin": "Se connecter",
   "landing_navStartFree": "Commencer gratuitement",
-  "landing_navDashboard": "Tableau de bord",
 
   "landing_heroBadge": "Vos newsletters méritent mieux",
   "landing_heroTitle": "Toutes vos newsletters, une boîte de réception ",
@@ -1236,7 +1235,7 @@
   "landing_heroSubtitle": "Obtenez un email dédié uniquement pour vos newsletters. Chaque expéditeur a son propre dossier — organisé, propre et toujours à vous.",
   "landing_heroCtaPrimary": "Commencer",
   "landing_heroCtaSecondary": "Voir comment ça marche",
-  "landing_heroCheckFree": "Gratuit pour toujours",
+  "landing_heroCheckFree": "Base gratuite",
   "landing_heroCheckNoSpam": "Pas de spam",
   "landing_heroCheckSetup": "30s pour s'inscrire",
 

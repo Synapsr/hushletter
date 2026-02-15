@@ -128,18 +128,21 @@ export function LandingFeatures() {
             </div>
           </div>
 
-          {/* Newsletter Discovery */}
+          {/* Newsletter Discovery - Coming Soon */}
           <div
-            className="lg:col-span-2 bg-gray-900 text-white rounded-2xl p-6 flex flex-col animate-fade-in-up"
+            className="relative lg:col-span-2 bg-gray-900 text-white rounded-2xl p-6 flex flex-col animate-fade-in-up"
             style={{ animationDelay: "0.6s" }}
           >
+            <span className="absolute top-3 right-3 bg-white/15 text-gray-300 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md">
+              {m.landing_comingSoon()}
+            </span>
             <h3 className="font-display text-xl font-bold mb-2">
               {m.landing_featureDiscoveryTitle()}
             </h3>
             <p className="text-sm text-gray-300 mb-6">
               {m.landing_featureDiscoveryDesc()}
             </p>
-            <div className="mt-auto flex flex-wrap gap-3">
+            <div className="mt-auto flex flex-wrap gap-3 opacity-40">
               <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">📰</div>
               <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">💼</div>
               <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">🎨</div>

@@ -8,6 +8,7 @@
 @source "../../../packages/ui/src/**/*.{js,ts,jsx,tsx}";
 
 @theme inline {
+  --color-sheer: var(--sheer);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -75,6 +76,7 @@
 */
 
 :root {
+  --sheer: oklch(100% 0 0);
   --background: oklch(99.1% 0.000000000000000431 0deg);
   --foreground: oklch(24.4% 0.000000000000000185 0deg);
   --card: oklch(1 0 0);
@@ -111,6 +113,7 @@
 }
 
 .dark {
+  --sheer: oklch(0% 0 0);
   --background: color-mix(in srgb,
       var(--color-neutral-950) 95%,
       var(--color-white));

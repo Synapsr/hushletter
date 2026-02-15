@@ -8,16 +8,16 @@ export function LandingHowItWorks() {
           {m.landing_stepsTitle()}
         </h2>
 
-        <div className="space-y-8">
+        <div className="">
           {/* Step 1 */}
-          <div className="flex items-start gap-6">
-            <div className="flex flex-col items-center flex-shrink-0">
-              <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold text-sm">
+          <div className="flex items-stretch gap-6">
+            <div className="flex flex-col items-center shrink-0">
+              <div className="size-10 shrink-0 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold text-sm">
                 1
               </div>
-              <div className="w-0.5 h-16 bg-gray-200 border-l-2 border-dashed border-gray-300 mt-2" />
+              <div className="w-0.5 flex-1 border-l-2 border-dashed mt-2" />
             </div>
-            <div className="pt-2">
+            <div className="pt-2 pb-6">
               <h3 className="font-display text-xl font-bold text-gray-900 mb-2">
                 {m.landing_step1Title()}
               </h3>
@@ -29,22 +29,28 @@ export function LandingHowItWorks() {
           </div>
 
           {/* Step 2 */}
-          <div className="flex items-start gap-6">
-            <div className="flex flex-col items-center flex-shrink-0">
-              <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold text-sm">
+          <div className="flex items-stretch gap-6">
+            <div className="flex flex-col items-center shrink-0">
+              <div className="size-10 shrink-0 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold text-sm">
                 2
               </div>
-              <div className="w-0.5 h-16 bg-gray-200 border-l-2 border-dashed border-gray-300 mt-2" />
+              <div className="w-0.5 flex-1 border-l-2 border-dashed" />
             </div>
-            <div className="pt-2">
+            <div className="pt-2 pb-6">
               <h3 className="font-display text-xl font-bold text-gray-900 mb-2">
                 {m.landing_step2Title()}
               </h3>
               <p className="text-gray-500 mb-3">{m.landing_step2Desc()}</p>
               <div className="flex flex-wrap gap-2">
-                <span className="bg-gray-100 px-3 py-1.5 rounded-lg text-sm text-gray-700">Substack</span>
-                <span className="bg-gray-100 px-3 py-1.5 rounded-lg text-sm text-gray-700">Mailchimp</span>
-                <span className="bg-gray-100 px-3 py-1.5 rounded-lg text-sm text-gray-700">Beehiiv</span>
+                <span className="bg-gray-100 px-3 py-1.5 rounded-lg text-sm text-gray-700">
+                  Substack
+                </span>
+                <span className="bg-gray-100 px-3 py-1.5 rounded-lg text-sm text-gray-700">
+                  Mailchimp
+                </span>
+                <span className="bg-gray-100 px-3 py-1.5 rounded-lg text-sm text-gray-700">
+                  Beehiiv
+                </span>
               </div>
             </div>
           </div>

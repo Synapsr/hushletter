@@ -1,7 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@hushletter/ui";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@hushletter/ui";
 import { signUp } from "@/lib/auth-client";
 import { extractNameFromEmail } from "@/lib/utils/error";
 import { useAppForm } from "@/hooks/form/form";
@@ -77,12 +83,14 @@ function SignupPage() {
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-50 to-white p-4 dark:from-gray-950 dark:to-gray-900">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">{m.auth_signupTitle()}</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            {m.auth_signupTitle()}
+          </CardTitle>
           <CardDescription>{m.auth_signupSubtitle()}</CardDescription>
         </CardHeader>
         <CardContent>
           <form.AppForm>
-            <form.Form className="space-y-4">
+            <form.Form className="">
               <form.AppField name="email">
                 {(field) => (
                   <field.Input
@@ -113,7 +121,10 @@ function SignupPage() {
 
           <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
             {m.auth_hasAccount()}{" "}
-            <Link to="/{-$locale}/login" className="font-medium text-primary hover:underline">
+            <Link
+              to="/{-$locale}/login"
+              className="font-medium text-primary hover:underline"
+            >
               {m.auth_signInLink()}
             </Link>
           </p>

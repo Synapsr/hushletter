@@ -1,5 +1,6 @@
 import { m } from "@/paraglide/messages.js";
 import { Star } from "lucide-react";
+import { IconCarambolaFilled } from "@tabler/icons-react";
 
 const testimonials = [
   {
@@ -36,7 +37,10 @@ export function LandingSocialProof() {
           preserveAspectRatio="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <path d="M0,0 Q300,60 600,30 T1200,0 L1200,120 L0,120 Z" fill="currentColor" />
+          <path
+            d="M0,0 Q300,60 600,30 T1200,0 L1200,120 L0,120 Z"
+            fill="currentColor"
+          />
         </svg>
       </div>
 
@@ -48,18 +52,25 @@ export function LandingSocialProof() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((t) => (
-              <div key={t.nameKey} className={`${t.bgClass} rounded-2xl p-6`}>
+              <div key={t.nameKey} className={`bg-sheer rounded-2xl p-6`}>
                 <div className="flex gap-0.5 mb-3">
                   {Array.from({ length: 5 }, (_, i) => (
-                    <Star key={i} className="size-5 fill-yellow-400 text-yellow-400" />
+                    <IconCarambolaFilled
+                      key={i}
+                      className="size-5 fill-yellow-400 text-yellow-400"
+                    />
                   ))}
                 </div>
                 <p className="text-gray-700 mb-4">"{m[t.quoteKey]()}"</p>
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full ${t.avatarClass}`} />
                   <div>
-                    <div className="font-semibold text-gray-900">{m[t.nameKey]()}</div>
-                    <div className="text-sm text-gray-600">{m[t.roleKey]()}</div>
+                    <div className="font-semibold text-gray-900">
+                      {m[t.nameKey]()}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {m[t.roleKey]()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -76,7 +87,10 @@ export function LandingSocialProof() {
           preserveAspectRatio="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <path d="M0,0 Q300,60 600,30 T1200,0 L1200,120 L0,120 Z" fill="currentColor" />
+          <path
+            d="M0,0 Q300,60 600,30 T1200,0 L1200,120 L0,120 Z"
+            fill="currentColor"
+          />
         </svg>
       </div>
     </>

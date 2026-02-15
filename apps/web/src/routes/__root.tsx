@@ -93,7 +93,7 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang={getLocale()}>
+    <html lang={getLocale()} className="overscroll-none">
       {process.env.NODE_ENV === "development" && <Agentation />}
 
       <head>

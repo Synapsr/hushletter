@@ -18,7 +18,7 @@ function LandingPage() {
   return (
     <>
       <LandingStyles />
-      <div className="min-h-screen bg-white font-body">
+      <div className="min-h-screen bg-sheer font-body">
         <LandingHeader />
         <LandingHero />
         <LandingFeatures />

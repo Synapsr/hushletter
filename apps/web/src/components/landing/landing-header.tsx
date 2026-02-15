@@ -16,33 +16,37 @@ export function LandingHeader() {
         <nav className="hidden md:flex items-center gap-8">
           <a
             href="#features"
+            onClick={(e) => {
+              e.preventDefault();
+              document
+                .querySelector("#features")
+                ?.scrollIntoView({ behavior: "smooth" });
+            }}
             className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
           >
             {m.landing_navFeatures()}
           </a>
           <a
-            href="#integrations"
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            {m.landing_navIntegrations()}
-          </a>
-          <a
             href="#pricing"
+            onClick={(e) => {
+              e.preventDefault();
+              document
+                .querySelector("#pricing")
+                ?.scrollIntoView({ behavior: "smooth" });
+            }}
             className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
           >
             {m.landing_navPricing()}
-          </a>
-          <a
-            href="#blog"
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            {m.landing_navBlog()}
           </a>
         </nav>
 
         <div className="flex items-center gap-4">
           {isLoggedIn ? (
-            <LandingButton size="sm" render={<Link to="/newsletters" />} className="group">
+            <LandingButton
+              size="sm"
+              render={<Link to="/newsletters" />}
+              className="group"
+            >
               {m.landing_navDashboard()}
               <span className="inline-block transition-transform group-hover:translate-x-0.5">
                 →
@@ -50,10 +54,18 @@ export function LandingHeader() {
             </LandingButton>
           ) : (
             <>
-              <LandingButton variant="ghost" size="sm" render={<a href="#login" />}>
+              <LandingButton
+                variant="ghost"
+                size="sm"
+                render={<Link to="/{-$locale}/login" />}
+              >
                 {m.landing_navLogin()}
               </LandingButton>
-              <LandingButton size="sm" render={<a href="#start" />} className="group">
+              <LandingButton
+                size="sm"
+                render={<Link to="/{-$locale}/signup" />}
+                className="group"
+              >
                 {m.landing_navStartFree()}
                 <span className="inline-block transition-transform group-hover:translate-x-0.5">
                   →

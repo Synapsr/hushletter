@@ -2,6 +2,7 @@ import { useFieldContext } from "@/hooks/form/form-context";
 import { useStore } from "@tanstack/react-form";
 
 import { Input, Label, type InputProps } from "@hushletter/ui/components";
+import { cn } from "@/lib/utils";
 
 type FormInputProps = InputProps & {
   label: string;
@@ -22,6 +23,7 @@ export function FormInput({ ...props }: FormInputProps) {
           onBlur={field.handleBlur}
           onValueChange={(value) => field.handleChange(value)}
           value={field.state.value}
+          className={cn("py-1.5", props.className)}
         />
       </div>
       {error && <div className="text-sm text-red-400">{error.message}</div>}

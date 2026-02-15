@@ -4,7 +4,7 @@ import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import { Dialog, DialogContent, DialogPopup } from "@hushletter/ui";
+import { Dialog, DialogPopup } from "@hushletter/ui";
 import NumberFlow from "@number-flow/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";

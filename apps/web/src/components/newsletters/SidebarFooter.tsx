@@ -2,7 +2,6 @@
 
 import { GlobalSearch } from "../navigation/global-search";
 import { UserMenu } from "../navigation/user-menu";
-import { SettingsDialog } from "../settings/settings-dialog";
 
 type Props = {};
 

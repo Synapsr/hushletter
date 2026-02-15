@@ -4,23 +4,10 @@ import { useAction } from "convex/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@hushletter/ui";
-import {
-  Sparkles,
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  Users,
-} from "lucide-react";
+import { Button } from "@hushletter/ui";
+import { Sparkles, Users } from "lucide-react";
 import { ConvexError } from "convex/values";
 import { cn } from "@/lib/utils";
-import { useSummaryPreferences } from "@/hooks/useSummaryPreferences";
 import { m } from "@/paraglide/messages.js";
 import { Link } from "@tanstack/react-router";
 

@@ -85,7 +85,22 @@ vi.mock("./ReaderActionBar", () => ({
   ),
 }));
 
-const baseNewsletter = {
+type NewsletterMetadata = {
+  _id: string;
+  subject: string;
+  senderEmail: string;
+  senderName: string;
+  receivedAt: number;
+  isRead: boolean;
+  isHidden: boolean;
+  isFavorited: boolean;
+  isPrivate: boolean;
+  readProgress: number;
+  contentStatus: "available" | "missing" | "error" | "locked";
+  source: "email" | "gmail" | "manual" | "community";
+};
+
+const baseNewsletter: NewsletterMetadata = {
   _id: "newsletter-1",
   subject: "Weekly digest",
   senderEmail: "sender@example.com",
@@ -100,7 +115,7 @@ const baseNewsletter = {
   source: "email" as const,
 };
 
-function renderPane(overrides?: Partial<typeof baseNewsletter>) {
+function renderPane(overrides?: Partial<NewsletterMetadata>) {
   mockUseQuery.mockImplementation((query: any) => {
     const key = query?.queryKey?.[0];
     if (key === "getEntitlements") {

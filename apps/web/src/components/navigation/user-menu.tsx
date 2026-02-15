@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
@@ -10,7 +9,6 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-  Button,
   Menu,
   MenuGroup,
   MenuGroupLabel,
@@ -22,7 +20,6 @@ import {
 } from "@hushletter/ui/components";
 import {
   Check,
-  ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   Copy,
   Download,
@@ -41,7 +38,6 @@ export const UserMenu = () => {
   const { data: adminCheck } = useQuery(
     convexQuery(api.admin.checkIsAdmin, {}),
   );
-  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
   const isAdmin = adminCheck?.isAdmin ?? false;

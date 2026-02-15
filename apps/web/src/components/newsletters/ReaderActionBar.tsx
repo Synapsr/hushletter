@@ -19,7 +19,6 @@ import {
   ArchiveRestore,
   Star,
   Sparkles,
-  Highlighter,
   Share2,
   SlidersHorizontal,
   MoreHorizontal,

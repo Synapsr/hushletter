@@ -1,17 +1,13 @@
 import {
   createFileRoute,
-  Link,
   Outlet,
   redirect,
 } from "@tanstack/react-router";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { RouterContext } from "@/router";
-import { SharedLogo } from "@/components/shared/shared-logo";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { ImportMethodDialog } from "@/components/import/ImportMethodDialog";
-import { UserMenu } from "@/components/navigation/user-menu";
-import { GlobalSearch } from "@/components/navigation/global-search";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 
 export const Route = createFileRoute("/_authed")({

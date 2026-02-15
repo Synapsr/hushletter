@@ -474,6 +474,7 @@ export function ReaderView({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [iframeHeight, setIframeHeight] = useState(DEFAULT_IFRAME_HEIGHT);
+  const [iframeMeasured, setIframeMeasured] = useState(false);
 
   // Ref for scrollable container (Story 3.4: AC1)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -535,6 +536,7 @@ export function ReaderView({
 
   const handleIframeLoad = useCallback(() => {
     syncIframeHeight();
+    setIframeMeasured(true);
 
     resizeObserverRef.current?.disconnect();
     if (typeof ResizeObserver === "undefined") return;
@@ -572,6 +574,7 @@ export function ReaderView({
         setContentDocument(cached ?? null);
         setEstimatedReadMinutes(readTimeCache.get(userNewsletterId) ?? null);
         setIframeHeight(DEFAULT_IFRAME_HEIGHT);
+        setIframeMeasured(false);
         setIsLoading(false);
         return;
       }
@@ -627,6 +630,7 @@ export function ReaderView({
         setContentDocument(sanitizedDocument);
         setEstimatedReadMinutes(nextEstimatedReadMinutes);
         setIframeHeight(DEFAULT_IFRAME_HEIGHT);
+        setIframeMeasured(false);
       } catch (err) {
         if (cancelled) return;
         const message =
@@ -703,6 +707,7 @@ export function ReaderView({
   }
 
   // Render sanitized content inside sandboxed iframe for layout fidelity and style isolation.
+  // The iframe is hidden until the first height measurement to avoid a flash of clipped content.
   return (
     <div
       ref={scrollContainerRef}
@@ -713,6 +718,7 @@ export function ReaderView({
           READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
       }}
     >
+      {!iframeMeasured && <ContentSkeleton />}
       <iframe
         ref={iframeRef}
         title="Newsletter content"
@@ -726,6 +732,8 @@ export function ReaderView({
           minHeight: MIN_IFRAME_HEIGHT,
           backgroundColor:
             READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
+          opacity: iframeMeasured ? 1 : 0,
+          position: iframeMeasured ? "relative" : "absolute",
         }}
         onLoad={handleIframeLoad}
       />

@@ -9,6 +9,7 @@ import {
   TabsTrigger,
   ScrollArea,
   Button,
+  Skeleton,
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import { EyeOff, AlertCircle } from "lucide-react";
@@ -61,11 +62,26 @@ function isFolderData(item: unknown): item is FolderData {
 function SidebarSkeleton() {
   return (
     <div className="p-3 space-y-2">
-      <div className="h-9 bg-muted rounded-md animate-pulse" />
-      <div className="h-px bg-border my-2" />
-      {[1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="h-10 bg-muted rounded-lg animate-pulse" />
-      ))}
+      {/* Tab bar */}
+      <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
+        <Skeleton className="h-7 flex-1 rounded-md" />
+        <Skeleton className="h-7 flex-1 rounded-md" />
+        <Skeleton className="h-7 flex-1 rounded-md" />
+      </div>
+
+      {/* Folder items */}
+      <div className="space-y-1 pt-1">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex items-center gap-3 px-2 py-2.5">
+            <Skeleton className="size-8 rounded-lg shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-2.5 w-16" />
+            </div>
+            <Skeleton className="h-5 w-5 rounded-full" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

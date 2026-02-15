@@ -12,7 +12,6 @@ import {
 import { EmptyNewsletterState } from "@/components/EmptyNewsletterState";
 import {
   FolderSidebar,
-  FolderSidebarSkeleton,
   type FolderData,
 } from "@/components/FolderSidebar";
 import { SenderFolderSidebar } from "@/components/newsletters/SenderFolderSidebar";
@@ -27,6 +26,7 @@ import {
   SheetContent,
   SheetTitle,
   SheetTrigger,
+  Skeleton,
 } from "@hushletter/ui";
 import { Menu, Inbox } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
@@ -132,20 +132,37 @@ interface FolderSenderData {
   domain: string;
 }
 
+function NewsletterCardSkeleton({ delay = 0 }: { delay?: number }) {
+  return (
+    <div
+      className="rounded-2xl border bg-card shadow-xs/5 py-4 px-6"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        {/* Left: unread dot area + text */}
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <Skeleton className="h-2 w-2 rounded-full mt-2 shrink-0" />
+          <div className="flex-1 min-w-0 space-y-2">
+            <Skeleton className="h-3.5 w-28" />
+            <Skeleton className="h-4.5 w-3/4" />
+          </div>
+        </div>
+        {/* Right: date + action icons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Skeleton className="h-3.5 w-3.5 rounded-full" />
+          <Skeleton className="h-3 w-14" />
+          <Skeleton className="h-7 w-7 rounded-md" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NewsletterListSkeleton() {
   return (
-    <div className="space-y-4">
-      {[1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className="animate-pulse bg-card border rounded-xl p-4 space-y-2"
-        >
-          <div className="flex justify-between">
-            <div className="h-4 bg-muted rounded w-1/4" />
-            <div className="h-3 bg-muted rounded w-16" />
-          </div>
-          <div className="h-5 bg-muted rounded w-3/4" />
-        </div>
+    <div className="space-y-3">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <NewsletterCardSkeleton key={i} delay={i * 75} />
       ))}
     </div>
   );
@@ -153,36 +170,101 @@ function NewsletterListSkeleton() {
 
 function ReaderPaneSkeleton() {
   return (
-    <div className="flex-1 min-w-0 p-6">
-      <div className="animate-pulse space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="size-11 rounded-full bg-muted" />
-          <div className="space-y-2">
-            <div className="h-4 bg-muted rounded w-40" />
-            <div className="h-3 bg-muted rounded w-56" />
-          </div>
+    <div className="flex-1 min-w-0 flex flex-col">
+      {/* Header bar */}
+      <div className="border-b px-6 py-4 flex items-center gap-4">
+        <Skeleton className="size-10 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-3 w-52" />
         </div>
-        <div className="h-8 bg-muted rounded w-3/4" />
-        <div className="h-4 bg-muted rounded w-1/2" />
-        <div className="space-y-3 pt-4">
-          <div className="h-4 bg-muted rounded w-full" />
-          <div className="h-4 bg-muted rounded w-5/6" />
-          <div className="h-4 bg-muted rounded w-4/5" />
-          <div className="h-4 bg-muted rounded w-full" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="h-8 w-8 rounded-md" />
+        </div>
+      </div>
+
+      {/* Content area */}
+      <div className="flex-1 overflow-hidden p-8 space-y-8">
+        {/* Subject */}
+        <div className="space-y-3">
+          <Skeleton className="h-7 w-4/5" />
+          <Skeleton className="h-3.5 w-40" />
+        </div>
+
+        {/* Body paragraphs */}
+        <div className="space-y-3">
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-11/12" />
+          <Skeleton className="h-3.5 w-4/5" />
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-3/5" />
+        </div>
+
+        <div className="space-y-3">
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-5/6" />
+          <Skeleton className="h-3.5 w-2/3" />
+        </div>
+
+        {/* Image placeholder */}
+        <Skeleton className="h-44 w-full rounded-lg" />
+
+        <div className="space-y-3">
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-4/5" />
         </div>
       </div>
     </div>
   );
 }
 
+function SidebarSkeletonPane() {
+  return (
+    <aside className="w-[300px] border-r bg-background flex flex-col">
+      {/* Tab bar */}
+      <div className="p-3 pb-0">
+        <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
+          <Skeleton className="h-7 flex-1 rounded-md" />
+          <Skeleton className="h-7 flex-1 rounded-md" />
+          <Skeleton className="h-7 flex-1 rounded-md" />
+        </div>
+      </div>
+
+      {/* Folder list */}
+      <div className="flex-1 p-3 space-y-1">
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="flex items-center gap-3 px-2 py-2.5">
+            <Skeleton className="size-8 rounded-lg shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-2.5 w-16" />
+            </div>
+            <Skeleton className="h-5 w-5 rounded-full" />
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="border-t p-3">
+        <Skeleton className="h-9 w-full rounded-lg" />
+      </div>
+    </aside>
+  );
+}
+
 function PageSkeleton() {
   return (
-    <div className="flex h-full">
-      <div className="hidden md:block">
-        <FolderSidebarSkeleton />
+    <div className="h-screen overflow-hidden">
+      {/* Desktop */}
+      <div className="hidden md:flex h-full">
+        <SidebarSkeletonPane />
+        <ReaderPaneSkeleton />
       </div>
-      <main className="flex-1 p-6">
-        <div className="animate-pulse h-8 bg-muted rounded w-1/4 mb-6" />
+
+      {/* Mobile */}
+      <main className="md:hidden flex-1 p-6 pt-16">
+        <Skeleton className="h-8 w-40 mb-6" />
         <NewsletterListSkeleton />
       </main>
     </div>

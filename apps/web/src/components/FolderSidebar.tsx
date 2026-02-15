@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
+import { Skeleton } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import { FolderIcon, EyeOff, AlertCircle, Star } from "lucide-react";
 import { FolderActionsDropdown } from "./FolderActionsDropdown";
@@ -59,10 +60,19 @@ interface FolderSidebarProps {
 export function FolderSidebarSkeleton() {
   return (
     <aside className="w-64 border-r bg-background p-4 space-y-1">
-      <div className="h-10 bg-muted rounded-lg animate-pulse" />
+      {/* "All Newsletters" row */}
+      <div className="flex items-center justify-between px-3 py-2">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-3 w-6" />
+      </div>
       <div className="h-px bg-border my-2" />
-      {[1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="h-10 bg-muted rounded-lg animate-pulse" />
+      {/* Folder rows */}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex items-center gap-2 px-3 py-2">
+          <Skeleton className="h-4 w-4 rounded-sm shrink-0" />
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-3 w-5" />
+        </div>
       ))}
     </aside>
   );
@@ -264,7 +274,10 @@ export function FolderSidebar({
 
       {/* Starred section */}
       {favoritedCountPending ? (
-        <div className="h-10 bg-muted rounded-lg animate-pulse mt-2" />
+        <div className="flex items-center gap-2 px-3 py-2 mt-2">
+          <Skeleton className="h-4 w-4 rounded-sm shrink-0" />
+          <Skeleton className="h-4 flex-1" />
+        </div>
       ) : (
         <>
           <div className="h-px bg-border my-2" role="separator" />
@@ -293,7 +306,10 @@ export function FolderSidebar({
 
       {/* Hidden section - Story 9.4 Task 1.6 (AC3) */}
       {hiddenPending ? (
-        <div className="h-10 bg-muted rounded-lg animate-pulse mt-2" />
+        <div className="flex items-center gap-2 px-3 py-2 mt-2">
+          <Skeleton className="h-4 w-4 rounded-sm shrink-0" />
+          <Skeleton className="h-4 flex-1" />
+        </div>
       ) : (hiddenCount ?? 0) > 0 ? (
         <>
           <div className="h-px bg-border my-2" role="separator" />

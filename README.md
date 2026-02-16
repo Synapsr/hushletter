@@ -68,7 +68,7 @@ hushletter/
 ### Installation
 
 ```bash
-git clone https://github.com/teo-goulois/hushletter.git
+git clone https://github.com/synapsr/hushletter.git
 cd hushletter
 bun install
 ```

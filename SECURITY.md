@@ -5,7 +5,7 @@
 If you discover a security vulnerability in Hushletter, please report it responsibly:
 
 1. **Do NOT open a public issue**
-2. Use [GitHub's private vulnerability reporting](https://github.com/teo-goulois/hushletter/security/advisories/new)
+2. Use [GitHub's private vulnerability reporting](https://github.com/synapsr/hushletter/security/advisories/new)
 
 We will acknowledge receipt within 48 hours and provide a timeline for a fix.
 

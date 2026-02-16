@@ -1,6 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
+import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import {
@@ -24,6 +25,9 @@ type SidebarFilter = "all" | "unread" | "starred";
 
 const FILTER_HIDDEN = "hidden" as const;
 const FILTER_STARRED = "starred" as const;
+const LAST_NEWSLETTERS_VISIT_KEY = "hushletter:lastNewslettersVisit";
+const RECENT_UNREAD_HEAD_SIZE = 8;
+const RECENT_UNREAD_PAGE_SIZE = 20;
 type FilterType = typeof FILTER_HIDDEN | typeof FILTER_STARRED;
 
 interface SenderFolderSidebarProps {
@@ -114,6 +118,23 @@ export function SenderFolderSidebar({
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [lastConnectedAt, setLastConnectedAt] = useState<number | undefined>(
+    undefined,
+  );
+  const [isLastConnectedReady, setIsLastConnectedReady] = useState(false);
+  const [recentTailPages, setRecentTailPages] = useState<NewsletterData[][]>(
+    [],
+  );
+  const [recentCursor, setRecentCursor] = useState<string | null>(null);
+  const [recentIsDone, setRecentIsDone] = useState(true);
+  const [recentIsLoadingMore, setRecentIsLoadingMore] = useState(false);
+  const [dismissedRecentNewsletterIds, setDismissedRecentNewsletterIds] =
+    useState<Set<string>>(() => new Set());
+  const recentLoadMoreRef = useRef<HTMLDivElement | null>(null);
+  const recentSectionRef = useRef<HTMLDivElement | null>(null);
+  const loadRecentUnreadPage = useAction(
+    api.newsletters.listRecentUnreadNewslettersPage,
+  );
 
   const {
     data: folders,
@@ -134,6 +155,22 @@ export function SenderFolderSidebar({
 
   const { data: hiddenCount, isPending: hiddenCountPending } = useQuery(
     convexQuery(api.newsletters.getHiddenNewsletterCount, {}),
+  );
+  const shouldShowRecentSection =
+    sidebarFilter === "all" &&
+    selectedFilter !== FILTER_HIDDEN &&
+    selectedFilter !== FILTER_STARRED;
+
+  const { data: recentUnreadHead, isPending: recentUnreadPending } = useQuery(
+    convexQuery(
+      api.newsletters.listRecentUnreadNewslettersHead,
+      shouldShowRecentSection && isLastConnectedReady
+        ? {
+            lastConnectedAt,
+            numItems: RECENT_UNREAD_HEAD_SIZE,
+          }
+        : "skip",
+    ),
   );
 
   const folderList = useMemo(() => {
@@ -184,6 +221,30 @@ export function SenderFolderSidebar({
     () => hiddenNewsletters,
     [hiddenNewsletters],
   );
+  const recentHeadPage = useMemo(() => {
+    const data = recentUnreadHead as unknown as
+      | { page?: NewsletterData[] }
+      | undefined;
+    return (data?.page ?? []) as NewsletterData[];
+  }, [recentUnreadHead]);
+
+  const recentUnreadNewsletters = useMemo(() => {
+    const merged: NewsletterData[] = [];
+    const seen = new Set<string>();
+    for (const newsletter of [...recentHeadPage, ...recentTailPages.flat()]) {
+      const id = String(newsletter._id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      if (newsletter.isRead) continue;
+      if (dismissedRecentNewsletterIds.has(id)) continue;
+      merged.push(newsletter);
+    }
+    return merged;
+  }, [recentHeadPage, recentTailPages, dismissedRecentNewsletterIds]);
+
+  const hasRecentUnreadSection = shouldShowRecentSection
+    ? recentUnreadPending || recentUnreadNewsletters.length > 0
+    : false;
 
   useEffect(() => {
     if (selectedFilter === FILTER_STARRED) {
@@ -229,6 +290,124 @@ export function SenderFolderSidebar({
       return next;
     });
   };
+
+  useEffect(() => {
+    let previousVisit: number | undefined;
+    try {
+      const rawValue = localStorage.getItem(LAST_NEWSLETTERS_VISIT_KEY);
+      if (rawValue) {
+        const parsed = Number(rawValue);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          previousVisit = parsed;
+        }
+      }
+      localStorage.setItem(LAST_NEWSLETTERS_VISIT_KEY, String(Date.now()));
+    } catch {
+      // localStorage unavailable
+    }
+    setLastConnectedAt(previousVisit);
+    setIsLastConnectedReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!shouldShowRecentSection) {
+      setRecentTailPages([]);
+      setRecentCursor(null);
+      setRecentIsDone(true);
+      setRecentIsLoadingMore(false);
+      setDismissedRecentNewsletterIds(new Set());
+      return;
+    }
+    setRecentTailPages([]);
+    setRecentCursor(null);
+    setRecentIsDone(true);
+    setRecentIsLoadingMore(false);
+    setDismissedRecentNewsletterIds(new Set());
+  }, [shouldShowRecentSection, lastConnectedAt, isLastConnectedReady]);
+
+  const handleDismissRecentNewsletter = useCallback((newsletterId: string) => {
+    setDismissedRecentNewsletterIds((previous) => {
+      if (previous.has(newsletterId)) return previous;
+      const next = new Set(previous);
+      next.add(newsletterId);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (
+      !shouldShowRecentSection ||
+      !isLastConnectedReady ||
+      !recentUnreadHead
+    ) {
+      return;
+    }
+    if (recentCursor !== null || recentTailPages.length > 0) return;
+    const data = recentUnreadHead as unknown as {
+      continueCursor: string | null;
+      isDone: boolean;
+    };
+    setRecentCursor(data.continueCursor ?? null);
+    setRecentIsDone(data.isDone ?? true);
+  }, [
+    shouldShowRecentSection,
+    isLastConnectedReady,
+    recentUnreadHead,
+    recentCursor,
+    recentTailPages.length,
+  ]);
+
+  const canLoadMoreRecent =
+    shouldShowRecentSection && !recentIsDone && recentCursor !== null;
+
+  const handleLoadMoreRecent = useCallback(async () => {
+    if (!canLoadMoreRecent || recentIsLoadingMore || recentCursor === null)
+      return;
+    setRecentIsLoadingMore(true);
+    try {
+      const result = await loadRecentUnreadPage({
+        cursor: recentCursor,
+        numItems: RECENT_UNREAD_PAGE_SIZE,
+        lastConnectedAt,
+      });
+      const page = (result.page ?? []) as NewsletterData[];
+      setRecentTailPages((previous) => [...previous, page]);
+      setRecentCursor(result.continueCursor ?? null);
+      setRecentIsDone(result.isDone ?? true);
+    } finally {
+      setRecentIsLoadingMore(false);
+    }
+  }, [
+    canLoadMoreRecent,
+    recentIsLoadingMore,
+    recentCursor,
+    loadRecentUnreadPage,
+    lastConnectedAt,
+  ]);
+
+  useEffect(() => {
+    if (!canLoadMoreRecent) return;
+    const sentinel = recentLoadMoreRef.current;
+    const section = recentSectionRef.current;
+    if (!sentinel || !section) return;
+
+    const viewport = section.querySelector<HTMLElement>(
+      "[data-slot='scroll-area-viewport']",
+    );
+    if (!viewport) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void handleLoadMoreRecent();
+        }
+      },
+      { root: viewport, threshold: 0.1 },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [canLoadMoreRecent, handleLoadMoreRecent]);
 
   if (foldersError) {
     return (
@@ -279,6 +458,64 @@ export function SenderFolderSidebar({
       {/* Folder list */}
       <ScrollArea className="flex-1 mt-2">
         <div className="px-2 pb-2 space-y-0.5">
+          {hasRecentUnreadSection && (
+            <>
+              <div className="px-2 py-1">
+                <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  {m.sidebar_recentUnreadSinceLastVisit()}
+                </p>
+              </div>
+
+              <div
+                ref={recentSectionRef}
+                className="max-h-60 rounded-lg border border-border/70 bg-muted/20"
+              >
+                <ScrollArea className="h-full">
+                  <div className="p-1 space-y-0.5">
+                    {recentUnreadPending ? (
+                      <div className="space-y-1 py-1">
+                        {[0, 1, 2].map((index) => (
+                          <div key={index} className="animate-pulse px-3 py-2">
+                            <div className="h-3.5 bg-muted rounded w-4/5" />
+                            <div className="h-3 bg-muted rounded w-1/2 mt-1" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      recentUnreadNewsletters.map((newsletter) => (
+                        <NewsletterListItem
+                          key={newsletter._id}
+                          newsletter={newsletter}
+                          isSelected={selectedNewsletterId === newsletter._id}
+                          isFavorited={getIsFavorited(
+                            newsletter._id,
+                            Boolean(newsletter.isFavorited),
+                          )}
+                          isFavoritePending={isFavoritePending(newsletter._id)}
+                          enableHideAction
+                          onHide={handleDismissRecentNewsletter}
+                          onClick={onNewsletterSelect}
+                          onToggleFavorite={onToggleFavorite}
+                        />
+                      ))
+                    )}
+
+                    {canLoadMoreRecent && (
+                      <div ref={recentLoadMoreRef} className="h-8" />
+                    )}
+                    {recentIsLoadingMore && (
+                      <p className="px-3 py-2 text-xs text-muted-foreground">
+                        Loading...
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              <div className="h-px bg-border my-2 mx-2" role="separator" />
+            </>
+          )}
+
           {selectedFilter === FILTER_HIDDEN ? (
             hiddenPending ? (
               <SidebarSkeleton />

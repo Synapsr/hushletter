@@ -68,4 +68,57 @@ describe("NewsletterListItem", () => {
 
     expect(screen.getByRole("button", { name: "Add to favorites" })).toBeDisabled();
   });
+
+  it("shows hide button only when enableHideAction is true", () => {
+    const { rerender } = render(
+      <NewsletterListItem
+        newsletter={newsletter}
+        isSelected={false}
+        isFavorited={false}
+        isFavoritePending={false}
+        onClick={vi.fn()}
+        onToggleFavorite={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Hide" })).not.toBeInTheDocument();
+
+    rerender(
+      <NewsletterListItem
+        newsletter={newsletter}
+        isSelected={false}
+        isFavorited={false}
+        isFavoritePending={false}
+        enableHideAction
+        onClick={vi.fn()}
+        onToggleFavorite={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Hide" })).toBeInTheDocument();
+  });
+
+  it("clicking hide button hides newsletter without selecting row", async () => {
+    const onClick = vi.fn();
+    const onToggleFavorite = vi.fn().mockResolvedValue(undefined);
+    const onHide = vi.fn();
+
+    render(
+      <NewsletterListItem
+        newsletter={newsletter}
+        isSelected={false}
+        isFavorited={false}
+        isFavoritePending={false}
+        enableHideAction
+        onHide={onHide}
+        onClick={onClick}
+        onToggleFavorite={onToggleFavorite}
+      />,
+    );
+
+    await fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+    expect(onHide).toHaveBeenCalledWith("newsletter-1");
+    expect(onClick).not.toHaveBeenCalled();
+    expect(onToggleFavorite).not.toHaveBeenCalled();
+  });
 });

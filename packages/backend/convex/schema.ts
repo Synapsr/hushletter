@@ -133,6 +133,12 @@ export default defineSchema({
       "isHidden",
       "receivedAt",
     ])
+    .index("by_userId_isRead_isHidden_receivedAt", [
+      "userId",
+      "isRead",
+      "isHidden",
+      "receivedAt",
+    ])
     .index("by_userId_isHidden_receivedAt", ["userId", "isHidden", "receivedAt"]) // Perf: hidden list + count
     .index("by_reviewStatus", ["reviewStatus"]), // Story 9.7: Task 1.4 - For moderation queue filtering
 

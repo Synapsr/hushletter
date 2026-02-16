@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SenderFolderSidebar } from "./SenderFolderSidebar";
 import type { NewsletterData } from "@/components/NewsletterCard";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
@@ -12,6 +12,14 @@ vi.mock("@convex-dev/react-query", () => ({
   convexQuery: vi.fn((api, args) => ({ queryKey: [api, args], queryFn: () => {} })),
 }));
 
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+  return {
+    ...actual,
+    useAction: vi.fn(),
+  };
+});
+
 vi.mock("@hushletter/backend", () => ({
   api: {
     folders: {
@@ -20,6 +28,8 @@ vi.mock("@hushletter/backend", () => ({
     newsletters: {
       getUserNewsletter: "newsletters.getUserNewsletter",
       getHiddenNewsletterCount: "newsletters.getHiddenNewsletterCount",
+      listRecentUnreadNewslettersHead: "newsletters.listRecentUnreadNewslettersHead",
+      listRecentUnreadNewslettersPage: "newsletters.listRecentUnreadNewslettersPage",
     },
   },
 }));
@@ -49,17 +59,76 @@ vi.mock("./SenderFolderItem", () => ({
 }));
 
 vi.mock("./NewsletterListItem", () => ({
-  NewsletterListItem: ({ newsletter }: { newsletter: { subject: string } }) => (
-    <div data-testid="newsletter-list-item">{newsletter.subject}</div>
+  NewsletterListItem: ({
+    newsletter,
+    enableHideAction,
+    onHide,
+  }: {
+    newsletter: { _id: string; subject: string };
+    enableHideAction?: boolean;
+    onHide?: (id: string) => void;
+  }) => (
+    <div data-testid="newsletter-list-item">
+      <span>{newsletter.subject}</span>
+      {enableHideAction && (
+        <button type="button" aria-label="Hide" onClick={() => onHide?.(newsletter._id)}>
+          Hide
+        </button>
+      )}
+    </div>
   ),
 }));
 
+vi.mock("./SidebarFooter", () => ({
+  SidebarFooter: () => null,
+}));
+
 import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { useAction } from "convex/react";
 
 const mockUseQuery = vi.mocked(useQuery);
+const mockConvexQuery = vi.mocked(convexQuery);
+const mockUseAction = vi.mocked(useAction);
+
 let foldersQueryData: unknown[] = [];
 let hiddenCountData = 0;
 let selectedNewsletterMetaData: unknown = null;
+let recentUnreadHeadData: {
+  page: NewsletterData[];
+  isDone: boolean;
+  continueCursor: string | null;
+} = {
+  page: [],
+  isDone: true,
+  continueCursor: null,
+};
+
+const mockLoadRecentUnreadPage = vi.fn();
+
+type MockObserverInstance = {
+  callback: IntersectionObserverCallback;
+  observe: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+};
+const mockObserverInstances: MockObserverInstance[] = [];
+
+class MockIntersectionObserver {
+  callback: IntersectionObserverCallback;
+  observe = vi.fn();
+  disconnect = vi.fn();
+  unobserve = vi.fn();
+  takeRecords = vi.fn(() => []);
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+    mockObserverInstances.push({
+      callback,
+      observe: this.observe,
+      disconnect: this.disconnect,
+    });
+  }
+}
 
 describe("SenderFolderSidebar", () => {
   const defaultProps = {
@@ -82,6 +151,28 @@ describe("SenderFolderSidebar", () => {
     vi.clearAllMocks();
     foldersQueryData = [];
     hiddenCountData = 0;
+    selectedNewsletterMetaData = null;
+    recentUnreadHeadData = {
+      page: [],
+      isDone: true,
+      continueCursor: null,
+    };
+    mockLoadRecentUnreadPage.mockResolvedValue({
+      page: [],
+      isDone: true,
+      continueCursor: null,
+    });
+    mockUseAction.mockReturnValue(mockLoadRecentUnreadPage as never);
+    mockObserverInstances.length = 0;
+
+    localStorage.clear();
+
+    Object.defineProperty(globalThis, "IntersectionObserver", {
+      configurable: true,
+      writable: true,
+      value: MockIntersectionObserver,
+    });
+
     mockUseQuery.mockImplementation((options) => {
       const queryKey = options?.queryKey?.[0];
       if (queryKey === "folders.listVisibleFoldersWithUnreadCounts") {
@@ -101,6 +192,13 @@ describe("SenderFolderSidebar", () => {
       if (queryKey === "newsletters.getUserNewsletter") {
         return {
           data: selectedNewsletterMetaData,
+          isPending: false,
+          isError: false,
+        } as ReturnType<typeof useQuery>;
+      }
+      if (queryKey === "newsletters.listRecentUnreadNewslettersHead") {
+        return {
+          data: recentUnreadHeadData,
           isPending: false,
           isError: false,
         } as ReturnType<typeof useQuery>;
@@ -166,6 +264,181 @@ describe("SenderFolderSidebar", () => {
     );
 
     expect(screen.getByTestId("newsletter-list-item")).toHaveTextContent("Hidden digest");
+  });
+
+  it("renders recent unread section in all tab and excludes read items", () => {
+    recentUnreadHeadData = {
+      page: [
+        {
+          _id: "recent-unread-1" as Id<"userNewsletters">,
+          subject: "Unread one",
+          senderEmail: "sender1@example.com",
+          receivedAt: Date.now(),
+          isRead: false,
+          isHidden: false,
+          isPrivate: false,
+        },
+        {
+          _id: "recent-read-1" as Id<"userNewsletters">,
+          subject: "Read should not show",
+          senderEmail: "sender2@example.com",
+          receivedAt: Date.now() - 1000,
+          isRead: true,
+          isHidden: false,
+          isPrivate: false,
+        },
+      ],
+      isDone: true,
+      continueCursor: null,
+    };
+
+    render(<SenderFolderSidebar {...defaultProps} selectedFilter={null} />);
+
+    expect(screen.getByText("New unread since last visit")).toBeInTheDocument();
+    expect(screen.getByText("Unread one")).toBeInTheDocument();
+    expect(screen.queryByText("Read should not show")).not.toBeInTheDocument();
+  });
+
+  it("dismisses newsletter only from the recent unread section when hide is clicked", async () => {
+    recentUnreadHeadData = {
+      page: [
+        {
+          _id: "recent-unread-1" as Id<"userNewsletters">,
+          subject: "Dismiss me",
+          senderEmail: "sender1@example.com",
+          receivedAt: Date.now(),
+          isRead: false,
+          isHidden: false,
+          isPrivate: false,
+        },
+        {
+          _id: "recent-unread-2" as Id<"userNewsletters">,
+          subject: "Keep me",
+          senderEmail: "sender2@example.com",
+          receivedAt: Date.now() - 1000,
+          isRead: false,
+          isHidden: false,
+          isPrivate: false,
+        },
+      ],
+      isDone: true,
+      continueCursor: null,
+    };
+
+    render(<SenderFolderSidebar {...defaultProps} selectedFilter={null} />);
+
+    expect(screen.getByText("Dismiss me")).toBeInTheDocument();
+    expect(screen.getByText("Keep me")).toBeInTheDocument();
+
+    const hideButtons = screen.getAllByRole("button", { name: "Hide" });
+    await fireEvent.click(hideButtons[0]);
+
+    expect(screen.queryByText("Dismiss me")).not.toBeInTheDocument();
+    expect(screen.getByText("Keep me")).toBeInTheDocument();
+    expect(mockLoadRecentUnreadPage).not.toHaveBeenCalled();
+  });
+
+  it("does not render recent unread section outside all tab", () => {
+    recentUnreadHeadData = {
+      page: [
+        {
+          _id: "recent-unread-1" as Id<"userNewsletters">,
+          subject: "Unread one",
+          senderEmail: "sender1@example.com",
+          receivedAt: Date.now(),
+          isRead: false,
+          isHidden: false,
+          isPrivate: false,
+        },
+      ],
+      isDone: true,
+      continueCursor: null,
+    };
+
+    const { rerender } = render(
+      <SenderFolderSidebar {...defaultProps} selectedFilter={null} />,
+    );
+    expect(screen.getByText("New unread since last visit")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Unread" }));
+    expect(
+      screen.queryByText("New unread since last visit"),
+    ).not.toBeInTheDocument();
+
+    rerender(<SenderFolderSidebar {...defaultProps} selectedFilter="hidden" />);
+    expect(
+      screen.queryByText("New unread since last visit"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("passes lastConnectedAt and initial page size to recent unread head query", async () => {
+    localStorage.setItem("hushletter:lastNewslettersVisit", "1700000000000");
+
+    render(<SenderFolderSidebar {...defaultProps} selectedFilter={null} />);
+
+    await waitFor(() => {
+      const recentCall = mockConvexQuery.mock.calls.find(
+        ([api, args]) =>
+          api === "newsletters.listRecentUnreadNewslettersHead" &&
+          typeof args === "object" &&
+          args !== null &&
+          "numItems" in args,
+      );
+
+      expect(recentCall).toBeDefined();
+      expect(recentCall?.[1]).toMatchObject({
+        lastConnectedAt: 1700000000000,
+        numItems: 8,
+      });
+    });
+  });
+
+  it("triggers infinite loading in recent unread section when sentinel intersects", async () => {
+    localStorage.setItem("hushletter:lastNewslettersVisit", "1700000000000");
+    recentUnreadHeadData = {
+      page: [
+        {
+          _id: "recent-unread-1" as Id<"userNewsletters">,
+          subject: "Unread one",
+          senderEmail: "sender1@example.com",
+          receivedAt: Date.now(),
+          isRead: false,
+          isHidden: false,
+          isPrivate: false,
+        },
+      ],
+      isDone: false,
+      continueCursor: "cursor-1",
+    };
+    mockLoadRecentUnreadPage.mockResolvedValue({
+      page: [],
+      isDone: true,
+      continueCursor: null,
+    });
+
+    render(<SenderFolderSidebar {...defaultProps} selectedFilter={null} />);
+
+    await waitFor(() => {
+      expect(mockObserverInstances.length).toBeGreaterThan(0);
+      expect(mockObserverInstances[0]?.observe).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      for (const observer of mockObserverInstances) {
+        observer.callback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          observer as unknown as IntersectionObserver,
+        );
+      }
+    });
+
+    await waitFor(() => {
+      expect(mockLoadRecentUnreadPage).toHaveBeenCalledWith({
+        cursor: "cursor-1",
+        numItems: 20,
+        lastConnectedAt: 1700000000000,
+      });
+    });
   });
 
   it("clears hidden filter when hidden button is clicked while already selected", () => {

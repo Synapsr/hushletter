@@ -54,6 +54,8 @@ describe("newsletters API exports", () => {
   it("should export paginated head queries + page actions (bandwidth optimization)", () => {
     expect(api.newsletters.listAllNewslettersHead).toBeDefined()
     expect(api.newsletters.listAllNewslettersPage).toBeDefined()
+    expect(api.newsletters.listRecentUnreadNewslettersHead).toBeDefined()
+    expect(api.newsletters.listRecentUnreadNewslettersPage).toBeDefined()
     expect(api.newsletters.listUserNewslettersByFolderHead).toBeDefined()
     expect(api.newsletters.listUserNewslettersByFolderPage).toBeDefined()
     expect(api.newsletters.listHiddenNewslettersHead).toBeDefined()

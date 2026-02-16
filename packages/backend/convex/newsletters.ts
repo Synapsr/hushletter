@@ -175,6 +175,15 @@ async function getHiddenFolderIdSet(
   )
 }
 
+function getRecentUnreadWindowStart(lastConnectedAt?: number): number {
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const normalizedLastConnectedAt =
+    typeof lastConnectedAt === "number" && Number.isFinite(lastConnectedAt)
+      ? Math.max(0, Math.min(lastConnectedAt, Date.now()))
+      : 0
+  return Math.max(normalizedLastConnectedAt, sevenDaysAgo)
+}
+
 /**
  * Store newsletter content in R2 and create userNewsletter record
  * Called from emailIngestion HTTP action
@@ -1208,6 +1217,105 @@ export const listAllNewslettersPage = action({
       userId: user._id,
       cursor: args.cursor,
       numItems: args.numItems,
+    })
+  },
+})
+
+export const listRecentUnreadNewslettersHead = query({
+  args: {
+    lastConnectedAt: v.optional(v.number()),
+    numItems: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return { page: [], isDone: true, continueCursor: null }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return { page: [], isDone: true, continueCursor: null }
+
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id)
+    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt)
+
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_isRead_isHidden_receivedAt", (q) =>
+        q
+          .eq("userId", user._id)
+          .eq("isRead", false)
+          .eq("isHidden", false)
+          .gte("receivedAt", windowStart)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems ?? 8, cursor: null })
+
+    const visiblePage = result.page.filter(
+      (n) => !n.folderId || !hiddenFolderIds.has(n.folderId)
+    )
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+
+    return { ...result, page: enriched }
+  },
+})
+
+export const listRecentUnreadNewslettersPageInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    lastConnectedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId)
+    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt)
+
+    const result = await ctx.db
+      .query("userNewsletters")
+      .withIndex("by_userId_isRead_isHidden_receivedAt", (q) =>
+        q
+          .eq("userId", args.userId)
+          .eq("isRead", false)
+          .eq("isHidden", false)
+          .gte("receivedAt", windowStart)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems, cursor: args.cursor })
+
+    const visiblePage = result.page.filter(
+      (n) => !n.folderId || !hiddenFolderIds.has(n.folderId)
+    )
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+
+    return { ...result, page: enriched }
+  },
+})
+
+export const listRecentUnreadNewslettersPage = action({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.optional(v.number()),
+    lastConnectedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<NewsletterListPageResult> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
+      authId: identity.subject,
+    })
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    return await ctx.runQuery(internal.newsletters.listRecentUnreadNewslettersPageInternal, {
+      userId: user._id,
+      cursor: args.cursor,
+      numItems: args.numItems ?? 20,
+      lastConnectedAt: args.lastConnectedAt,
     })
   },
 })

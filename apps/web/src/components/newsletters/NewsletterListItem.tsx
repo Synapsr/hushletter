@@ -2,13 +2,15 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { m } from "@/paraglide/messages.js";
 import type { NewsletterData } from "@/components/NewsletterCard";
-import { Star, LockKeyhole } from "lucide-react";
+import { Star, LockKeyhole, EyeOff } from "lucide-react";
 
 interface NewsletterListItemProps {
   newsletter: NewsletterData;
   isSelected: boolean;
   isFavorited: boolean;
   isFavoritePending: boolean;
+  enableHideAction?: boolean;
+  onHide?: (newsletterId: string) => void;
   onClick: (id: string) => void;
   onToggleFavorite: (newsletterId: string, currentValue: boolean) => Promise<void>;
 }
@@ -42,6 +44,8 @@ export function NewsletterListItem({
   isSelected,
   isFavorited,
   isFavoritePending,
+  enableHideAction = false,
+  onHide,
   onClick,
   onToggleFavorite,
 }: NewsletterListItemProps) {
@@ -61,6 +65,13 @@ export function NewsletterListItem({
       setFavoriteFeedback(m.newsletters_favoriteUpdateFailed());
       setTimeout(() => setFavoriteFeedback(null), 2000);
     }
+  };
+
+  const handleHideClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (newsletter.isHidden) return;
+    onHide?.(newsletter._id);
   };
 
   return (
@@ -108,25 +119,40 @@ export function NewsletterListItem({
             </p>
           )}
         </button>
-        <button
-          type="button"
-          className={cn(
-            "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
-            "text-muted-foreground hover:text-yellow-500 hover:bg-accent",
-            isFavorited && "text-yellow-500",
-            isFavoritePending && "opacity-50 cursor-not-allowed",
+        <div className="flex items-center gap-1">
+          {enableHideAction && !newsletter.isHidden && (
+            <button
+              type="button"
+              className={cn(
+                "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
+                "text-muted-foreground hover:text-foreground hover:bg-accent",
+              )}
+              aria-label={m.newsletters_hide()}
+              onClick={handleHideClick}
+            >
+              <EyeOff className="h-3.5 w-3.5" />
+            </button>
           )}
-          aria-label={
-            isFavorited
-              ? m.newsletters_removeFromFavoritesAria()
-              : m.newsletters_addToFavoritesAria()
-          }
-          aria-pressed={isFavorited}
-          disabled={isFavoritePending}
-          onClick={handleFavoriteClick}
-        >
-          <Star className={cn("h-3.5 w-3.5", isFavorited && "fill-current")} />
-        </button>
+          <button
+            type="button"
+            className={cn(
+              "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
+              "text-muted-foreground hover:text-yellow-500 hover:bg-accent",
+              isFavorited && "text-yellow-500",
+              isFavoritePending && "opacity-50 cursor-not-allowed",
+            )}
+            aria-label={
+              isFavorited
+                ? m.newsletters_removeFromFavoritesAria()
+                : m.newsletters_addToFavoritesAria()
+            }
+            aria-pressed={isFavorited}
+            disabled={isFavoritePending}
+            onClick={handleFavoriteClick}
+          >
+            <Star className={cn("h-3.5 w-3.5", isFavorited && "fill-current")} />
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -379,7 +379,8 @@ describe("SenderFolderSidebar", () => {
     await waitFor(() => {
       const recentCall = mockConvexQuery.mock.calls.find(
         ([api, args]) =>
-          api === "newsletters.listRecentUnreadNewslettersHead" &&
+          (api as unknown as string) ===
+            "newsletters.listRecentUnreadNewslettersHead" &&
           typeof args === "object" &&
           args !== null &&
           "numItems" in args,

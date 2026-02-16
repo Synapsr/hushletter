@@ -341,12 +341,10 @@ function SettingsPage() {
     convexQuery(api.auth.getCurrentUser, {}),
   );
 
-  console.log("data", data);
   const user = data as CurrentUserData;
   const { data: entitlementsData } = useQuery(
     convexQuery(api.entitlements.getEntitlements, {}),
   );
-  console.log("entitlementsData", entitlementsData);
   const entitlements = entitlementsData as
     | {
         isPro?: boolean;

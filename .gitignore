@@ -30,3 +30,9 @@ bun-debug.log*
 
 # Convex
 .convex
+
+# AI development tools (personal)
+_bmad/
+_bmad-output/
+.claude/
+.cursor/

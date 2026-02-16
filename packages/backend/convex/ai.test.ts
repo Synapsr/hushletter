@@ -222,8 +222,8 @@ describe("OpenRouter client configuration (Story 5.1: Task 2)", () => {
     const headers = {
       Authorization: "Bearer ${OPENROUTER_API_KEY}",
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://newsletter-manager.app (required by OpenRouter)",
-      "X-Title": "Newsletter Manager (optional but recommended)",
+      "HTTP-Referer": "https://hushletter.com (required by OpenRouter)",
+      "X-Title": "Hushletter (optional but recommended)",
     }
     expect(headers).toHaveProperty("Authorization")
     expect(headers).toHaveProperty("HTTP-Referer")

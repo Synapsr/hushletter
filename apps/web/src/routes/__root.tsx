@@ -61,6 +61,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
       { rel: "manifest", href: "/site.webmanifest" },
     ],
+    scripts:
+      import.meta.env.NODE_ENV === "production"
+        ? [
+            {
+              src: "https://analytics.teogoulois.com/script.js",
+              "data-website-id": "fa461639-0023-4c01-8219-3cf2b329e827",
+              async: true,
+              defer: true,
+            },
+          ]
+        : [],
   }),
   beforeLoad: async (ctx) => {
     const token = await getAuth();

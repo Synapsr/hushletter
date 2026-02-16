@@ -82,7 +82,7 @@ describe("SummaryPanel", () => {
     mockGenerateSummary.mockReset()
     mockSummaryData.mockReset()
     try {
-      localStorage.removeItem("newsletter-manager:summary-collapsed")
+      localStorage.removeItem("hushletter:summary-collapsed")
     } catch {
       // ignore
     }

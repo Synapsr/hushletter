@@ -9,3 +9,7 @@ node_modules
 **/.output
 **/.vinxi
 **/coverage
+_bmad
+_bmad-output
+.claude
+.cursor

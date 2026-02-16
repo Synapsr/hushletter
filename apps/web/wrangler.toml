@@ -1,5 +1,5 @@
-# Cloudflare Pages configuration for Newsletter Manager
-name = "newsletter-manager"
+# Cloudflare Pages configuration for Hushletter
+name = "hushletter"
 compatibility_date = "2026-01-01"
 
 # Build configuration

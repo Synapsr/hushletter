@@ -1,4 +1,4 @@
-name = "newsletter-manager-email-worker"
+name = "hushletter-email-worker"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 

@@ -1,3 +1,4 @@
+// STUB: Notification preferences UI — backend not yet wired. Save button is a no-op.
 "use client";
 
 import { useState } from "react";

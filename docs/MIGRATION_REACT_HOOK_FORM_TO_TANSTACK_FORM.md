@@ -1,3 +1,5 @@
+> **Historical note:** This migration has been completed. Kept for reference.
+
 ---
 title: Migration Guide — react-hook-form to TanStack Form
 description: Step-by-step guide to migrate React forms from react-hook-form to @tanstack/react-form with Zod validation.

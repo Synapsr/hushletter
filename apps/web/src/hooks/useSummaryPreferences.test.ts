@@ -79,7 +79,7 @@ describe("useSummaryPreferences", () => {
     })
 
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      "newsletter-manager:summary-collapsed",
+      "hushletter:summary-collapsed",
       "true"
     )
     expect(result.current.isCollapsed).toBe(true)
@@ -91,7 +91,7 @@ describe("useSummaryPreferences", () => {
     renderHook(() => useSummaryPreferences())
 
     expect(localStorageMock.getItem).toHaveBeenCalledWith(
-      "newsletter-manager:summary-collapsed"
+      "hushletter:summary-collapsed"
     )
   })
 
@@ -122,7 +122,7 @@ describe("useSummaryPreferences", () => {
     })
 
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      "newsletter-manager:summary-collapsed",
+      "hushletter:summary-collapsed",
       "false"
     )
   })
@@ -155,7 +155,7 @@ describe("useSummaryPreferences", () => {
 
     // Key should follow project's namespacing pattern
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      expect.stringMatching(/^newsletter-manager:/),
+      expect.stringMatching(/^hushletter:/),
       expect.any(String)
     )
   })

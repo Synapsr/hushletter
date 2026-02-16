@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react"
 
 /** Storage key for summary collapse preference */
-const STORAGE_KEY = "newsletter-manager:summary-collapsed"
+const STORAGE_KEY = "hushletter:summary-collapsed"
 
 interface UseSummaryPreferencesReturn {
   /** Whether the summary panel should be collapsed */

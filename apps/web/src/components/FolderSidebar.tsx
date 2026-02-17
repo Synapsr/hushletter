@@ -20,6 +20,11 @@ export interface FolderData {
   _id: string;
   userId: string;
   name: string;
+  senderEmail?: string;
+  senderPreviews?: Array<{
+    senderEmail: string;
+    senderName?: string;
+  }>;
   color?: string;
   isHidden: boolean;
   createdAt: number;

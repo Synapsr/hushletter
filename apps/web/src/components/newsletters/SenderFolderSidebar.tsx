@@ -23,6 +23,14 @@ import {
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import { EyeOff, AlertCircle, Trash2 } from "lucide-react";
+import {
+  Reorder,
+  useDragControls,
+  useMotionValue,
+  useVelocity,
+  useTransform,
+  animate,
+} from "motion/react";
 import { SenderFolderItem } from "./SenderFolderItem";
 import { NewsletterListItem } from "./NewsletterListItem";
 import type { FolderData } from "@/components/FolderSidebar";
@@ -80,6 +88,14 @@ function isFolderData(item: unknown): item is FolderData {
   );
 }
 
+function areFolderOrdersEqual(a: readonly string[], b: readonly string[]) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 function SidebarSkeleton() {
   return (
     <div className="p-3 space-y-2">
@@ -104,6 +120,123 @@ function SidebarSkeleton() {
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * Draggable wrapper for SenderFolderItem using Motion's Reorder.Item.
+ * The folder avatar acts as the drag handle. Applies spring + tilt physics:
+ * velocity-based rotateZ tilt, scale lift, and elevated shadow while dragging.
+ *
+ * Key design decisions:
+ * - Keep `layout="position"` on for stable pointer tracking.
+ * - Use a spring layout transition only while actively reordering; when not
+ *   dragging, layout transition duration is 0 so expand/collapse doesn't cause
+ *   springy sibling shifts.
+ * - Shadow & scale via CSS transition (not motion's `whileDrag`) so they
+ *   revert instantly and predictably when the drag ends.
+ * - Tilt via motion values (useVelocity → useTransform) for 60 fps
+ *   velocity-tracking without React re-renders. Spring-animated back to 0
+ *   on drag end for follow-through.
+ */
+function DraggableFolderItem({
+  folder,
+  onDragStart,
+  onDragEnd,
+  isReordering = false,
+  ...folderItemProps
+}: Omit<
+  React.ComponentProps<typeof SenderFolderItem>,
+  "folder" | "dragControls"
+> & {
+  folder: FolderData;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  isReordering?: boolean;
+}) {
+  const dragControls = useDragControls();
+  const [isDragging, setIsDragging] = useState(false);
+  const suppressClickAfterDragRef = useRef(false);
+  const clearSuppressClickTimeoutRef = useRef<number | null>(null);
+
+  // Velocity-based tilt: track cumulative drag offset → derive velocity → map to degrees
+  const dragY = useMotionValue(0);
+  const dragVelocity = useVelocity(dragY);
+  const tilt = useTransform(dragVelocity, [-800, 0, 800], [-3, 0, 3], {
+    clamp: true,
+  });
+
+  useEffect(() => {
+    return () => {
+      if (clearSuppressClickTimeoutRef.current !== null) {
+        clearTimeout(clearSuppressClickTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <Reorder.Item
+      value={folder._id}
+      as="div"
+      layout="position"
+      drag="y"
+      dragSnapToOrigin
+      transition={
+        isReordering
+          ? {
+              layout: {
+                type: "spring",
+                stiffness: 520,
+                damping: 42,
+                mass: 0.5,
+              },
+            }
+          : { layout: { duration: 0 } }
+      }
+      dragControls={dragControls}
+      dragListener={false}
+      dragMomentum={false}
+      style={{ rotateZ: tilt }}
+      onDrag={(_: PointerEvent, info: { offset: { y: number } }) =>
+        dragY.set(info.offset.y)
+      }
+      onDragStart={() => {
+        if (clearSuppressClickTimeoutRef.current !== null) {
+          clearTimeout(clearSuppressClickTimeoutRef.current);
+          clearSuppressClickTimeoutRef.current = null;
+        }
+        suppressClickAfterDragRef.current = true;
+        setIsDragging(true);
+        onDragStart?.();
+      }}
+      onDragEnd={() => {
+        setIsDragging(false);
+        clearSuppressClickTimeoutRef.current = window.setTimeout(() => {
+          suppressClickAfterDragRef.current = false;
+          clearSuppressClickTimeoutRef.current = null;
+        }, 180);
+        // Spring tilt back to 0 for follow-through
+        animate(dragY, 0, { type: "spring", stiffness: 300, damping: 20 });
+        onDragEnd?.();
+      }}
+      onClickCapture={(event) => {
+        if (!suppressClickAfterDragRef.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      className={cn(
+        "relative rounded-lg transition-shadow duration-150 ease-out",
+        isDragging
+          ? "z-50 scale-[1.015] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+          : "z-0 scale-100 shadow-none",
+      )}
+    >
+      <SenderFolderItem
+        folder={folder}
+        dragControls={dragControls}
+        {...folderItemProps}
+      />
+    </Reorder.Item>
   );
 }
 
@@ -157,9 +290,16 @@ export function SenderFolderSidebar({
     api.newsletters.listRecentUnreadNewslettersPage,
   );
   const markNewsletterRead = useMutation(api.newsletters.markNewsletterRead);
-  const markNewsletterUnread = useMutation(api.newsletters.markNewsletterUnread);
+  const markNewsletterUnread = useMutation(
+    api.newsletters.markNewsletterUnread,
+  );
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
   const binNewsletter = useMutation((api.newsletters as any).binNewsletter);
+  const reorderFoldersMutation = useMutation(api.folders.reorderFolders);
+  const [localFolderOrderIds, setLocalFolderOrderIds] = useState<string[]>([]);
+  const isDraggingRef = useRef(false);
+  const [isReordering, setIsReordering] = useState(false);
+  const lastPersistedFolderOrderIdsRef = useRef<string[]>([]);
 
   const {
     data: folders,
@@ -230,13 +370,88 @@ export function SenderFolderSidebar({
     });
   }, [folderList]);
 
-  // Filter folders based on sidebar tab
-  const filteredFolders = useMemo(() => {
+  const serverFolderOrderIds = useMemo(
+    () => folderList.map((folder) => folder._id),
+    [folderList],
+  );
+
+  const visibleFolderIdSet = useMemo(
+    () => new Set(serverFolderOrderIds),
+    [serverFolderOrderIds],
+  );
+
+  const folderById = useMemo(
+    () => new Map(folderList.map((folder) => [folder._id, folder])),
+    [folderList],
+  );
+
+  // Sync local drag order from server data when not mid-drag
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    setLocalFolderOrderIds((previous) => {
+      if (previous.length === 0) return serverFolderOrderIds;
+
+      const retainedIds = previous.filter((id) => visibleFolderIdSet.has(id));
+      const retainedIdSet = new Set(retainedIds);
+      const newIds = serverFolderOrderIds.filter(
+        (id) => !retainedIdSet.has(id),
+      );
+      const next = [...retainedIds, ...newIds];
+      return areFolderOrdersEqual(previous, next) ? previous : next;
+    });
+    lastPersistedFolderOrderIdsRef.current = serverFolderOrderIds;
+  }, [serverFolderOrderIds, visibleFolderIdSet]);
+
+  const orderedFolders = useMemo(() => {
+    if (localFolderOrderIds.length === 0) return folderList;
+
+    const ordered = localFolderOrderIds
+      .map((id) => folderById.get(id))
+      .filter((folder): folder is FolderData => folder !== undefined);
+
+    return ordered.length > 0 ? ordered : folderList;
+  }, [localFolderOrderIds, folderById, folderList]);
+
+  const visibleFolders = useMemo(() => {
     if (sidebarFilter === "unread") {
-      return folderList.filter((f) => f.unreadCount > 0);
+      return orderedFolders.filter((folder) => folder.unreadCount > 0);
     }
-    return folderList;
-  }, [folderList, sidebarFilter]);
+    return orderedFolders;
+  }, [orderedFolders, sidebarFilter]);
+
+  const canReorderFolders = sidebarFilter === "all";
+
+  const handleFolderDragStart = useCallback(() => {
+    setIsReordering(true);
+    isDraggingRef.current = true;
+  }, []);
+
+  const handleFolderReorder = useCallback((nextIds: string[]) => {
+    setLocalFolderOrderIds((previous) =>
+      areFolderOrdersEqual(previous, nextIds) ? previous : nextIds,
+    );
+  }, []);
+
+  const handleFolderDragEnd = useCallback(() => {
+    setIsReordering(false);
+    isDraggingRef.current = false;
+
+    const reorderedIds = localFolderOrderIds.filter((id) =>
+      visibleFolderIdSet.has(id),
+    );
+    if (reorderedIds.length === 0) return;
+
+    if (
+      areFolderOrdersEqual(reorderedIds, lastPersistedFolderOrderIdsRef.current)
+    ) {
+      return;
+    }
+
+    lastPersistedFolderOrderIdsRef.current = reorderedIds;
+    void reorderFoldersMutation({
+      orderedFolderIds: reorderedIds as Id<"folders">[],
+    });
+  }, [localFolderOrderIds, reorderFoldersMutation, visibleFolderIdSet]);
 
   const visibleFavoritedNewsletters = useMemo(
     () =>
@@ -676,7 +891,9 @@ export function SenderFolderSidebar({
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>{m.common_cancel()}</AlertDialogCancel>
+                          <AlertDialogCancel>
+                            {m.common_cancel()}
+                          </AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => {
                               void onEmptyBin();
@@ -767,42 +984,86 @@ export function SenderFolderSidebar({
             )
           ) : foldersPending ? (
             <SidebarSkeleton />
-          ) : filteredFolders.length === 0 ? (
+          ) : visibleFolders.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-8 px-4">
               {sidebarFilter === "unread"
                 ? "All caught up!"
                 : m.folder_emptyState()}
             </p>
-          ) : (
-            filteredFolders.map((folder) => (
-              <SenderFolderItem
-                key={folder._id}
-                folder={folder}
-                isSelected={effectiveSelectedFolderId === folder._id}
-                selectedNewsletterId={selectedNewsletterId}
-                sidebarFilter={sidebarFilter}
-                isExpanded={expandedFolderIds.has(folder._id)}
-                onExpandedChange={(expanded) =>
-                  handleFolderExpandedChange(folder._id, expanded)
-                }
-                onFolderSelect={(id) => {
-                  onFilterSelect(null);
-                  onFolderSelect(id);
-                }}
-                onNewsletterSelect={onNewsletterSelect}
-                getIsFavorited={getIsFavorited}
-                isFavoritePending={isFavoritePending}
-                onToggleFavorite={onToggleFavorite}
-                onToggleRead={handleToggleRead}
-                onArchive={handleArchive}
-                onBin={handleMoveToBin}
-                onHideSuccess={() => {
-                  if (selectedFolderId === folder._id) {
-                    onFolderSelect(null);
+          ) : !canReorderFolders ? (
+            <div className="space-y-0.5">
+              {visibleFolders.map((folder) => (
+                <SenderFolderItem
+                  key={folder._id}
+                  folder={folder}
+                  isSelected={effectiveSelectedFolderId === folder._id}
+                  selectedNewsletterId={selectedNewsletterId}
+                  sidebarFilter={sidebarFilter}
+                  isExpanded={expandedFolderIds.has(folder._id)}
+                  onExpandedChange={(expanded) =>
+                    handleFolderExpandedChange(folder._id, expanded)
                   }
-                }}
-              />
-            ))
+                  onFolderSelect={(id) => {
+                    onFilterSelect(null);
+                    onFolderSelect(id);
+                  }}
+                  onNewsletterSelect={onNewsletterSelect}
+                  getIsFavorited={getIsFavorited}
+                  isFavoritePending={isFavoritePending}
+                  onToggleFavorite={onToggleFavorite}
+                  onToggleRead={handleToggleRead}
+                  onArchive={handleArchive}
+                  onBin={handleMoveToBin}
+                  onHideSuccess={() => {
+                    if (selectedFolderId === folder._id) {
+                      onFolderSelect(null);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <Reorder.Group
+              axis="y"
+              as="div"
+              layoutScroll
+              values={localFolderOrderIds}
+              onReorder={handleFolderReorder}
+              className="space-y-0.5"
+            >
+              {visibleFolders.map((folder) => (
+                <DraggableFolderItem
+                  key={folder._id}
+                  folder={folder}
+                  isReordering={isReordering}
+                  isSelected={effectiveSelectedFolderId === folder._id}
+                  selectedNewsletterId={selectedNewsletterId}
+                  sidebarFilter={sidebarFilter}
+                  isExpanded={expandedFolderIds.has(folder._id)}
+                  onExpandedChange={(expanded) =>
+                    handleFolderExpandedChange(folder._id, expanded)
+                  }
+                  onFolderSelect={(id) => {
+                    onFilterSelect(null);
+                    onFolderSelect(id);
+                  }}
+                  onNewsletterSelect={onNewsletterSelect}
+                  getIsFavorited={getIsFavorited}
+                  isFavoritePending={isFavoritePending}
+                  onToggleFavorite={onToggleFavorite}
+                  onToggleRead={handleToggleRead}
+                  onArchive={handleArchive}
+                  onBin={handleMoveToBin}
+                  onHideSuccess={() => {
+                    if (selectedFolderId === folder._id) {
+                      onFolderSelect(null);
+                    }
+                  }}
+                  onDragStart={handleFolderDragStart}
+                  onDragEnd={handleFolderDragEnd}
+                />
+              ))}
+            </Reorder.Group>
           )}
 
           {/* Hidden section */}
@@ -841,7 +1102,9 @@ export function SenderFolderSidebar({
                 <div className="h-px bg-border my-2 mx-2" role="separator" />
                 <button
                   onClick={handleBinClick}
-                  aria-current={selectedFilter === FILTER_BIN ? "page" : undefined}
+                  aria-current={
+                    selectedFilter === FILTER_BIN ? "page" : undefined
+                  }
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
                     "hover:bg-accent transition-colors text-left",
@@ -853,9 +1116,7 @@ export function SenderFolderSidebar({
                       className="h-4 w-4 flex-shrink-0 text-muted-foreground"
                       aria-hidden="true"
                     />
-                    <span className="truncate">
-                      {m.bin_label?.() ?? "Bin"}
-                    </span>
+                    <span className="truncate">{m.bin_label?.() ?? "Bin"}</span>
                   </div>
                   <span className="text-muted-foreground text-xs flex-shrink-0">
                     {binnedCount ?? visibleBinnedNewsletters.length}

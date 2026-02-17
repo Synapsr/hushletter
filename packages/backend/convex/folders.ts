@@ -241,6 +241,8 @@ export const listFoldersWithUnreadCounts = query({
  * - newsletterCount: total non-hidden newsletters from senders in folder
  * - unreadCount: unread (non-hidden) newsletters from senders in folder
  * - senderCount: number of senders assigned to folder
+ * - senderEmail: representative sender email (latest newsletter in folder)
+ * - senderPreviews: up to 3 latest distinct senders for avatar groups
  *
  * Performance: Uses batch fetching to avoid N+1 query problem.
  * Fetches all user data once, then computes counts in memory.
@@ -283,6 +285,10 @@ export const listVisibleFoldersWithUnreadCounts = query({
       string,
       { total: number; unread: number }
     >()
+    const latestNewsletterBySender = new Map<
+      string,
+      { receivedAt: number; senderEmail: string; senderName?: string }
+    >()
     for (const newsletter of allNewsletters) {
       // Skip hidden newsletters - they don't count toward folder totals
       if (newsletter.isHidden) continue
@@ -295,6 +301,15 @@ export const listVisibleFoldersWithUnreadCounts = query({
       current.total++
       if (!newsletter.isRead) current.unread++
       newsletterCountsBySender.set(senderId, current)
+
+      const currentLatest = latestNewsletterBySender.get(senderId)
+      if (!currentLatest || newsletter.receivedAt > currentLatest.receivedAt) {
+        latestNewsletterBySender.set(senderId, {
+          receivedAt: newsletter.receivedAt,
+          senderEmail: newsletter.senderEmail,
+          senderName: newsletter.senderName,
+        })
+      }
     }
 
     // Compute folder stats by iterating through settings
@@ -305,6 +320,24 @@ export const listVisibleFoldersWithUnreadCounts = query({
 
       let newsletterCount = 0
       let unreadCount = 0
+      const senderPreviews = folderSettings
+        .map((setting) => latestNewsletterBySender.get(setting.senderId))
+        .filter(
+          (
+            preview
+          ): preview is {
+            receivedAt: number
+            senderEmail: string
+            senderName?: string
+          } => Boolean(preview)
+        )
+        .sort((a, b) => b.receivedAt - a.receivedAt)
+        .slice(0, 3)
+        .map((preview) => ({
+          senderEmail: preview.senderEmail,
+          senderName: preview.senderName,
+        }))
+
       for (const setting of folderSettings) {
         const counts = newsletterCountsBySender.get(setting.senderId) ?? {
           total: 0,
@@ -319,11 +352,18 @@ export const listVisibleFoldersWithUnreadCounts = query({
         newsletterCount,
         unreadCount,
         senderCount: folderSettings.length,
+        senderEmail: senderPreviews[0]?.senderEmail,
+        senderPreviews,
       }
     })
 
-    // Sort by folder name alphabetically
-    return foldersWithCounts.sort((a, b) => a.name.localeCompare(b.name))
+    // Sort by user-defined order (drag-to-reorder), fallback to alphabetical
+    return foldersWithCounts.sort((a, b) => {
+      const aOrder = a.sortOrder ?? Number.MAX_SAFE_INTEGER
+      const bOrder = b.sortOrder ?? Number.MAX_SAFE_INTEGER
+      if (aOrder !== bOrder) return aOrder - bOrder
+      return a.name.localeCompare(b.name)
+    })
   },
 })
 
@@ -411,6 +451,41 @@ export const getFolderWithSenders = query({
     return {
       ...folder,
       senders: filteredSenders,
+    }
+  },
+})
+
+/**
+ * Persist the user's custom folder order after drag-to-reorder.
+ * Accepts the full ordered list of folder IDs and writes a sequential
+ * sortOrder value to each one.
+ */
+export const reorderFolders = mutation({
+  args: { orderedFolderIds: v.array(v.id("folders")) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    const now = Date.now()
+    for (let i = 0; i < args.orderedFolderIds.length; i++) {
+      const folder = await ctx.db.get(args.orderedFolderIds[i])
+      if (!folder || folder.userId !== user._id) continue
+      if (folder.sortOrder === i) continue
+      await ctx.db.patch(args.orderedFolderIds[i], {
+        sortOrder: i,
+        updatedAt: now,
+      })
     }
   },
 })

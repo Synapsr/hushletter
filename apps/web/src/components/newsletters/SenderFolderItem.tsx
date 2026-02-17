@@ -13,14 +13,15 @@ import {
   Button,
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
-import { ChevronRight } from "lucide-react";
 import { NewsletterListItem } from "./NewsletterListItem";
-import { SenderAvatar } from "./SenderAvatar";
+import { SenderAvatar, SenderAvatarGroup } from "./SenderAvatar";
 import { FolderActionsDropdown } from "@/components/FolderActionsDropdown";
 import type { FolderData } from "@/components/FolderSidebar";
 import type { NewsletterData } from "@/components/NewsletterCard";
 import { m } from "@/paraglide/messages.js";
-import { ChevronDownIcon, ChevronRightIcon } from "@hushletter/ui";
+import { ChevronRightIcon } from "@hushletter/ui";
+import type { DragControls } from "motion/react";
+
 interface SenderFolderItemProps {
   folder: FolderData;
   isSelected: boolean;
@@ -36,13 +37,11 @@ interface SenderFolderItemProps {
     newsletterId: string,
     currentValue: boolean,
   ) => Promise<void>;
-  onToggleRead: (
-    newsletterId: string,
-    currentValue: boolean,
-  ) => Promise<void>;
+  onToggleRead: (newsletterId: string, currentValue: boolean) => Promise<void>;
   onArchive: (newsletterId: string) => Promise<void>;
   onBin: (newsletterId: string) => Promise<void>;
   onHideSuccess: () => void;
+  dragControls?: DragControls;
 }
 
 /**
@@ -65,6 +64,7 @@ export function SenderFolderItem({
   onArchive,
   onBin,
   onHideSuccess,
+  dragControls,
 }: SenderFolderItemProps) {
   const folderId = folder._id as Id<"folders">;
 
@@ -107,6 +107,28 @@ export function SenderFolderItem({
     const data = head as unknown as { page?: NewsletterData[] } | undefined;
     return (data?.page ?? []) as NewsletterData[];
   }, [head]);
+
+  const senderPreviews = useMemo(() => {
+    if (folder.senderPreviews && folder.senderPreviews.length > 0) {
+      return folder.senderPreviews;
+    }
+
+    const deduped = new Map<
+      string,
+      { senderEmail: string; senderName?: string }
+    >();
+    for (const newsletter of headPage) {
+      if (!newsletter.senderEmail || deduped.has(newsletter.senderEmail))
+        continue;
+      deduped.set(newsletter.senderEmail, {
+        senderEmail: newsletter.senderEmail,
+        senderName: newsletter.senderName,
+      });
+      if (deduped.size >= 3) break;
+    }
+
+    return [...deduped.values()];
+  }, [folder.senderPreviews, headPage]);
 
   const mergedNewsletters = useMemo(() => {
     const merged: NewsletterData[] = [];
@@ -159,8 +181,78 @@ export function SenderFolderItem({
           isSelected && "bg-hover",
         )}
       >
+        <button
+          type="button"
+          onClick={handleFolderSelect}
+          aria-current={isSelected ? "page" : undefined}
+          className="flex items-center gap-2 flex-1 px-1 py-2 min-w-0 text-left"
+        >
+          <span
+            onPointerDown={(e) => {
+              if (!dragControls) return;
+              e.preventDefault();
+              e.stopPropagation();
+              dragControls.start(e);
+            }}
+            onClick={(e) => {
+              if (!dragControls) return;
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className={cn(
+              "shrink-0",
+              dragControls &&
+                "select-none cursor-grab active:cursor-grabbing touch-none relative",
+            )}
+          >
+            {senderPreviews.length > 1 ? (
+              <SenderAvatarGroup
+                senders={senderPreviews}
+                className={cn(folder.unreadCount ? "" : "*:border")}
+              />
+            ) : (
+              <SenderAvatar
+                className={cn(folder.unreadCount ? "" : "border")}
+                senderName={folder.name}
+                senderEmail={
+                  senderPreviews[0]?.senderEmail ??
+                  folder.senderEmail ??
+                  headPage[0]?.senderEmail ??
+                  folder.name
+                }
+              />
+            )}
+            {folder.unreadCount > 0 && (
+              <Badge
+                variant="default"
+                className="!size-4 p-0 shrink-0 text-[10px] absolute -top-1  -right-1 font-medium  opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                {folder.unreadCount}
+              </Badge>
+            )}
+          </span>
+          <span
+            className={cn(
+              "text-sm truncate font-medium",
+              folder.unreadCount > 0 || isExpanded
+                ? "text-primary"
+                : "text-muted-foreground/70",
+            )}
+          >
+            {folder.name}
+          </span>
+        </button>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <FolderActionsDropdown
+            folderId={folder._id}
+            folderName={folder.name}
+            onHideSuccess={onHideSuccess}
+          />
+        </div>
+
         <CollapsibleTrigger
-          className="flex items-center justify-center h-8 w-8 shrink-0 rounded-md hover:bg-accent/60 transition-colors"
+          className="flex items-center justify-center size-8 shrink-0 rounded-md hover:bg-accent/60 transition-colors"
           aria-label={
             isExpanded
               ? m.sidebar_collapseFolder({ folderName: folder.name })
@@ -171,47 +263,13 @@ export function SenderFolderItem({
             className={cn(
               "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ease-in-out duration-150",
               "stroke-[2.5px]",
+              folder.unreadCount > 0 || isExpanded
+                ? "text-primary"
+                : "text-muted-foreground/70",
               isExpanded && "rotate-90",
             )}
           />
         </CollapsibleTrigger>
-
-        <button
-          type="button"
-          onClick={handleFolderSelect}
-          aria-current={isSelected ? "page" : undefined}
-          className="flex items-center gap-2 flex-1 px-1 py-2 min-w-0 text-left"
-        >
-          <SenderAvatar
-            senderName={folder.name}
-            senderEmail={folder.name}
-            size="sm"
-          />
-          <span
-            className={cn(
-              "text-sm truncate font-medium",
-              folder.unreadCount === 0 && "text-muted-foreground",
-            )}
-          >
-            {folder.name}
-          </span>
-        </button>
-
-        <div className="flex items-center gap-1 pr-2 shrink-0">
-          {folder.unreadCount > 0 && (
-            <Badge
-              variant="default"
-              className="h-5 min-w-5 px-1.5 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              {folder.unreadCount}
-            </Badge>
-          )}
-          <FolderActionsDropdown
-            folderId={folder._id}
-            folderName={folder.name}
-            onHideSuccess={onHideSuccess}
-          />
-        </div>
       </div>
 
       <CollapsiblePanel

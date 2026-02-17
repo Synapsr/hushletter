@@ -212,6 +212,7 @@ export default defineSchema({
     name: v.string(),
     color: v.optional(v.string()), // Optional color for UI
     isHidden: v.boolean(), // Story 9.1: For folder hiding feature
+    sortOrder: v.optional(v.number()), // Drag-to-reorder position
     createdAt: v.number(), // Unix timestamp ms
     updatedAt: v.number(), // Story 9.1: For folder modification tracking
   }).index("by_userId", ["userId"]),

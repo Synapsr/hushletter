@@ -273,8 +273,7 @@ export function InlineReaderPane({
   return (
     <div
       ref={paneRef}
-      className="flex-1 flex flex-col overflow-hidden min-w-0 relative"
-      style={{ backgroundColor: paneBackgroundColor }}
+      className="flex-1 flex flex-col overflow-hidden min-w-0 relative bg-background"
     >
       <ReaderActionBar
         senderName={senderDisplay}

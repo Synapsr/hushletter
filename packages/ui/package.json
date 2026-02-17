@@ -26,8 +26,11 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
+    "@iconify-json/solar": "^1.2.5",
+    "@mynaui/icons-react": "^0.4.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "install": "^0.13.0",
     "lucide-react": "^0.563.0",
     "shadcn": "^3.6.2",
     "tailwind-merge": "^3.4.0",

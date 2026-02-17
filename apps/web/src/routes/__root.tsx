@@ -62,7 +62,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { rel: "manifest", href: "/site.webmanifest" },
     ],
     scripts:
-      import.meta.env.NODE_ENV === "production"
+      import.meta.env.PROD
         ? [
             {
               src: "https://analytics.teogoulois.com/script.js",

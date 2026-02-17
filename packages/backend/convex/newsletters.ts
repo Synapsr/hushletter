@@ -35,6 +35,7 @@ type NewsletterListItem = {
   receivedAt: number
   isRead: boolean
   isHidden: boolean
+  isBinned?: boolean
   isPrivate: boolean
   isLockedByPlan: boolean
   readProgress?: number
@@ -58,6 +59,7 @@ function toNewsletterListItem(
 	    receivedAt: number
 	    isRead: boolean
 	    isHidden: boolean
+	    isBinned?: boolean
 	    isPrivate: boolean
 	    isLockedByPlan?: boolean
 	    readProgress?: number
@@ -74,6 +76,7 @@ function toNewsletterListItem(
 	    receivedAt: newsletter.receivedAt,
 	    isRead: newsletter.isRead,
 	    isHidden: newsletter.isHidden,
+	    isBinned: newsletter.isBinned,
 	    isPrivate: newsletter.isPrivate,
 	    isLockedByPlan: Boolean(newsletter.isLockedByPlan),
 	    readProgress: newsletter.readProgress,
@@ -572,6 +575,7 @@ export const createUserNewsletter = internalMutation({
       receivedAt: args.receivedAt,
       isRead: false,
       isHidden: false,
+      isBinned: false,
       isFavorited: false,
       isPrivate: args.isPrivate,
       isLockedByPlan: args.isLockedByPlan ?? false,
@@ -587,6 +591,7 @@ export const createUserNewsletter = internalMutation({
       senderName: args.senderName,
       receivedAt: args.receivedAt,
       isHidden: false,
+      isBinned: false,
       isRead: false,
       isLockedByPlan: args.isLockedByPlan ?? false,
     })
@@ -857,7 +862,10 @@ export const listUserNewsletters = query({
     // Story 3.5 AC2: Exclude hidden newsletters from main list
     // Story 9.5 AC6: Exclude newsletters in hidden folders from "All Newsletters"
     const visibleNewsletters = newsletters.filter(
-      (n) => !n.isHidden && (!n.folderId || !hiddenFolderIds.has(n.folderId))
+      (n) =>
+        !n.isHidden &&
+        !n.isBinned &&
+        (!n.folderId || !hiddenFolderIds.has(n.folderId))
     )
 
     // Story 5.2: Derive hasSummary for each newsletter
@@ -932,7 +940,7 @@ export const listUserNewslettersBySender = query({
 
       // Story 3.5 AC2: Exclude hidden newsletters, then sort by receivedAt descending
       visibleNewsletters = newsletters
-        .filter((n) => !n.isHidden)
+        .filter((n) => !n.isHidden && !n.isBinned)
         .sort((a, b) => b.receivedAt - a.receivedAt)
     } else {
       // No filter - return all non-hidden (existing behavior using proper index)
@@ -943,7 +951,7 @@ export const listUserNewslettersBySender = query({
         .collect()
 
       // Story 3.5 AC2: Exclude hidden newsletters
-      visibleNewsletters = newsletters.filter((n) => !n.isHidden)
+      visibleNewsletters = newsletters.filter((n) => !n.isHidden && !n.isBinned)
     }
 
     // Story 5.2: Derive hasSummary for each newsletter
@@ -1025,7 +1033,9 @@ export const listUserNewslettersByFolder = query({
       .collect()
 
     // Story 3.5 AC2: Exclude hidden newsletters
-    const filteredNewsletters = newslettersInFolder.filter((n) => !n.isHidden)
+    const filteredNewsletters = newslettersInFolder.filter(
+      (n) => !n.isHidden && !n.isBinned
+    )
 
     // Story 5.2: Batch-fetch contentIds to avoid N+1 queries (code review fix)
     const contentIds = filteredNewsletters
@@ -1082,7 +1092,7 @@ export const listUserNewslettersByFolderHead = query({
       .order("desc")
       .paginate({ numItems: args.numItems ?? 20, cursor: null })
 
-    const visiblePage = result.page.filter((n) => !n.isHidden)
+    const visiblePage = result.page.filter((n) => !n.isHidden && !n.isBinned)
     const enriched = await enrichNewsletterListItems(ctx, visiblePage)
 
     return { ...result, page: enriched }
@@ -1105,7 +1115,7 @@ export const listUserNewslettersByFolderPageInternal = internalQuery({
       .order("desc")
       .paginate({ numItems: args.numItems, cursor: args.cursor })
 
-    const visiblePage = result.page.filter((n) => !n.isHidden)
+    const visiblePage = result.page.filter((n) => !n.isHidden && !n.isBinned)
     const enriched = await enrichNewsletterListItems(ctx, visiblePage)
 
     return { ...result, page: enriched }
@@ -1163,7 +1173,10 @@ export const listAllNewslettersHead = query({
       .paginate({ numItems: args.numItems ?? 30, cursor: null })
 
     const visiblePage = result.page.filter(
-      (n) => !n.isHidden && (!n.folderId || !hiddenFolderIds.has(n.folderId))
+      (n) =>
+        !n.isHidden &&
+        !n.isBinned &&
+        (!n.folderId || !hiddenFolderIds.has(n.folderId))
     )
     const enriched = await enrichNewsletterListItems(ctx, visiblePage)
 
@@ -1187,7 +1200,10 @@ export const listAllNewslettersPageInternal = internalQuery({
       .paginate({ numItems: args.numItems, cursor: args.cursor })
 
     const visiblePage = result.page.filter(
-      (n) => !n.isHidden && (!n.folderId || !hiddenFolderIds.has(n.folderId))
+      (n) =>
+        !n.isHidden &&
+        !n.isBinned &&
+        (!n.folderId || !hiddenFolderIds.has(n.folderId))
     )
     const enriched = await enrichNewsletterListItems(ctx, visiblePage)
 
@@ -1252,7 +1268,7 @@ export const listRecentUnreadNewslettersHead = query({
       .paginate({ numItems: args.numItems ?? 8, cursor: null })
 
     const visiblePage = result.page.filter(
-      (n) => !n.folderId || !hiddenFolderIds.has(n.folderId)
+      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId))
     )
     const enriched = await enrichNewsletterListItems(ctx, visiblePage)
 
@@ -1284,7 +1300,7 @@ export const listRecentUnreadNewslettersPageInternal = internalQuery({
       .paginate({ numItems: args.numItems, cursor: args.cursor })
 
     const visiblePage = result.page.filter(
-      (n) => !n.folderId || !hiddenFolderIds.has(n.folderId)
+      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId))
     )
     const enriched = await enrichNewsletterListItems(ctx, visiblePage)
 
@@ -1424,6 +1440,7 @@ export const setReadProgress = mutation({
 	          senderName: userNewsletter.senderName,
 	          receivedAt: userNewsletter.receivedAt,
 	          isHidden: userNewsletter.isHidden,
+	          isBinned: Boolean(userNewsletter.isBinned),
 	          isRead: true,
 	          isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
 	        })
@@ -1486,6 +1503,7 @@ export const markNewsletterRead = mutation({
 	        senderName: userNewsletter.senderName,
 	        receivedAt: userNewsletter.receivedAt,
 	        isHidden: userNewsletter.isHidden,
+	        isBinned: Boolean(userNewsletter.isBinned),
 	        isRead: true,
 	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
 	      })
@@ -1538,6 +1556,7 @@ export const markNewsletterUnread = mutation({
 	        senderName: userNewsletter.senderName,
 	        receivedAt: userNewsletter.receivedAt,
 	        isHidden: userNewsletter.isHidden,
+	        isBinned: Boolean(userNewsletter.isBinned),
 	        isRead: false,
 	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
 	      })
@@ -1598,6 +1617,7 @@ export const updateNewsletterReadProgress = mutation({
 	          senderName: userNewsletter.senderName,
 	          receivedAt: userNewsletter.receivedAt,
 	          isHidden: userNewsletter.isHidden,
+	          isBinned: Boolean(userNewsletter.isBinned),
 	          isRead: true,
 	          isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
 	        })
@@ -1650,6 +1670,7 @@ export const hideNewsletter = mutation({
 	        senderName: userNewsletter.senderName,
 	        receivedAt: userNewsletter.receivedAt,
 	        isHidden: true,
+	        isBinned: Boolean(userNewsletter.isBinned),
 	        isRead: userNewsletter.isRead,
 	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
 	      })
@@ -1701,11 +1722,65 @@ export const unhideNewsletter = mutation({
 	        senderName: userNewsletter.senderName,
 	        receivedAt: userNewsletter.receivedAt,
 	        isHidden: false,
+	        isBinned: Boolean(userNewsletter.isBinned),
 	        isRead: userNewsletter.isRead,
 	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
 	      })
     } else if (searchMeta.isHidden) {
       await ctx.db.patch(searchMeta._id, { isHidden: false })
+    }
+  },
+})
+
+/**
+ * Move newsletter to bin (soft delete).
+ * Binned newsletters are excluded from regular list queries and can be emptied later.
+ */
+export const binNewsletter = mutation({
+  args: {
+    userNewsletterId: v.id("userNewsletters"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    if (!userNewsletter) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user || userNewsletter.userId !== user._id) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+    }
+
+    await ctx.db.patch(args.userNewsletterId, {
+      isBinned: true,
+      binnedAt: Date.now(),
+    })
+
+    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+    if (!searchMeta) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: user._id,
+        userNewsletterId: args.userNewsletterId,
+        subject: userNewsletter.subject,
+        senderEmail: userNewsletter.senderEmail,
+        senderName: userNewsletter.senderName,
+        receivedAt: userNewsletter.receivedAt,
+        isHidden: userNewsletter.isHidden,
+        isBinned: true,
+        isRead: userNewsletter.isRead,
+        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+      })
+    } else if (!searchMeta.isBinned) {
+      await ctx.db.patch(searchMeta._id, { isBinned: true })
     }
   },
 })
@@ -1779,7 +1854,8 @@ export const listFavoritedNewsletters = query({
     )
     const visibleFavorites = favoritedNewsletters.filter(
       (newsletter) =>
-        !newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId)
+        !newsletter.isBinned &&
+        (!newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId))
     )
 
     const contentIds = visibleFavorites
@@ -1834,7 +1910,7 @@ export const listFavoritedNewslettersHead = query({
       .paginate({ numItems: args.numItems ?? 30, cursor: null })
 
     const visiblePage = result.page.filter(
-      (n) => !n.folderId || !hiddenFolderIds.has(n.folderId)
+      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId))
     )
     const enriched = await enrichNewsletterListItems(ctx, visiblePage)
 
@@ -1860,7 +1936,7 @@ export const listFavoritedNewslettersPageInternal = internalQuery({
       .paginate({ numItems: args.numItems, cursor: args.cursor })
 
     const visiblePage = result.page.filter(
-      (n) => !n.folderId || !hiddenFolderIds.has(n.folderId)
+      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId))
     )
     const enriched = await enrichNewsletterListItems(ctx, visiblePage)
 
@@ -1924,7 +2000,11 @@ export const listHiddenNewsletters = query({
 
     // Story 5.2: Derive hasSummary for each newsletter
     // Code review fix: Batch-fetch contentIds to avoid N+1 queries
-    const contentIds = hiddenNewsletters
+    const visibleHiddenNewsletters = hiddenNewsletters.filter(
+      (newsletter) => !newsletter.isBinned
+    )
+
+    const contentIds = visibleHiddenNewsletters
       .filter((n) => !n.isPrivate && n.contentId && !n.summary)
       .map((n) => n.contentId!)
 
@@ -1938,7 +2018,7 @@ export const listHiddenNewsletters = query({
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
     // Story 9.10: Include source field for unified folder view display
-	    const enrichedNewsletters = hiddenNewsletters.map((newsletter) => {
+	    const enrichedNewsletters = visibleHiddenNewsletters.map((newsletter) => {
 	      let hasSummary = Boolean(newsletter.summary)
 
 	      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
@@ -1975,7 +2055,8 @@ export const listHiddenNewslettersHead = query({
       .order("desc")
       .paginate({ numItems: args.numItems ?? 30, cursor: null })
 
-    const enriched = await enrichNewsletterListItems(ctx, result.page)
+    const visiblePage = result.page.filter((newsletter) => !newsletter.isBinned)
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
     return { ...result, page: enriched }
   },
 })
@@ -1995,7 +2076,8 @@ export const listHiddenNewslettersPageInternal = internalQuery({
       .order("desc")
       .paginate({ numItems: args.numItems, cursor: args.cursor })
 
-    const enriched = await enrichNewsletterListItems(ctx, result.page)
+    const visiblePage = result.page.filter((newsletter) => !newsletter.isBinned)
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
     return { ...result, page: enriched }
   },
 })
@@ -2019,6 +2101,83 @@ export const listHiddenNewslettersPage = action({
     }
 
     return await ctx.runQuery(internal.newsletters.listHiddenNewslettersPageInternal, {
+      userId: user._id,
+      cursor: args.cursor,
+      numItems: args.numItems,
+    })
+  },
+})
+
+export const listBinnedNewslettersHead = query({
+  args: {
+    numItems: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return { page: [], isDone: true, continueCursor: null }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+    if (!user) return { page: [], isDone: true, continueCursor: null }
+
+    const result = await (ctx.db.query("userNewsletters") as any)
+      .withIndex("by_userId_isBinned_binnedAt", (q: any) =>
+        q.eq("userId", user._id).eq("isBinned", true)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems ?? 30, cursor: null })
+
+    const enriched = await enrichNewsletterListItems(
+      ctx,
+      result.page as Array<Doc<"userNewsletters">>
+    )
+    return { ...result, page: enriched }
+  },
+})
+
+export const listBinnedNewslettersPageInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const result = await (ctx.db.query("userNewsletters") as any)
+      .withIndex("by_userId_isBinned_binnedAt", (q: any) =>
+        q.eq("userId", args.userId).eq("isBinned", true)
+      )
+      .order("desc")
+      .paginate({ numItems: args.numItems, cursor: args.cursor })
+
+    const enriched = await enrichNewsletterListItems(
+      ctx,
+      result.page as Array<Doc<"userNewsletters">>
+    )
+    return { ...result, page: enriched }
+  },
+})
+
+export const listBinnedNewslettersPage = action({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args): Promise<NewsletterListPageResult> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
+      authId: identity.subject,
+    })
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    return await ctx.runQuery((internal as any).newsletters.listBinnedNewslettersPageInternal, {
       userId: user._id,
       cursor: args.cursor,
       numItems: args.numItems,
@@ -2060,7 +2219,30 @@ export const getHiddenNewsletterCount = query({
       )
       .collect()
 
-    return hiddenNewsletters.length
+    return hiddenNewsletters.filter((newsletter) => !newsletter.isBinned).length
+  },
+})
+
+export const getBinnedNewsletterCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return 0
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .first()
+
+    if (!user) return 0
+
+    const binnedNewsletters = await (ctx.db.query("userNewsletters") as any)
+      .withIndex("by_userId_isBinned_binnedAt", (q: any) =>
+        q.eq("userId", user._id).eq("isBinned", true)
+      )
+      .collect()
+
+    return binnedNewsletters.length
   },
 })
 
@@ -2100,7 +2282,8 @@ export const getFavoritedNewsletterCount = query({
 
     const visibleFavorites = favoritedNewsletters.filter(
       (newsletter) =>
-        !newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId)
+        !newsletter.isBinned &&
+        (!newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId))
     )
 
     return visibleFavorites.length
@@ -2149,6 +2332,7 @@ async function backfillNewsletterSearchMetaRecentImpl(
 	      senderName: newsletter.senderName,
 	      receivedAt: newsletter.receivedAt,
 	      isHidden: newsletter.isHidden,
+	      isBinned: Boolean(newsletter.isBinned),
 	      isRead: newsletter.isRead,
 	      isLockedByPlan: Boolean(newsletter.isLockedByPlan),
 	    }
@@ -2172,6 +2356,7 @@ async function backfillNewsletterSearchMetaRecentImpl(
     if (current.receivedAt !== desired.receivedAt)
       patch.receivedAt = desired.receivedAt
 	    if (current.isHidden !== desired.isHidden) patch.isHidden = desired.isHidden
+	    if (Boolean(current.isBinned) !== desired.isBinned) patch.isBinned = desired.isBinned
 	    if (current.isRead !== desired.isRead) patch.isRead = desired.isRead
 	    if (current.isLockedByPlan !== desired.isLockedByPlan)
 	      patch.isLockedByPlan = desired.isLockedByPlan
@@ -2274,6 +2459,7 @@ export const searchUserNewslettersMeta = query({
       .take(500)
 
     const matches = recent.filter((doc: Doc<"newsletterSearchMeta">) => {
+      if (doc.isBinned) return false
       if (doc.subject.toLowerCase().includes(q)) return true
       if (doc.senderEmail.toLowerCase().includes(q)) return true
       if (doc.senderName && doc.senderName.toLowerCase().includes(q)) return true
@@ -2328,6 +2514,44 @@ export const hasAnyNewsletters = query({
 // Story 9.10: Delete Newsletter with Community Import Support
 // ============================================================
 
+async function deleteUserNewsletterRecord(
+  ctx: any,
+  userId: Id<"users">,
+  userNewsletter: Doc<"userNewsletters">
+): Promise<void> {
+  if (userNewsletter.source === "community" && userNewsletter.contentId) {
+    const content = await ctx.db.get(userNewsletter.contentId)
+    if (content) {
+      const newImportCount = Math.max(0, (content.importCount ?? 1) - 1)
+      await ctx.db.patch(userNewsletter.contentId, {
+        importCount: newImportCount,
+      })
+    }
+  }
+
+  const searchMeta = await getSearchMetaDoc(ctx, userId, userNewsletter._id)
+  if (searchMeta) {
+    await ctx.db.delete(searchMeta._id)
+  }
+
+  const counters = await ctx.db
+    .query("userUsageCounters")
+    .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+    .first()
+
+  if (counters) {
+    const wasLocked = Boolean(userNewsletter.isLockedByPlan)
+    await ctx.db.patch(counters._id, {
+      totalStored: Math.max(0, counters.totalStored - 1),
+      unlockedStored: Math.max(0, counters.unlockedStored - (wasLocked ? 0 : 1)),
+      lockedStored: Math.max(0, counters.lockedStored - (wasLocked ? 1 : 0)),
+      updatedAt: Date.now(),
+    })
+  }
+
+  await ctx.db.delete(userNewsletter._id)
+}
+
 /**
  * Delete a user newsletter from their collection
  * Story 9.10 Task 4: Handle community import decrement
@@ -2368,48 +2592,97 @@ export const deleteUserNewsletter = mutation({
       throw new ConvexError({ code: "FORBIDDEN", message: "Not your newsletter" })
     }
 
-    // Story 9.10: Handle community import decrement
-    if (userNewsletter.source === "community" && userNewsletter.contentId) {
-      const content = await ctx.db.get(userNewsletter.contentId)
-      if (content) {
-        // Story 9.10 (code review fix): Decrement importCount on community delete
-        // Default to 1 for legacy content without explicit importCount
-        // Math.max(0, ...) ensures we never go negative
-        const newImportCount = Math.max(0, (content.importCount ?? 1) - 1)
-        await ctx.db.patch(userNewsletter.contentId, {
-          importCount: newImportCount,
-          // Note: Do NOT decrement readerCount - that's set once on first read
-        })
-      }
-      // Note: We do NOT delete newsletterContent - other users may have it
-    }
-
-    // For private newsletters, we could optionally delete R2 content
-    // But for safety, we just remove the reference (R2 cleanup can be a separate process)
-
-    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
-    if (searchMeta) {
-      await ctx.db.delete(searchMeta._id)
-    }
-
-    const counters = await ctx.db
-      .query("userUsageCounters")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .first()
-
-    if (counters) {
-      const wasLocked = Boolean(userNewsletter.isLockedByPlan)
-      await ctx.db.patch(counters._id, {
-        totalStored: Math.max(0, counters.totalStored - 1),
-        unlockedStored: Math.max(0, counters.unlockedStored - (wasLocked ? 0 : 1)),
-        lockedStored: Math.max(0, counters.lockedStored - (wasLocked ? 1 : 0)),
-        updatedAt: Date.now(),
-      })
-    }
-
-    // Delete the userNewsletter record
-    await ctx.db.delete(args.userNewsletterId)
+    await deleteUserNewsletterRecord(ctx, user._id, userNewsletter)
 
     return { deleted: true }
+  },
+})
+
+export const emptyBinBatchDelete = internalMutation({
+  args: {
+    userId: v.id("users"),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ deletedCount: number; continueCursor: string | null; isDone: boolean }> => {
+    const pageSize = Math.max(1, Math.min(args.numItems ?? 100, 200))
+    const result = await (ctx.db.query("userNewsletters") as any)
+      .withIndex("by_userId_isBinned_binnedAt", (q: any) =>
+        q.eq("userId", args.userId).eq("isBinned", true)
+      )
+      .order("asc")
+      .paginate({ numItems: pageSize, cursor: args.cursor })
+
+    let deletedCount = 0
+    for (const newsletter of result.page as Array<Doc<"userNewsletters">>) {
+      await deleteUserNewsletterRecord(ctx, args.userId, newsletter)
+      deletedCount++
+    }
+
+    return {
+      deletedCount,
+      continueCursor: result.continueCursor ?? null,
+      isDone: result.isDone ?? true,
+    }
+  },
+})
+
+export const emptyBin = action({
+  args: {},
+  handler: async (ctx): Promise<{ deletedCount: number }> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    }
+
+    const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
+      authId: identity.subject,
+    })
+    if (!user) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+    }
+
+    let deletedCount = 0
+    let cursor: string | null = null
+
+    while (true) {
+      const batch = await ctx.runMutation((internal as any).newsletters.emptyBinBatchDelete, {
+        userId: user._id,
+        cursor,
+        numItems: 100,
+      })
+      deletedCount += batch.deletedCount
+
+      if (batch.isDone || batch.continueCursor === null) {
+        break
+      }
+      cursor = batch.continueCursor
+    }
+
+    return { deletedCount }
+  },
+})
+
+export const cleanupExpiredBinnedNewsletters = internalMutation({
+  args: {},
+  handler: async (ctx): Promise<{ deletedCount: number }> => {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+    const expiredBinnedNewsletters = await (ctx.db.query("userNewsletters") as any)
+      .withIndex("by_isBinned_binnedAt", (q: any) =>
+        q.eq("isBinned", true).lte("binnedAt", cutoff)
+      )
+      .order("asc")
+      .take(200)
+
+    let deletedCount = 0
+    for (const newsletter of expiredBinnedNewsletters as Array<Doc<"userNewsletters">>) {
+      await deleteUserNewsletterRecord(ctx, newsletter.userId, newsletter)
+      deletedCount++
+    }
+
+    return { deletedCount }
   },
 })

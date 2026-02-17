@@ -30,6 +30,8 @@ vi.mock("@hushletter/backend", () => ({
     },
     newsletters: {
       getHiddenNewsletterCount: "newsletters.getHiddenNewsletterCount",
+      getFavoritedNewsletterCount: "newsletters.getFavoritedNewsletterCount",
+      getBinnedNewsletterCount: "newsletters.getBinnedNewsletterCount",
     },
   },
 }))
@@ -103,17 +105,17 @@ describe("FolderSidebar (Story 9.4)", () => {
 
       render(<FolderSidebar {...defaultProps} />)
 
-      // Should show skeleton with pulse animation
-      const skeleton = document.querySelector(".animate-pulse")
-      expect(skeleton).toBeTruthy()
+      // Should render skeleton placeholders
+      const skeletons = document.querySelectorAll('[data-slot="skeleton"]')
+      expect(skeletons.length).toBeGreaterThan(0)
     })
 
     it("renders skeleton component correctly (Task 1.8)", () => {
       render(<FolderSidebarSkeleton />)
 
-      // Skeleton should have multiple pulse elements
-      const pulseElements = document.querySelectorAll(".animate-pulse")
-      expect(pulseElements.length).toBeGreaterThan(0)
+      // Skeleton should expose multiple skeleton slots
+      const skeletons = document.querySelectorAll('[data-slot="skeleton"]')
+      expect(skeletons.length).toBeGreaterThan(0)
     })
   })
 

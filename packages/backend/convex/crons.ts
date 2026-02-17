@@ -29,4 +29,10 @@ crons.interval(
   internal.folders.cleanupExpiredMergeHistory
 )
 
+crons.interval(
+  "cleanup expired binned newsletters",
+  { hours: 1 },
+  (internal as any).newsletters.cleanupExpiredBinnedNewsletters
+)
+
 export default crons

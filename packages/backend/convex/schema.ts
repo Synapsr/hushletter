@@ -86,6 +86,8 @@ export default defineSchema({
 	    receivedAt: v.number(), // Unix timestamp ms
 	    isRead: v.boolean(),
 	    isHidden: v.boolean(),
+	    isBinned: v.optional(v.boolean()),
+	    binnedAt: v.optional(v.number()), // Unix timestamp ms
 	    isFavorited: v.optional(v.boolean()),
 	    isPrivate: v.boolean(),
 	    // Plan-based access control: stored but locked for Free after cap
@@ -140,6 +142,8 @@ export default defineSchema({
       "receivedAt",
     ])
     .index("by_userId_isHidden_receivedAt", ["userId", "isHidden", "receivedAt"]) // Perf: hidden list + count
+    .index("by_userId_isBinned_binnedAt", ["userId", "isBinned", "binnedAt"])
+    .index("by_isBinned_binnedAt", ["isBinned", "binnedAt"])
     .index("by_reviewStatus", ["reviewStatus"]), // Story 9.7: Task 1.4 - For moderation queue filtering
 
   // Per-user read progress for newsletters.
@@ -165,6 +169,7 @@ export default defineSchema({
 	    senderName: v.optional(v.string()),
 	    receivedAt: v.number(), // Unix timestamp ms
 	    isHidden: v.boolean(),
+	    isBinned: v.optional(v.boolean()),
 	    isRead: v.boolean(),
 	    isLockedByPlan: v.optional(v.boolean()),
 	  })

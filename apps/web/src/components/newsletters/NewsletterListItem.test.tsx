@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { NewsletterListItem } from "./NewsletterListItem";
 import type { NewsletterData } from "@/components/NewsletterCard";
@@ -49,7 +49,9 @@ describe("NewsletterListItem", () => {
       />,
     );
 
-    await fireEvent.click(screen.getByRole("button", { name: "Add to favorites" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Add to favorites" }));
+    });
     expect(onToggleFavorite).toHaveBeenCalledWith("newsletter-1", false);
     expect(onClick).not.toHaveBeenCalled();
   });
@@ -120,5 +122,46 @@ describe("NewsletterListItem", () => {
     expect(onHide).toHaveBeenCalledWith("newsletter-1");
     expect(onClick).not.toHaveBeenCalled();
     expect(onToggleFavorite).not.toHaveBeenCalled();
+  });
+
+  it("calls read/archive/bin handlers from quick actions", async () => {
+    const onToggleRead = vi.fn().mockResolvedValue(undefined);
+    const onArchive = vi.fn().mockResolvedValue(undefined);
+    const onBin = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <NewsletterListItem
+        newsletter={newsletter}
+        isSelected={false}
+        isFavorited={false}
+        isFavoritePending={false}
+        onClick={vi.fn()}
+        onToggleFavorite={vi.fn().mockResolvedValue(undefined)}
+        onToggleRead={onToggleRead}
+        onArchive={onArchive}
+        onBin={onBin}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Mark as read" }));
+    });
+    await waitFor(() => {
+      expect(onToggleRead).toHaveBeenCalledWith("newsletter-1", false);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+    });
+    await waitFor(() => {
+      expect(onArchive).toHaveBeenCalledWith("newsletter-1");
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Bin" }));
+    });
+    await waitFor(() => {
+      expect(onBin).toHaveBeenCalledWith("newsletter-1");
+    });
   });
 });

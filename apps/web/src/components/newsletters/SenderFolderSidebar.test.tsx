@@ -17,6 +17,7 @@ vi.mock("convex/react", async (importOriginal) => {
   return {
     ...actual,
     useAction: vi.fn(),
+    useMutation: vi.fn(() => vi.fn().mockResolvedValue(undefined)),
   };
 });
 
@@ -28,8 +29,13 @@ vi.mock("@hushletter/backend", () => ({
     newsletters: {
       getUserNewsletter: "newsletters.getUserNewsletter",
       getHiddenNewsletterCount: "newsletters.getHiddenNewsletterCount",
+      getBinnedNewsletterCount: "newsletters.getBinnedNewsletterCount",
       listRecentUnreadNewslettersHead: "newsletters.listRecentUnreadNewslettersHead",
       listRecentUnreadNewslettersPage: "newsletters.listRecentUnreadNewslettersPage",
+      markNewsletterRead: "newsletters.markNewsletterRead",
+      markNewsletterUnread: "newsletters.markNewsletterUnread",
+      hideNewsletter: "newsletters.hideNewsletter",
+      binNewsletter: "newsletters.binNewsletter",
     },
   },
 }));
@@ -85,14 +91,16 @@ vi.mock("./SidebarFooter", () => ({
 
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 
 const mockUseQuery = vi.mocked(useQuery);
 const mockConvexQuery = vi.mocked(convexQuery);
 const mockUseAction = vi.mocked(useAction);
+const mockUseMutation = vi.mocked(useMutation);
 
 let foldersQueryData: unknown[] = [];
 let hiddenCountData = 0;
+let binnedCountData = 0;
 let selectedNewsletterMetaData: unknown = null;
 let recentUnreadHeadData: {
   page: NewsletterData[];
@@ -137,8 +145,12 @@ describe("SenderFolderSidebar", () => {
     selectedFilter: "starred" as const,
     hiddenNewsletters: [] as NewsletterData[],
     hiddenPending: false,
+    binnedNewsletters: [] as NewsletterData[],
+    binnedPending: false,
     favoritedNewsletters: [] as NewsletterData[],
     favoritedPending: false,
+    onEmptyBin: vi.fn().mockResolvedValue(undefined),
+    isEmptyingBin: false,
     onFolderSelect: vi.fn(),
     onNewsletterSelect: vi.fn(),
     onFilterSelect: vi.fn(),
@@ -151,6 +163,7 @@ describe("SenderFolderSidebar", () => {
     vi.clearAllMocks();
     foldersQueryData = [];
     hiddenCountData = 0;
+    binnedCountData = 0;
     selectedNewsletterMetaData = null;
     recentUnreadHeadData = {
       page: [],
@@ -163,6 +176,7 @@ describe("SenderFolderSidebar", () => {
       continueCursor: null,
     });
     mockUseAction.mockReturnValue(mockLoadRecentUnreadPage as never);
+    mockUseMutation.mockReturnValue(vi.fn().mockResolvedValue(undefined) as never);
     mockObserverInstances.length = 0;
 
     localStorage.clear();
@@ -185,6 +199,13 @@ describe("SenderFolderSidebar", () => {
       if (queryKey === "newsletters.getHiddenNewsletterCount") {
         return {
           data: hiddenCountData,
+          isPending: false,
+          isError: false,
+        } as ReturnType<typeof useQuery>;
+      }
+      if (queryKey === "newsletters.getBinnedNewsletterCount") {
+        return {
+          data: binnedCountData,
           isPending: false,
           isError: false,
         } as ReturnType<typeof useQuery>;
@@ -264,6 +285,65 @@ describe("SenderFolderSidebar", () => {
     );
 
     expect(screen.getByTestId("newsletter-list-item")).toHaveTextContent("Hidden digest");
+  });
+
+  it("shows Empty Bin action when bin filter is selected and there are binned items", () => {
+    binnedCountData = 1;
+    const binnedNewsletters: NewsletterData[] = [
+      {
+        _id: "binned-1" as Id<"userNewsletters">,
+        subject: "Binned digest",
+        senderEmail: "binned@example.com",
+        receivedAt: Date.now(),
+        isRead: true,
+        isHidden: false,
+        isPrivate: false,
+      },
+    ];
+
+    render(
+      <SenderFolderSidebar
+        {...defaultProps}
+        selectedFilter="bin"
+        binnedNewsletters={binnedNewsletters}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Empty Bin" })).toBeInTheDocument();
+  });
+
+  it("runs onEmptyBin after confirming Empty Bin dialog", async () => {
+    binnedCountData = 1;
+    const onEmptyBin = vi.fn().mockResolvedValue(undefined);
+    const binnedNewsletters: NewsletterData[] = [
+      {
+        _id: "binned-1" as Id<"userNewsletters">,
+        subject: "Binned digest",
+        senderEmail: "binned@example.com",
+        receivedAt: Date.now(),
+        isRead: true,
+        isHidden: false,
+        isPrivate: false,
+      },
+    ];
+
+    render(
+      <SenderFolderSidebar
+        {...defaultProps}
+        selectedFilter="bin"
+        binnedNewsletters={binnedNewsletters}
+        onEmptyBin={onEmptyBin}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Empty Bin" }));
+    expect(screen.getByText("Empty Bin?")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(onEmptyBin).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("renders recent unread section in all tab and excludes read items", () => {

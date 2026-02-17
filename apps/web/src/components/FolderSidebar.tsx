@@ -4,7 +4,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { Skeleton } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
-import { FolderIcon, EyeOff, AlertCircle, Star } from "lucide-react";
+import { FolderIcon, EyeOff, AlertCircle, Star, Trash2 } from "lucide-react";
 import { FolderActionsDropdown } from "./FolderActionsDropdown";
 import { m } from "@/paraglide/messages.js";
 
@@ -44,7 +44,11 @@ function isFolderData(item: unknown): item is FolderData {
 /** Filter type constant */
 const FILTER_HIDDEN = "hidden" as const;
 const FILTER_STARRED = "starred" as const;
-type FilterType = typeof FILTER_HIDDEN | typeof FILTER_STARRED;
+const FILTER_BIN = "bin" as const;
+type FilterType =
+  | typeof FILTER_HIDDEN
+  | typeof FILTER_STARRED
+  | typeof FILTER_BIN;
 
 interface FolderSidebarProps {
   selectedFolderId: string | null;
@@ -116,6 +120,9 @@ export function FolderSidebar({
   const { data: favoritedCount, isPending: favoritedCountPending } = useQuery(
     convexQuery(api.newsletters.getFavoritedNewsletterCount, {}),
   );
+  const { data: binnedCount, isPending: binnedCountPending } = useQuery(
+    convexQuery((api.newsletters as any).getBinnedNewsletterCount, {}),
+  );
 
   // Code review fix: Validate folder data at runtime to ensure type safety
   const folderList = useMemo(() => {
@@ -177,6 +184,11 @@ export function FolderSidebar({
   const handleStarredClick = () => {
     onFolderSelect(null);
     onFilterSelect(FILTER_STARRED);
+  };
+
+  const handleBinClick = () => {
+    onFolderSelect(null);
+    onFilterSelect(FILTER_BIN);
   };
 
   return (
@@ -327,6 +339,33 @@ export function FolderSidebar({
               <span className="truncate">{m.folder_hidden()}</span>
             </div>
             <span className="text-muted-foreground text-xs flex-shrink-0">{hiddenCount}</span>
+          </button>
+        </>
+      ) : null}
+
+      {/* Bin section */}
+      {binnedCountPending ? (
+        <div className="flex items-center gap-2 px-3 py-2 mt-2">
+          <Skeleton className="h-4 w-4 rounded-sm shrink-0" />
+          <Skeleton className="h-4 flex-1" />
+        </div>
+      ) : (binnedCount ?? 0) > 0 || selectedFilter === FILTER_BIN ? (
+        <>
+          <div className="h-px bg-border my-2" role="separator" />
+          <button
+            onClick={handleBinClick}
+            aria-current={selectedFilter === FILTER_BIN ? "page" : undefined}
+            className={cn(
+              "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
+              "hover:bg-accent transition-colors text-left",
+              selectedFilter === FILTER_BIN && "bg-accent font-medium",
+            )}
+          >
+            <div className="flex items-center gap-2 truncate flex-1 mr-2">
+              <Trash2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="truncate">{m.bin_label?.() ?? "Bin"}</span>
+            </div>
+            <span className="text-muted-foreground text-xs flex-shrink-0">{binnedCount ?? 0}</span>
           </button>
         </>
       ) : null}

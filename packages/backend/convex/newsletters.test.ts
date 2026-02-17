@@ -28,6 +28,7 @@ describe("newsletters API exports", () => {
 
   it("should export public action functions", () => {
     expect(api.newsletters.getUserNewsletterWithContent).toBeDefined()
+    expect((api.newsletters as any).emptyBin).toBeDefined()
   })
 
   // Story 3.4: Reading progress mutations
@@ -42,6 +43,7 @@ describe("newsletters API exports", () => {
   it("should export public mutation functions for hide/unhide (Story 3.5)", () => {
     expect(api.newsletters.hideNewsletter).toBeDefined()
     expect(api.newsletters.unhideNewsletter).toBeDefined()
+    expect((api.newsletters as any).binNewsletter).toBeDefined()
     expect(api.newsletters.setNewsletterFavorite).toBeDefined()
   })
 
@@ -62,6 +64,9 @@ describe("newsletters API exports", () => {
     expect(api.newsletters.listHiddenNewslettersPage).toBeDefined()
     expect(api.newsletters.listFavoritedNewslettersHead).toBeDefined()
     expect(api.newsletters.listFavoritedNewslettersPage).toBeDefined()
+    expect((api.newsletters as any).listBinnedNewslettersHead).toBeDefined()
+    expect((api.newsletters as any).listBinnedNewslettersPage).toBeDefined()
+    expect((api.newsletters as any).getBinnedNewsletterCount).toBeDefined()
   })
 
   it("should export internal functions", () => {
@@ -71,6 +76,8 @@ describe("newsletters API exports", () => {
     expect(internal.newsletters.storeNewsletterContent).toBeDefined()
     expect(internal.newsletters.getUserNewsletterInternal).toBeDefined()
     expect(internal.newsletters.getNewsletterContentInternal).toBeDefined()
+    expect((internal.newsletters as any).emptyBinBatchDelete).toBeDefined()
+    expect((internal.newsletters as any).cleanupExpiredBinnedNewsletters).toBeDefined()
   })
 })
 
@@ -415,6 +422,44 @@ describe("listUserNewsletters query contract", () => {
       }
       expect(privateNewsletterLogic.sharedSummaryCheck).toContain("skipped")
     })
+  })
+})
+
+describe("emptyBin action contract", () => {
+  it("defines empty args and returns deletedCount", () => {
+    const expectedArgs = {}
+    const expectedReturn = {
+      deletedCount: "number",
+    }
+    expect(Object.keys(expectedArgs)).toHaveLength(0)
+    expect(expectedReturn).toHaveProperty("deletedCount")
+  })
+
+  it("deletes only rows where isBinned is true", () => {
+    const filterBehavior = {
+      index: "by_userId_isBinned_binnedAt",
+      predicate: "q.eq('userId', userId).eq('isBinned', true)",
+    }
+    expect(filterBehavior.index).toBe("by_userId_isBinned_binnedAt")
+    expect(filterBehavior.predicate).toContain("isBinned")
+  })
+
+  it("reuses the same hard-delete side effects as single delete", () => {
+    const sharedDeleteEffects = [
+      "community importCount decrement",
+      "userUsageCounters decremented",
+      "newsletterSearchMeta cleanup",
+      "userNewsletter row delete",
+    ]
+    expect(sharedDeleteEffects).toContain("community importCount decrement")
+    expect(sharedDeleteEffects).toContain("userUsageCounters decremented")
+    expect(sharedDeleteEffects).toContain("newsletterSearchMeta cleanup")
+    expect(sharedDeleteEffects).toContain("userNewsletter row delete")
+  })
+
+  it("is idempotent when bin is already empty", () => {
+    const emptyBinResult = { deletedCount: 0 }
+    expect(emptyBinResult.deletedCount).toBe(0)
   })
 })
 

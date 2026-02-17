@@ -1,10 +1,19 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -13,7 +22,7 @@ import {
   Skeleton,
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
-import { EyeOff, AlertCircle } from "lucide-react";
+import { EyeOff, AlertCircle, Trash2 } from "lucide-react";
 import { SenderFolderItem } from "./SenderFolderItem";
 import { NewsletterListItem } from "./NewsletterListItem";
 import type { FolderData } from "@/components/FolderSidebar";
@@ -25,10 +34,14 @@ type SidebarFilter = "all" | "unread" | "starred";
 
 const FILTER_HIDDEN = "hidden" as const;
 const FILTER_STARRED = "starred" as const;
+const FILTER_BIN = "bin" as const;
 const LAST_NEWSLETTERS_VISIT_KEY = "hushletter:lastNewslettersVisit";
 const RECENT_UNREAD_HEAD_SIZE = 8;
 const RECENT_UNREAD_PAGE_SIZE = 20;
-type FilterType = typeof FILTER_HIDDEN | typeof FILTER_STARRED;
+type FilterType =
+  | typeof FILTER_HIDDEN
+  | typeof FILTER_STARRED
+  | typeof FILTER_BIN;
 
 interface SenderFolderSidebarProps {
   selectedFolderId: string | null;
@@ -36,6 +49,8 @@ interface SenderFolderSidebarProps {
   selectedFilter: FilterType | null;
   hiddenNewsletters: NewsletterData[];
   hiddenPending: boolean;
+  binnedNewsletters: NewsletterData[];
+  binnedPending: boolean;
   favoritedNewsletters: NewsletterData[];
   favoritedPending: boolean;
   onFolderSelect: (folderId: string | null) => void;
@@ -47,6 +62,8 @@ interface SenderFolderSidebarProps {
     newsletterId: string,
     currentValue: boolean,
   ) => Promise<void>;
+  onEmptyBin?: () => Promise<void> | void;
+  isEmptyingBin?: boolean;
   canLoadMore?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
@@ -100,6 +117,8 @@ export function SenderFolderSidebar({
   selectedFilter,
   hiddenNewsletters,
   hiddenPending,
+  binnedNewsletters,
+  binnedPending,
   favoritedNewsletters,
   favoritedPending,
   onFolderSelect,
@@ -108,6 +127,8 @@ export function SenderFolderSidebar({
   getIsFavorited,
   isFavoritePending,
   onToggleFavorite,
+  onEmptyBin,
+  isEmptyingBin = false,
   canLoadMore,
   isLoadingMore,
   onLoadMore,
@@ -135,6 +156,10 @@ export function SenderFolderSidebar({
   const loadRecentUnreadPage = useAction(
     api.newsletters.listRecentUnreadNewslettersPage,
   );
+  const markNewsletterRead = useMutation(api.newsletters.markNewsletterRead);
+  const markNewsletterUnread = useMutation(api.newsletters.markNewsletterUnread);
+  const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
+  const binNewsletter = useMutation((api.newsletters as any).binNewsletter);
 
   const {
     data: folders,
@@ -156,10 +181,14 @@ export function SenderFolderSidebar({
   const { data: hiddenCount, isPending: hiddenCountPending } = useQuery(
     convexQuery(api.newsletters.getHiddenNewsletterCount, {}),
   );
+  const { data: binnedCount, isPending: binnedCountPending } = useQuery(
+    convexQuery((api.newsletters as any).getBinnedNewsletterCount, {}),
+  );
   const shouldShowRecentSection =
     sidebarFilter === "all" &&
     selectedFilter !== FILTER_HIDDEN &&
-    selectedFilter !== FILTER_STARRED;
+    selectedFilter !== FILTER_STARRED &&
+    selectedFilter !== FILTER_BIN;
 
   const { data: recentUnreadHead, isPending: recentUnreadPending } = useQuery(
     convexQuery(
@@ -221,6 +250,10 @@ export function SenderFolderSidebar({
     () => hiddenNewsletters,
     [hiddenNewsletters],
   );
+  const visibleBinnedNewsletters = useMemo(
+    () => binnedNewsletters,
+    [binnedNewsletters],
+  );
   const recentHeadPage = useMemo(() => {
     const data = recentUnreadHead as unknown as
       | { page?: NewsletterData[] }
@@ -274,9 +307,24 @@ export function SenderFolderSidebar({
       return;
     }
 
-    if (selectedFilter === FILTER_STARRED || selectedFilter === FILTER_HIDDEN) {
+    if (
+      selectedFilter === FILTER_STARRED ||
+      selectedFilter === FILTER_HIDDEN ||
+      selectedFilter === FILTER_BIN
+    ) {
       onFilterSelect(null);
     }
+  };
+
+  const handleBinClick = () => {
+    if (selectedFilter === FILTER_BIN) {
+      onFilterSelect(null);
+      return;
+    }
+
+    setSidebarFilter("all");
+    onFolderSelect(null);
+    onFilterSelect(FILTER_BIN);
   };
 
   const handleFolderExpandedChange = (folderId: string, expanded: boolean) => {
@@ -333,6 +381,39 @@ export function SenderFolderSidebar({
       return next;
     });
   }, []);
+
+  const handleToggleRead = useCallback(
+    async (newsletterId: string, currentValue: boolean) => {
+      if (currentValue) {
+        await markNewsletterUnread({
+          userNewsletterId: newsletterId as Id<"userNewsletters">,
+        });
+        return;
+      }
+      await markNewsletterRead({
+        userNewsletterId: newsletterId as Id<"userNewsletters">,
+      });
+    },
+    [markNewsletterRead, markNewsletterUnread],
+  );
+
+  const handleArchive = useCallback(
+    async (newsletterId: string) => {
+      await hideNewsletter({
+        userNewsletterId: newsletterId as Id<"userNewsletters">,
+      });
+    },
+    [hideNewsletter],
+  );
+
+  const handleMoveToBin = useCallback(
+    async (newsletterId: string) => {
+      await binNewsletter({
+        userNewsletterId: newsletterId as Id<"userNewsletters">,
+      });
+    },
+    [binNewsletter],
+  );
 
   useEffect(() => {
     if (
@@ -496,6 +577,8 @@ export function SenderFolderSidebar({
                           onHide={handleDismissRecentNewsletter}
                           onClick={onNewsletterSelect}
                           onToggleFavorite={onToggleFavorite}
+                          onToggleRead={handleToggleRead}
+                          onBin={handleMoveToBin}
                         />
                       ))
                     )}
@@ -537,6 +620,8 @@ export function SenderFolderSidebar({
                     isFavoritePending={isFavoritePending(newsletter._id)}
                     onClick={onNewsletterSelect}
                     onToggleFavorite={onToggleFavorite}
+                    onToggleRead={handleToggleRead}
+                    onBin={handleMoveToBin}
                   />
                 ))}
                 {canLoadMore && onLoadMore && (
@@ -553,6 +638,89 @@ export function SenderFolderSidebar({
                     </Button>
                   </div>
                 )}
+              </div>
+            )
+          ) : selectedFilter === FILTER_BIN ? (
+            binnedPending ? (
+              <SidebarSkeleton />
+            ) : visibleBinnedNewsletters.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8 px-4">
+                {m.bin_emptyState?.() ?? "No newsletters in Bin."}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {onEmptyBin && (
+                  <div className="px-2 pt-1">
+                    <AlertDialog>
+                      <AlertDialogTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="w-full"
+                            disabled={isEmptyingBin}
+                          />
+                        }
+                      >
+                        {m.bin_emptyAction?.() ?? "Empty Bin"}
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            {m.bin_emptyConfirmTitle?.() ?? "Empty Bin?"}
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {m.bin_emptyConfirmDescription?.() ??
+                              "This will permanently delete all newsletters currently in Bin. This action cannot be undone."}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>{m.common_cancel()}</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              void onEmptyBin();
+                            }}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={isEmptyingBin}
+                          >
+                            {m.common_delete()}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  {visibleBinnedNewsletters.map((newsletter) => (
+                    <NewsletterListItem
+                      key={newsletter._id}
+                      newsletter={newsletter}
+                      isSelected={selectedNewsletterId === newsletter._id}
+                      isFavorited={getIsFavorited(
+                        newsletter._id,
+                        Boolean(newsletter.isFavorited),
+                      )}
+                      isFavoritePending={isFavoritePending(newsletter._id)}
+                      onClick={onNewsletterSelect}
+                      onToggleFavorite={onToggleFavorite}
+                    />
+                  ))}
+                  {canLoadMore && onLoadMore && (
+                    <div className="px-2 py-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full"
+                        disabled={Boolean(isLoadingMore)}
+                        onClick={() => onLoadMore()}
+                      >
+                        {isLoadingMore ? "Loading..." : "Load more"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             )
           ) : sidebarFilter === "starred" ? (
@@ -576,6 +744,9 @@ export function SenderFolderSidebar({
                     isFavoritePending={isFavoritePending(newsletter._id)}
                     onClick={onNewsletterSelect}
                     onToggleFavorite={onToggleFavorite}
+                    onToggleRead={handleToggleRead}
+                    onArchive={handleArchive}
+                    onBin={handleMoveToBin}
                   />
                 ))}
                 {canLoadMore && onLoadMore && (
@@ -622,6 +793,9 @@ export function SenderFolderSidebar({
                 getIsFavorited={getIsFavorited}
                 isFavoritePending={isFavoritePending}
                 onToggleFavorite={onToggleFavorite}
+                onToggleRead={handleToggleRead}
+                onArchive={handleArchive}
+                onBin={handleMoveToBin}
                 onHideSuccess={() => {
                   if (selectedFolderId === folder._id) {
                     onFolderSelect(null);
@@ -656,6 +830,35 @@ export function SenderFolderSidebar({
                   </div>
                   <span className="text-muted-foreground text-xs flex-shrink-0">
                     {hiddenCount ?? visibleHiddenNewsletters.length}
+                  </span>
+                </button>
+              </>
+            )}
+
+          {!binnedCountPending &&
+            ((binnedCount ?? 0) > 0 || selectedFilter === FILTER_BIN) && (
+              <>
+                <div className="h-px bg-border my-2 mx-2" role="separator" />
+                <button
+                  onClick={handleBinClick}
+                  aria-current={selectedFilter === FILTER_BIN ? "page" : undefined}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
+                    "hover:bg-accent transition-colors text-left",
+                    selectedFilter === FILTER_BIN && "bg-accent font-medium",
+                  )}
+                >
+                  <div className="flex items-center gap-2 truncate flex-1 mr-2">
+                    <Trash2
+                      className="h-4 w-4 flex-shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <span className="truncate">
+                      {m.bin_label?.() ?? "Bin"}
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground text-xs flex-shrink-0">
+                    {binnedCount ?? visibleBinnedNewsletters.length}
                   </span>
                 </button>
               </>

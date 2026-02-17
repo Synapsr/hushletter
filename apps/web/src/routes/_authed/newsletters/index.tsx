@@ -22,6 +22,15 @@ import { WelcomeReaderPane } from "@/components/newsletters/WelcomeReaderPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useOptimisticNewsletterFavorite } from "@/hooks/useOptimisticNewsletterFavorite";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
   Button,
   Sheet,
   SheetContent,
@@ -31,12 +40,17 @@ import {
 } from "@hushletter/ui";
 import { Menu, Inbox } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
+import { toast } from "sonner";
 
 /** Code review fix: Extract magic string to constant */
 const FILTER_HIDDEN = "hidden" as const;
 const FILTER_STARRED = "starred" as const;
+const FILTER_BIN = "bin" as const;
 const LAST_READ_KEY = "hushletter:lastNewsletter";
-type FilterType = typeof FILTER_HIDDEN | typeof FILTER_STARRED;
+type FilterType =
+  | typeof FILTER_HIDDEN
+  | typeof FILTER_STARRED
+  | typeof FILTER_BIN;
 
 /**
  * Search params schema for URL-based filtering
@@ -44,6 +58,7 @@ type FilterType = typeof FILTER_HIDDEN | typeof FILTER_STARRED;
  * - /newsletters?folder={folderId}                 → Folder view
  * - /newsletters?filter=hidden                     → Hidden newsletters
  * - /newsletters?filter=starred                    → Favorited newsletters
+ * - /newsletters?filter=bin                        → Binned newsletters
  * - /newsletters?folder={folderId}&newsletter={id} → Folder + inline reader (desktop)
  * - /newsletters?newsletter={id}                   → Inline reader (desktop)
  */
@@ -59,6 +74,11 @@ interface GetStarredAutoSelectionIdArgs {
   isPending: boolean;
   selectedNewsletterId?: string;
   newsletters: Array<{ _id: string }>;
+}
+
+interface GetPostEmptyBinSearchArgs {
+  effectiveFilter: FilterType | null;
+  selectedNewsletterId?: string | null;
 }
 
 function isValidConvexId(id: string | undefined): boolean {
@@ -93,25 +113,41 @@ export function getStarredAutoSelectionId({
   return newsletters[0]?._id ?? null;
 }
 
+export function getPostEmptyBinSearch({
+  effectiveFilter,
+  selectedNewsletterId,
+}: GetPostEmptyBinSearchArgs): NewsletterSearchParams | null {
+  if (effectiveFilter !== FILTER_BIN) return null;
+
+  // Keep user in Bin filter while clearing any open newsletter selection.
+  // selectedNewsletterId is accepted for call-site clarity.
+  void selectedNewsletterId;
+  return { filter: FILTER_BIN };
+}
+
+export function validateNewsletterSearch(
+  search: Record<string, unknown>,
+): NewsletterSearchParams {
+  const folder = typeof search.folder === "string" ? search.folder : undefined;
+  const filter = typeof search.filter === "string" ? search.filter : undefined;
+  const newsletter =
+    typeof search.newsletter === "string" ? search.newsletter : undefined;
+
+  return {
+    folder: isValidConvexId(folder) ? folder : undefined,
+    filter:
+      filter === FILTER_HIDDEN ||
+      filter === FILTER_STARRED ||
+      filter === FILTER_BIN
+        ? (filter as FilterType)
+        : undefined,
+    newsletter: isValidConvexId(newsletter) ? newsletter : undefined,
+  };
+}
+
 export const Route = createFileRoute("/_authed/newsletters/")({
   component: NewslettersPage,
-  validateSearch: (search: Record<string, unknown>): NewsletterSearchParams => {
-    const folder =
-      typeof search.folder === "string" ? search.folder : undefined;
-    const filter =
-      typeof search.filter === "string" ? search.filter : undefined;
-    const newsletter =
-      typeof search.newsletter === "string" ? search.newsletter : undefined;
-
-    return {
-      folder: isValidConvexId(folder) ? folder : undefined,
-      filter:
-        filter === FILTER_HIDDEN || filter === FILTER_STARRED
-          ? (filter as FilterType)
-          : undefined,
-      newsletter: isValidConvexId(newsletter) ? newsletter : undefined,
-    };
-  },
+  validateSearch: validateNewsletterSearch,
 });
 
 type CurrentUserData = {
@@ -367,8 +403,12 @@ function NewslettersPage() {
   // Determine filter type - mutually exclusive
   const isFilteringByHidden = effectiveFilter === FILTER_HIDDEN;
   const isFilteringByStarred = effectiveFilter === FILTER_STARRED;
+  const isFilteringByBinned = effectiveFilter === FILTER_BIN;
   const isFilteringByFolder =
-    !!folderIdParam && !isFilteringByHidden && !isFilteringByStarred;
+    !!folderIdParam &&
+    !isFilteringByHidden &&
+    !isFilteringByStarred &&
+    !isFilteringByBinned;
 
   // Reactive head pages (subscribed) for the active list only.
   // Important: with @convex-dev/react-query, you must pass args === "skip" to avoid subscriptions.
@@ -378,7 +418,8 @@ function NewslettersPage() {
       !isDesktop &&
         !isFilteringByFolder &&
         !isFilteringByHidden &&
-        !isFilteringByStarred
+        !isFilteringByStarred &&
+        !isFilteringByBinned
         ? { numItems: 30 }
         : "skip",
     ),
@@ -406,15 +447,23 @@ function NewslettersPage() {
       isFilteringByStarred ? { numItems: 30 } : "skip",
     ),
   );
+  const { data: binnedHead, isPending: binnedHeadPending } = useQuery(
+    convexQuery(
+      (api.newsletters as any).listBinnedNewslettersHead,
+      isFilteringByBinned ? { numItems: 30 } : "skip",
+    ),
+  );
 
   const listKey = useMemo(() => {
     if (isFilteringByHidden) return "hidden";
     if (isFilteringByStarred) return "starred";
+    if (isFilteringByBinned) return "bin";
     if (isFilteringByFolder) return `folder:${folderIdParam}`;
     return "all";
   }, [
     isFilteringByHidden,
     isFilteringByStarred,
+    isFilteringByBinned,
     isFilteringByFolder,
     folderIdParam,
   ]);
@@ -423,6 +472,8 @@ function NewslettersPage() {
     ? hiddenHead
     : isFilteringByStarred
       ? favoritedHead
+      : isFilteringByBinned
+        ? binnedHead
       : isFilteringByFolder
         ? folderHead
         : allHead;
@@ -431,7 +482,10 @@ function NewslettersPage() {
   // from SenderFolderSidebar instead). Skipped queries report isPending=true
   // permanently, so treat them as not pending to avoid an infinite skeleton.
   const isActiveQuerySkipped =
-    isDesktop && !isFilteringByHidden && !isFilteringByStarred;
+    isDesktop &&
+    !isFilteringByHidden &&
+    !isFilteringByStarred &&
+    !isFilteringByBinned;
 
   const activeHeadPending = isActiveQuerySkipped
     ? false
@@ -439,6 +493,8 @@ function NewslettersPage() {
       ? hiddenHeadPending
       : isFilteringByStarred
         ? favoritedHeadPending
+        : isFilteringByBinned
+          ? binnedHeadPending
         : isFilteringByFolder
           ? folderHeadPending
           : allHeadPending;
@@ -451,11 +507,16 @@ function NewslettersPage() {
   const listFavoritedPage = useAction(
     api.newsletters.listFavoritedNewslettersPage,
   );
+  const listBinnedPage = useAction(
+    (api.newsletters as any).listBinnedNewslettersPage,
+  );
+  const emptyBinAction = useAction((api.newsletters as any).emptyBin);
 
   const [tailPages, setTailPages] = useState<NewsletterData[][]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [isDone, setIsDone] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isEmptyingBin, setIsEmptyingBin] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -511,6 +572,8 @@ function NewslettersPage() {
           ? await listHiddenPage({ cursor, numItems })
           : isFilteringByStarred
             ? await listFavoritedPage({ cursor, numItems })
+            : isFilteringByBinned
+              ? await listBinnedPage({ cursor, numItems })
             : await listAllPage({ cursor, numItems });
 
       const page = (result.page ?? []) as NewsletterData[];
@@ -527,9 +590,11 @@ function NewslettersPage() {
     isFilteringByFolder,
     isFilteringByHidden,
     isFilteringByStarred,
+    isFilteringByBinned,
     listFolderPage,
     listHiddenPage,
     listFavoritedPage,
+    listBinnedPage,
     listAllPage,
     folderIdParam,
   ]);
@@ -607,6 +672,41 @@ function NewslettersPage() {
     });
   };
 
+  const handleEmptyBin = useCallback(async () => {
+    if (isEmptyingBin) return;
+    setIsEmptyingBin(true);
+    try {
+      const result = await emptyBinAction({});
+      toast.success(
+        m.bin_emptySuccess?.({ count: result.deletedCount }) ??
+          `${result.deletedCount} newsletters deleted from Bin`,
+      );
+
+      const postEmptyBinSearch = getPostEmptyBinSearch({
+        effectiveFilter,
+        selectedNewsletterId: effectiveNewsletterId ?? null,
+      });
+      if (postEmptyBinSearch) {
+        navigate({
+          to: "/newsletters",
+          search: postEmptyBinSearch,
+          replace: true,
+        });
+      }
+    } catch (error) {
+      console.error("[NewslettersPage] Failed to empty bin:", error);
+      toast.error(m.bin_emptyFailed?.() ?? "Failed to empty Bin");
+    } finally {
+      setIsEmptyingBin(false);
+    }
+  }, [
+    isEmptyingBin,
+    emptyBinAction,
+    effectiveFilter,
+    effectiveNewsletterId,
+    navigate,
+  ]);
+
   const isInitialPagePending = userPending || foldersPending;
   const activeListPending = activeHeadPending;
 
@@ -655,18 +755,26 @@ function NewslettersPage() {
     selectedFilter: effectiveFilter,
     hiddenNewsletters: isFilteringByHidden ? newsletterList : [],
     hiddenPending: isFilteringByHidden ? activeListPending : false,
+    binnedNewsletters: isFilteringByBinned ? newsletterList : [],
+    binnedPending: isFilteringByBinned ? activeListPending : false,
     favoritedNewsletters: visibleFavoritedNewsletters,
     favoritedPending: isFilteringByStarred ? activeListPending : false,
     canLoadMore:
-      isFilteringByHidden || isFilteringByStarred ? canLoadMore : false,
+      isFilteringByHidden || isFilteringByStarred || isFilteringByBinned
+        ? canLoadMore
+        : false,
     isLoadingMore:
-      isFilteringByHidden || isFilteringByStarred ? isLoadingMore : false,
+      isFilteringByHidden || isFilteringByStarred || isFilteringByBinned
+        ? isLoadingMore
+        : false,
     onLoadMore:
-      isFilteringByHidden || isFilteringByStarred
+      isFilteringByHidden || isFilteringByStarred || isFilteringByBinned
         ? () => {
             void handleLoadMore();
           }
         : undefined,
+    onEmptyBin: handleEmptyBin,
+    isEmptyingBin,
     onFolderSelect: handleFolderSelect,
     onNewsletterSelect: handleNewsletterSelect,
     onFilterSelect: handleFilterSelect,
@@ -690,6 +798,7 @@ function NewslettersPage() {
     !isFilteringByFolder &&
     !isFilteringByHidden &&
     !isFilteringByStarred &&
+    !isFilteringByBinned &&
     folders.length === 0;
 
   // ── Desktop layout: split-pane ──
@@ -762,6 +871,50 @@ function NewslettersPage() {
           <h1 className="text-3xl font-bold text-foreground mb-6">
             {m.newsletters_hiddenNewsletters()}
           </h1>
+        ) : isFilteringByBinned ? (
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <h1 className="text-3xl font-bold text-foreground">
+              {m.bin_label?.() ?? "Bin"}
+            </h1>
+            {!activeListPending && visibleNewsletterList.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={isEmptyingBin}
+                    />
+                  }
+                >
+                  {m.bin_emptyAction?.() ?? "Empty Bin"}
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {m.bin_emptyConfirmTitle?.() ?? "Empty Bin?"}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {m.bin_emptyConfirmDescription?.() ??
+                        "This will permanently delete all newsletters currently in Bin. This action cannot be undone."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{m.common_cancel()}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        void handleEmptyBin();
+                      }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      disabled={isEmptyingBin}
+                    >
+                      {m.common_delete()}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         ) : isFilteringByStarred ? (
           <h1 className="text-3xl font-bold text-foreground mb-6">
             {m.newsletters_starredNewsletters()}
@@ -781,6 +934,12 @@ function NewslettersPage() {
             <div className="text-center py-12">
               <p className="text-muted-foreground">
                 {m.newsletters_noHiddenNewsletters()}
+              </p>
+            </div>
+          ) : isFilteringByBinned ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                {m.bin_emptyState?.() ?? "No newsletters in Bin."}
               </p>
             </div>
           ) : isFilteringByStarred ? (

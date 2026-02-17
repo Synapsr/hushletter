@@ -1,18 +1,13 @@
 import { describe, it, expect } from "vitest";
+import {
+  getPostEmptyBinSearch,
+  getStarredAutoSelectionId,
+  validateNewsletterSearch,
+} from "./index";
 
 describe("NewslettersPage validateSearch", () => {
-  const getValidateSearch = async () => {
-    const { Route } = await import("./index");
-    const validateSearch = Route.options.validateSearch;
-    if (typeof validateSearch !== "function") {
-      throw new Error("Expected validateSearch to be a function");
-    }
-    return validateSearch as (search: Record<string, unknown>) => Record<string, unknown>;
-  };
-
-  it("accepts valid folder and newsletter IDs", async () => {
-    const validateSearch = await getValidateSearch();
-    const result = validateSearch({
+  it("accepts valid folder and newsletter IDs", () => {
+    const result = validateNewsletterSearch({
       folder: "k123folder",
       newsletter: "k123newsletter",
     });
@@ -24,32 +19,34 @@ describe("NewslettersPage validateSearch", () => {
     });
   });
 
-  it("accepts supported filters (hidden, starred)", async () => {
-    const validateSearch = await getValidateSearch();
-
-    expect(validateSearch({ filter: "hidden" })).toEqual({
+  it("accepts supported filters (hidden, starred, bin)", () => {
+    expect(validateNewsletterSearch({ filter: "hidden" })).toEqual({
       folder: undefined,
       filter: "hidden",
       newsletter: undefined,
     });
 
-    expect(validateSearch({ filter: "starred" })).toEqual({
+    expect(validateNewsletterSearch({ filter: "starred" })).toEqual({
       folder: undefined,
       filter: "starred",
       newsletter: undefined,
     });
+
+    expect(validateNewsletterSearch({ filter: "bin" })).toEqual({
+      folder: undefined,
+      filter: "bin",
+      newsletter: undefined,
+    });
   });
 
-  it("rejects unknown filters", async () => {
-    const validateSearch = await getValidateSearch();
-    const result = validateSearch({ filter: "random" });
+  it("rejects unknown filters", () => {
+    const result = validateNewsletterSearch({ filter: "random" });
 
     expect(result.filter).toBeUndefined();
   });
 
-  it("rejects invalid ids (whitespace or empty)", async () => {
-    const validateSearch = await getValidateSearch();
-    const result = validateSearch({
+  it("rejects invalid ids (whitespace or empty)", () => {
+    const result = validateNewsletterSearch({
       folder: "   ",
       newsletter: "id with spaces",
     });
@@ -63,14 +60,7 @@ describe("NewslettersPage validateSearch", () => {
 });
 
 describe("getStarredAutoSelectionId", () => {
-  const getAutoSelection = async () => {
-    const { getStarredAutoSelectionId } = await import("./index");
-    return getStarredAutoSelectionId;
-  };
-
-  it("returns first newsletter when starred data is ready and none selected", async () => {
-    const getStarredAutoSelectionId = await getAutoSelection();
-
+  it("returns first newsletter when starred data is ready and none selected", () => {
     expect(
       getStarredAutoSelectionId({
         isDesktop: true,
@@ -81,9 +71,7 @@ describe("getStarredAutoSelectionId", () => {
     ).toBe("newest");
   });
 
-  it("returns null while starred query is pending", async () => {
-    const getStarredAutoSelectionId = await getAutoSelection();
-
+  it("returns null while starred query is pending", () => {
     expect(
       getStarredAutoSelectionId({
         isDesktop: true,
@@ -94,9 +82,7 @@ describe("getStarredAutoSelectionId", () => {
     ).toBeNull();
   });
 
-  it("returns null when current selection still exists in starred list", async () => {
-    const getStarredAutoSelectionId = await getAutoSelection();
-
+  it("returns null when current selection still exists in starred list", () => {
     expect(
       getStarredAutoSelectionId({
         isDesktop: true,
@@ -108,9 +94,7 @@ describe("getStarredAutoSelectionId", () => {
     ).toBeNull();
   });
 
-  it("falls back to newest when current selection is not part of starred list", async () => {
-    const getStarredAutoSelectionId = await getAutoSelection();
-
+  it("falls back to newest when current selection is not part of starred list", () => {
     expect(
       getStarredAutoSelectionId({
         isDesktop: true,
@@ -120,5 +104,25 @@ describe("getStarredAutoSelectionId", () => {
         newsletters: [{ _id: "newest" }, { _id: "older" }],
       }),
     ).toBe("newest");
+  });
+});
+
+describe("getPostEmptyBinSearch", () => {
+  it("clears selected newsletter while staying in bin filter", () => {
+    expect(
+      getPostEmptyBinSearch({
+        effectiveFilter: "bin",
+        selectedNewsletterId: "k123newsletter",
+      }),
+    ).toEqual({ filter: "bin" });
+  });
+
+  it("does nothing outside bin filter", () => {
+    expect(
+      getPostEmptyBinSearch({
+        effectiveFilter: "hidden",
+        selectedNewsletterId: "k123newsletter",
+      }),
+    ).toBeNull();
   });
 });

@@ -64,6 +64,9 @@ describe("SenderFolderItem", () => {
         getIsFavorited={vi.fn(() => false)}
         isFavoritePending={vi.fn(() => false)}
         onToggleFavorite={vi.fn().mockResolvedValue(undefined)}
+        onToggleRead={vi.fn().mockResolvedValue(undefined)}
+        onArchive={vi.fn().mockResolvedValue(undefined)}
+        onBin={vi.fn().mockResolvedValue(undefined)}
         onHideSuccess={vi.fn()}
       />,
     );

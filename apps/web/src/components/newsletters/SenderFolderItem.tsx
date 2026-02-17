@@ -20,7 +20,7 @@ import { FolderActionsDropdown } from "@/components/FolderActionsDropdown";
 import type { FolderData } from "@/components/FolderSidebar";
 import type { NewsletterData } from "@/components/NewsletterCard";
 import { m } from "@/paraglide/messages.js";
-
+import { ChevronDownIcon, ChevronRightIcon } from "@hushletter/ui";
 interface SenderFolderItemProps {
   folder: FolderData;
   isSelected: boolean;
@@ -36,6 +36,12 @@ interface SenderFolderItemProps {
     newsletterId: string,
     currentValue: boolean,
   ) => Promise<void>;
+  onToggleRead: (
+    newsletterId: string,
+    currentValue: boolean,
+  ) => Promise<void>;
+  onArchive: (newsletterId: string) => Promise<void>;
+  onBin: (newsletterId: string) => Promise<void>;
   onHideSuccess: () => void;
 }
 
@@ -55,6 +61,9 @@ export function SenderFolderItem({
   getIsFavorited,
   isFavoritePending,
   onToggleFavorite,
+  onToggleRead,
+  onArchive,
+  onBin,
   onHideSuccess,
 }: SenderFolderItemProps) {
   const folderId = folder._id as Id<"folders">;
@@ -86,7 +95,10 @@ export function SenderFolderItem({
     if (!head) return;
     if (cursor !== null || tailPages.length > 0) return;
 
-    const data = head as unknown as { continueCursor: string | null; isDone: boolean };
+    const data = head as unknown as {
+      continueCursor: string | null;
+      isDone: boolean;
+    };
     setCursor(data.continueCursor);
     setIsDone(data.isDone);
   }, [isExpanded, head, cursor, tailPages.length]);
@@ -131,15 +143,20 @@ export function SenderFolderItem({
 
   const handleFolderSelect = () => {
     onFolderSelect(folder._id);
+    /*  if (!isExpanded) {
+      onExpandedChange(true);
+    } */
+
+    onExpandedChange(!isExpanded);
   };
 
   return (
     <Collapsible open={isExpanded} onOpenChange={onExpandedChange}>
       <div
         className={cn(
-          "group flex items-center rounded-lg transition-colors",
-          "hover:bg-accent/50",
-          isSelected && "bg-accent/70",
+          "group flex items-center rounded-lg",
+          "hover:bg-hover",
+          isSelected && "bg-hover",
         )}
       >
         <CollapsibleTrigger
@@ -150,9 +167,10 @@ export function SenderFolderItem({
               : m.sidebar_expandFolder({ folderName: folder.name })
           }
         >
-          <ChevronRight
+          <ChevronRightIcon
             className={cn(
-              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ease-in-out duration-150",
+              "stroke-[2.5px]",
               isExpanded && "rotate-90",
             )}
           />
@@ -232,6 +250,9 @@ export function SenderFolderItem({
                   isFavoritePending={isFavoritePending(newsletter._id)}
                   onClick={onNewsletterSelect}
                   onToggleFavorite={onToggleFavorite}
+                  onToggleRead={onToggleRead}
+                  onArchive={onArchive}
+                  onBin={onBin}
                 />
               ))}
 

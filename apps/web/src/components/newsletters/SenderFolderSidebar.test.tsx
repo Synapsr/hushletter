@@ -25,6 +25,9 @@ vi.mock("@hushletter/backend", () => ({
   api: {
     folders: {
       listVisibleFoldersWithUnreadCounts: "folders.listVisibleFoldersWithUnreadCounts",
+      listHiddenFolders: "folders.listHiddenFolders",
+      reorderFolders: "folders.reorderFolders",
+      unhideFolder: "folders.unhideFolder",
     },
     newsletters: {
       getUserNewsletter: "newsletters.getUserNewsletter",
@@ -35,6 +38,7 @@ vi.mock("@hushletter/backend", () => ({
       markNewsletterRead: "newsletters.markNewsletterRead",
       markNewsletterUnread: "newsletters.markNewsletterUnread",
       hideNewsletter: "newsletters.hideNewsletter",
+      unhideNewsletter: "newsletters.unhideNewsletter",
       binNewsletter: "newsletters.binNewsletter",
     },
   },
@@ -46,21 +50,31 @@ vi.mock("./SenderFolderItem", () => ({
     isSelected,
     isExpanded,
     onExpandedChange,
+    newslettersOverride = [],
   }: {
     folder: { name: string };
     isSelected: boolean;
     isExpanded: boolean;
     onExpandedChange: (expanded: boolean) => void;
+    newslettersOverride?: Array<{ _id: string; subject: string }>;
   }) => (
-    <button
-      type="button"
-      data-testid="sender-folder-item"
-      data-expanded={isExpanded ? "true" : "false"}
-      data-selected={isSelected ? "true" : "false"}
-      onClick={() => onExpandedChange(!isExpanded)}
-    >
-      {folder.name}
-    </button>
+    <div>
+      <button
+        type="button"
+        data-testid="sender-folder-item"
+        data-expanded={isExpanded ? "true" : "false"}
+        data-selected={isSelected ? "true" : "false"}
+        onClick={() => onExpandedChange(!isExpanded)}
+      >
+        {folder.name}
+      </button>
+      {isExpanded &&
+        newslettersOverride.map((newsletter) => (
+          <div key={newsletter._id} data-testid="newsletter-list-item">
+            {newsletter.subject}
+          </div>
+        ))}
+    </div>
   ),
 }));
 
@@ -224,6 +238,13 @@ describe("SenderFolderSidebar", () => {
           isError: false,
         } as ReturnType<typeof useQuery>;
       }
+      if (queryKey === "folders.listHiddenFolders") {
+        return {
+          data: [],
+          isPending: false,
+          isError: false,
+        } as ReturnType<typeof useQuery>;
+      }
       return {
         data: null,
         isPending: false,
@@ -262,7 +283,7 @@ describe("SenderFolderSidebar", () => {
     expect(screen.getByTestId("newsletter-list-item")).toHaveTextContent("Weekly update");
   });
 
-  it("renders hidden newsletter rows when hidden filter is selected", () => {
+  it("keeps archive folders collapsed by default", () => {
     const hiddenNewsletters: NewsletterData[] = [
       {
         _id: "hidden1" as Id<"userNewsletters">,
@@ -284,7 +305,82 @@ describe("SenderFolderSidebar", () => {
       />,
     );
 
+    expect(screen.queryByText("Hidden digest")).not.toBeInTheDocument();
+  });
+
+  it("renders hidden newsletter rows after expanding archive folder", () => {
+    const hiddenNewsletters: NewsletterData[] = [
+      {
+        _id: "hidden1" as Id<"userNewsletters">,
+        subject: "Hidden digest",
+        senderEmail: "hidden@example.com",
+        receivedAt: Date.now(),
+        isRead: true,
+        isHidden: true,
+        isPrivate: false,
+        isFavorited: false,
+      },
+    ];
+
+    render(
+      <SenderFolderSidebar
+        {...defaultProps}
+        selectedFilter="hidden"
+        hiddenNewsletters={hiddenNewsletters}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByTestId("sender-folder-item")[0]);
     expect(screen.getByTestId("newsletter-list-item")).toHaveTextContent("Hidden digest");
+  });
+
+  it("keeps bin folders collapsed by default", () => {
+    const binnedNewsletters: NewsletterData[] = [
+      {
+        _id: "binned-1" as Id<"userNewsletters">,
+        subject: "Binned digest",
+        senderEmail: "binned@example.com",
+        receivedAt: Date.now(),
+        isRead: true,
+        isHidden: false,
+        isPrivate: false,
+      },
+    ];
+
+    render(
+      <SenderFolderSidebar
+        {...defaultProps}
+        selectedFilter="bin"
+        binnedNewsletters={binnedNewsletters}
+      />,
+    );
+
+    expect(screen.queryByText("Binned digest")).not.toBeInTheDocument();
+  });
+
+  it("renders binned newsletter rows after expanding bin folder", () => {
+    const binnedNewsletters: NewsletterData[] = [
+      {
+        _id: "binned-1" as Id<"userNewsletters">,
+        subject: "Binned digest",
+        senderEmail: "binned@example.com",
+        receivedAt: Date.now(),
+        isRead: true,
+        isHidden: false,
+        isPrivate: false,
+      },
+    ];
+
+    render(
+      <SenderFolderSidebar
+        {...defaultProps}
+        selectedFilter="bin"
+        binnedNewsletters={binnedNewsletters}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByTestId("sender-folder-item")[0]);
+    expect(screen.getByTestId("newsletter-list-item")).toHaveTextContent("Binned digest");
   });
 
   it("shows Empty Bin action when bin filter is selected and there are binned items", () => {
@@ -522,7 +618,7 @@ describe("SenderFolderSidebar", () => {
     });
   });
 
-  it("clears hidden filter when hidden button is clicked while already selected", () => {
+  it("clears hidden filter when back button is clicked in the Archive detail panel", () => {
     const onFilterSelect = vi.fn();
 
     render(
@@ -533,7 +629,7 @@ describe("SenderFolderSidebar", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /hidden/i }));
+    fireEvent.click(screen.getByRole("button", { name: /back/i }));
     expect(onFilterSelect).toHaveBeenCalledWith(null);
   });
 

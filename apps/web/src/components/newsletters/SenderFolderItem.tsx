@@ -20,6 +20,7 @@ import type { FolderData } from "@/components/FolderSidebar";
 import type { NewsletterData } from "@/components/NewsletterCard";
 import { m } from "@/paraglide/messages.js";
 import { ChevronRightIcon } from "@hushletter/ui";
+import { RotateCcw } from "lucide-react";
 import type { DragControls } from "motion/react";
 
 interface SenderFolderItemProps {
@@ -31,6 +32,10 @@ interface SenderFolderItemProps {
   onExpandedChange: (expanded: boolean) => void;
   onFolderSelect: (folderId: string) => void;
   onNewsletterSelect: (newsletterId: string) => void;
+  newslettersOverride?: NewsletterData[];
+  newslettersPendingOverride?: boolean;
+  selectFolderOnClick?: boolean;
+  showFolderActions?: boolean;
   getIsFavorited: (newsletterId: string, serverValue?: boolean) => boolean;
   isFavoritePending: (newsletterId: string) => boolean;
   onToggleFavorite: (
@@ -38,9 +43,12 @@ interface SenderFolderItemProps {
     currentValue: boolean,
   ) => Promise<void>;
   onToggleRead: (newsletterId: string, currentValue: boolean) => Promise<void>;
-  onArchive: (newsletterId: string) => Promise<void>;
-  onBin: (newsletterId: string) => Promise<void>;
-  onHideSuccess: () => void;
+  onArchive?: (newsletterId: string) => Promise<void>;
+  onUnarchive?: (newsletterId: string) => Promise<void>;
+  onBin?: (newsletterId: string) => Promise<void>;
+  onHideSuccess?: () => void;
+  onRestoreFolder?: (folderId: string) => Promise<void> | void;
+  isRestoreFolderPending?: boolean;
   dragControls?: DragControls;
 }
 
@@ -57,22 +65,32 @@ export function SenderFolderItem({
   onExpandedChange,
   onFolderSelect,
   onNewsletterSelect,
+  newslettersOverride,
+  newslettersPendingOverride = false,
+  selectFolderOnClick = true,
+  showFolderActions = true,
   getIsFavorited,
   isFavoritePending,
   onToggleFavorite,
   onToggleRead,
   onArchive,
+  onUnarchive,
   onBin,
   onHideSuccess,
+  onRestoreFolder,
+  isRestoreFolderPending = false,
   dragControls,
 }: SenderFolderItemProps) {
   const folderId = folder._id as Id<"folders">;
+  const usesStaticNewsletters = newslettersOverride !== undefined;
 
   // Reactive head page (subscribed) only while expanded.
   const { data: head, isPending: headPending } = useQuery(
     convexQuery(
       api.newsletters.listUserNewslettersByFolderHead,
-      isExpanded ? { folderId, numItems: 20 } : "skip",
+      isExpanded && !usesStaticNewsletters
+        ? { folderId, numItems: 20 }
+        : "skip",
     ),
   );
 
@@ -103,10 +121,15 @@ export function SenderFolderItem({
     setIsDone(data.isDone);
   }, [isExpanded, head, cursor, tailPages.length]);
 
-  const headPage = useMemo(() => {
+  const liveHeadPage = useMemo(() => {
     const data = head as unknown as { page?: NewsletterData[] } | undefined;
     return (data?.page ?? []) as NewsletterData[];
   }, [head]);
+
+  const headPage = newslettersOverride ?? liveHeadPage;
+  const isHeadPending = usesStaticNewsletters
+    ? newslettersPendingOverride
+    : headPending;
 
   const senderPreviews = useMemo(() => {
     if (folder.senderPreviews && folder.senderPreviews.length > 0) {
@@ -131,6 +154,9 @@ export function SenderFolderItem({
   }, [folder.senderPreviews, headPage]);
 
   const mergedNewsletters = useMemo(() => {
+    if (usesStaticNewsletters) {
+      return headPage;
+    }
     const merged: NewsletterData[] = [];
     const seen = new Set<string>();
     for (const newsletter of [...headPage, ...tailPages.flat()]) {
@@ -140,7 +166,7 @@ export function SenderFolderItem({
       merged.push(newsletter);
     }
     return merged;
-  }, [headPage, tailPages]);
+  }, [headPage, tailPages, usesStaticNewsletters]);
 
   // Apply sidebar filter
   const filteredNewsletters =
@@ -148,7 +174,8 @@ export function SenderFolderItem({
       ? mergedNewsletters.filter((n) => !n.isRead)
       : mergedNewsletters;
 
-  const canLoadMore = isExpanded && !isDone && cursor !== null;
+  const canLoadMore =
+    !usesStaticNewsletters && isExpanded && !isDone && cursor !== null;
   const handleLoadMore = useCallback(async () => {
     if (!canLoadMore || isLoadingMore || cursor === null) return;
     setIsLoadingMore(true);
@@ -164,7 +191,9 @@ export function SenderFolderItem({
   }, [canLoadMore, isLoadingMore, cursor, loadPage, folderId]);
 
   const handleFolderSelect = () => {
-    onFolderSelect(folder._id);
+    if (selectFolderOnClick) {
+      onFolderSelect(folder._id);
+    }
     /*  if (!isExpanded) {
       onExpandedChange(true);
     } */
@@ -233,23 +262,52 @@ export function SenderFolderItem({
           </span>
           <span
             className={cn(
-              "text-sm truncate font-medium",
+              "text-sm truncate font-medium transition-colors",
               folder.unreadCount > 0 || isExpanded
                 ? "text-primary"
-                : "text-muted-foreground/70",
+                : "text-muted-foreground/70 group-hover:text-foreground",
             )}
           >
             {folder.name}
           </span>
         </button>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <FolderActionsDropdown
-            folderId={folder._id}
-            folderName={folder.name}
-            onHideSuccess={onHideSuccess}
-          />
-        </div>
+        {(showFolderActions || onRestoreFolder) && (
+          <div className="flex items-center gap-1 shrink-0">
+            {onRestoreFolder && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void onRestoreFolder(folder._id);
+                }}
+                aria-label={
+                  m.hiddenFolders_unhideAriaLabel?.({
+                    folderName: folder.name,
+                  }) ??
+                  m.hiddenFolders_unhide?.() ??
+                  "Unhide"
+                }
+                disabled={isRestoreFolderPending}
+                className={cn(
+                  "flex items-center justify-center size-8 shrink-0 rounded-md hover:bg-accent/60 transition-colors",
+                  isRestoreFolderPending && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            )}
+
+            {showFolderActions && (
+              <FolderActionsDropdown
+                folderId={folder._id}
+                folderName={folder.name}
+                onHideSuccess={onHideSuccess}
+              />
+            )}
+          </div>
+        )}
 
         <CollapsibleTrigger
           className="flex items-center justify-center size-8 shrink-0 rounded-md hover:bg-accent/60 transition-colors"
@@ -273,10 +331,11 @@ export function SenderFolderItem({
       </div>
 
       <CollapsiblePanel
+        className={cn(isExpanded && "-mt-3 pt-3")}
         render={<ScrollArea scrollFade className="max-h-[245px]" />}
       >
         <div className="ml-4 border-l border-border pl-2 py-1 space-y-0.5 ">
-          {headPending ? (
+          {isHeadPending ? (
             // Loading skeleton for newsletter items
             <div className="space-y-1 py-1">
               {[1, 2].map((i) => (
@@ -310,6 +369,7 @@ export function SenderFolderItem({
                   onToggleFavorite={onToggleFavorite}
                   onToggleRead={onToggleRead}
                   onArchive={onArchive}
+                  onUnarchive={onUnarchive}
                   onBin={onBin}
                 />
               ))}

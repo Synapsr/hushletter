@@ -20,9 +20,12 @@ import {
   ScrollArea,
   Button,
   Skeleton,
+  ArchiveBoldIcon,
+  TrashIcon,
+  TrashBoldIcon,
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
-import { EyeOff, AlertCircle, Trash2 } from "lucide-react";
+import { AlertCircle, Trash2, Archive, ArrowLeft } from "lucide-react";
 import {
   Reorder,
   useDragControls,
@@ -30,6 +33,8 @@ import {
   useVelocity,
   useTransform,
   animate,
+  AnimatePresence,
+  motion,
 } from "motion/react";
 import { SenderFolderItem } from "./SenderFolderItem";
 import { NewsletterListItem } from "./NewsletterListItem";
@@ -50,6 +55,42 @@ type FilterType =
   | typeof FILTER_HIDDEN
   | typeof FILTER_STARRED
   | typeof FILTER_BIN;
+type ManagementFolderGroup = {
+  key: string;
+  folder: FolderData;
+  newsletters: NewsletterData[];
+  useLiveFolderFeed: boolean;
+  canUnarchiveFolder: boolean;
+};
+
+interface HiddenFolderData {
+  _id: string;
+  userId?: string;
+  name: string;
+  senderEmail?: string;
+  senderPreviews?: Array<{
+    senderEmail: string;
+    senderName?: string;
+  }>;
+  color?: string;
+  isHidden?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+  newsletterCount: number;
+  unreadCount?: number;
+  senderCount: number;
+}
+
+function isHiddenFolderData(item: unknown): item is HiddenFolderData {
+  if (typeof item !== "object" || item === null) return false;
+  const obj = item as Record<string, unknown>;
+  return (
+    typeof obj._id === "string" &&
+    typeof obj.name === "string" &&
+    typeof obj.newsletterCount === "number" &&
+    typeof obj.senderCount === "number"
+  );
+}
 
 interface SenderFolderSidebarProps {
   selectedFolderId: string | null;
@@ -96,6 +137,84 @@ function areFolderOrdersEqual(a: readonly string[], b: readonly string[]) {
   return true;
 }
 
+function groupNewslettersByFolder(
+  newsletters: NewsletterData[],
+  folderNameLookup: Map<string, string>,
+): Array<{
+  folderId: string | null;
+  folderName: string;
+  newsletters: NewsletterData[];
+}> {
+  const groups = new Map<string | null, NewsletterData[]>();
+  for (const newsletter of newsletters) {
+    const key = (newsletter as { folderId?: string }).folderId ?? null;
+    const group = groups.get(key) ?? [];
+    group.push(newsletter);
+    groups.set(key, group);
+  }
+  return Array.from(groups.entries()).map(([folderId, items]) => ({
+    folderId,
+    folderName: folderId
+      ? (folderNameLookup.get(folderId) ?? "Unknown")
+      : "Uncategorized",
+    newsletters: items,
+  }));
+}
+
+function buildSenderPreviews(newsletters: NewsletterData[]) {
+  const deduped = new Map<
+    string,
+    { senderEmail: string; senderName?: string }
+  >();
+  for (const newsletter of newsletters) {
+    if (!newsletter.senderEmail || deduped.has(newsletter.senderEmail))
+      continue;
+    deduped.set(newsletter.senderEmail, {
+      senderEmail: newsletter.senderEmail,
+      senderName: newsletter.senderName,
+    });
+    if (deduped.size >= 3) break;
+  }
+  return [...deduped.values()];
+}
+
+function toFolderDataFromGroup({
+  id,
+  name,
+  newsletters,
+  baseFolder,
+  isHidden,
+}: {
+  id: string;
+  name: string;
+  newsletters: NewsletterData[];
+  baseFolder?: Partial<FolderData>;
+  isHidden?: boolean;
+}): FolderData {
+  const senderPreviews =
+    baseFolder?.senderPreviews && baseFolder.senderPreviews.length > 0
+      ? baseFolder.senderPreviews
+      : buildSenderPreviews(newsletters);
+
+  return {
+    _id: id,
+    userId: baseFolder?.userId ?? "",
+    name,
+    senderEmail:
+      baseFolder?.senderEmail ??
+      senderPreviews[0]?.senderEmail ??
+      newsletters[0]?.senderEmail,
+    senderPreviews,
+    color: baseFolder?.color,
+    isHidden: isHidden ?? baseFolder?.isHidden ?? false,
+    createdAt: baseFolder?.createdAt ?? 0,
+    updatedAt: baseFolder?.updatedAt ?? 0,
+    newsletterCount: newsletters.length,
+    unreadCount: newsletters.filter((newsletter) => !newsletter.isRead).length,
+    senderCount: senderPreviews.length,
+  };
+}
+
 function SidebarSkeleton() {
   return (
     <div className="p-3 space-y-2">
@@ -118,6 +237,72 @@ function SidebarSkeleton() {
             <Skeleton className="h-5 w-5 rounded-full" />
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Management section — always-visible footer rows for Archive and Bin.
+ */
+function ManagementSection({
+  archiveCount,
+  binCount,
+  selectedFilter,
+  onArchiveClick,
+  onBinClick,
+}: {
+  archiveCount: number;
+  binCount: number;
+  selectedFilter: FilterType | null;
+  onArchiveClick: () => void;
+  onBinClick: () => void;
+}) {
+  return (
+    <div className=" bg-background space-y-2">
+      <div className="px-3 pt-2 pb-0.5">
+        <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+          {m.sidebar_management()}
+        </p>
+      </div>
+      <div className="px-2 pb-2 space-y-0.5">
+        <button
+          type="button"
+          onClick={onArchiveClick}
+          aria-current={selectedFilter === FILTER_HIDDEN ? "page" : undefined}
+          className={cn(
+            "w-full flex items-center font-medium text-muted-foreground justify-between px-3 py-2 rounded-lg text-sm",
+            "hover:bg-accent hover:text-primary transition-colors text-left",
+            selectedFilter === FILTER_HIDDEN && "bg-accent ",
+          )}
+        >
+          <div className="flex items-center gap-2 truncate flex-1 mr-2">
+            <ArchiveBoldIcon className="size-5 shrink-0 " aria-hidden="true" />
+            <span className="truncate">{m.sidebar_archive()}</span>
+          </div>
+          <span className="text-muted-foreground text-xs flex-shrink-0">
+            {archiveCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onBinClick}
+          aria-current={selectedFilter === FILTER_BIN ? "page" : undefined}
+          className={cn(
+            "w-full flex items-center font-medium text-muted-foreground justify-between px-3 py-2 rounded-lg text-sm",
+            "hover:bg-accent hover:text-primary transition-colors text-left",
+            selectedFilter === FILTER_BIN && "bg-accent ",
+          )}
+        >
+          <div className="flex items-center gap-2 truncate flex-1 mr-2">
+            <TrashBoldIcon className="size-5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{m.bin_label?.() ?? "Bin"}</span>
+          </div>
+          <span className="text-muted-foreground text-xs flex-shrink-0">
+            {binCount}
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -272,6 +457,12 @@ export function SenderFolderSidebar({
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [expandedArchiveFolderIds, setExpandedArchiveFolderIds] = useState<
+    Set<string>
+  >(() => new Set());
+  const [expandedBinFolderIds, setExpandedBinFolderIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [lastConnectedAt, setLastConnectedAt] = useState<number | undefined>(
     undefined,
   );
@@ -294,9 +485,14 @@ export function SenderFolderSidebar({
     api.newsletters.markNewsletterUnread,
   );
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
+  const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
   const binNewsletter = useMutation((api.newsletters as any).binNewsletter);
+  const unhideFolder = useMutation(api.folders.unhideFolder);
   const reorderFoldersMutation = useMutation(api.folders.reorderFolders);
   const [localFolderOrderIds, setLocalFolderOrderIds] = useState<string[]>([]);
+  const [restoringFolderId, setRestoringFolderId] = useState<string | null>(
+    null,
+  );
   const isDraggingRef = useRef(false);
   const [isReordering, setIsReordering] = useState(false);
   const lastPersistedFolderOrderIdsRef = useRef<string[]>([]);
@@ -324,6 +520,24 @@ export function SenderFolderSidebar({
   const { data: binnedCount, isPending: binnedCountPending } = useQuery(
     convexQuery((api.newsletters as any).getBinnedNewsletterCount, {}),
   );
+
+  // Fetch hidden folders only when the Archive detail panel is active
+  const { data: hiddenFoldersRaw, isPending: hiddenFoldersPending } = useQuery(
+    convexQuery(
+      api.folders.listHiddenFolders,
+      selectedFilter === FILTER_HIDDEN || selectedFilter === FILTER_BIN
+        ? {}
+        : "skip",
+    ),
+  );
+
+  const hiddenFolders = useMemo(
+    () =>
+      (hiddenFoldersRaw as unknown[] | undefined)?.filter(isHiddenFolderData) ??
+      [],
+    [hiddenFoldersRaw],
+  );
+
   const shouldShowRecentSection =
     sidebarFilter === "all" &&
     selectedFilter !== FILTER_HIDDEN &&
@@ -357,6 +571,18 @@ export function SenderFolderSidebar({
   const effectiveSelectedFolderId =
     selectedFolderId ?? selectedNewsletterFolderId ?? null;
 
+  // Build a lookup map: folderId → folderName (from visible + hidden folders)
+  const folderNameLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const folder of folderList) {
+      map.set(folder._id, folder.name);
+    }
+    for (const folder of hiddenFolders) {
+      map.set(folder._id, folder.name);
+    }
+    return map;
+  }, [folderList, hiddenFolders]);
+
   useEffect(() => {
     setExpandedFolderIds((previous) => {
       if (previous.size === 0) return previous;
@@ -383,6 +609,112 @@ export function SenderFolderSidebar({
   const folderById = useMemo(
     () => new Map(folderList.map((folder) => [folder._id, folder])),
     [folderList],
+  );
+  const hiddenFolderById = useMemo(
+    () => new Map(hiddenFolders.map((folder) => [folder._id, folder])),
+    [hiddenFolders],
+  );
+
+  const groupedHiddenNewsletters = useMemo(
+    () => groupNewslettersByFolder(hiddenNewsletters, folderNameLookup),
+    [hiddenNewsletters, folderNameLookup],
+  );
+
+  const groupedBinnedNewsletters = useMemo(
+    () => groupNewslettersByFolder(binnedNewsletters, folderNameLookup),
+    [binnedNewsletters, folderNameLookup],
+  );
+
+  const archiveFolderGroups = useMemo<ManagementFolderGroup[]>(() => {
+    const groups = new Map<string, ManagementFolderGroup>();
+
+    for (const folder of hiddenFolders) {
+      groups.set(folder._id, {
+        key: folder._id,
+        folder: {
+          ...toFolderDataFromGroup({
+            id: folder._id,
+            name: folder.name,
+            newsletters: [],
+            baseFolder: folder,
+            isHidden: true,
+          }),
+          newsletterCount: folder.newsletterCount,
+          unreadCount: folder.unreadCount ?? 0,
+          senderCount: folder.senderCount,
+        },
+        newsletters: [],
+        useLiveFolderFeed: true,
+        canUnarchiveFolder: true,
+      });
+    }
+
+    for (const group of groupedHiddenNewsletters) {
+      const key = group.folderId ?? "__archive_uncategorized__";
+      const baseFolder = group.folderId
+        ? (hiddenFolderById.get(group.folderId) ??
+          folderById.get(group.folderId))
+        : undefined;
+      const folder = toFolderDataFromGroup({
+        id: group.folderId ?? key,
+        name: group.folderName,
+        newsletters: group.newsletters,
+        baseFolder,
+        isHidden: true,
+      });
+      const existing = groups.get(key);
+      groups.set(key, {
+        key,
+        folder: existing
+          ? {
+              ...folder,
+              newsletterCount: Math.max(
+                existing.folder.newsletterCount,
+                group.newsletters.length,
+              ),
+              senderCount: Math.max(
+                existing.folder.senderCount,
+                folder.senderCount,
+              ),
+            }
+          : folder,
+        newsletters: existing?.newsletters.length
+          ? existing.newsletters
+          : group.newsletters,
+        useLiveFolderFeed: existing?.useLiveFolderFeed ?? false,
+        canUnarchiveFolder: existing?.canUnarchiveFolder ?? false,
+      });
+    }
+
+    return [...groups.values()].sort((a, b) =>
+      a.folder.name.localeCompare(b.folder.name),
+    );
+  }, [folderById, groupedHiddenNewsletters, hiddenFolderById, hiddenFolders]);
+
+  const binnedFolderGroups = useMemo<ManagementFolderGroup[]>(
+    () =>
+      groupedBinnedNewsletters
+        .map((group) => {
+          const key = group.folderId ?? "__bin_uncategorized__";
+          const baseFolder = group.folderId
+            ? (folderById.get(group.folderId) ??
+              hiddenFolderById.get(group.folderId))
+            : undefined;
+          return {
+            key,
+            folder: toFolderDataFromGroup({
+              id: group.folderId ?? key,
+              name: group.folderName,
+              newsletters: group.newsletters,
+              baseFolder,
+            }),
+            newsletters: group.newsletters,
+            useLiveFolderFeed: false,
+            canUnarchiveFolder: false,
+          };
+        })
+        .sort((a, b) => a.folder.name.localeCompare(b.folder.name)),
+    [folderById, groupedBinnedNewsletters, hiddenFolderById],
   );
 
   // Sync local drag order from server data when not mid-drag
@@ -542,6 +874,10 @@ export function SenderFolderSidebar({
     onFilterSelect(FILTER_BIN);
   };
 
+  const handleBackClick = () => {
+    onFilterSelect(null);
+  };
+
   const handleFolderExpandedChange = (folderId: string, expanded: boolean) => {
     setExpandedFolderIds((previous) => {
       const next = new Set(previous);
@@ -553,6 +889,64 @@ export function SenderFolderSidebar({
       return next;
     });
   };
+
+  const handleArchiveFolderExpandedChange = (
+    folderId: string,
+    expanded: boolean,
+  ) => {
+    setExpandedArchiveFolderIds((previous) => {
+      const next = new Set(previous);
+      if (expanded) {
+        next.add(folderId);
+      } else {
+        next.delete(folderId);
+      }
+      return next;
+    });
+  };
+
+  const handleBinFolderExpandedChange = (
+    folderId: string,
+    expanded: boolean,
+  ) => {
+    setExpandedBinFolderIds((previous) => {
+      const next = new Set(previous);
+      if (expanded) {
+        next.add(folderId);
+      } else {
+        next.delete(folderId);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const keys = archiveFolderGroups.map((group) => group.key);
+    setExpandedArchiveFolderIds((previous) => {
+      const allowed = new Set(keys);
+      const next = new Set([...previous].filter((key) => allowed.has(key)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [archiveFolderGroups]);
+
+  useEffect(() => {
+    if (selectedFilter !== FILTER_HIDDEN) return;
+    setExpandedArchiveFolderIds(new Set());
+  }, [selectedFilter]);
+
+  useEffect(() => {
+    const keys = binnedFolderGroups.map((group) => group.key);
+    setExpandedBinFolderIds((previous) => {
+      const allowed = new Set(keys);
+      const next = new Set([...previous].filter((key) => allowed.has(key)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [binnedFolderGroups]);
+
+  useEffect(() => {
+    if (selectedFilter !== FILTER_BIN) return;
+    setExpandedBinFolderIds(new Set());
+  }, [selectedFilter]);
 
   useEffect(() => {
     let previousVisit: number | undefined;
@@ -621,6 +1015,15 @@ export function SenderFolderSidebar({
     [hideNewsletter],
   );
 
+  const handleUnarchiveNewsletter = useCallback(
+    async (newsletterId: string) => {
+      await unhideNewsletter({
+        userNewsletterId: newsletterId as Id<"userNewsletters">,
+      });
+    },
+    [unhideNewsletter],
+  );
+
   const handleMoveToBin = useCallback(
     async (newsletterId: string) => {
       await binNewsletter({
@@ -628,6 +1031,21 @@ export function SenderFolderSidebar({
       });
     },
     [binNewsletter],
+  );
+
+  const handleUnarchiveFolder = useCallback(
+    async (folderId: string) => {
+      if (restoringFolderId !== null) return;
+      setRestoringFolderId(folderId);
+      try {
+        await unhideFolder({ folderId: folderId as Id<"folders"> });
+      } finally {
+        setRestoringFolderId((current) =>
+          current === folderId ? null : current,
+        );
+      }
+    },
+    [restoringFolderId, unhideFolder],
   );
 
   useEffect(() => {
@@ -705,6 +1123,10 @@ export function SenderFolderSidebar({
     return () => observer.disconnect();
   }, [canLoadMoreRecent, handleLoadMoreRecent]);
 
+  // Whether one of the management detail panels is active
+  const isManagementDetailActive =
+    selectedFilter === FILTER_HIDDEN || selectedFilter === FILTER_BIN;
+
   if (foldersError) {
     return (
       <aside
@@ -722,410 +1144,483 @@ export function SenderFolderSidebar({
 
   return (
     <aside
-      className="w-[300px] border-r bg-background flex flex-col"
+      className="relative w-[300px] border-r bg-background flex flex-col overflow-hidden"
       role="navigation"
       aria-label={m.newsletters_folderNavigation()}
     >
-      {/* Header */}
-      <div className="p-2 pb-0">
-        {/* <h2 className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase px-2 mb-2">
-          {m.sidebar_senderFolders()}
-        </h2> */}
-
-        {/* Filter tabs */}
-        <Tabs
-          value={sidebarFilter}
-          onValueChange={(val) => handleTabChange(val as SidebarFilter)}
-        >
-          <TabsList className="w-full h-8">
-            <TabsTrigger value="all" className="flex-1 text-xs h-7">
-              {m.sidebar_filterAll()}
-            </TabsTrigger>
-            <TabsTrigger value="unread" className="flex-1 text-xs h-7">
-              {m.sidebar_filterUnread()}
-            </TabsTrigger>
-            <TabsTrigger value="starred" className="flex-1 text-xs h-7">
-              {m.sidebar_filterStarred()}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {/* Folder list */}
-      <ScrollArea className="flex-1 mt-2">
-        <div className="px-2 pb-2 space-y-0.5">
-          {hasRecentUnreadSection && (
-            <>
-              <div className="px-2 py-1">
-                <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                  {m.sidebar_recentUnreadSinceLastVisit()}
-                </p>
+      <div className="relative flex-1 min-h-0 overflow-hidden">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {isManagementDetailActive ? (
+            <motion.div
+              key={`detail-${selectedFilter}`}
+              className="absolute inset-0 flex flex-col min-h-0 overflow-hidden"
+              initial={{ x: "100%", opacity: 0, filter: "blur(10px)" }}
+              animate={{ x: 0, opacity: 1, filter: "blur(0px)" }}
+              exit={{ x: "100%", opacity: 0, filter: "blur(10px)" }}
+              //transition={{ type: "spring", stiffness: 400, damping: 35 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+            >
+              {/* Detail panel header */}
+              <div className="flex items-center gap-2 px-3 py-3 border-b flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={handleBackClick}
+                  aria-label={m.sidebar_back?.() ?? "Back"}
+                  className="p-1 rounded-md hover:bg-accent transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <h2 className="text-sm font-semibold">
+                  {selectedFilter === FILTER_HIDDEN
+                    ? m.sidebar_archive()
+                    : (m.bin_label?.() ?? "Bin")}
+                </h2>
               </div>
 
-              <div
-                ref={recentSectionRef}
-                className="max-h-60 rounded-lg border border-border/70 bg-muted/20"
-              >
-                <ScrollArea className="h-full">
-                  <div className="p-1 space-y-0.5">
-                    {recentUnreadPending ? (
-                      <div className="space-y-1 py-1">
-                        {[0, 1, 2].map((index) => (
-                          <div key={index} className="animate-pulse px-3 py-2">
-                            <div className="h-3.5 bg-muted rounded w-4/5" />
-                            <div className="h-3 bg-muted rounded w-1/2 mt-1" />
-                          </div>
+              {/* Archive detail content */}
+              {selectedFilter === FILTER_HIDDEN && (
+                <ScrollArea className="flex-1">
+                  <div className="px-2 py-2 space-y-2">
+                    {hiddenPending || hiddenFoldersPending ? (
+                      <SidebarSkeleton />
+                    ) : archiveFolderGroups.length > 0 ? (
+                      <div className="space-y-0.5">
+                        {archiveFolderGroups.map((group) => (
+                          <SenderFolderItem
+                            key={group.key}
+                            folder={group.folder}
+                            isSelected={expandedArchiveFolderIds.has(group.key)}
+                            selectedNewsletterId={selectedNewsletterId}
+                            sidebarFilter="all"
+                            isExpanded={expandedArchiveFolderIds.has(group.key)}
+                            onExpandedChange={(expanded) =>
+                              handleArchiveFolderExpandedChange(
+                                group.key,
+                                expanded,
+                              )
+                            }
+                            onFolderSelect={() => {}}
+                            onNewsletterSelect={onNewsletterSelect}
+                            newslettersOverride={
+                              group.useLiveFolderFeed
+                                ? undefined
+                                : group.newsletters
+                            }
+                            selectFolderOnClick={false}
+                            showFolderActions={false}
+                            onRestoreFolder={
+                              group.canUnarchiveFolder
+                                ? handleUnarchiveFolder
+                                : undefined
+                            }
+                            isRestoreFolderPending={
+                              group.canUnarchiveFolder &&
+                              restoringFolderId === group.folder._id
+                            }
+                            getIsFavorited={getIsFavorited}
+                            isFavoritePending={isFavoritePending}
+                            onToggleFavorite={onToggleFavorite}
+                            onToggleRead={handleToggleRead}
+                            onUnarchive={
+                              group.useLiveFolderFeed
+                                ? undefined
+                                : handleUnarchiveNewsletter
+                            }
+                            onBin={handleMoveToBin}
+                          />
                         ))}
                       </div>
                     ) : (
-                      recentUnreadNewsletters.map((newsletter) => (
-                        <NewsletterListItem
-                          key={newsletter._id}
-                          newsletter={newsletter}
-                          isSelected={selectedNewsletterId === newsletter._id}
-                          isFavorited={getIsFavorited(
-                            newsletter._id,
-                            Boolean(newsletter.isFavorited),
-                          )}
-                          isFavoritePending={isFavoritePending(newsletter._id)}
-                          enableHideAction
-                          onHide={handleDismissRecentNewsletter}
-                          onClick={onNewsletterSelect}
-                          onToggleFavorite={onToggleFavorite}
-                          onToggleRead={handleToggleRead}
-                          onBin={handleMoveToBin}
-                        />
-                      ))
+                      <p className="text-muted-foreground text-sm text-center py-8 px-4">
+                        {m.archive_emptyState?.() ??
+                          "No archived items. Newsletters and folders you archive will appear here."}
+                      </p>
                     )}
 
-                    {canLoadMoreRecent && (
-                      <div ref={recentLoadMoreRef} className="h-8" />
-                    )}
-                    {recentIsLoadingMore && (
-                      <p className="px-3 py-2 text-xs text-muted-foreground">
-                        Loading...
-                      </p>
+                    {/* Load more */}
+                    {canLoadMore && onLoadMore && (
+                      <div className="px-2 py-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          disabled={Boolean(isLoadingMore)}
+                          onClick={() => onLoadMore()}
+                        >
+                          {isLoadingMore ? "Loading..." : "Load more"}
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </ScrollArea>
-              </div>
+              )}
 
-              <div className="h-px bg-border my-2 mx-2" role="separator" />
-            </>
-          )}
+              {/* Bin detail content */}
+              {selectedFilter === FILTER_BIN && (
+                <ScrollArea className="flex-1">
+                  <div className="px-2 py-2 space-y-2">
+                    {binnedPending ? (
+                      <SidebarSkeleton />
+                    ) : visibleBinnedNewsletters.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-8 px-4">
+                        {m.bin_emptyState?.() ?? "No newsletters in Bin."}
+                      </p>
+                    ) : (
+                      <>
+                        {/* Empty bin action */}
+                        {onEmptyBin && (
+                          <div className="px-2 pt-1">
+                            <AlertDialog>
+                              <AlertDialogTrigger
+                                render={
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    className="w-full"
+                                    disabled={isEmptyingBin}
+                                  />
+                                }
+                              >
+                                {m.bin_emptyAction?.() ?? "Empty Bin"}
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    {m.bin_emptyConfirmTitle?.() ??
+                                      "Empty Bin?"}
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {m.bin_emptyConfirmDescription?.() ??
+                                      "This will permanently delete all newsletters currently in Bin. This action cannot be undone."}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>
+                                    {m.common_cancel()}
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => {
+                                      void onEmptyBin();
+                                    }}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    disabled={isEmptyingBin}
+                                  >
+                                    {m.common_delete()}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        )}
 
-          {selectedFilter === FILTER_HIDDEN ? (
-            hiddenPending ? (
-              <SidebarSkeleton />
-            ) : visibleHiddenNewsletters.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-8 px-4">
-                {m.newsletters_noHiddenNewsletters()}
-              </p>
-            ) : (
-              <div className="space-y-0.5">
-                {visibleHiddenNewsletters.map((newsletter) => (
-                  <NewsletterListItem
-                    key={newsletter._id}
-                    newsletter={newsletter}
-                    isSelected={selectedNewsletterId === newsletter._id}
-                    isFavorited={getIsFavorited(
-                      newsletter._id,
-                      Boolean(newsletter.isFavorited),
+                        <div className="space-y-0.5">
+                          {binnedFolderGroups.map((group) => (
+                            <SenderFolderItem
+                              key={group.key}
+                              folder={group.folder}
+                              isSelected={expandedBinFolderIds.has(group.key)}
+                              selectedNewsletterId={selectedNewsletterId}
+                              sidebarFilter="all"
+                              isExpanded={expandedBinFolderIds.has(group.key)}
+                              onExpandedChange={(expanded) =>
+                                handleBinFolderExpandedChange(
+                                  group.key,
+                                  expanded,
+                                )
+                              }
+                              onFolderSelect={() => {}}
+                              onNewsletterSelect={onNewsletterSelect}
+                              newslettersOverride={group.newsletters}
+                              selectFolderOnClick={false}
+                              showFolderActions={false}
+                              getIsFavorited={getIsFavorited}
+                              isFavoritePending={isFavoritePending}
+                              onToggleFavorite={onToggleFavorite}
+                              onToggleRead={handleToggleRead}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Load more */}
+                        {canLoadMore && onLoadMore && (
+                          <div className="px-2 py-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full"
+                              disabled={Boolean(isLoadingMore)}
+                              onClick={() => onLoadMore()}
+                            >
+                              {isLoadingMore ? "Loading..." : "Load more"}
+                            </Button>
+                          </div>
+                        )}
+                      </>
                     )}
-                    isFavoritePending={isFavoritePending(newsletter._id)}
-                    onClick={onNewsletterSelect}
-                    onToggleFavorite={onToggleFavorite}
-                    onToggleRead={handleToggleRead}
-                    onBin={handleMoveToBin}
-                  />
-                ))}
-                {canLoadMore && onLoadMore && (
-                  <div className="px-2 py-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      disabled={Boolean(isLoadingMore)}
-                      onClick={() => onLoadMore()}
-                    >
-                      {isLoadingMore ? "Loading..." : "Load more"}
-                    </Button>
                   </div>
-                )}
+                </ScrollArea>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="main"
+              className="absolute inset-0 flex flex-col min-h-0 overflow-hidden"
+              initial={{ x: "-100%", opacity: 0, filter: "blur(10px)" }}
+              animate={{ x: 0, opacity: 1, filter: "blur(0px)" }}
+              exit={{ x: "-100%", opacity: 0, filter: "blur(10px)" }}
+              //transition={{ type: "spring", stiffness: 400, damping: 35 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+            >
+              {/* Header / filter tabs */}
+              <div className="p-2 pb-0">
+                {/* <h2 className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase px-2 mb-2">
+                {m.sidebar_senderFolders()}
+              </h2> */}
+
+                <Tabs
+                  value={sidebarFilter}
+                  onValueChange={(val) => handleTabChange(val as SidebarFilter)}
+                >
+                  <TabsList className="w-full h-8">
+                    <TabsTrigger value="all" className="flex-1 text-xs h-7">
+                      {m.sidebar_filterAll()}
+                    </TabsTrigger>
+                    <TabsTrigger value="unread" className="flex-1 text-xs h-7">
+                      {m.sidebar_filterUnread()}
+                    </TabsTrigger>
+                    <TabsTrigger value="starred" className="flex-1 text-xs h-7">
+                      {m.sidebar_filterStarred()}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
-            )
-          ) : selectedFilter === FILTER_BIN ? (
-            binnedPending ? (
-              <SidebarSkeleton />
-            ) : visibleBinnedNewsletters.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-8 px-4">
-                {m.bin_emptyState?.() ?? "No newsletters in Bin."}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {onEmptyBin && (
-                  <div className="px-2 pt-1">
-                    <AlertDialog>
-                      <AlertDialogTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="w-full"
-                            disabled={isEmptyingBin}
+
+              {/* Folder list */}
+              <ScrollArea className="h-fit mt-2">
+                <div className="px-2 pb-2 space-y-0.5">
+                  {hasRecentUnreadSection && (
+                    <>
+                      <div className="px-2 py-1">
+                        <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                          {m.sidebar_recentUnreadSinceLastVisit()}
+                        </p>
+                      </div>
+
+                      <div
+                        ref={recentSectionRef}
+                        className="max-h-60 rounded-lg border border-border/70 bg-muted/20"
+                      >
+                        <ScrollArea className="h-full">
+                          <div className="p-1 space-y-0.5">
+                            {recentUnreadPending ? (
+                              <div className="space-y-1 py-1">
+                                {[0, 1, 2].map((index) => (
+                                  <div
+                                    key={index}
+                                    className="animate-pulse px-3 py-2"
+                                  >
+                                    <div className="h-3.5 bg-muted rounded w-4/5" />
+                                    <div className="h-3 bg-muted rounded w-1/2 mt-1" />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              recentUnreadNewsletters.map((newsletter) => (
+                                <NewsletterListItem
+                                  key={newsletter._id}
+                                  newsletter={newsletter}
+                                  isSelected={
+                                    selectedNewsletterId === newsletter._id
+                                  }
+                                  isFavorited={getIsFavorited(
+                                    newsletter._id,
+                                    Boolean(newsletter.isFavorited),
+                                  )}
+                                  isFavoritePending={isFavoritePending(
+                                    newsletter._id,
+                                  )}
+                                  enableHideAction
+                                  onHide={handleDismissRecentNewsletter}
+                                  onClick={onNewsletterSelect}
+                                  onToggleFavorite={onToggleFavorite}
+                                  onToggleRead={handleToggleRead}
+                                  onBin={handleMoveToBin}
+                                />
+                              ))
+                            )}
+
+                            {canLoadMoreRecent && (
+                              <div ref={recentLoadMoreRef} className="h-8" />
+                            )}
+                            {recentIsLoadingMore && (
+                              <p className="px-3 py-2 text-xs text-muted-foreground">
+                                Loading...
+                              </p>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+
+                      <div
+                        className="h-px bg-border my-2 mx-2"
+                        role="separator"
+                      />
+                    </>
+                  )}
+
+                  {sidebarFilter === "starred" ? (
+                    favoritedPending ? (
+                      <SidebarSkeleton />
+                    ) : visibleFavoritedNewsletters.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-8 px-4">
+                        {m.newsletters_noStarredNewsletters()}
+                      </p>
+                    ) : (
+                      <div className="space-y-0.5">
+                        {visibleFavoritedNewsletters.map((newsletter) => (
+                          <NewsletterListItem
+                            key={newsletter._id}
+                            newsletter={newsletter}
+                            isSelected={selectedNewsletterId === newsletter._id}
+                            isFavorited={getIsFavorited(
+                              newsletter._id,
+                              Boolean(newsletter.isFavorited),
+                            )}
+                            isFavoritePending={isFavoritePending(
+                              newsletter._id,
+                            )}
+                            onClick={onNewsletterSelect}
+                            onToggleFavorite={onToggleFavorite}
+                            onToggleRead={handleToggleRead}
+                            onArchive={handleArchive}
+                            onBin={handleMoveToBin}
                           />
-                        }
-                      >
-                        {m.bin_emptyAction?.() ?? "Empty Bin"}
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            {m.bin_emptyConfirmTitle?.() ?? "Empty Bin?"}
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            {m.bin_emptyConfirmDescription?.() ??
-                              "This will permanently delete all newsletters currently in Bin. This action cannot be undone."}
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>
-                            {m.common_cancel()}
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => {
-                              void onEmptyBin();
-                            }}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            disabled={isEmptyingBin}
-                          >
-                            {m.common_delete()}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                )}
-                <div className="space-y-0.5">
-                  {visibleBinnedNewsletters.map((newsletter) => (
-                    <NewsletterListItem
-                      key={newsletter._id}
-                      newsletter={newsletter}
-                      isSelected={selectedNewsletterId === newsletter._id}
-                      isFavorited={getIsFavorited(
-                        newsletter._id,
-                        Boolean(newsletter.isFavorited),
-                      )}
-                      isFavoritePending={isFavoritePending(newsletter._id)}
-                      onClick={onNewsletterSelect}
-                      onToggleFavorite={onToggleFavorite}
-                    />
-                  ))}
-                  {canLoadMore && onLoadMore && (
-                    <div className="px-2 py-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="w-full"
-                        disabled={Boolean(isLoadingMore)}
-                        onClick={() => onLoadMore()}
-                      >
-                        {isLoadingMore ? "Loading..." : "Load more"}
-                      </Button>
+                        ))}
+                        {canLoadMore && onLoadMore && (
+                          <div className="px-2 py-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full"
+                              disabled={Boolean(isLoadingMore)}
+                              onClick={() => onLoadMore()}
+                            >
+                              {isLoadingMore ? "Loading..." : "Load more"}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : foldersPending ? (
+                    <SidebarSkeleton />
+                  ) : visibleFolders.length === 0 ? (
+                    <p className="text-muted-foreground text-sm text-center py-8 px-4">
+                      {sidebarFilter === "unread"
+                        ? "All caught up!"
+                        : m.folder_emptyState()}
+                    </p>
+                  ) : !canReorderFolders ? (
+                    <div className="space-y-0.5">
+                      {visibleFolders.map((folder) => (
+                        <SenderFolderItem
+                          key={folder._id}
+                          folder={folder}
+                          isSelected={effectiveSelectedFolderId === folder._id}
+                          selectedNewsletterId={selectedNewsletterId}
+                          sidebarFilter={sidebarFilter}
+                          isExpanded={expandedFolderIds.has(folder._id)}
+                          onExpandedChange={(expanded) =>
+                            handleFolderExpandedChange(folder._id, expanded)
+                          }
+                          onFolderSelect={(id) => {
+                            onFilterSelect(null);
+                            onFolderSelect(id);
+                          }}
+                          onNewsletterSelect={onNewsletterSelect}
+                          getIsFavorited={getIsFavorited}
+                          isFavoritePending={isFavoritePending}
+                          onToggleFavorite={onToggleFavorite}
+                          onToggleRead={handleToggleRead}
+                          onArchive={handleArchive}
+                          onBin={handleMoveToBin}
+                          onHideSuccess={() => {
+                            if (selectedFolderId === folder._id) {
+                              onFolderSelect(null);
+                            }
+                          }}
+                        />
+                      ))}
                     </div>
+                  ) : (
+                    <Reorder.Group
+                      axis="y"
+                      as="div"
+                      layoutScroll
+                      values={localFolderOrderIds}
+                      onReorder={handleFolderReorder}
+                      className="space-y-0.5"
+                    >
+                      {visibleFolders.map((folder) => (
+                        <DraggableFolderItem
+                          key={folder._id}
+                          folder={folder}
+                          isReordering={isReordering}
+                          isSelected={effectiveSelectedFolderId === folder._id}
+                          selectedNewsletterId={selectedNewsletterId}
+                          sidebarFilter={sidebarFilter}
+                          isExpanded={expandedFolderIds.has(folder._id)}
+                          onExpandedChange={(expanded) =>
+                            handleFolderExpandedChange(folder._id, expanded)
+                          }
+                          onFolderSelect={(id) => {
+                            onFilterSelect(null);
+                            onFolderSelect(id);
+                          }}
+                          onNewsletterSelect={onNewsletterSelect}
+                          getIsFavorited={getIsFavorited}
+                          isFavoritePending={isFavoritePending}
+                          onToggleFavorite={onToggleFavorite}
+                          onToggleRead={handleToggleRead}
+                          onArchive={handleArchive}
+                          onBin={handleMoveToBin}
+                          onHideSuccess={() => {
+                            if (selectedFolderId === folder._id) {
+                              onFolderSelect(null);
+                            }
+                          }}
+                          onDragStart={handleFolderDragStart}
+                          onDragEnd={handleFolderDragEnd}
+                        />
+                      ))}
+                    </Reorder.Group>
                   )}
                 </div>
-              </div>
-            )
-          ) : sidebarFilter === "starred" ? (
-            favoritedPending ? (
-              <SidebarSkeleton />
-            ) : visibleFavoritedNewsletters.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-8 px-4">
-                {m.newsletters_noStarredNewsletters()}
-              </p>
-            ) : (
-              <div className="space-y-0.5">
-                {visibleFavoritedNewsletters.map((newsletter) => (
-                  <NewsletterListItem
-                    key={newsletter._id}
-                    newsletter={newsletter}
-                    isSelected={selectedNewsletterId === newsletter._id}
-                    isFavorited={getIsFavorited(
-                      newsletter._id,
-                      Boolean(newsletter.isFavorited),
-                    )}
-                    isFavoritePending={isFavoritePending(newsletter._id)}
-                    onClick={onNewsletterSelect}
-                    onToggleFavorite={onToggleFavorite}
-                    onToggleRead={handleToggleRead}
-                    onArchive={handleArchive}
-                    onBin={handleMoveToBin}
-                  />
-                ))}
-                {canLoadMore && onLoadMore && (
-                  <div className="px-2 py-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      disabled={Boolean(isLoadingMore)}
-                      onClick={() => onLoadMore()}
-                    >
-                      {isLoadingMore ? "Loading..." : "Load more"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )
-          ) : foldersPending ? (
-            <SidebarSkeleton />
-          ) : visibleFolders.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-8 px-4">
-              {sidebarFilter === "unread"
-                ? "All caught up!"
-                : m.folder_emptyState()}
-            </p>
-          ) : !canReorderFolders ? (
-            <div className="space-y-0.5">
-              {visibleFolders.map((folder) => (
-                <SenderFolderItem
-                  key={folder._id}
-                  folder={folder}
-                  isSelected={effectiveSelectedFolderId === folder._id}
-                  selectedNewsletterId={selectedNewsletterId}
-                  sidebarFilter={sidebarFilter}
-                  isExpanded={expandedFolderIds.has(folder._id)}
-                  onExpandedChange={(expanded) =>
-                    handleFolderExpandedChange(folder._id, expanded)
-                  }
-                  onFolderSelect={(id) => {
-                    onFilterSelect(null);
-                    onFolderSelect(id);
-                  }}
-                  onNewsletterSelect={onNewsletterSelect}
-                  getIsFavorited={getIsFavorited}
-                  isFavoritePending={isFavoritePending}
-                  onToggleFavorite={onToggleFavorite}
-                  onToggleRead={handleToggleRead}
-                  onArchive={handleArchive}
-                  onBin={handleMoveToBin}
-                  onHideSuccess={() => {
-                    if (selectedFolderId === folder._id) {
-                      onFolderSelect(null);
-                    }
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <Reorder.Group
-              axis="y"
-              as="div"
-              layoutScroll
-              values={localFolderOrderIds}
-              onReorder={handleFolderReorder}
-              className="space-y-0.5"
-            >
-              {visibleFolders.map((folder) => (
-                <DraggableFolderItem
-                  key={folder._id}
-                  folder={folder}
-                  isReordering={isReordering}
-                  isSelected={effectiveSelectedFolderId === folder._id}
-                  selectedNewsletterId={selectedNewsletterId}
-                  sidebarFilter={sidebarFilter}
-                  isExpanded={expandedFolderIds.has(folder._id)}
-                  onExpandedChange={(expanded) =>
-                    handleFolderExpandedChange(folder._id, expanded)
-                  }
-                  onFolderSelect={(id) => {
-                    onFilterSelect(null);
-                    onFolderSelect(id);
-                  }}
-                  onNewsletterSelect={onNewsletterSelect}
-                  getIsFavorited={getIsFavorited}
-                  isFavoritePending={isFavoritePending}
-                  onToggleFavorite={onToggleFavorite}
-                  onToggleRead={handleToggleRead}
-                  onArchive={handleArchive}
-                  onBin={handleMoveToBin}
-                  onHideSuccess={() => {
-                    if (selectedFolderId === folder._id) {
-                      onFolderSelect(null);
-                    }
-                  }}
-                  onDragStart={handleFolderDragStart}
-                  onDragEnd={handleFolderDragEnd}
-                />
-              ))}
-            </Reorder.Group>
+              </ScrollArea>
+
+              {/* Management section — always-visible, pinned at bottom */}
+              <ManagementSection
+                archiveCount={
+                  hiddenCountPending
+                    ? 0
+                    : (hiddenCount ?? visibleHiddenNewsletters.length)
+                }
+                binCount={
+                  binnedCountPending
+                    ? 0
+                    : (binnedCount ?? visibleBinnedNewsletters.length)
+                }
+                selectedFilter={selectedFilter}
+                onArchiveClick={handleHiddenClick}
+                onBinClick={handleBinClick}
+              />
+            </motion.div>
           )}
-
-          {/* Hidden section */}
-          {!hiddenCountPending &&
-            ((hiddenCount ?? 0) > 0 || selectedFilter === FILTER_HIDDEN) && (
-              <>
-                <div className="h-px bg-border my-2 mx-2" role="separator" />
-                <button
-                  onClick={handleHiddenClick}
-                  aria-current={
-                    selectedFilter === "hidden" ? "page" : undefined
-                  }
-                  className={cn(
-                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
-                    "hover:bg-accent transition-colors text-left",
-                    selectedFilter === "hidden" && "bg-accent font-medium",
-                  )}
-                >
-                  <div className="flex items-center gap-2 truncate flex-1 mr-2">
-                    <EyeOff
-                      className="h-4 w-4 flex-shrink-0 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    <span className="truncate">{m.folder_hidden()}</span>
-                  </div>
-                  <span className="text-muted-foreground text-xs flex-shrink-0">
-                    {hiddenCount ?? visibleHiddenNewsletters.length}
-                  </span>
-                </button>
-              </>
-            )}
-
-          {!binnedCountPending &&
-            ((binnedCount ?? 0) > 0 || selectedFilter === FILTER_BIN) && (
-              <>
-                <div className="h-px bg-border my-2 mx-2" role="separator" />
-                <button
-                  onClick={handleBinClick}
-                  aria-current={
-                    selectedFilter === FILTER_BIN ? "page" : undefined
-                  }
-                  className={cn(
-                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
-                    "hover:bg-accent transition-colors text-left",
-                    selectedFilter === FILTER_BIN && "bg-accent font-medium",
-                  )}
-                >
-                  <div className="flex items-center gap-2 truncate flex-1 mr-2">
-                    <Trash2
-                      className="h-4 w-4 flex-shrink-0 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    <span className="truncate">{m.bin_label?.() ?? "Bin"}</span>
-                  </div>
-                  <span className="text-muted-foreground text-xs flex-shrink-0">
-                    {binnedCount ?? visibleBinnedNewsletters.length}
-                  </span>
-                </button>
-              </>
-            )}
-        </div>
-      </ScrollArea>
+        </AnimatePresence>
+      </div>
       <SidebarFooter />
     </aside>
   );

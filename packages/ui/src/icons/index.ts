@@ -13,7 +13,7 @@ import SolarArchiveBold from "./SolarArchiveBold";
 import SolarArchiveLinear from "./SolarArchiveLinear";
 import SolarArchiveUpBold from "./SolarArchiveUpBold";
 import SolarArchiveUpLinear from "./SolarArchiveUpLinear";
-
+import TrashBold from "./Trash";
 export {
   ChevronDown as ChevronDownIcon,
   ChevronRight as ChevronRightIcon,
@@ -28,4 +28,5 @@ export {
   SolarArchiveLinear as ArchiveLinearIcon,
   SolarArchiveUpBold as ArchiveUpBoldIcon,
   SolarArchiveUpLinear as ArchiveUpLinearIcon,
+  TrashBold as TrashBoldIcon,
 };

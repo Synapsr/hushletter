@@ -26,6 +26,7 @@ export interface NewsletterData {
   /** Story 9.10: Newsletter source for unified folder view display */
   source?: "email" | "gmail" | "manual" | "community";
   isFavorited?: boolean;
+  folderId?: string;
 }
 
 interface NewsletterCardProps {

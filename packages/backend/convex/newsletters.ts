@@ -42,6 +42,7 @@ type NewsletterListItem = {
   hasSummary: boolean
   source?: "email" | "gmail" | "manual" | "community"
   isFavorited?: boolean
+  folderId?: string
 }
 
 type NewsletterListPageResult = {
@@ -65,6 +66,7 @@ function toNewsletterListItem(
 	    readProgress?: number
 	    source?: "email" | "gmail" | "manual" | "community"
 	    isFavorited?: boolean
+	    folderId?: Id<"folders">
 	  },
 	  hasSummary: boolean
 	): NewsletterListItem {
@@ -83,6 +85,7 @@ function toNewsletterListItem(
 	    hasSummary,
 	    source: newsletter.source,
 	    isFavorited: newsletter.isFavorited,
+	    folderId: newsletter.folderId as string | undefined,
 	  }
 	}
 

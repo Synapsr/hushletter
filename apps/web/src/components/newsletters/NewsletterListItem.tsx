@@ -2,7 +2,19 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { m } from "@/paraglide/messages.js";
 import type { NewsletterData } from "@/components/NewsletterCard";
-import { Check, EyeOff, LockKeyhole, RotateCcw, Star, Trash2 } from "lucide-react";
+import { Check, LockKeyhole, RotateCcw } from "lucide-react";
+import {
+  ArchiveBoldIcon,
+  ArchiveUpBoldIcon,
+  StarIcon,
+  TrashBoldIcon,
+} from "@hushletter/ui/icons";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@hushletter/ui";
 
 interface NewsletterListItemProps {
   newsletter: NewsletterData;
@@ -12,12 +24,13 @@ interface NewsletterListItemProps {
   enableHideAction?: boolean;
   onHide?: (newsletterId: string) => void;
   onClick: (id: string) => void;
-  onToggleFavorite: (newsletterId: string, currentValue: boolean) => Promise<void>;
-  onToggleRead?: (
+  onToggleFavorite: (
     newsletterId: string,
     currentValue: boolean,
   ) => Promise<void>;
+  onToggleRead?: (newsletterId: string, currentValue: boolean) => Promise<void>;
   onArchive?: (newsletterId: string) => Promise<void>;
+  onUnarchive?: (newsletterId: string) => Promise<void>;
   onBin?: (newsletterId: string) => Promise<void>;
 }
 
@@ -56,14 +69,17 @@ export function NewsletterListItem({
   onToggleFavorite,
   onToggleRead,
   onArchive,
+  onUnarchive,
   onBin,
 }: NewsletterListItemProps) {
   const [pendingAction, setPendingAction] = useState<
-    "favorite" | "read" | "archive" | "bin" | null
+    "favorite" | "read" | "archive" | "unarchive" | "bin" | null
   >(null);
   const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
 
-  const handleFavoriteClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleFavoriteClick = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
     event.preventDefault();
     event.stopPropagation();
 
@@ -90,6 +106,21 @@ export function NewsletterListItem({
 
     if (pendingAction !== null) return;
 
+    if (newsletter.isHidden && onUnarchive) {
+      try {
+        setPendingAction("unarchive");
+        await onUnarchive(newsletter._id);
+      } catch (error) {
+        console.error(
+          "[NewsletterListItem] Failed to unarchive newsletter:",
+          error,
+        );
+      } finally {
+        setPendingAction(null);
+      }
+      return;
+    }
+
     if (enableHideAction && !newsletter.isHidden && onHide) {
       onHide(newsletter._id);
       return;
@@ -101,13 +132,18 @@ export function NewsletterListItem({
       setPendingAction("archive");
       await onArchive(newsletter._id);
     } catch (error) {
-      console.error("[NewsletterListItem] Failed to archive newsletter:", error);
+      console.error(
+        "[NewsletterListItem] Failed to archive newsletter:",
+        error,
+      );
     } finally {
       setPendingAction(null);
     }
   };
 
-  const handleReadClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleReadClick = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
     event.preventDefault();
     event.stopPropagation();
     if (!onToggleRead || pendingAction !== null) return;
@@ -116,7 +152,10 @@ export function NewsletterListItem({
       setPendingAction("read");
       await onToggleRead(newsletter._id, Boolean(newsletter.isRead));
     } catch (error) {
-      console.error("[NewsletterListItem] Failed to toggle read status:", error);
+      console.error(
+        "[NewsletterListItem] Failed to toggle read status:",
+        error,
+      );
     } finally {
       setPendingAction(null);
     }
@@ -131,20 +170,25 @@ export function NewsletterListItem({
       setPendingAction("bin");
       await onBin(newsletter._id);
     } catch (error) {
-      console.error("[NewsletterListItem] Failed to move newsletter to bin:", error);
+      console.error(
+        "[NewsletterListItem] Failed to move newsletter to bin:",
+        error,
+      );
     } finally {
       setPendingAction(null);
     }
   };
 
   const showReadAction = Boolean(onToggleRead);
+  const showUnarchiveAction = newsletter.isHidden && Boolean(onUnarchive);
   const showArchiveAction =
     !newsletter.isHidden && (enableHideAction || Boolean(onArchive));
   const showBinAction = Boolean(onBin);
-  const hasQuickActions = showReadAction || showArchiveAction || showBinAction;
+  const hasQuickActions =
+    showReadAction || showArchiveAction || showUnarchiveAction || showBinAction;
 
   const quickActionButtonClass = cn(
-    "h-7 w-7 flex items-center justify-center rounded-full transition-colors",
+    "size-6 flex items-center justify-center rounded-md transition-colors",
     "text-muted-foreground hover:bg-accent hover:text-foreground",
   );
 
@@ -152,9 +196,9 @@ export function NewsletterListItem({
     <div
       className={cn(
         "group/news-item relative w-full px-3 py-2 rounded-md transition-colors",
-        "hover:bg-accent/60",
+        "hover:bg-accent font-medium",
         isSelected && "bg-accent",
-        !newsletter.isRead && "font-medium",
+        !newsletter.isRead && "",
       )}
     >
       <div className="flex items-start gap-2">
@@ -167,12 +211,17 @@ export function NewsletterListItem({
             <p
               className={cn(
                 "text-sm truncate flex-1",
-                newsletter.isRead ? "text-muted-foreground" : "text-foreground",
+                newsletter.isRead
+                  ? "text-muted-foreground group-hover/news-item:text-foreground"
+                  : "text-foreground",
               )}
             >
               <span className="inline-flex items-center gap-1 min-w-0">
                 {newsletter.isLockedByPlan && (
-                  <LockKeyhole className="h-3.5 w-3.5 text-violet-500 shrink-0" aria-hidden="true" />
+                  <LockKeyhole
+                    className="h-3.5 w-3.5 text-violet-500 shrink-0"
+                    aria-hidden="true"
+                  />
                 )}
                 <span className="truncate">{newsletter.subject}</span>
               </span>
@@ -195,94 +244,146 @@ export function NewsletterListItem({
         </button>
       </div>
 
-      <div
-        className={cn(
-          "absolute top-1.5 right-2 z-10 flex items-center gap-1 rounded-full border bg-background/95 p-1 shadow-xs transition-opacity",
-          "opacity-100 md:opacity-0",
-          "md:pointer-events-none md:group-hover/news-item:pointer-events-auto",
-          "md:group-hover/news-item:opacity-100",
-          isSelected && "opacity-100 pointer-events-auto",
-        )}
-      >
-        <button
-          type="button"
+      <TooltipProvider delay={100}>
+        <div
           className={cn(
-            quickActionButtonClass,
-            "hover:text-yellow-500",
-            isFavorited && "text-yellow-500",
-            (isFavoritePending || pendingAction !== null) &&
-              "opacity-50 cursor-not-allowed",
+            "absolute  -translate-y-1/2 -top-0 right-2 z-20 flex items-center gap-1 rounded-lg border bg-background p-1 shadow-xs transition-opacity",
+            "opacity-100 md:opacity-0 group-first/news-item:top-1/2 group-first/news-item:-translate-y-1/2",
+            "md:pointer-events-none md:group-hover/news-item:pointer-events-auto",
+            "md:group-hover/news-item:opacity-100",
+            isSelected && "opacity-100 pointer-events-auto",
           )}
-          aria-label={
-            isFavorited
-              ? m.newsletters_removeFromFavoritesAria()
-              : m.newsletters_addToFavoritesAria()
-          }
-          aria-pressed={isFavorited}
-          disabled={isFavoritePending || pendingAction !== null}
-          onClick={handleFavoriteClick}
         >
-          <Star className={cn("h-3.5 w-3.5", isFavorited && "fill-current")} />
-        </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  className={cn(
+                    quickActionButtonClass,
+                    "hover:text-yellow-500",
+                    isFavorited && "text-yellow-500",
+                    (isFavoritePending || pendingAction !== null) &&
+                      "opacity-50 cursor-not-allowed",
+                  )}
+                  aria-label={
+                    isFavorited
+                      ? m.newsletters_removeFromFavoritesAria()
+                      : m.newsletters_addToFavoritesAria()
+                  }
+                  aria-pressed={isFavorited}
+                  disabled={isFavoritePending || pendingAction !== null}
+                  onClick={handleFavoriteClick}
+                >
+                  <StarIcon
+                    className={cn("size-4", isFavorited && "fill-current")}
+                  />
+                </button>
+              }
+            />
+            <TooltipContent>
+              {isFavorited
+                ? m.newsletters_removeFromFavoritesAria()
+                : m.newsletters_addToFavoritesAria()}
+            </TooltipContent>
+          </Tooltip>
 
-        {showReadAction && (
-          <button
-            type="button"
-            className={cn(
-              quickActionButtonClass,
-              pendingAction !== null && "opacity-50 cursor-not-allowed",
-            )}
-            aria-label={
-              newsletter.isRead
-                ? m.newsletters_markUnread()
-                : m.newsletters_markAsRead()
-            }
-            disabled={pendingAction !== null}
-            onClick={handleReadClick}
-          >
-            {newsletter.isRead ? (
-              <RotateCcw className="h-3.5 w-3.5" />
-            ) : (
-              <Check className="h-3.5 w-3.5" />
-            )}
-          </button>
-        )}
+          {showReadAction && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    className={cn(
+                      quickActionButtonClass,
+                      pendingAction !== null && "opacity-50 cursor-not-allowed",
+                    )}
+                    aria-label={
+                      newsletter.isRead
+                        ? m.newsletters_markUnread()
+                        : m.newsletters_markAsRead()
+                    }
+                    disabled={pendingAction !== null}
+                    onClick={handleReadClick}
+                  >
+                    {newsletter.isRead ? (
+                      <RotateCcw className="size-3.5" />
+                    ) : (
+                      <Check className="size-3.5" />
+                    )}
+                  </button>
+                }
+              />
+              <TooltipContent>
+                {newsletter.isRead
+                  ? m.newsletters_markUnread()
+                  : m.newsletters_markAsRead()}
+              </TooltipContent>
+            </Tooltip>
+          )}
 
-        {showArchiveAction && (
-          <button
-            type="button"
-            className={cn(
-              quickActionButtonClass,
-              pendingAction !== null && "opacity-50 cursor-not-allowed",
-            )}
-            aria-label={m.newsletters_hide()}
-            disabled={pendingAction !== null}
-            onClick={(event) => {
-              void handleArchiveClick(event);
-            }}
-          >
-            <EyeOff className="h-3.5 w-3.5" />
-          </button>
-        )}
+          {(showArchiveAction || showUnarchiveAction) && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    className={cn(
+                      quickActionButtonClass,
+                      pendingAction !== null && "opacity-50 cursor-not-allowed",
+                    )}
+                    aria-label={
+                      showUnarchiveAction
+                        ? m.newsletters_unhide()
+                        : m.newsletters_hide()
+                    }
+                    disabled={pendingAction !== null}
+                    onClick={(event) => {
+                      void handleArchiveClick(event);
+                    }}
+                  >
+                    {showUnarchiveAction ? (
+                      <ArchiveUpBoldIcon className="size-4" />
+                    ) : (
+                      <ArchiveBoldIcon className="size-4" />
+                    )}
+                  </button>
+                }
+              />
+              <TooltipContent>
+                {showUnarchiveAction
+                  ? m.newsletters_unhide()
+                  : m.newsletters_hide()}
+              </TooltipContent>
+            </Tooltip>
+          )}
 
-        {hasQuickActions && showBinAction && (
-          <button
-            type="button"
-            className={cn(
-              quickActionButtonClass,
-              "hover:text-destructive",
-              pendingAction !== null && "opacity-50 cursor-not-allowed",
-            )}
-            aria-label={m.bin_label?.() ?? "Bin"}
-            disabled={pendingAction !== null}
-            onClick={(event) => {
-              void handleBinClick(event);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
+          {hasQuickActions && showBinAction && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    className={cn(
+                      quickActionButtonClass,
+                      "hover:text-destructive",
+                      pendingAction !== null && "opacity-50 cursor-not-allowed",
+                    )}
+                    aria-label={m.bin_label?.() ?? "Bin"}
+                    disabled={pendingAction !== null}
+                    onClick={(event) => {
+                      void handleBinClick(event);
+                    }}
+                  >
+                    <TrashBoldIcon className="size-4" />
+                  </button>
+                }
+              />
+              <TooltipContent>{m.bin_label?.() ?? "Bin"}</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </TooltipProvider>
     </div>
   );
 }

@@ -164,4 +164,32 @@ describe("NewsletterListItem", () => {
       expect(onBin).toHaveBeenCalledWith("newsletter-1");
     });
   });
+
+  it("calls unarchive handler for hidden newsletters", async () => {
+    const hiddenNewsletter: NewsletterData = {
+      ...newsletter,
+      isHidden: true,
+    };
+    const onUnarchive = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <NewsletterListItem
+        newsletter={hiddenNewsletter}
+        isSelected={false}
+        isFavorited={false}
+        isFavoritePending={false}
+        onClick={vi.fn()}
+        onToggleFavorite={vi.fn().mockResolvedValue(undefined)}
+        onUnarchive={onUnarchive}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Unhide" }));
+    });
+
+    await waitFor(() => {
+      expect(onUnarchive).toHaveBeenCalledWith("newsletter-1");
+    });
+  });
 });

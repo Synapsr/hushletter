@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
@@ -9,6 +10,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
+  Kbd,
   Menu,
   MenuGroup,
   MenuGroupLabel,
@@ -29,6 +31,15 @@ import {
   Shield,
 } from "lucide-react";
 import { importDialogHandle } from "../import";
+import {
+  CheckCircleSolidIcon,
+  CheckIcon,
+  CogFourIcon,
+  CopyIcon,
+  DownloadIcon,
+  LogoutIcon,
+  ShieldIcon,
+} from "@hushletter/ui/icons";
 
 export const UserMenu = () => {
   const { data: session } = useSession();
@@ -103,12 +114,76 @@ export const UserMenu = () => {
             <MenuSeparator />
             <MenuGroup>
               <MenuGroupLabel>Hushletter email</MenuGroupLabel>
-              <MenuItem onClick={handleCopyDedicatedEmail}>
-                {copied ? (
-                  <Check className="mr-2 h-4 w-4 text-green-600" />
-                ) : (
-                  <Copy className="mr-2 h-4 w-4" />
-                )}
+              <MenuItem onClick={handleCopyDedicatedEmail} closeOnClick={false}>
+                <div className="relative size-4">
+                  <AnimatePresence mode="sync" initial={false}>
+                    {copied ? (
+                      <motion.div
+                        key="check"
+                        className="absolute inset-0"
+                        initial={{
+                          scale: 0.4,
+                          opacity: 0,
+                          rotate: -90,
+                          filter: "blur(4px)",
+                        }}
+                        animate={{
+                          scale: 1,
+                          opacity: 1,
+                          rotate: 0,
+                          filter: "blur(0px)",
+                        }}
+                        exit={{
+                          scale: 0.4,
+                          opacity: 0,
+                          rotate: 90,
+                          filter: "blur(4px)",
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 25,
+                          mass: 0.5,
+                        }}
+                        //transition={{ duration: 2, ease: "easeInOut" }}
+                      >
+                        <CheckCircleSolidIcon className="size-4 " />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="copy"
+                        className="absolute inset-0"
+                        initial={{
+                          scale: 0.4,
+                          opacity: 0,
+                          rotate: 90,
+                          filter: "blur(4px)",
+                        }}
+                        animate={{
+                          scale: 1,
+                          opacity: 1,
+                          rotate: 0,
+                          filter: "blur(0px)",
+                        }}
+                        exit={{
+                          scale: 0.4,
+                          opacity: 0,
+                          rotate: -90,
+                          filter: "blur(4px)",
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 25,
+                          mass: 0.5,
+                        }}
+                        //transition={{ duration: 2, ease: "easeInOut" }}
+                      >
+                        <CopyIcon className="size-4" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 <span className="truncate font-mono text-xs">
                   {dedicatedEmail}
                 </span>
@@ -121,9 +196,11 @@ export const UserMenu = () => {
 
         {/* Actions */}
         <MenuItem onClick={() => importDialogHandle.open(null)}>
-          <Download className="mr-2 h-4 w-4" />
+          <DownloadIcon className="size-4" />
           Import newsletters
-          <MenuShortcut>⌘I</MenuShortcut>
+          <MenuShortcut>
+            <Kbd>⌘I</Kbd>
+          </MenuShortcut>
         </MenuItem>
 
         <MenuItem
@@ -135,16 +212,18 @@ export const UserMenu = () => {
               ?.click();
           }}
         >
-          <Settings className="mr-2 h-4 w-4" />
+          <CogFourIcon className="size-4" />
           Settings
-          <MenuShortcut>⌘,</MenuShortcut>
+          <MenuShortcut>
+            <Kbd>⌘,</Kbd>
+          </MenuShortcut>
         </MenuItem>
 
         {isAdmin && (
           <>
             <MenuSeparator />
             <MenuItem onClick={() => window.open("/admin", "_blank")}>
-              <Shield className="mr-2 h-4 w-4" />
+              <ShieldIcon className="size-4" />
               Admin dashboard
               <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
             </MenuItem>
@@ -153,8 +232,8 @@ export const UserMenu = () => {
 
         <MenuSeparator />
 
-        <MenuItem onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
+        <MenuItem onClick={handleLogout} variant="destructive">
+          <LogoutIcon className="size-4" />
           Log out
         </MenuItem>
       </MenuPopup>

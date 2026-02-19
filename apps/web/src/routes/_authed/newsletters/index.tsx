@@ -39,7 +39,10 @@ import {
   Skeleton,
 } from "@hushletter/ui";
 import { Menu, Inbox, Trash2, Star, EyeOff } from "lucide-react";
-import { NewsletterEmptyPane } from "@/components/newsletters/NewsletterEmptyPane";
+import {
+  NewsletterEmptyPane,
+  type NewsletterEmptyPaneItem,
+} from "@/components/newsletters/NewsletterEmptyPane";
 import { m } from "@/paraglide/messages.js";
 import { toast } from "sonner";
 
@@ -410,18 +413,20 @@ function NewslettersPage() {
     !isFilteringByHidden &&
     !isFilteringByStarred &&
     !isFilteringByBinned;
+  const shouldFetchDesktopEmptyPaneList = isDesktop && !effectiveNewsletterId;
+  const headListSize = isDesktop ? 12 : 30;
 
   // Reactive head pages (subscribed) for the active list only.
   // Important: with @convex-dev/react-query, you must pass args === "skip" to avoid subscriptions.
   const { data: allHead, isPending: allHeadPending } = useQuery(
     convexQuery(
       api.newsletters.listAllNewslettersHead,
-      !isDesktop &&
+      (!isDesktop || shouldFetchDesktopEmptyPaneList) &&
         !isFilteringByFolder &&
         !isFilteringByHidden &&
         !isFilteringByStarred &&
         !isFilteringByBinned
-        ? { numItems: 30 }
+        ? { numItems: headListSize }
         : "skip",
     ),
   );
@@ -429,8 +434,8 @@ function NewslettersPage() {
   const { data: folderHead, isPending: folderHeadPending } = useQuery(
     convexQuery(
       api.newsletters.listUserNewslettersByFolderHead,
-      !isDesktop && isFilteringByFolder
-        ? { folderId: folderIdParam as Id<"folders">, numItems: 30 }
+      (!isDesktop || shouldFetchDesktopEmptyPaneList) && isFilteringByFolder
+        ? { folderId: folderIdParam as Id<"folders">, numItems: headListSize }
         : "skip",
     ),
   );
@@ -484,6 +489,7 @@ function NewslettersPage() {
   // permanently, so treat them as not pending to avoid an infinite skeleton.
   const isActiveQuerySkipped =
     isDesktop &&
+    !shouldFetchDesktopEmptyPaneList &&
     !isFilteringByHidden &&
     !isFilteringByStarred &&
     !isFilteringByBinned;
@@ -727,6 +733,19 @@ function NewslettersPage() {
     return visibleNewsletterList;
   }, [isFilteringByStarred, visibleNewsletterList]);
 
+  const emptyPaneNewsletters = useMemo<NewsletterEmptyPaneItem[]>(
+    () =>
+      visibleNewsletterList.slice(0, 24).map((newsletter) => ({
+        id: newsletter._id,
+        senderName: newsletter.senderName,
+        senderEmail: newsletter.senderEmail,
+        subject: newsletter.subject,
+        receivedAt: newsletter.receivedAt,
+        isRead: newsletter.isRead,
+      })),
+    [visibleNewsletterList],
+  );
+
   const autoSelectedStarredNewsletterId = getStarredAutoSelectionId({
     isDesktop,
     isFilteringByStarred,
@@ -824,7 +843,10 @@ function NewslettersPage() {
       ) : activeListPending ? (
         <ReaderPaneSkeleton />
       ) : (
-        <NewsletterEmptyPane onNewsletterSelect={handleNewsletterSelect} />
+        <NewsletterEmptyPane
+          newsletters={emptyPaneNewsletters}
+          onNewsletterSelect={handleNewsletterSelect}
+        />
       )}
     </div>
   );

@@ -33,7 +33,7 @@ const tabs = [
   { id: "password", label: "Password", icon: Lock },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "hidden-folders", label: "Hidden folders", icon: FolderX },
+  /* { id: "hidden-folders", label: "Hidden folders", icon: FolderX }, */
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -95,7 +95,7 @@ export const SettingsDialog = () => {
             {activeTab === "password" && <SettingsPassword />}
             {activeTab === "notifications" && <SettingsNotifications />}
             {activeTab === "appearance" && <SettingsAppearance />}
-            {activeTab === "hidden-folders" && (
+            {/* {activeTab === "hidden-folders" && (
               <div className="space-y-6">
                 <div>
                   <h2 className="text-lg font-semibold">Hidden folders</h2>
@@ -107,7 +107,7 @@ export const SettingsDialog = () => {
                 <Separator />
                 <HiddenFoldersSection />
               </div>
-            )}
+            )} */}
           </DialogPanel>
         </div>
       </DialogPopup>

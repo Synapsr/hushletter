@@ -75,7 +75,7 @@ export const UserMenu = () => {
 
   return (
     <Menu>
-      <MenuTrigger className="rounded-lg py-2 justify-between flex items-center cursor-pointer hover:bg-accent/50 px-2">
+      <MenuTrigger className="rounded-lg py-2 justify-between flex items-center cursor-pointer hover:bg-accent px-2">
         <div className="flex items-center gap-2">
           <Avatar className="size-8">
             {userImage && <AvatarImage src={userImage} alt={userName} />}

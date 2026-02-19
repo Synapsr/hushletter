@@ -38,7 +38,8 @@ import {
   SheetTrigger,
   Skeleton,
 } from "@hushletter/ui";
-import { Menu, Inbox } from "lucide-react";
+import { Menu, Inbox, Trash2, Star, EyeOff } from "lucide-react";
+import { NewsletterEmptyPane } from "@/components/newsletters/NewsletterEmptyPane";
 import { m } from "@/paraglide/messages.js";
 import { toast } from "sonner";
 
@@ -823,10 +824,7 @@ function NewslettersPage() {
       ) : activeListPending ? (
         <ReaderPaneSkeleton />
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
-          <Inbox className="h-12 w-12 text-muted-foreground/40" />
-          <p className="text-lg">{m.reader_selectNewsletter()}</p>
-        </div>
+        <NewsletterEmptyPane onNewsletterSelect={handleNewsletterSelect} />
       )}
     </div>
   );
@@ -931,26 +929,47 @@ function NewslettersPage() {
           <NewsletterListSkeleton />
         ) : visibleNewsletterList.length === 0 ? (
           isFilteringByHidden ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
+            <div className="flex flex-col items-center text-center py-16 px-6">
+              <div className="mb-4 flex items-center justify-center size-12 rounded-2xl bg-muted">
+                <EyeOff className="size-6 text-muted-foreground/50" />
+              </div>
+              <p className="text-base font-medium text-foreground/80">
                 {m.newsletters_noHiddenNewsletters()}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
+                {m.newsletters_noHiddenDesc?.() ?? "Newsletters you hide will appear here."}
               </p>
             </div>
           ) : isFilteringByBinned ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
-                {m.bin_emptyState?.() ?? "No newsletters in Bin."}
+            <div className="flex flex-col items-center text-center py-16 px-6">
+              <div className="mb-4 flex items-center justify-center size-12 rounded-2xl bg-muted">
+                <Trash2 className="size-6 text-muted-foreground/50" />
+              </div>
+              <p className="text-base font-medium text-foreground/80">
+                {m.bin_emptyState?.() ?? "Bin is empty"}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
+                {m.bin_emptyStateDesc?.() ?? "Newsletters you delete will be moved here."}
               </p>
             </div>
           ) : isFilteringByStarred ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
+            <div className="flex flex-col items-center text-center py-16 px-6">
+              <div className="mb-4 flex items-center justify-center size-12 rounded-2xl bg-muted">
+                <Star className="size-6 text-muted-foreground/50" />
+              </div>
+              <p className="text-base font-medium text-foreground/80">
                 {m.newsletters_noStarredNewsletters()}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
+                {m.newsletters_noStarredDesc?.() ?? "Star newsletters you want to find again quickly."}
               </p>
             </div>
           ) : selectedFolder ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
+            <div className="flex flex-col items-center text-center py-16 px-6">
+              <div className="mb-4 flex items-center justify-center size-12 rounded-2xl bg-muted">
+                <Inbox className="size-6 text-muted-foreground/50" />
+              </div>
+              <p className="text-base font-medium text-foreground/80">
                 {m.newsletters_noNewslettersInFolder({
                   folderName: selectedFolder.name,
                 })}

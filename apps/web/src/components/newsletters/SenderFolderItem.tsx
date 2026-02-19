@@ -237,11 +237,21 @@ export function SenderFolderItem({
             {senderPreviews.length > 1 ? (
               <SenderAvatarGroup
                 senders={senderPreviews}
-                className={cn(folder.unreadCount ? "" : "*:border")}
+                className={cn(
+                  folder.unreadCount ? "" : "*:border",
+                  folder.unreadCount > 0 || isExpanded
+                    ? "text-primary"
+                    : "text-muted-foreground group-hover:text-foreground",
+                )}
               />
             ) : (
               <SenderAvatar
-                className={cn(folder.unreadCount ? "" : "border")}
+                className={cn(
+                  folder.unreadCount ? "" : "border",
+                  folder.unreadCount > 0 || isExpanded
+                    ? "text-primary"
+                    : "text-muted-foreground group-hover:text-foreground",
+                )}
                 senderName={folder.name}
                 senderEmail={
                   senderPreviews[0]?.senderEmail ??
@@ -265,7 +275,7 @@ export function SenderFolderItem({
               "text-sm truncate font-medium transition-colors",
               folder.unreadCount > 0 || isExpanded
                 ? "text-primary"
-                : "text-muted-foreground/70 group-hover:text-foreground",
+                : "text-muted-foreground group-hover:text-foreground",
             )}
           >
             {folder.name}

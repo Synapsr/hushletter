@@ -304,7 +304,11 @@ export const GlobalSearch = ({}: Props) => {
           />
         } */
         render={
-          <Button variant="ghost" size="default" className="justify-between">
+          <Button
+            variant="ghost"
+            size="default"
+            className="justify-between w-fit"
+          >
             <div className="flex items-center gap-2">
               <SearchIcon className="size-4" />
               <span className="text-sm text-muted-foreground pr-2">Search</span>

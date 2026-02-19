@@ -37,6 +37,7 @@ export function FolderActionsDropdown({
   folderName,
   onHideSuccess,
 }: FolderActionsDropdownProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -63,9 +64,21 @@ export function FolderActionsDropdown({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" aria-label={m.folderActions_ariaLabel({ folderName })} onClick={(e) => e.stopPropagation()} />}>
-            <MoreHorizontal className="h-4 w-4" />
+      <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-6 w-6 transition-opacity ${
+                isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}
+              aria-label={m.folderActions_ariaLabel({ folderName })}
+              onClick={(e) => e.stopPropagation()}
+            />
+          }
+        >
+          <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onClick={() => setIsRenameOpen(true)}>

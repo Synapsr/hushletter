@@ -7,7 +7,7 @@ type Props = {};
 
 export const SidebarFooter = ({}: Props) => {
   return (
-    <div className="p-4 flex flex-col gap-4">
+    <div className="p-4 flex flex-col gap-2">
       <GlobalSearch />
       <UserMenu />
     </div>

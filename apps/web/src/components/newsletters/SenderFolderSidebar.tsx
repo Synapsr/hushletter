@@ -14,9 +14,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   ScrollArea,
   Button,
   Skeleton,
@@ -25,7 +22,15 @@ import {
   TrashBoldIcon,
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
-import { AlertCircle, Trash2, Archive, ArrowLeft } from "lucide-react";
+import {
+  AlertCircle,
+  Trash2,
+  Archive,
+  ArrowLeft,
+  Star,
+  CheckCircle2,
+} from "lucide-react";
+import { SidebarEmptyState } from "./SidebarEmptyState";
 import {
   Reorder,
   useDragControls,
@@ -218,11 +223,14 @@ function toFolderDataFromGroup({
 function SidebarSkeleton() {
   return (
     <div className="p-3 space-y-2">
-      {/* Tab bar */}
-      <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
-        <Skeleton className="h-7 flex-1 rounded-md" />
-        <Skeleton className="h-7 flex-1 rounded-md" />
-        <Skeleton className="h-7 flex-1 rounded-md" />
+      {/* Header */}
+      <div className="flex items-center justify-between px-1">
+        <Skeleton className="h-4 w-12" />
+        <div className="flex gap-1">
+          <Skeleton className="h-5 w-8 rounded-md" />
+          <Skeleton className="h-5 w-12 rounded-md" />
+          <Skeleton className="h-5 w-14 rounded-md" />
+        </div>
       </div>
 
       {/* Folder items */}
@@ -261,7 +269,7 @@ function ManagementSection({
   return (
     <div className=" bg-background space-y-2">
       <div className="px-3 pt-2 pb-0.5">
-        <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+        <p className="text-[13px] text-muted-foreground ">
           {m.sidebar_management()}
         </p>
       </div>
@@ -1231,10 +1239,11 @@ export function SenderFolderSidebar({
                         ))}
                       </div>
                     ) : (
-                      <p className="text-muted-foreground text-sm text-center py-8 px-4">
-                        {m.archive_emptyState?.() ??
-                          "No archived items. Newsletters and folders you archive will appear here."}
-                      </p>
+                      <SidebarEmptyState
+                        icon={Archive}
+                        title={m.archive_emptyState?.() ?? "No archived items"}
+                        description={m.archive_emptyStateDesc?.() ?? "Newsletters and folders you archive will appear here."}
+                      />
                     )}
 
                     {/* Load more */}
@@ -1263,9 +1272,11 @@ export function SenderFolderSidebar({
                     {binnedPending ? (
                       <SidebarSkeleton />
                     ) : visibleBinnedNewsletters.length === 0 ? (
-                      <p className="text-muted-foreground text-sm text-center py-8 px-4">
-                        {m.bin_emptyState?.() ?? "No newsletters in Bin."}
-                      </p>
+                      <SidebarEmptyState
+                        icon={Trash2}
+                        title={m.bin_emptyState?.() ?? "Bin is empty"}
+                        description={m.bin_emptyStateDesc?.() ?? "Newsletters you delete will be moved here."}
+                      />
                     ) : (
                       <>
                         {/* Empty bin action */}
@@ -1374,28 +1385,36 @@ export function SenderFolderSidebar({
               //transition={{ type: "spring", stiffness: 400, damping: 35 }}
               transition={{ duration: 0.2, ease: "easeInOut" }}
             >
-              {/* Header / filter tabs */}
-              <div className="p-2 pb-0">
-                {/* <h2 className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase px-2 mb-2">
-                {m.sidebar_senderFolders()}
-              </h2> */}
-
-                <Tabs
-                  value={sidebarFilter}
-                  onValueChange={(val) => handleTabChange(val as SidebarFilter)}
-                >
-                  <TabsList className="w-full h-8">
-                    <TabsTrigger value="all" className="flex-1 text-xs h-7">
-                      {m.sidebar_filterAll()}
-                    </TabsTrigger>
-                    <TabsTrigger value="unread" className="flex-1 text-xs h-7">
-                      {m.sidebar_filterUnread()}
-                    </TabsTrigger>
-                    <TabsTrigger value="starred" className="flex-1 text-xs h-7">
-                      {m.sidebar_filterStarred()}
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+              {/* Header: title + filter pills */}
+              <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                <h2 className="text-[13px] text-muted-foreground">
+                  {m.sidebar_core()}
+                </h2>
+                <div className="flex items-center gap-0.5">
+                  {(
+                    [
+                      { value: "all", label: m.sidebar_filterAll() },
+                      { value: "unread", label: m.sidebar_filterUnread() },
+                      { value: "starred", label: m.sidebar_filterStarred() },
+                    ] as const
+                  ).map((filter) => (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      onClick={() =>
+                        handleTabChange(filter.value as SidebarFilter)
+                      }
+                      className={cn(
+                        "px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors",
+                        sidebarFilter === filter.value
+                          ? "bg-accent text-accent-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Folder list */}
@@ -1475,9 +1494,11 @@ export function SenderFolderSidebar({
                     favoritedPending ? (
                       <SidebarSkeleton />
                     ) : visibleFavoritedNewsletters.length === 0 ? (
-                      <p className="text-muted-foreground text-sm text-center py-8 px-4">
-                        {m.newsletters_noStarredNewsletters()}
-                      </p>
+                      <SidebarEmptyState
+                        icon={Star}
+                        title={m.newsletters_noStarredNewsletters()}
+                        description={m.newsletters_noStarredDesc?.() ?? "Star newsletters you want to find again quickly."}
+                      />
                     ) : (
                       <div className="space-y-0.5">
                         {visibleFavoritedNewsletters.map((newsletter) => (
@@ -1518,11 +1539,19 @@ export function SenderFolderSidebar({
                   ) : foldersPending ? (
                     <SidebarSkeleton />
                   ) : visibleFolders.length === 0 ? (
-                    <p className="text-muted-foreground text-sm text-center py-8 px-4">
-                      {sidebarFilter === "unread"
-                        ? "All caught up!"
-                        : m.folder_emptyState()}
-                    </p>
+                    sidebarFilter === "unread" ? (
+                      <SidebarEmptyState
+                        icon={CheckCircle2}
+                        title={m.sidebar_allCaughtUp?.() ?? "All caught up!"}
+                        description={m.sidebar_allCaughtUpDesc?.() ?? "No unread newsletters right now."}
+                        iconClassName="text-emerald-500"
+                      />
+                    ) : (
+                      <SidebarEmptyState
+                        icon={Archive}
+                        title={m.folder_emptyState()}
+                      />
+                    )
                   ) : !canReorderFolders ? (
                     <div className="space-y-0.5">
                       {visibleFolders.map((folder) => (

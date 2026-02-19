@@ -16,6 +16,7 @@ import {
   Check,
   CheckCircleSolid,
   ClockCircle,
+  EditOne,
 } from "@mynaui/icons-react";
 import SolarArchiveBold from "./SolarArchiveBold";
 import SolarArchiveLinear from "./SolarArchiveLinear";
@@ -47,4 +48,5 @@ export {
   CheckCircleSolid as CheckCircleSolidIcon,
   ClockCircle as ClockCircleIcon,
   BookOpen as BookOpenIcon,
+  EditOne as EditOneIcon,
 };

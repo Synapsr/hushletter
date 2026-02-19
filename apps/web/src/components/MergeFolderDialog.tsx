@@ -5,17 +5,19 @@ import { api } from "@hushletter/backend";
 import { toast } from "sonner";
 import {
   Button,
+  Combobox,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPopup,
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
+  DialogPopup,
   DialogTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@hushletter/ui";
 import { AlertCircle } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
@@ -59,7 +61,8 @@ export function MergeFolderDialog({
   sourceFolderId,
   sourceFolderName,
 }: MergeFolderDialogProps) {
-  const [targetFolderId, setTargetFolderId] = useState<string>("");
+  type FolderItem = { value: string; label: string };
+  const [selectedFolder, setSelectedFolder] = useState<FolderItem | null>(null);
   const queryClient = useQueryClient();
 
   const { data: foldersRaw, isPending: foldersPending } = useQuery(
@@ -67,10 +70,15 @@ export function MergeFolderDialog({
   );
 
   // Validate and filter folder data
-  const folders = (foldersRaw as unknown[] | undefined)?.filter(isFolderData) ?? [];
+  const folders =
+    (foldersRaw as unknown[] | undefined)?.filter(isFolderData) ?? [];
 
   // Type for merge mutation result
-  type MergeResult = { mergeId: string; movedNewsletterCount: number; movedSenderCount: number };
+  type MergeResult = {
+    mergeId: string;
+    movedNewsletterCount: number;
+    movedSenderCount: number;
+  };
 
   // Code Review Fix MEDIUM-1: Use specific query keys for invalidation
   // Code Review Fix HIGH-3: Better error messages for specific failure cases
@@ -81,16 +89,19 @@ export function MergeFolderDialog({
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["newsletters"] });
       onOpenChange(false);
-      setTargetFolderId("");
+      setSelectedFolder(null);
 
       // Show toast with undo action - Task 3.7
-      toast.success(m.mergeFolderDlg_mergeSuccess({ count: result.movedNewsletterCount }), {
-        action: {
-          label: m.mergeFolderDlg_undo(),
-          onClick: () => undoMutation.mutate({ mergeId: result.mergeId }),
+      toast.success(
+        m.mergeFolderDlg_mergeSuccess({ count: result.movedNewsletterCount }),
+        {
+          action: {
+            label: m.mergeFolderDlg_undo(),
+            onClick: () => undoMutation.mutate({ mergeId: result.mergeId }),
+          },
+          duration: 10000, // 10 seconds visible (undo window is 30s on backend)
         },
-        duration: 10000, // 10 seconds visible (undo window is 30s on backend)
-      });
+      );
     },
     onError: (error) => {
       if (error instanceof Error) {
@@ -124,9 +135,12 @@ export function MergeFolderDialog({
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["newsletters"] });
 
-      const skippedTotal = result.skippedSenderCount + result.skippedNewsletterCount;
+      const skippedTotal =
+        result.skippedSenderCount + result.skippedNewsletterCount;
       if (skippedTotal > 0) {
-        toast.warning(m.mergeFolderDlg_undoPartialSuccess({ count: skippedTotal }));
+        toast.warning(
+          m.mergeFolderDlg_undoPartialSuccess({ count: skippedTotal }),
+        );
       } else {
         toast.success(m.mergeFolderDlg_undoSuccess());
       }
@@ -143,31 +157,41 @@ export function MergeFolderDialog({
   // Reset target when dialog opens
   useEffect(() => {
     if (open) {
-      setTargetFolderId("");
+      setSelectedFolder(null);
     }
   }, [open]);
 
   // Filter out source folder from targets
   const availableTargets = folders.filter((f) => f._id !== sourceFolderId);
 
+  const folderItems: FolderItem[] = availableTargets.map((f) => ({
+    value: f._id,
+    label: m.mergeFolderDlg_targetOption({
+      folderName: f.name,
+      count: f.newsletterCount,
+    }),
+  }));
+
   const handleMerge = () => {
-    if (targetFolderId) {
+    if (selectedFolder) {
       mergeMutation.mutate({
         sourceFolderId: sourceFolderId as Parameters<
           typeof mergeMutation.mutate
         >[0]["sourceFolderId"],
-        targetFolderId: targetFolderId as Parameters<
+        targetFolderId: selectedFolder.value as Parameters<
           typeof mergeMutation.mutate
         >[0]["targetFolderId"],
       });
     }
   };
 
-  const selectedTarget = availableTargets.find((f) => f._id === targetFolderId);
+  const selectedTarget = availableTargets.find(
+    (f) => f._id === selectedFolder?.value,
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onClick={(e) => e.stopPropagation()}>
+      <DialogPopup onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle>{m.mergeFolderDlg_title()}</DialogTitle>
           <DialogDescription>
@@ -175,9 +199,12 @@ export function MergeFolderDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <DialogPanel className="py-4 space-y-4">
           <div>
-            <label htmlFor="target-folder" className="text-sm font-medium block mb-2">
+            <label
+              htmlFor="target-folder"
+              className="text-sm font-medium block mb-2"
+            >
               {m.mergeFolderDlg_mergeIntoLabel()}
             </label>
             {foldersPending ? (
@@ -188,40 +215,66 @@ export function MergeFolderDialog({
                 <span>{m.mergeFolderDlg_noTargetsAvailable()}</span>
               </div>
             ) : (
-              <Select value={targetFolderId} onValueChange={(v) => v !== null && setTargetFolderId(v)}>
-                <SelectTrigger id="target-folder">
-                  <SelectValue placeholder={m.mergeFolderDlg_selectPlaceholder()} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTargets.map((folder) => (
-                    <SelectItem key={folder._id} value={folder._id}>
-                      {m.mergeFolderDlg_targetOption({ folderName: folder.name, count: folder.newsletterCount })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                items={folderItems}
+                value={selectedFolder}
+                onValueChange={(value) => setSelectedFolder(value)}
+              >
+                <ComboboxInput
+                  placeholder={m.mergeFolderDlg_selectPlaceholder()}
+                />
+                <ComboboxPopup>
+                  <ComboboxEmpty>
+                    {m.mergeFolderDlg_noTargetsAvailable()}
+                  </ComboboxEmpty>
+                  <ComboboxList>
+                    {(item) => (
+                      <ComboboxItem
+                        key={item.value}
+                        value={item}
+                        className="flex ps-2"
+                      >
+                        {item.label}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxPopup>
+              </Combobox>
             )}
           </div>
 
           {selectedTarget && (
             <p className="text-sm text-muted-foreground">
-              {m.mergeFolderDlg_confirmationText({ sourceFolderName, targetFolderName: selectedTarget.name })}
+              {m.mergeFolderDlg_confirmationText({
+                sourceFolderName,
+                targetFolderName: selectedTarget.name,
+              })}
             </p>
           )}
-        </div>
+        </DialogPanel>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             {m.mergeFolderDlg_cancel()}
           </Button>
           <Button
             onClick={handleMerge}
-            disabled={!targetFolderId || mergeMutation.isPending || availableTargets.length === 0}
+            disabled={
+              !selectedFolder ||
+              mergeMutation.isPending ||
+              availableTargets.length === 0
+            }
           >
-            {mergeMutation.isPending ? m.mergeFolderDlg_merging() : m.mergeFolderDlg_merge()}
+            {mergeMutation.isPending
+              ? m.mergeFolderDlg_merging()
+              : m.mergeFolderDlg_merge()}
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </DialogPopup>
     </Dialog>
   );
 }

@@ -2,15 +2,16 @@ import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConvexMutation } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import { useForm } from "@tanstack/react-form";
+import { revalidateLogic, useForm } from "@tanstack/react-form";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
   Button,
   Dialog,
-  DialogContent,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
+  DialogPopup,
   DialogTitle,
   Input,
 } from "@hushletter/ui";
@@ -28,6 +29,7 @@ import { m } from "@/paraglide/messages.js";
 const folderNameSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(1, m.renameFolderDlg_nameRequired())
     .max(100, m.renameFolderDlg_nameTooLong()),
 });
@@ -66,17 +68,24 @@ export function RenameFolderDialog({
 
   const form = useForm({
     defaultValues: { name: currentName },
+    validationLogic: revalidateLogic({
+      mode: "submit",
+      modeAfterSubmission: "change",
+    }),
     validators: {
-      onChange: folderNameSchema,
+      onSubmit: folderNameSchema,
     },
     onSubmit: async ({ value }) => {
       const trimmedName = value.name.trim();
-      if (trimmedName && trimmedName !== currentName) {
+      const normalizedCurrentName = currentName.trim();
+      if (trimmedName && trimmedName !== normalizedCurrentName) {
         renameMutation.mutate({
-          folderId: folderId as Parameters<typeof renameMutation.mutate>[0]["folderId"],
+          folderId: folderId as Parameters<
+            typeof renameMutation.mutate
+          >[0]["folderId"],
           newName: trimmedName,
         });
-      } else if (trimmedName === currentName) {
+      } else if (trimmedName === normalizedCurrentName) {
         // No change, just close
         onOpenChange(false);
       }
@@ -95,40 +104,61 @@ export function RenameFolderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onClick={(e) => e.stopPropagation()}>
-        <DialogHeader>
-          <DialogTitle>{m.renameFolderDlg_title()}</DialogTitle>
-        </DialogHeader>
+      <DialogPopup onClick={(e) => e.stopPropagation()}>
         <form
+          noValidate
+          className="flex w-full flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            form.handleSubmit();
+            void form.handleSubmit();
           }}
         >
-          <form.Field
-            name="name"
-            children={(field) => (
-              <div>
-                <Input
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder={m.renameFolderDlg_placeholder()}
-                  autoFocus
-                  aria-invalid={field.state.meta.errors.length > 0}
-                  aria-describedby={field.state.meta.errors.length > 0 ? "name-error" : undefined}
-                />
-                {field.state.meta.errors.map((err, i) => (
-                  <p key={i} id="name-error" className="text-sm text-destructive mt-1">
-                    {typeof err === "object" && err !== null && "message" in err
-                      ? (err as { message: string }).message
-                      : String(err)}
-                  </p>
-                ))}
-              </div>
-            )}
-          />
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <DialogHeader>
+            <DialogTitle>{m.renameFolderDlg_title()}</DialogTitle>
+          </DialogHeader>
+          <DialogPanel className="grid gap-4">
+            <form.Field
+              name="name"
+              children={(field) => (
+                <div>
+                  <Input
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    placeholder={m.renameFolderDlg_placeholder()}
+                    autoFocus
+                    name={field.name}
+                    id={field.name}
+                    aria-invalid={field.state.meta.errors.length > 0}
+                    aria-describedby={
+                      field.state.meta.errors.length > 0
+                        ? `${field.name}-error`
+                        : undefined
+                    }
+                  />
+                  {field.state.meta.errors.map((err, i) => (
+                    <p
+                      key={i}
+                      id={`${field.name}-error`}
+                      className="text-sm text-destructive mt-1"
+                    >
+                      {typeof err === "object" &&
+                      err !== null &&
+                      "message" in err
+                        ? (err as { message: string }).message
+                        : String(err)}
+                    </p>
+                  ))}
+                </div>
+              )}
+            />
+          </DialogPanel>
+          <DialogFooter className="">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               {m.renameFolderDlg_cancel()}
             </Button>
             <form.Subscribe
@@ -141,13 +171,15 @@ export function RenameFolderDialog({
                   type="submit"
                   disabled={!canSubmit || isSubmitting || renameMutation.isPending}
                 >
-                  {renameMutation.isPending ? m.renameFolderDlg_saving() : m.renameFolderDlg_save()}
+                  {renameMutation.isPending
+                    ? m.renameFolderDlg_saving()
+                    : m.renameFolderDlg_save()}
                 </Button>
               )}
             />
           </DialogFooter>
         </form>
-      </DialogContent>
+      </DialogPopup>
     </Dialog>
   );
 }

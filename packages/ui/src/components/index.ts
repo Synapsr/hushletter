@@ -13,6 +13,7 @@ export * from "./card";
 export * from "./checkbox-group";
 export * from "./checkbox";
 export * from "./collapsible";
+export * from "./combobox";
 export * from "./command";
 
 // d

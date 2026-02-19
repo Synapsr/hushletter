@@ -4,12 +4,14 @@ import { useConvexMutation } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { toast } from "sonner";
 import {
+  ArchiveBoldIcon,
   Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  EditOneIcon,
 } from "@hushletter/ui";
 import { MoreHorizontal, Pencil, EyeOff, Merge } from "lucide-react";
 import { RenameFolderDialog } from "./RenameFolderDialog";
@@ -58,7 +60,9 @@ export function FolderActionsDropdown({
 
   const handleHide = () => {
     hideMutation.mutate({
-      folderId: folderId as Parameters<typeof hideMutation.mutate>[0]["folderId"],
+      folderId: folderId as Parameters<
+        typeof hideMutation.mutate
+      >[0]["folderId"],
     });
   };
 
@@ -82,16 +86,19 @@ export function FolderActionsDropdown({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onClick={() => setIsRenameOpen(true)}>
-            <Pencil className="mr-2 h-4 w-4" />
+            <EditOneIcon className="size-4" />
             {m.folderActions_rename()}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleHide} disabled={hideMutation.isPending}>
-            <EyeOff className="mr-2 h-4 w-4" />
+          <DropdownMenuItem
+            onClick={handleHide}
+            disabled={hideMutation.isPending}
+          >
+            <ArchiveBoldIcon className="size-4" />
             {m.folderActions_hide()}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setIsMergeOpen(true)}>
-            <Merge className="mr-2 h-4 w-4" />
+            <Merge className="size-3.5" />
             {m.folderActions_mergeInto()}
           </DropdownMenuItem>
         </DropdownMenuContent>

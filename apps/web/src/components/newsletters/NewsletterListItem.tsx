@@ -15,6 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@hushletter/ui";
+import { SenderAvatar } from "./SenderAvatar";
 
 interface NewsletterListItemProps {
   newsletter: NewsletterData;
@@ -201,7 +202,13 @@ export function NewsletterListItem({
         !newsletter.isRead && "",
       )}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2 min-w-0">
+        <SenderAvatar
+          senderName={newsletter.senderName}
+          senderEmail={newsletter.senderEmail}
+          size="sm"
+          className="shrink-0 mt-0.5"
+        />
         <button
           type="button"
           onClick={() => onClick(newsletter._id)}
@@ -210,20 +217,22 @@ export function NewsletterListItem({
           <div className="flex items-start justify-between gap-2">
             <p
               className={cn(
-                "text-sm truncate flex-1",
+                "text-sm flex-1 min-w-0",
                 newsletter.isRead
                   ? "text-muted-foreground group-hover/news-item:text-foreground"
                   : "text-foreground",
               )}
             >
-              <span className="inline-flex items-center gap-1 min-w-0">
+              <span className="inline-flex w-full items-center gap-1 min-w-0">
                 {newsletter.isLockedByPlan && (
                   <LockKeyhole
                     className="h-3.5 w-3.5 text-violet-500 shrink-0"
                     aria-hidden="true"
                   />
                 )}
-                <span className="truncate">{newsletter.subject}</span>
+                <span className="block min-w-0 truncate">
+                  {newsletter.subject}
+                </span>
               </span>
             </p>
             <time className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">

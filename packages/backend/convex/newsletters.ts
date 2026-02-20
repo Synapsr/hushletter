@@ -5,20 +5,24 @@ import {
   mutation,
   query,
   action,
-} from "./_generated/server"
-import { internal } from "./_generated/api"
-import { v } from "convex/values"
-import { ConvexError } from "convex/values"
-import { r2 } from "./r2"
-import type { Doc, Id } from "./_generated/dataModel"
+} from "./_generated/server";
+import { internal } from "./_generated/api";
+import { v } from "convex/values";
+import { ConvexError } from "convex/values";
+import { r2 } from "./r2";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   normalizeForHash,
   computeContentHash,
-} from "./_internal/contentNormalization"
-import { HARD_NEWSLETTERS_CAP, UNLOCKED_NEWSLETTERS_CAP, isUserPro } from "./entitlements"
+} from "./_internal/contentNormalization";
+import {
+  HARD_NEWSLETTERS_CAP,
+  UNLOCKED_NEWSLETTERS_CAP,
+  isUserPro,
+} from "./entitlements";
 
 /** Content availability status for newsletters */
-export type ContentStatus = "available" | "missing" | "error" | "locked"
+export type ContentStatus = "available" | "missing" | "error" | "locked";
 
 /**
  * Lightweight shape for newsletter list UIs.
@@ -28,122 +32,124 @@ export type ContentStatus = "available" | "missing" | "error" | "locked"
  * summary text to reduce bandwidth.
  */
 type NewsletterListItem = {
-  _id: Id<"userNewsletters">
-  subject: string
-  senderEmail: string
-  senderName?: string
-  receivedAt: number
-  isRead: boolean
-  isHidden: boolean
-  isBinned?: boolean
-  isPrivate: boolean
-  isLockedByPlan: boolean
-  readProgress?: number
-  hasSummary: boolean
-  source?: "email" | "gmail" | "manual" | "community"
-  isFavorited?: boolean
-  folderId?: string
-}
+  _id: Id<"userNewsletters">;
+  subject: string;
+  senderEmail: string;
+  senderName?: string;
+  receivedAt: number;
+  isRead: boolean;
+  isHidden: boolean;
+  isBinned?: boolean;
+  isPrivate: boolean;
+  isLockedByPlan: boolean;
+  readProgress?: number;
+  hasSummary: boolean;
+  source?: "email" | "gmail" | "manual" | "community";
+  isFavorited?: boolean;
+  folderId?: string;
+};
 
 type NewsletterListPageResult = {
-  page: NewsletterListItem[]
-  isDone: boolean
-  continueCursor: string | null
-}
+  page: NewsletterListItem[];
+  isDone: boolean;
+  continueCursor: string | null;
+};
 
 function toNewsletterListItem(
-	  newsletter: {
-	    _id: Id<"userNewsletters">
-	    subject: string
-	    senderEmail: string
-	    senderName?: string
-	    receivedAt: number
-	    isRead: boolean
-	    isHidden: boolean
-	    isBinned?: boolean
-	    isPrivate: boolean
-	    isLockedByPlan?: boolean
-	    readProgress?: number
-	    source?: "email" | "gmail" | "manual" | "community"
-	    isFavorited?: boolean
-	    folderId?: Id<"folders">
-	  },
-	  hasSummary: boolean
-	): NewsletterListItem {
-	  return {
-	    _id: newsletter._id,
-	    subject: newsletter.subject,
-	    senderEmail: newsletter.senderEmail,
-	    senderName: newsletter.senderName,
-	    receivedAt: newsletter.receivedAt,
-	    isRead: newsletter.isRead,
-	    isHidden: newsletter.isHidden,
-	    isBinned: newsletter.isBinned,
-	    isPrivate: newsletter.isPrivate,
-	    isLockedByPlan: Boolean(newsletter.isLockedByPlan),
-	    readProgress: newsletter.readProgress,
-	    hasSummary,
-	    source: newsletter.source,
-	    isFavorited: newsletter.isFavorited,
-	    folderId: newsletter.folderId as string | undefined,
-	  }
-	}
+  newsletter: {
+    _id: Id<"userNewsletters">;
+    subject: string;
+    senderEmail: string;
+    senderName?: string;
+    receivedAt: number;
+    isRead: boolean;
+    isHidden: boolean;
+    isBinned?: boolean;
+    isPrivate: boolean;
+    isLockedByPlan?: boolean;
+    readProgress?: number;
+    source?: "email" | "gmail" | "manual" | "community";
+    isFavorited?: boolean;
+    folderId?: Id<"folders">;
+  },
+  hasSummary: boolean,
+): NewsletterListItem {
+  return {
+    _id: newsletter._id,
+    subject: newsletter.subject,
+    senderEmail: newsletter.senderEmail,
+    senderName: newsletter.senderName,
+    receivedAt: newsletter.receivedAt,
+    isRead: newsletter.isRead,
+    isHidden: newsletter.isHidden,
+    isBinned: newsletter.isBinned,
+    isPrivate: newsletter.isPrivate,
+    isLockedByPlan: Boolean(newsletter.isLockedByPlan),
+    readProgress: newsletter.readProgress,
+    hasSummary,
+    source: newsletter.source,
+    isFavorited: newsletter.isFavorited,
+    folderId: newsletter.folderId as string | undefined,
+  };
+}
 
 async function enrichNewsletterListItems(
   ctx: { db: { get: (id: any) => Promise<any> } },
-  newsletters: Array<Doc<"userNewsletters">>
+  newsletters: Array<Doc<"userNewsletters">>,
 ): Promise<NewsletterListItem[]> {
   const contentIds = newsletters
     .filter((n) => !n.isPrivate && n.contentId && !n.summary)
-    .map((n) => n.contentId!)
+    .map((n) => n.contentId!);
 
-  const uniqueContentIds = [...new Set(contentIds)]
-  const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+  const uniqueContentIds = [...new Set(contentIds)];
+  const contents = await Promise.all(
+    uniqueContentIds.map((id) => ctx.db.get(id)),
+  );
   const contentMap = new Map(
     contents
       .filter((c): c is NonNullable<typeof c> => c !== null)
-      .map((c) => [c._id, c])
-  )
+      .map((c) => [c._id, c]),
+  );
 
   return newsletters.map((newsletter) => {
-    let hasSummary = Boolean(newsletter.summary)
+    let hasSummary = Boolean(newsletter.summary);
 
     if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-      const content = contentMap.get(newsletter.contentId)
-      hasSummary = Boolean(content?.summary)
+      const content = contentMap.get(newsletter.contentId);
+      hasSummary = Boolean(content?.summary);
     }
 
-    return toNewsletterListItem(newsletter, hasSummary)
-  })
+    return toNewsletterListItem(newsletter, hasSummary);
+  });
 }
 
 async function upsertNewsletterReadProgress(
   ctx: {
     db: {
-      query: (table: "newsletterReadProgress") => any
-      patch: (id: any, value: any) => Promise<void>
-      insert: (table: "newsletterReadProgress", value: any) => Promise<any>
-    }
+      query: (table: "newsletterReadProgress") => any;
+      patch: (id: any, value: any) => Promise<void>;
+      insert: (table: "newsletterReadProgress", value: any) => Promise<any>;
+    };
   },
   args: {
-    userId: Id<"users">
-    userNewsletterId: Id<"userNewsletters">
-    progress: number
-  }
+    userId: Id<"users">;
+    userNewsletterId: Id<"userNewsletters">;
+    progress: number;
+  },
 ) {
   const existing = await ctx.db
     .query("newsletterReadProgress")
     .withIndex("by_userId_userNewsletterId", (q: any) =>
-      q.eq("userId", args.userId).eq("userNewsletterId", args.userNewsletterId)
+      q.eq("userId", args.userId).eq("userNewsletterId", args.userNewsletterId),
     )
-    .first()
+    .first();
 
   if (existing) {
     await ctx.db.patch(existing._id, {
       progress: args.progress,
       updatedAt: Date.now(),
-    })
-    return
+    });
+    return;
   }
 
   await ctx.db.insert("newsletterReadProgress", {
@@ -151,43 +157,48 @@ async function upsertNewsletterReadProgress(
     userNewsletterId: args.userNewsletterId,
     progress: args.progress,
     updatedAt: Date.now(),
-  })
+  });
 }
 
 async function getSearchMetaDoc(
   ctx: { db: { query: (table: "newsletterSearchMeta") => any } },
   userId: Id<"users">,
-  userNewsletterId: Id<"userNewsletters">
+  userNewsletterId: Id<"userNewsletters">,
 ): Promise<Doc<"newsletterSearchMeta"> | null> {
   return await ctx.db
     .query("newsletterSearchMeta")
     .withIndex("by_userId_userNewsletterId", (q: any) =>
-      q.eq("userId", userId).eq("userNewsletterId", userNewsletterId)
+      q.eq("userId", userId).eq("userNewsletterId", userNewsletterId),
     )
-    .first()
+    .first();
 }
 
 async function getHiddenFolderIdSet(
   ctx: { db: { query: (table: "folders") => any } },
-  userId: Id<"users">
+  userId: Id<"users">,
 ): Promise<Set<Id<"folders">>> {
   const folders = await ctx.db
     .query("folders")
     .withIndex("by_userId", (q: any) => q.eq("userId", userId))
-    .collect()
+    .collect();
 
   return new Set(
-    folders.filter((folder: any) => folder.isHidden).map((folder: any) => folder._id)
-  )
+    folders
+      .filter((folder: any) => folder.isHidden)
+      .map((folder: any) => folder._id),
+  );
 }
 
+const DEFAULT_RECENT_UNREAD_WINDOW_DAYS = 7;
+
 function getRecentUnreadWindowStart(lastConnectedAt?: number): number {
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const windowStartByDays =
+    Date.now() - DEFAULT_RECENT_UNREAD_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   const normalizedLastConnectedAt =
     typeof lastConnectedAt === "number" && Number.isFinite(lastConnectedAt)
       ? Math.max(0, Math.min(lastConnectedAt, Date.now()))
-      : 0
-  return Math.max(normalizedLastConnectedAt, sevenDaysAgo)
+      : 0;
+  return Math.max(normalizedLastConnectedAt, windowStartByDays);
 }
 
 /**
@@ -226,38 +237,38 @@ export const storeNewsletterContent = internalAction({
       v.literal("email"),
       v.literal("gmail"),
       v.literal("manual"),
-      v.literal("community")
+      v.literal("community"),
     ),
     // Story 8.4: Email Message-ID header for duplicate detection
     messageId: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    args
+    args,
   ): Promise<
     | {
-        userNewsletterId: Id<"userNewsletters">
-        r2Key: string
-        skipped?: false
+        userNewsletterId: Id<"userNewsletters">;
+        r2Key: string;
+        skipped?: false;
       }
     | {
-        skipped: true
-        reason: "duplicate"
-        duplicateReason: "message_id" | "content_hash"
-        existingId: Id<"userNewsletters">
+        skipped: true;
+        reason: "duplicate";
+        duplicateReason: "message_id" | "content_hash";
+        existingId: Id<"userNewsletters">;
       }
     | {
-        skipped: true
-        reason: "plan_limit"
-        hardCap: number
+        skipped: true;
+        reason: "plan_limit";
+        hardCap: number;
       }
   > => {
     console.log(
       `[newsletters] storeNewsletterContent called: user=${args.userId}, sender=${args.senderId}, ` +
         `subject="${args.subject.substring(0, 50)}...", source=${args.source}, ` +
         `folderId=${args.folderId}, htmlLen=${args.htmlContent?.length || 0}, ` +
-        `textLen=${args.textContent?.length || 0}, messageId=${args.messageId || "none"}`
-    )
+        `textLen=${args.textContent?.length || 0}, messageId=${args.messageId || "none"}`,
+    );
 
     // ========================================
     // DUPLICATE DETECTION (Story 8.4)
@@ -268,54 +279,54 @@ export const storeNewsletterContent = internalAction({
     if (args.messageId) {
       const existingByMessageId = await ctx.runQuery(
         internal._internal.duplicateDetection.checkDuplicateByMessageId,
-        { userId: args.userId, messageId: args.messageId }
-      )
+        { userId: args.userId, messageId: args.messageId },
+      );
       if (existingByMessageId) {
         console.log(
-          `[newsletters] Duplicate detected by messageId: ${args.messageId}, existing=${existingByMessageId}`
-        )
+          `[newsletters] Duplicate detected by messageId: ${args.messageId}, existing=${existingByMessageId}`,
+        );
         return {
           skipped: true,
           reason: "duplicate",
           duplicateReason: "message_id",
           existingId: existingByMessageId,
-        }
+        };
       }
     }
 
-    const content = args.htmlContent || args.textContent || ""
+    const content = args.htmlContent || args.textContent || "";
 
     // Handle empty content gracefully - use subject as minimal content
     // This prevents all empty emails from deduplicating to the same hash
-    const effectiveContent = content.trim() || `<p>${args.subject}</p>`
-    const hasOriginalContent = content.trim().length > 0
+    const effectiveContent = content.trim() || `<p>${args.subject}</p>`;
+    const hasOriginalContent = content.trim().length > 0;
 
     if (!hasOriginalContent) {
       console.log(
-        `[newsletters] Empty content detected, using subject as fallback: "${args.subject}"`
-      )
+        `[newsletters] Empty content detected, using subject as fallback: "${args.subject}"`,
+      );
     }
 
     // Pre-compute content hash for user-level duplicate detection
-    const normalized = normalizeForHash(effectiveContent)
-    const contentHash = await computeContentHash(normalized)
+    const normalized = normalizeForHash(effectiveContent);
+    const contentHash = await computeContentHash(normalized);
 
     // Step 2: Check by content hash for THIS USER ONLY (user-level dedup)
     // Story 9.2: All newsletters are private, so we only check user's own content
     const existingByHash = await ctx.runQuery(
       internal._internal.duplicateDetection.checkDuplicateByContentHash,
-      { userId: args.userId, contentHash, isPrivate: true }
-    )
+      { userId: args.userId, contentHash, isPrivate: true },
+    );
     if (existingByHash) {
       console.log(
-        `[newsletters] Duplicate detected by contentHash for user: ${contentHash.substring(0, 8)}..., existing=${existingByHash}`
-      )
+        `[newsletters] Duplicate detected by contentHash for user: ${contentHash.substring(0, 8)}..., existing=${existingByHash}`,
+      );
       return {
         skipped: true,
         reason: "duplicate",
         duplicateReason: "content_hash",
         existingId: existingByHash,
-      }
+      };
     }
 
     // ========================================
@@ -324,71 +335,82 @@ export const storeNewsletterContent = internalAction({
     // ========================================
     const entitlements = await ctx.runQuery(
       internal.entitlements.getUserEntitlementsByUserId,
-      { userId: args.userId }
-    )
+      { userId: args.userId },
+    );
 
-    let isLockedByPlan = false
+    let isLockedByPlan = false;
 
     if (!entitlements.isPro) {
-      let usage = await ctx.runQuery(internal.entitlements.getUserUsageCounters, {
-        userId: args.userId,
-      })
+      let usage = await ctx.runQuery(
+        internal.entitlements.getUserUsageCounters,
+        {
+          userId: args.userId,
+        },
+      );
 
       if (!usage) {
         const fallback = await ctx.runQuery(
           internal.entitlements.computeUserUsageCountersFallback,
-          { userId: args.userId }
-        )
+          { userId: args.userId },
+        );
         usage = {
           totalStored: fallback.totalStored,
           unlockedStored: fallback.unlockedStored,
           lockedStored: fallback.lockedStored,
-        }
+        };
         await ctx.runMutation(internal.entitlements.upsertUserUsageCounters, {
           userId: args.userId,
           totalStored: usage.totalStored,
           unlockedStored: usage.unlockedStored,
           lockedStored: usage.lockedStored,
-        })
+        });
       }
 
       if (usage.totalStored >= HARD_NEWSLETTERS_CAP) {
         console.log(
-          `[newsletters] Plan limit: user already at hard cap (totalStored=${usage.totalStored})`
-        )
-        return { skipped: true, reason: "plan_limit", hardCap: HARD_NEWSLETTERS_CAP }
+          `[newsletters] Plan limit: user already at hard cap (totalStored=${usage.totalStored})`,
+        );
+        return {
+          skipped: true,
+          reason: "plan_limit",
+          hardCap: HARD_NEWSLETTERS_CAP,
+        };
       }
 
-      isLockedByPlan = usage.unlockedStored >= UNLOCKED_NEWSLETTERS_CAP
+      isLockedByPlan = usage.unlockedStored >= UNLOCKED_NEWSLETTERS_CAP;
     }
 
-    const contentType = args.htmlContent ? "text/html" : "text/plain"
-    const ext = args.htmlContent ? "html" : "txt"
+    const contentType = args.htmlContent ? "text/html" : "text/plain";
+    const ext = args.htmlContent ? "html" : "txt";
 
     // ========================================
     // PRIVATE-BY-DEFAULT PATH (Story 9.2)
     // All user newsletters stored with privateR2Key
     // ========================================
-    const timestamp = Date.now()
-    const randomId = crypto.randomUUID()
-    const r2Key = `private/${args.userId}/${timestamp}-${randomId}.${ext}`
+    const timestamp = Date.now();
+    const randomId = crypto.randomUUID();
+    const r2Key = `private/${args.userId}/${timestamp}-${randomId}.${ext}`;
 
     // Upload to R2 (store original content, even if empty)
     try {
-      console.log(`[newsletters] Uploading private content to R2: key=${r2Key}, size=${effectiveContent.length}`)
-      const blob = new Blob([effectiveContent], { type: `${contentType}; charset=utf-8` })
-      await r2.store(ctx, blob, { key: r2Key, type: contentType })
-      console.log(`[newsletters] R2 upload successful: ${r2Key}`)
+      console.log(
+        `[newsletters] Uploading private content to R2: key=${r2Key}, size=${effectiveContent.length}`,
+      );
+      const blob = new Blob([effectiveContent], {
+        type: `${contentType}; charset=utf-8`,
+      });
+      await r2.store(ctx, blob, { key: r2Key, type: contentType });
+      console.log(`[newsletters] R2 upload successful: ${r2Key}`);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(
         `[newsletters] R2 upload failed for private content: key=${r2Key}, error=${errorMsg}`,
-        error
-      )
+        error,
+      );
       throw new ConvexError({
         code: "R2_UPLOAD_FAILED",
         message: `Failed to store newsletter content in R2: ${errorMsg}`,
-      })
+      });
     }
 
     // Create userNewsletter with privateR2Key (no contentId - Story 9.2)
@@ -408,28 +430,28 @@ export const storeNewsletterContent = internalAction({
         contentId: undefined, // Story 9.2: Never set for user ingestion
         source: args.source, // Story 9.2: Track ingestion source
         messageId: args.messageId, // Story 8.4: For duplicate detection
-      }
-    )
+      },
+    );
 
     await ctx.runMutation(internal.entitlements.incrementUserUsageCounters, {
       userId: args.userId,
       totalDelta: 1,
       unlockedDelta: isLockedByPlan ? 0 : 1,
       lockedDelta: isLockedByPlan ? 1 : 0,
-    })
+    });
 
     // Increment sender.newsletterCount after successful storage
     await ctx.runMutation(internal.senders.incrementNewsletterCount, {
       senderId: args.senderId,
-    })
+    });
 
     console.log(
-      `[newsletters] Private content stored: ${r2Key}, user=${args.userId}, source=${args.source}`
-    )
+      `[newsletters] Private content stored: ${r2Key}, user=${args.userId}, source=${args.source}`,
+    );
 
-    return { userNewsletterId, r2Key }
+    return { userNewsletterId, r2Key };
   },
-})
+});
 
 /**
  * Create a new newsletterContent entry for shared public content
@@ -461,17 +483,17 @@ export const createNewsletterContent = internalMutation({
     const existing = await ctx.db
       .query("newsletterContent")
       .withIndex("by_contentHash", (q) => q.eq("contentHash", args.contentHash))
-      .first()
+      .first();
 
     if (existing) {
       // Another request created this content - increment readerCount and return existing
       await ctx.db.patch(existing._id, {
         readerCount: existing.readerCount + 1,
-      })
+      });
       console.log(
-        `[newsletters] Race condition handled: reusing existing content ${existing._id}`
-      )
-      return existing._id
+        `[newsletters] Race condition handled: reusing existing content ${existing._id}`,
+      );
+      return existing._id;
     }
 
     const contentId = await ctx.db.insert("newsletterContent", {
@@ -482,11 +504,11 @@ export const createNewsletterContent = internalMutation({
       senderName: args.senderName,
       firstReceivedAt: args.receivedAt,
       readerCount: 1, // First reader
-    })
+    });
 
-    return contentId
+    return contentId;
   },
-})
+});
 
 /**
  * Find newsletterContent by content hash (for deduplication lookup)
@@ -503,9 +525,9 @@ export const findByContentHash = internalQuery({
     return await ctx.db
       .query("newsletterContent")
       .withIndex("by_contentHash", (q) => q.eq("contentHash", args.contentHash))
-      .first()
+      .first();
   },
-})
+});
 
 /**
  * Increment readerCount when content is reused (dedup hit)
@@ -523,18 +545,18 @@ export const findByContentHash = internalQuery({
 export const incrementReaderCount = internalMutation({
   args: { contentId: v.id("newsletterContent") },
   handler: async (ctx, args) => {
-    const content = await ctx.db.get(args.contentId)
+    const content = await ctx.db.get(args.contentId);
     if (!content) {
       throw new ConvexError({
         code: "NOT_FOUND",
         message: "Newsletter content not found",
-      })
+      });
     }
     await ctx.db.patch(args.contentId, {
       readerCount: content.readerCount + 1,
-    })
+    });
   },
-})
+});
 
 /**
  * Create a new userNewsletter entry
@@ -560,7 +582,7 @@ export const createUserNewsletter = internalMutation({
       v.literal("email"),
       v.literal("gmail"),
       v.literal("manual"),
-      v.literal("community")
+      v.literal("community"),
     ),
     // Story 8.4: Email Message-ID header for duplicate detection
     messageId: v.optional(v.string()),
@@ -584,7 +606,7 @@ export const createUserNewsletter = internalMutation({
       isLockedByPlan: args.isLockedByPlan ?? false,
       source: args.source, // Story 9.2: Track ingestion source
       messageId: args.messageId, // Story 8.4: Store for duplicate detection
-    })
+    });
 
     await ctx.db.insert("newsletterSearchMeta", {
       userId: args.userId,
@@ -597,11 +619,11 @@ export const createUserNewsletter = internalMutation({
       isBinned: false,
       isRead: false,
       isLockedByPlan: args.isLockedByPlan ?? false,
-    })
+    });
 
-    return userNewsletterId
+    return userNewsletterId;
   },
-})
+});
 
 /**
  * Get userNewsletter metadata (without content URL)
@@ -611,76 +633,94 @@ export const createUserNewsletter = internalMutation({
 export const getUserNewsletter = query({
   args: { userNewsletterId: v.id("userNewsletters") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     // Get user record to check permissions
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
     // Privacy check - user can only access their own newsletters
     // (Community access to public content will be added in Epic 6)
     if (userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
-    const isPro = isUserPro({ plan: user.plan ?? "free", proExpiresAt: user.proExpiresAt })
+    const isPro = isUserPro({
+      plan: user.plan ?? "free",
+      proExpiresAt: user.proExpiresAt,
+    });
 
     // Determine content status
     let contentStatus: ContentStatus =
-      userNewsletter.contentId || userNewsletter.privateR2Key ? "available" : "missing"
+      userNewsletter.contentId || userNewsletter.privateR2Key
+        ? "available"
+        : "missing";
 
     if (!isPro && userNewsletter.isLockedByPlan) {
-      contentStatus = "locked"
+      contentStatus = "locked";
     }
 
     const progressDoc = await ctx.db
       .query("newsletterReadProgress")
       .withIndex("by_userId_userNewsletterId", (q) =>
-        q.eq("userId", user._id).eq("userNewsletterId", args.userNewsletterId)
+        q.eq("userId", user._id).eq("userNewsletterId", args.userNewsletterId),
       )
-      .first()
+      .first();
 
     const effectiveReadProgress =
-      progressDoc?.progress ?? userNewsletter.readProgress
+      progressDoc?.progress ?? userNewsletter.readProgress;
 
-    return { ...userNewsletter, readProgress: effectiveReadProgress, contentStatus }
+    return {
+      ...userNewsletter,
+      readProgress: effectiveReadProgress,
+      contentStatus,
+    };
   },
-})
+});
 
 /** Return type for getUserNewsletterWithContent action */
 type UserNewsletterWithContentResult = {
-  _id: Id<"userNewsletters">
-  _creationTime: number
-  userId: Id<"users">
-  senderId: Id<"senders">
-  contentId?: Id<"newsletterContent">
-  privateR2Key?: string
-  subject: string
-  senderEmail: string
-  senderName?: string
-  receivedAt: number
-  isRead: boolean
-  isHidden: boolean
-  isFavorited?: boolean
-  isPrivate: boolean
-  readProgress?: number
-  contentUrl: string | null
-  contentStatus: ContentStatus
-}
+  _id: Id<"userNewsletters">;
+  _creationTime: number;
+  userId: Id<"users">;
+  senderId: Id<"senders">;
+  contentId?: Id<"newsletterContent">;
+  privateR2Key?: string;
+  subject: string;
+  senderEmail: string;
+  senderName?: string;
+  receivedAt: number;
+  isRead: boolean;
+  isHidden: boolean;
+  isFavorited?: boolean;
+  isPrivate: boolean;
+  readProgress?: number;
+  contentUrl: string | null;
+  contentStatus: ContentStatus;
+};
 
 /**
  * Get userNewsletter with signed R2 URL for content
@@ -690,9 +730,12 @@ type UserNewsletterWithContentResult = {
 export const getUserNewsletterWithContent = action({
   args: { userNewsletterId: v.id("userNewsletters") },
   handler: async (ctx, args): Promise<UserNewsletterWithContentResult> => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     // Get userNewsletter via internal query
@@ -700,93 +743,102 @@ export const getUserNewsletterWithContent = action({
       internal.newsletters.getUserNewsletterInternal,
       {
         userNewsletterId: args.userNewsletterId,
-      }
-    )
+      },
+    );
 
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     // Get user record to check permissions
     const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
       authId: identity.subject,
-    })
+    });
 
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
     // Privacy check - user can only access their own newsletters
     if (userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
-    const isPro = isUserPro({ plan: user.plan ?? "free", proExpiresAt: user.proExpiresAt })
+    const isPro = isUserPro({
+      plan: user.plan ?? "free",
+      proExpiresAt: user.proExpiresAt,
+    });
 
     if (!isPro && userNewsletter.isLockedByPlan) {
       const progressDoc = await ctx.runQuery(
         internal.newsletters.getNewsletterReadProgressInternal,
-        { userId: user._id, userNewsletterId: args.userNewsletterId }
-      )
+        { userId: user._id, userNewsletterId: args.userNewsletterId },
+      );
       const effectiveReadProgress =
-        progressDoc?.progress ?? userNewsletter.readProgress
+        progressDoc?.progress ?? userNewsletter.readProgress;
 
       return {
         ...userNewsletter,
         readProgress: effectiveReadProgress,
         contentUrl: null,
         contentStatus: "locked",
-      }
+      };
     }
 
     // Determine R2 key based on public/private path
-    let r2Key: string | null = null
+    let r2Key: string | null = null;
 
     if (userNewsletter.isPrivate && userNewsletter.privateR2Key) {
       // Private content - use privateR2Key directly
-      r2Key = userNewsletter.privateR2Key
+      r2Key = userNewsletter.privateR2Key;
     } else if (!userNewsletter.isPrivate && userNewsletter.contentId) {
       // Public content - get R2 key from newsletterContent
       const content = await ctx.runQuery(
         internal.newsletters.getNewsletterContentInternal,
         {
           contentId: userNewsletter.contentId,
-        }
-      )
+        },
+      );
       if (content) {
-        r2Key = content.r2Key
+        r2Key = content.r2Key;
       }
     }
 
     // Generate signed URL for R2 content (valid for 1 hour)
-    let contentUrl: string | null = null
-    let contentStatus: ContentStatus = "missing"
+    let contentUrl: string | null = null;
+    let contentStatus: ContentStatus = "missing";
 
     if (r2Key) {
       try {
-        contentUrl = await r2.getUrl(r2Key, { expiresIn: 3600 })
-        contentStatus = "available"
+        contentUrl = await r2.getUrl(r2Key, { expiresIn: 3600 });
+        contentStatus = "available";
       } catch (error) {
-        console.error("[newsletters] Failed to generate R2 signed URL:", error)
-        contentStatus = "error"
+        console.error("[newsletters] Failed to generate R2 signed URL:", error);
+        contentStatus = "error";
       }
     }
 
     const progressDoc = await ctx.runQuery(
       internal.newsletters.getNewsletterReadProgressInternal,
-      { userId: user._id, userNewsletterId: args.userNewsletterId }
-    )
+      { userId: user._id, userNewsletterId: args.userNewsletterId },
+    );
     const effectiveReadProgress =
-      progressDoc?.progress ?? userNewsletter.readProgress
+      progressDoc?.progress ?? userNewsletter.readProgress;
 
     return {
       ...userNewsletter,
       readProgress: effectiveReadProgress,
       contentUrl,
       contentStatus,
-    }
+    };
   },
-})
+});
 
 /**
  * Internal query to get userNewsletter without auth checks
@@ -795,9 +847,9 @@ export const getUserNewsletterWithContent = action({
 export const getUserNewsletterInternal = internalQuery({
   args: { userNewsletterId: v.id("userNewsletters") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.userNewsletterId)
+    return await ctx.db.get(args.userNewsletterId);
   },
-})
+});
 
 /**
  * Internal query to get newsletterContent without auth checks
@@ -806,9 +858,9 @@ export const getUserNewsletterInternal = internalQuery({
 export const getNewsletterContentInternal = internalQuery({
   args: { contentId: v.id("newsletterContent") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.contentId)
+    return await ctx.db.get(args.contentId);
   },
-})
+});
 
 export const getNewsletterReadProgressInternal = internalQuery({
   args: {
@@ -819,11 +871,13 @@ export const getNewsletterReadProgressInternal = internalQuery({
     return await ctx.db
       .query("newsletterReadProgress")
       .withIndex("by_userId_userNewsletterId", (q) =>
-        q.eq("userId", args.userId).eq("userNewsletterId", args.userNewsletterId)
+        q
+          .eq("userId", args.userId)
+          .eq("userNewsletterId", args.userNewsletterId),
       )
-      .first()
+      .first();
   },
-})
+});
 
 /**
  * List userNewsletters for current user
@@ -835,24 +889,24 @@ export const getNewsletterReadProgressInternal = internalQuery({
 export const listUserNewsletters = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return []
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
-    if (!user) return []
+    if (!user) return [];
 
     // Story 9.5: Fetch hidden folder IDs to exclude newsletters from hidden folders
     const folders = await ctx.db
       .query("folders")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect()
+      .collect();
     const hiddenFolderIds = new Set(
-      folders.filter((f) => f.isHidden).map((f) => f._id)
-    )
+      folders.filter((f) => f.isHidden).map((f) => f._id),
+    );
 
     // Use by_userId_receivedAt index for proper sorting by receivedAt (AC2)
     // Convex index ordering: when using compound index, order applies to last indexed field
@@ -860,7 +914,7 @@ export const listUserNewsletters = query({
       .query("userNewsletters")
       .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
       .order("desc")
-      .collect()
+      .collect();
 
     // Story 3.5 AC2: Exclude hidden newsletters from main list
     // Story 9.5 AC6: Exclude newsletters in hidden folders from "All Newsletters"
@@ -868,39 +922,41 @@ export const listUserNewsletters = query({
       (n) =>
         !n.isHidden &&
         !n.isBinned &&
-        (!n.folderId || !hiddenFolderIds.has(n.folderId))
-    )
+        (!n.folderId || !hiddenFolderIds.has(n.folderId)),
+    );
 
     // Story 5.2: Derive hasSummary for each newsletter
     // Code review fix: Batch-fetch contentIds to avoid N+1 queries
     const contentIds = visibleNewsletters
       .filter((n) => !n.isPrivate && n.contentId && !n.summary)
-      .map((n) => n.contentId!)
+      .map((n) => n.contentId!);
 
-    const uniqueContentIds = [...new Set(contentIds)]
-    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const uniqueContentIds = [...new Set(contentIds)];
+    const contents = await Promise.all(
+      uniqueContentIds.map((id) => ctx.db.get(id)),
+    );
     const contentMap = new Map(
       contents
         .filter((c): c is NonNullable<typeof c> => c !== null)
-        .map((c) => [c._id, c])
-    )
+        .map((c) => [c._id, c]),
+    );
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
     // Story 9.10: Include source field for unified folder view display
-	    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
-	      let hasSummary = Boolean(newsletter.summary)
+    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
+      let hasSummary = Boolean(newsletter.summary);
 
-	      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-	        const content = contentMap.get(newsletter.contentId)
-	        hasSummary = Boolean(content?.summary)
-	      }
+      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+        const content = contentMap.get(newsletter.contentId);
+        hasSummary = Boolean(content?.summary);
+      }
 
-	      return toNewsletterListItem(newsletter, hasSummary)
-	    })
+      return toNewsletterListItem(newsletter, hasSummary);
+    });
 
-    return enrichedNewsletters
+    return enrichedNewsletters;
   },
-})
+});
 
 /**
  * List user newsletters filtered by sender
@@ -920,73 +976,79 @@ export const listUserNewslettersBySender = query({
     senderId: v.optional(v.id("senders")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return []
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
-    if (!user) return []
+    if (!user) return [];
 
-    let visibleNewsletters
+    let visibleNewsletters;
 
     if (args.senderId) {
       // Filter by sender using composite index
       const newsletters = await ctx.db
         .query("userNewsletters")
         .withIndex("by_userId_senderId", (q) =>
-          q.eq("userId", user._id).eq("senderId", args.senderId as Id<"senders">)
+          q
+            .eq("userId", user._id)
+            .eq("senderId", args.senderId as Id<"senders">),
         )
-        .collect()
+        .collect();
 
       // Story 3.5 AC2: Exclude hidden newsletters, then sort by receivedAt descending
       visibleNewsletters = newsletters
         .filter((n) => !n.isHidden && !n.isBinned)
-        .sort((a, b) => b.receivedAt - a.receivedAt)
+        .sort((a, b) => b.receivedAt - a.receivedAt);
     } else {
       // No filter - return all non-hidden (existing behavior using proper index)
       const newsletters = await ctx.db
         .query("userNewsletters")
         .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
         .order("desc")
-        .collect()
+        .collect();
 
       // Story 3.5 AC2: Exclude hidden newsletters
-      visibleNewsletters = newsletters.filter((n) => !n.isHidden && !n.isBinned)
+      visibleNewsletters = newsletters.filter(
+        (n) => !n.isHidden && !n.isBinned,
+      );
     }
 
     // Story 5.2: Derive hasSummary for each newsletter
     // Code review fix: Batch-fetch contentIds to avoid N+1 queries
     const contentIds = visibleNewsletters
       .filter((n) => !n.isPrivate && n.contentId && !n.summary)
-      .map((n) => n.contentId!)
+      .map((n) => n.contentId!);
 
-    const uniqueContentIds = [...new Set(contentIds)]
-    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const uniqueContentIds = [...new Set(contentIds)];
+    const contents = await Promise.all(
+      uniqueContentIds.map((id) => ctx.db.get(id)),
+    );
     const contentMap = new Map(
       contents
         .filter((c): c is NonNullable<typeof c> => c !== null)
-        .map((c) => [c._id, c])
-    )
+        .map((c) => [c._id, c]),
+    );
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
     // Story 9.10: Include source field for unified folder view display
-	    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
-	      let hasSummary = Boolean(newsletter.summary)
+    const enrichedNewsletters = visibleNewsletters.map((newsletter) => {
+      let hasSummary = Boolean(newsletter.summary);
 
-	      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-	        const content = contentMap.get(newsletter.contentId)
-	        hasSummary = Boolean(content?.summary)
-	      }
+      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+        const content = contentMap.get(newsletter.contentId);
+        hasSummary = Boolean(content?.summary);
+      }
 
-	      return toNewsletterListItem(newsletter, hasSummary)
-	    })
+      return toNewsletterListItem(newsletter, hasSummary);
+    });
 
-    return enrichedNewsletters
+    return enrichedNewsletters;
   },
-})
+});
 
 /**
  * List newsletters filtered by folder (all senders in that folder)
@@ -1005,68 +1067,70 @@ export const listUserNewslettersByFolder = query({
     folderId: v.optional(v.union(v.id("folders"), v.null())),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return []
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
 
     // If no folderId provided, return empty - caller should use different query
-    if (args.folderId === undefined) return []
+    if (args.folderId === undefined) return [];
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
-    if (!user) return []
+    if (!user) return [];
 
-    const folderId = args.folderId
+    const folderId = args.folderId;
 
     // Epic 9+ folder-centric schema: newsletters carry folderId directly.
     // This avoids scanning all senders/settings/newsletters to assemble folder views.
     if (folderId === null) {
       // "Uncategorized" is legacy; avoid an expensive full scan.
-      return []
+      return [];
     }
 
     const newslettersInFolder = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_folderId_receivedAt", (q) =>
-        q.eq("userId", user._id).eq("folderId", folderId)
+        q.eq("userId", user._id).eq("folderId", folderId),
       )
       .order("desc")
-      .collect()
+      .collect();
 
     // Story 3.5 AC2: Exclude hidden newsletters
     const filteredNewsletters = newslettersInFolder.filter(
-      (n) => !n.isHidden && !n.isBinned
-    )
+      (n) => !n.isHidden && !n.isBinned,
+    );
 
     // Story 5.2: Batch-fetch contentIds to avoid N+1 queries (code review fix)
     const contentIds = filteredNewsletters
       .filter((n) => !n.isPrivate && n.contentId && !n.summary)
-      .map((n) => n.contentId!)
+      .map((n) => n.contentId!);
 
-    const uniqueContentIds = [...new Set(contentIds)]
-    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const uniqueContentIds = [...new Set(contentIds)];
+    const contents = await Promise.all(
+      uniqueContentIds.map((id) => ctx.db.get(id)),
+    );
     const contentMap = new Map(
       contents
         .filter((c): c is NonNullable<typeof c> => c !== null)
-        .map((c) => [c._id, c])
-    )
+        .map((c) => [c._id, c]),
+    );
 
     // Derive hasSummary for each newsletter (O(1) lookup)
     const enrichedNewsletters = filteredNewsletters.map((newsletter) => {
-      let hasSummary = Boolean(newsletter.summary)
+      let hasSummary = Boolean(newsletter.summary);
       if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-        const content = contentMap.get(newsletter.contentId)
-        hasSummary = Boolean(content?.summary)
+        const content = contentMap.get(newsletter.contentId);
+        hasSummary = Boolean(content?.summary);
       }
 
-      return toNewsletterListItem(newsletter, hasSummary)
-    })
+      return toNewsletterListItem(newsletter, hasSummary);
+    });
 
-    return enrichedNewsletters
+    return enrichedNewsletters;
   },
-})
+});
 
 // ============================================================
 // Bandwidth Optimization: Reactive Head + Non-reactive Tail Pagination
@@ -1078,29 +1142,29 @@ export const listUserNewslettersByFolderHead = query({
     numItems: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return { page: [], isDone: true, continueCursor: null }
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: null };
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
-    if (!user) return { page: [], isDone: true, continueCursor: null }
+      .first();
+    if (!user) return { page: [], isDone: true, continueCursor: null };
 
     const result = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_folderId_receivedAt", (q) =>
-        q.eq("userId", user._id).eq("folderId", args.folderId)
+        q.eq("userId", user._id).eq("folderId", args.folderId),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems ?? 20, cursor: null })
+      .paginate({ numItems: args.numItems ?? 20, cursor: null });
 
-    const visiblePage = result.page.filter((n) => !n.isHidden && !n.isBinned)
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+    const visiblePage = result.page.filter((n) => !n.isHidden && !n.isBinned);
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
 
-    return { ...result, page: enriched }
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listUserNewslettersByFolderPageInternal = internalQuery({
   args: {
@@ -1113,17 +1177,17 @@ export const listUserNewslettersByFolderPageInternal = internalQuery({
     const result = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_folderId_receivedAt", (q) =>
-        q.eq("userId", args.userId).eq("folderId", args.folderId)
+        q.eq("userId", args.userId).eq("folderId", args.folderId),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems, cursor: args.cursor })
+      .paginate({ numItems: args.numItems, cursor: args.cursor });
 
-    const visiblePage = result.page.filter((n) => !n.isHidden && !n.isBinned)
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+    const visiblePage = result.page.filter((n) => !n.isHidden && !n.isBinned);
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
 
-    return { ...result, page: enriched }
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listUserNewslettersByFolderPage = action({
   args: {
@@ -1132,60 +1196,69 @@ export const listUserNewslettersByFolderPage = action({
     numItems: v.number(),
   },
   handler: async (ctx, args): Promise<NewsletterListPageResult> => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
       authId: identity.subject,
-    })
+    });
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    return await ctx.runQuery(internal.newsletters.listUserNewslettersByFolderPageInternal, {
-      userId: user._id,
-      folderId: args.folderId,
-      cursor: args.cursor,
-      numItems: args.numItems,
-    })
+    return await ctx.runQuery(
+      internal.newsletters.listUserNewslettersByFolderPageInternal,
+      {
+        userId: user._id,
+        folderId: args.folderId,
+        cursor: args.cursor,
+        numItems: args.numItems,
+      },
+    );
   },
-})
+});
 
 export const listAllNewslettersHead = query({
   args: {
     numItems: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return { page: [], isDone: true, continueCursor: null }
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: null };
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
-    if (!user) return { page: [], isDone: true, continueCursor: null }
+      .first();
+    if (!user) return { page: [], isDone: true, continueCursor: null };
 
-    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id)
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id);
 
     const result = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_receivedAt", (q) => q.eq("userId", user._id))
       .order("desc")
-      .paginate({ numItems: args.numItems ?? 30, cursor: null })
+      .paginate({ numItems: args.numItems ?? 30, cursor: null });
 
     const visiblePage = result.page.filter(
       (n) =>
         !n.isHidden &&
         !n.isBinned &&
-        (!n.folderId || !hiddenFolderIds.has(n.folderId))
-    )
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+        (!n.folderId || !hiddenFolderIds.has(n.folderId)),
+    );
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
 
-    return { ...result, page: enriched }
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listAllNewslettersPageInternal = internalQuery({
   args: {
@@ -1194,25 +1267,25 @@ export const listAllNewslettersPageInternal = internalQuery({
     numItems: v.number(),
   },
   handler: async (ctx, args) => {
-    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId)
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId);
 
     const result = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_receivedAt", (q) => q.eq("userId", args.userId))
       .order("desc")
-      .paginate({ numItems: args.numItems, cursor: args.cursor })
+      .paginate({ numItems: args.numItems, cursor: args.cursor });
 
     const visiblePage = result.page.filter(
       (n) =>
         !n.isHidden &&
         !n.isBinned &&
-        (!n.folderId || !hiddenFolderIds.has(n.folderId))
-    )
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+        (!n.folderId || !hiddenFolderIds.has(n.folderId)),
+    );
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
 
-    return { ...result, page: enriched }
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listAllNewslettersPage = action({
   args: {
@@ -1220,25 +1293,34 @@ export const listAllNewslettersPage = action({
     numItems: v.number(),
   },
   handler: async (ctx, args): Promise<NewsletterListPageResult> => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
       authId: identity.subject,
-    })
+    });
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    return await ctx.runQuery(internal.newsletters.listAllNewslettersPageInternal, {
-      userId: user._id,
-      cursor: args.cursor,
-      numItems: args.numItems,
-    })
+    return await ctx.runQuery(
+      internal.newsletters.listAllNewslettersPageInternal,
+      {
+        userId: user._id,
+        cursor: args.cursor,
+        numItems: args.numItems,
+      },
+    );
   },
-})
+});
 
 export const listRecentUnreadNewslettersHead = query({
   args: {
@@ -1246,17 +1328,17 @@ export const listRecentUnreadNewslettersHead = query({
     numItems: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return { page: [], isDone: true, continueCursor: null }
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: null };
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
-    if (!user) return { page: [], isDone: true, continueCursor: null }
+      .first();
+    if (!user) return { page: [], isDone: true, continueCursor: null };
 
-    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id)
-    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt)
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id);
+    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt);
 
     const result = await ctx.db
       .query("userNewsletters")
@@ -1265,19 +1347,19 @@ export const listRecentUnreadNewslettersHead = query({
           .eq("userId", user._id)
           .eq("isRead", false)
           .eq("isHidden", false)
-          .gte("receivedAt", windowStart)
+          .gte("receivedAt", windowStart),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems ?? 8, cursor: null })
+      .paginate({ numItems: args.numItems ?? 8, cursor: null });
 
     const visiblePage = result.page.filter(
-      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId))
-    )
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId)),
+    );
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
 
-    return { ...result, page: enriched }
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listRecentUnreadNewslettersPageInternal = internalQuery({
   args: {
@@ -1287,8 +1369,8 @@ export const listRecentUnreadNewslettersPageInternal = internalQuery({
     lastConnectedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId)
-    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt)
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId);
+    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt);
 
     const result = await ctx.db
       .query("userNewsletters")
@@ -1297,19 +1379,19 @@ export const listRecentUnreadNewslettersPageInternal = internalQuery({
           .eq("userId", args.userId)
           .eq("isRead", false)
           .eq("isHidden", false)
-          .gte("receivedAt", windowStart)
+          .gte("receivedAt", windowStart),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems, cursor: args.cursor })
+      .paginate({ numItems: args.numItems, cursor: args.cursor });
 
     const visiblePage = result.page.filter(
-      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId))
-    )
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId)),
+    );
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
 
-    return { ...result, page: enriched }
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listRecentUnreadNewslettersPage = action({
   args: {
@@ -1318,26 +1400,35 @@ export const listRecentUnreadNewslettersPage = action({
     lastConnectedAt: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<NewsletterListPageResult> => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
       authId: identity.subject,
-    })
+    });
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    return await ctx.runQuery(internal.newsletters.listRecentUnreadNewslettersPageInternal, {
-      userId: user._id,
-      cursor: args.cursor,
-      numItems: args.numItems ?? 20,
-      lastConnectedAt: args.lastConnectedAt,
-    })
+    return await ctx.runQuery(
+      internal.newsletters.listRecentUnreadNewslettersPageInternal,
+      {
+        userId: user._id,
+        cursor: args.cursor,
+        numItems: args.numItems ?? 20,
+        lastConnectedAt: args.lastConnectedAt,
+      },
+    );
   },
-})
+});
 
 /**
  * Mark userNewsletter as read
@@ -1352,9 +1443,9 @@ export const markAsRead = internalMutation({
     await ctx.db.patch(args.userNewsletterId, {
       isRead: true,
       readProgress: args.readProgress ?? 100,
-    })
+    });
   },
-})
+});
 
 /**
  * Update read progress for userNewsletter
@@ -1369,9 +1460,9 @@ export const updateReadProgress = internalMutation({
     await ctx.db.patch(args.userNewsletterId, {
       readProgress: args.readProgress,
       isRead: args.readProgress >= 100,
-    })
+    });
   },
-})
+});
 
 /**
  * Toggle hide status for userNewsletter
@@ -1385,9 +1476,9 @@ export const toggleHidden = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userNewsletterId, {
       isHidden: args.isHidden,
-    })
+    });
   },
-})
+});
 
 /**
  * Set read progress for a newsletter (public mutation).
@@ -1401,58 +1492,68 @@ export const setReadProgress = mutation({
     progress: v.number(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user || userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
-    const clampedProgress = Math.max(0, Math.min(100, args.progress))
+    const clampedProgress = Math.max(0, Math.min(100, args.progress));
 
     await upsertNewsletterReadProgress(ctx, {
       userId: user._id,
       userNewsletterId: args.userNewsletterId,
       progress: clampedProgress,
-    })
+    });
 
     // Only update the primary newsletter doc when we transition to "read".
     // Intermediate progress updates must not touch `userNewsletters`.
     if (clampedProgress === 100 && !userNewsletter.isRead) {
-      await ctx.db.patch(args.userNewsletterId, { isRead: true })
+      await ctx.db.patch(args.userNewsletterId, { isRead: true });
 
-      const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+      const searchMeta = await getSearchMetaDoc(
+        ctx,
+        user._id,
+        args.userNewsletterId,
+      );
       if (!searchMeta) {
-	        await ctx.db.insert("newsletterSearchMeta", {
-	          userId: user._id,
-	          userNewsletterId: args.userNewsletterId,
-	          subject: userNewsletter.subject,
-	          senderEmail: userNewsletter.senderEmail,
-	          senderName: userNewsletter.senderName,
-	          receivedAt: userNewsletter.receivedAt,
-	          isHidden: userNewsletter.isHidden,
-	          isBinned: Boolean(userNewsletter.isBinned),
-	          isRead: true,
-	          isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
-	        })
+        await ctx.db.insert("newsletterSearchMeta", {
+          userId: user._id,
+          userNewsletterId: args.userNewsletterId,
+          subject: userNewsletter.subject,
+          senderEmail: userNewsletter.senderEmail,
+          senderName: userNewsletter.senderName,
+          receivedAt: userNewsletter.receivedAt,
+          isHidden: userNewsletter.isHidden,
+          isBinned: Boolean(userNewsletter.isBinned),
+          isRead: true,
+          isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+        });
       } else if (!searchMeta.isRead) {
-        await ctx.db.patch(searchMeta._id, { isRead: true })
+        await ctx.db.patch(searchMeta._id, { isRead: true });
       }
     }
   },
-})
+});
 
 /**
  * Mark newsletter as read (public mutation)
@@ -1464,57 +1565,70 @@ export const markNewsletterRead = mutation({
     readProgress: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     // Get user for ownership check
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user || userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
-    const clampedProgress = Math.max(0, Math.min(100, args.readProgress ?? 100))
+    const clampedProgress = Math.max(
+      0,
+      Math.min(100, args.readProgress ?? 100),
+    );
 
     await upsertNewsletterReadProgress(ctx, {
       userId: user._id,
       userNewsletterId: args.userNewsletterId,
       progress: clampedProgress,
-    })
+    });
 
     if (!userNewsletter.isRead) {
-      await ctx.db.patch(args.userNewsletterId, { isRead: true })
+      await ctx.db.patch(args.userNewsletterId, { isRead: true });
     }
 
-    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
-	    if (!searchMeta) {
-	      await ctx.db.insert("newsletterSearchMeta", {
-	        userId: user._id,
-	        userNewsletterId: args.userNewsletterId,
-	        subject: userNewsletter.subject,
-	        senderEmail: userNewsletter.senderEmail,
-	        senderName: userNewsletter.senderName,
-	        receivedAt: userNewsletter.receivedAt,
-	        isHidden: userNewsletter.isHidden,
-	        isBinned: Boolean(userNewsletter.isBinned),
-	        isRead: true,
-	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
-	      })
+    const searchMeta = await getSearchMetaDoc(
+      ctx,
+      user._id,
+      args.userNewsletterId,
+    );
+    if (!searchMeta) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: user._id,
+        userNewsletterId: args.userNewsletterId,
+        subject: userNewsletter.subject,
+        senderEmail: userNewsletter.senderEmail,
+        senderName: userNewsletter.senderName,
+        receivedAt: userNewsletter.receivedAt,
+        isHidden: userNewsletter.isHidden,
+        isBinned: Boolean(userNewsletter.isBinned),
+        isRead: true,
+        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+      });
     } else if (!searchMeta.isRead) {
-      await ctx.db.patch(searchMeta._id, { isRead: true })
+      await ctx.db.patch(searchMeta._id, { isRead: true });
     }
   },
-})
+});
 
 /**
  * Mark newsletter as unread (public mutation)
@@ -1525,49 +1639,59 @@ export const markNewsletterUnread = mutation({
     userNewsletterId: v.id("userNewsletters"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user || userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
     await ctx.db.patch(args.userNewsletterId, {
       isRead: false,
       // Keep readProgress for "resume reading" feature
-    })
+    });
 
-    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
-	    if (!searchMeta) {
-	      await ctx.db.insert("newsletterSearchMeta", {
-	        userId: user._id,
-	        userNewsletterId: args.userNewsletterId,
-	        subject: userNewsletter.subject,
-	        senderEmail: userNewsletter.senderEmail,
-	        senderName: userNewsletter.senderName,
-	        receivedAt: userNewsletter.receivedAt,
-	        isHidden: userNewsletter.isHidden,
-	        isBinned: Boolean(userNewsletter.isBinned),
-	        isRead: false,
-	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
-	      })
+    const searchMeta = await getSearchMetaDoc(
+      ctx,
+      user._id,
+      args.userNewsletterId,
+    );
+    if (!searchMeta) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: user._id,
+        userNewsletterId: args.userNewsletterId,
+        subject: userNewsletter.subject,
+        senderEmail: userNewsletter.senderEmail,
+        senderName: userNewsletter.senderName,
+        receivedAt: userNewsletter.receivedAt,
+        isHidden: userNewsletter.isHidden,
+        isBinned: Boolean(userNewsletter.isBinned),
+        isRead: false,
+        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+      });
     } else if (searchMeta.isRead) {
-      await ctx.db.patch(searchMeta._id, { isRead: false })
+      await ctx.db.patch(searchMeta._id, { isRead: false });
     }
   },
-})
+});
 
 /**
  * Update reading progress (public mutation)
@@ -1579,57 +1703,67 @@ export const updateNewsletterReadProgress = mutation({
     readProgress: v.number(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user || userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
     // Clamp progress to 0-100
-    const clampedProgress = Math.max(0, Math.min(100, args.readProgress))
+    const clampedProgress = Math.max(0, Math.min(100, args.readProgress));
 
     await upsertNewsletterReadProgress(ctx, {
       userId: user._id,
       userNewsletterId: args.userNewsletterId,
       progress: clampedProgress,
-    })
+    });
 
     if (clampedProgress === 100 && !userNewsletter.isRead) {
-      await ctx.db.patch(args.userNewsletterId, { isRead: true })
+      await ctx.db.patch(args.userNewsletterId, { isRead: true });
 
-      const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+      const searchMeta = await getSearchMetaDoc(
+        ctx,
+        user._id,
+        args.userNewsletterId,
+      );
       if (!searchMeta) {
-	        await ctx.db.insert("newsletterSearchMeta", {
-	          userId: user._id,
-	          userNewsletterId: args.userNewsletterId,
-	          subject: userNewsletter.subject,
-	          senderEmail: userNewsletter.senderEmail,
-	          senderName: userNewsletter.senderName,
-	          receivedAt: userNewsletter.receivedAt,
-	          isHidden: userNewsletter.isHidden,
-	          isBinned: Boolean(userNewsletter.isBinned),
-	          isRead: true,
-	          isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
-	        })
+        await ctx.db.insert("newsletterSearchMeta", {
+          userId: user._id,
+          userNewsletterId: args.userNewsletterId,
+          subject: userNewsletter.subject,
+          senderEmail: userNewsletter.senderEmail,
+          senderName: userNewsletter.senderName,
+          receivedAt: userNewsletter.receivedAt,
+          isHidden: userNewsletter.isHidden,
+          isBinned: Boolean(userNewsletter.isBinned),
+          isRead: true,
+          isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+        });
       } else if (!searchMeta.isRead) {
-        await ctx.db.patch(searchMeta._id, { isRead: true })
+        await ctx.db.patch(searchMeta._id, { isRead: true });
       }
     }
   },
-})
+});
 
 /**
  * Hide newsletter (public mutation)
@@ -1640,48 +1774,58 @@ export const hideNewsletter = mutation({
     userNewsletterId: v.id("userNewsletters"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user || userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
     await ctx.db.patch(args.userNewsletterId, {
       isHidden: true,
-    })
+    });
 
-    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
-	    if (!searchMeta) {
-	      await ctx.db.insert("newsletterSearchMeta", {
-	        userId: user._id,
-	        userNewsletterId: args.userNewsletterId,
-	        subject: userNewsletter.subject,
-	        senderEmail: userNewsletter.senderEmail,
-	        senderName: userNewsletter.senderName,
-	        receivedAt: userNewsletter.receivedAt,
-	        isHidden: true,
-	        isBinned: Boolean(userNewsletter.isBinned),
-	        isRead: userNewsletter.isRead,
-	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
-	      })
+    const searchMeta = await getSearchMetaDoc(
+      ctx,
+      user._id,
+      args.userNewsletterId,
+    );
+    if (!searchMeta) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: user._id,
+        userNewsletterId: args.userNewsletterId,
+        subject: userNewsletter.subject,
+        senderEmail: userNewsletter.senderEmail,
+        senderName: userNewsletter.senderName,
+        receivedAt: userNewsletter.receivedAt,
+        isHidden: true,
+        isBinned: Boolean(userNewsletter.isBinned),
+        isRead: userNewsletter.isRead,
+        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+      });
     } else if (!searchMeta.isHidden) {
-      await ctx.db.patch(searchMeta._id, { isHidden: true })
+      await ctx.db.patch(searchMeta._id, { isHidden: true });
     }
   },
-})
+});
 
 /**
  * Unhide newsletter (public mutation)
@@ -1692,48 +1836,58 @@ export const unhideNewsletter = mutation({
     userNewsletterId: v.id("userNewsletters"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user || userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
     await ctx.db.patch(args.userNewsletterId, {
       isHidden: false,
-    })
+    });
 
-    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
-	    if (!searchMeta) {
-	      await ctx.db.insert("newsletterSearchMeta", {
-	        userId: user._id,
-	        userNewsletterId: args.userNewsletterId,
-	        subject: userNewsletter.subject,
-	        senderEmail: userNewsletter.senderEmail,
-	        senderName: userNewsletter.senderName,
-	        receivedAt: userNewsletter.receivedAt,
-	        isHidden: false,
-	        isBinned: Boolean(userNewsletter.isBinned),
-	        isRead: userNewsletter.isRead,
-	        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
-	      })
+    const searchMeta = await getSearchMetaDoc(
+      ctx,
+      user._id,
+      args.userNewsletterId,
+    );
+    if (!searchMeta) {
+      await ctx.db.insert("newsletterSearchMeta", {
+        userId: user._id,
+        userNewsletterId: args.userNewsletterId,
+        subject: userNewsletter.subject,
+        senderEmail: userNewsletter.senderEmail,
+        senderName: userNewsletter.senderName,
+        receivedAt: userNewsletter.receivedAt,
+        isHidden: false,
+        isBinned: Boolean(userNewsletter.isBinned),
+        isRead: userNewsletter.isRead,
+        isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
+      });
     } else if (searchMeta.isHidden) {
-      await ctx.db.patch(searchMeta._id, { isHidden: false })
+      await ctx.db.patch(searchMeta._id, { isHidden: false });
     }
   },
-})
+});
 
 /**
  * Move newsletter to bin (soft delete).
@@ -1744,31 +1898,41 @@ export const binNewsletter = mutation({
     userNewsletterId: v.id("userNewsletters"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user || userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
     await ctx.db.patch(args.userNewsletterId, {
       isBinned: true,
       binnedAt: Date.now(),
-    })
+    });
 
-    const searchMeta = await getSearchMetaDoc(ctx, user._id, args.userNewsletterId)
+    const searchMeta = await getSearchMetaDoc(
+      ctx,
+      user._id,
+      args.userNewsletterId,
+    );
     if (!searchMeta) {
       await ctx.db.insert("newsletterSearchMeta", {
         userId: user._id,
@@ -1781,12 +1945,12 @@ export const binNewsletter = mutation({
         isBinned: true,
         isRead: userNewsletter.isRead,
         isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
-      })
+      });
     } else if (!searchMeta.isBinned) {
-      await ctx.db.patch(searchMeta._id, { isBinned: true })
+      await ctx.db.patch(searchMeta._id, { isBinned: true });
     }
   },
-})
+});
 
 /**
  * Set favorite status for a newsletter.
@@ -1798,30 +1962,36 @@ export const setNewsletterFavorite = mutation({
     isFavorited: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user || userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" })
+      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
     await ctx.db.patch(args.userNewsletterId, {
       isFavorited: args.isFavorited,
-    })
+    });
   },
-})
+});
 
 /**
  * List favorited newsletters for current user.
@@ -1830,96 +2000,98 @@ export const setNewsletterFavorite = mutation({
 export const listFavoritedNewsletters = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return []
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
-    if (!user) return []
+    if (!user) return [];
 
     const favoritedNewsletters = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_isFavorited_isHidden_receivedAt", (q) =>
-        q.eq("userId", user._id).eq("isFavorited", true).eq("isHidden", false)
+        q.eq("userId", user._id).eq("isFavorited", true).eq("isHidden", false),
       )
       .order("desc")
-      .collect()
+      .collect();
 
     const folders = await ctx.db
       .query("folders")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect()
+      .collect();
     const hiddenFolderIds = new Set(
-      folders.filter((folder) => folder.isHidden).map((folder) => folder._id)
-    )
+      folders.filter((folder) => folder.isHidden).map((folder) => folder._id),
+    );
     const visibleFavorites = favoritedNewsletters.filter(
       (newsletter) =>
         !newsletter.isBinned &&
-        (!newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId))
-    )
+        (!newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId)),
+    );
 
     const contentIds = visibleFavorites
       .filter((n) => !n.isPrivate && n.contentId && !n.summary)
-      .map((n) => n.contentId!)
+      .map((n) => n.contentId!);
 
-    const uniqueContentIds = [...new Set(contentIds)]
-    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const uniqueContentIds = [...new Set(contentIds)];
+    const contents = await Promise.all(
+      uniqueContentIds.map((id) => ctx.db.get(id)),
+    );
     const contentMap = new Map(
       contents
         .filter((c): c is NonNullable<typeof c> => c !== null)
-        .map((c) => [c._id, c])
-    )
+        .map((c) => [c._id, c]),
+    );
 
-	    const enrichedNewsletters = visibleFavorites.map((newsletter) => {
-	      let hasSummary = Boolean(newsletter.summary)
+    const enrichedNewsletters = visibleFavorites.map((newsletter) => {
+      let hasSummary = Boolean(newsletter.summary);
 
-	      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-	        const content = contentMap.get(newsletter.contentId)
-	        hasSummary = Boolean(content?.summary)
-	      }
+      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+        const content = contentMap.get(newsletter.contentId);
+        hasSummary = Boolean(content?.summary);
+      }
 
-	      return toNewsletterListItem(newsletter, hasSummary)
-	    })
+      return toNewsletterListItem(newsletter, hasSummary);
+    });
 
-    return enrichedNewsletters
+    return enrichedNewsletters;
   },
-})
+});
 
 export const listFavoritedNewslettersHead = query({
   args: {
     numItems: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return { page: [], isDone: true, continueCursor: null }
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: null };
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
-    if (!user) return { page: [], isDone: true, continueCursor: null }
+      .first();
+    if (!user) return { page: [], isDone: true, continueCursor: null };
 
-    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id)
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id);
 
     const result = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_isFavorited_isHidden_receivedAt", (q) =>
-        q.eq("userId", user._id).eq("isFavorited", true).eq("isHidden", false)
+        q.eq("userId", user._id).eq("isFavorited", true).eq("isHidden", false),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems ?? 30, cursor: null })
+      .paginate({ numItems: args.numItems ?? 30, cursor: null });
 
     const visiblePage = result.page.filter(
-      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId))
-    )
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId)),
+    );
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
 
-    return { ...result, page: enriched }
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listFavoritedNewslettersPageInternal = internalQuery({
   args: {
@@ -1928,24 +2100,27 @@ export const listFavoritedNewslettersPageInternal = internalQuery({
     numItems: v.number(),
   },
   handler: async (ctx, args) => {
-    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId)
+    const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId);
 
     const result = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_isFavorited_isHidden_receivedAt", (q) =>
-        q.eq("userId", args.userId).eq("isFavorited", true).eq("isHidden", false)
+        q
+          .eq("userId", args.userId)
+          .eq("isFavorited", true)
+          .eq("isHidden", false),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems, cursor: args.cursor })
+      .paginate({ numItems: args.numItems, cursor: args.cursor });
 
     const visiblePage = result.page.filter(
-      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId))
-    )
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
+      (n) => !n.isBinned && (!n.folderId || !hiddenFolderIds.has(n.folderId)),
+    );
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
 
-    return { ...result, page: enriched }
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listFavoritedNewslettersPage = action({
   args: {
@@ -1953,25 +2128,34 @@ export const listFavoritedNewslettersPage = action({
     numItems: v.number(),
   },
   handler: async (ctx, args): Promise<NewsletterListPageResult> => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
       authId: identity.subject,
-    })
+    });
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    return await ctx.runQuery(internal.newsletters.listFavoritedNewslettersPageInternal, {
-      userId: user._id,
-      cursor: args.cursor,
-      numItems: args.numItems,
-    })
+    return await ctx.runQuery(
+      internal.newsletters.listFavoritedNewslettersPageInternal,
+      {
+        userId: user._id,
+        cursor: args.cursor,
+        numItems: args.numItems,
+      },
+    );
   },
-})
+});
 
 /**
  * List hidden newsletters for current user
@@ -1982,87 +2166,91 @@ export const listFavoritedNewslettersPage = action({
 export const listHiddenNewsletters = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return []
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
-    if (!user) return []
+    if (!user) return [];
 
     // Efficient: query hidden newsletters directly via compound index.
     const hiddenNewsletters = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_isHidden_receivedAt", (q) =>
-        q.eq("userId", user._id).eq("isHidden", true)
+        q.eq("userId", user._id).eq("isHidden", true),
       )
       .order("desc")
-      .collect()
+      .collect();
 
     // Story 5.2: Derive hasSummary for each newsletter
     // Code review fix: Batch-fetch contentIds to avoid N+1 queries
     const visibleHiddenNewsletters = hiddenNewsletters.filter(
-      (newsletter) => !newsletter.isBinned
-    )
+      (newsletter) => !newsletter.isBinned,
+    );
 
     const contentIds = visibleHiddenNewsletters
       .filter((n) => !n.isPrivate && n.contentId && !n.summary)
-      .map((n) => n.contentId!)
+      .map((n) => n.contentId!);
 
-    const uniqueContentIds = [...new Set(contentIds)]
-    const contents = await Promise.all(uniqueContentIds.map((id) => ctx.db.get(id)))
+    const uniqueContentIds = [...new Set(contentIds)];
+    const contents = await Promise.all(
+      uniqueContentIds.map((id) => ctx.db.get(id)),
+    );
     const contentMap = new Map(
       contents
         .filter((c): c is NonNullable<typeof c> => c !== null)
-        .map((c) => [c._id, c])
-    )
+        .map((c) => [c._id, c]),
+    );
 
     // Privacy pattern: check personal summary first, then shared if public (O(1) lookup)
     // Story 9.10: Include source field for unified folder view display
-	    const enrichedNewsletters = visibleHiddenNewsletters.map((newsletter) => {
-	      let hasSummary = Boolean(newsletter.summary)
+    const enrichedNewsletters = visibleHiddenNewsletters.map((newsletter) => {
+      let hasSummary = Boolean(newsletter.summary);
 
-	      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
-	        const content = contentMap.get(newsletter.contentId)
-	        hasSummary = Boolean(content?.summary)
-	      }
+      if (!hasSummary && !newsletter.isPrivate && newsletter.contentId) {
+        const content = contentMap.get(newsletter.contentId);
+        hasSummary = Boolean(content?.summary);
+      }
 
-	      return toNewsletterListItem(newsletter, hasSummary)
-	    })
+      return toNewsletterListItem(newsletter, hasSummary);
+    });
 
-    return enrichedNewsletters
+    return enrichedNewsletters;
   },
-})
+});
 
 export const listHiddenNewslettersHead = query({
   args: {
     numItems: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return { page: [], isDone: true, continueCursor: null }
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: null };
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
-    if (!user) return { page: [], isDone: true, continueCursor: null }
+      .first();
+    if (!user) return { page: [], isDone: true, continueCursor: null };
 
     const result = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_isHidden_receivedAt", (q) =>
-        q.eq("userId", user._id).eq("isHidden", true)
+        q.eq("userId", user._id).eq("isHidden", true),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems ?? 30, cursor: null })
+      .paginate({ numItems: args.numItems ?? 30, cursor: null });
 
-    const visiblePage = result.page.filter((newsletter) => !newsletter.isBinned)
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
-    return { ...result, page: enriched }
+    const visiblePage = result.page.filter(
+      (newsletter) => !newsletter.isBinned,
+    );
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listHiddenNewslettersPageInternal = internalQuery({
   args: {
@@ -2074,16 +2262,18 @@ export const listHiddenNewslettersPageInternal = internalQuery({
     const result = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_isHidden_receivedAt", (q) =>
-        q.eq("userId", args.userId).eq("isHidden", true)
+        q.eq("userId", args.userId).eq("isHidden", true),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems, cursor: args.cursor })
+      .paginate({ numItems: args.numItems, cursor: args.cursor });
 
-    const visiblePage = result.page.filter((newsletter) => !newsletter.isBinned)
-    const enriched = await enrichNewsletterListItems(ctx, visiblePage)
-    return { ...result, page: enriched }
+    const visiblePage = result.page.filter(
+      (newsletter) => !newsletter.isBinned,
+    );
+    const enriched = await enrichNewsletterListItems(ctx, visiblePage);
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listHiddenNewslettersPage = action({
   args: {
@@ -2091,54 +2281,63 @@ export const listHiddenNewslettersPage = action({
     numItems: v.number(),
   },
   handler: async (ctx, args): Promise<NewsletterListPageResult> => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
       authId: identity.subject,
-    })
+    });
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    return await ctx.runQuery(internal.newsletters.listHiddenNewslettersPageInternal, {
-      userId: user._id,
-      cursor: args.cursor,
-      numItems: args.numItems,
-    })
+    return await ctx.runQuery(
+      internal.newsletters.listHiddenNewslettersPageInternal,
+      {
+        userId: user._id,
+        cursor: args.cursor,
+        numItems: args.numItems,
+      },
+    );
   },
-})
+});
 
 export const listBinnedNewslettersHead = query({
   args: {
     numItems: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return { page: [], isDone: true, continueCursor: null }
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: null };
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
-    if (!user) return { page: [], isDone: true, continueCursor: null }
+      .first();
+    if (!user) return { page: [], isDone: true, continueCursor: null };
 
     const result = await (ctx.db.query("userNewsletters") as any)
       .withIndex("by_userId_isBinned_binnedAt", (q: any) =>
-        q.eq("userId", user._id).eq("isBinned", true)
+        q.eq("userId", user._id).eq("isBinned", true),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems ?? 30, cursor: null })
+      .paginate({ numItems: args.numItems ?? 30, cursor: null });
 
     const enriched = await enrichNewsletterListItems(
       ctx,
-      result.page as Array<Doc<"userNewsletters">>
-    )
-    return { ...result, page: enriched }
+      result.page as Array<Doc<"userNewsletters">>,
+    );
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listBinnedNewslettersPageInternal = internalQuery({
   args: {
@@ -2149,18 +2348,18 @@ export const listBinnedNewslettersPageInternal = internalQuery({
   handler: async (ctx, args) => {
     const result = await (ctx.db.query("userNewsletters") as any)
       .withIndex("by_userId_isBinned_binnedAt", (q: any) =>
-        q.eq("userId", args.userId).eq("isBinned", true)
+        q.eq("userId", args.userId).eq("isBinned", true),
       )
       .order("desc")
-      .paginate({ numItems: args.numItems, cursor: args.cursor })
+      .paginate({ numItems: args.numItems, cursor: args.cursor });
 
     const enriched = await enrichNewsletterListItems(
       ctx,
-      result.page as Array<Doc<"userNewsletters">>
-    )
-    return { ...result, page: enriched }
+      result.page as Array<Doc<"userNewsletters">>,
+    );
+    return { ...result, page: enriched };
   },
-})
+});
 
 export const listBinnedNewslettersPage = action({
   args: {
@@ -2168,25 +2367,34 @@ export const listBinnedNewslettersPage = action({
     numItems: v.number(),
   },
   handler: async (ctx, args): Promise<NewsletterListPageResult> => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
       authId: identity.subject,
-    })
+    });
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    return await ctx.runQuery((internal as any).newsletters.listBinnedNewslettersPageInternal, {
-      userId: user._id,
-      cursor: args.cursor,
-      numItems: args.numItems,
-    })
+    return await ctx.runQuery(
+      (internal as any).newsletters.listBinnedNewslettersPageInternal,
+      {
+        userId: user._id,
+        cursor: args.cursor,
+        numItems: args.numItems,
+      },
+    );
   },
-})
+});
 
 // ============================================================
 // Story 9.4: Folder-Centric Navigation Queries
@@ -2205,49 +2413,50 @@ export const listBinnedNewslettersPage = action({
 export const getHiddenNewsletterCount = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return 0
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return 0;
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
-    if (!user) return 0
+    if (!user) return 0;
 
     const hiddenNewsletters = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_isHidden_receivedAt", (q) =>
-        q.eq("userId", user._id).eq("isHidden", true)
+        q.eq("userId", user._id).eq("isHidden", true),
       )
-      .collect()
+      .collect();
 
-    return hiddenNewsletters.filter((newsletter) => !newsletter.isBinned).length
+    return hiddenNewsletters.filter((newsletter) => !newsletter.isBinned)
+      .length;
   },
-})
+});
 
 export const getBinnedNewsletterCount = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return 0
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return 0;
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
-    if (!user) return 0
+    if (!user) return 0;
 
     const binnedNewsletters = await (ctx.db.query("userNewsletters") as any)
       .withIndex("by_userId_isBinned_binnedAt", (q: any) =>
-        q.eq("userId", user._id).eq("isBinned", true)
+        q.eq("userId", user._id).eq("isBinned", true),
       )
-      .collect()
+      .collect();
 
-    return binnedNewsletters.length
+    return binnedNewsletters.length;
   },
-})
+});
 
 /**
  * Get count of favorited newsletters.
@@ -2258,119 +2467,121 @@ export const getBinnedNewsletterCount = query({
 export const getFavoritedNewsletterCount = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return 0
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return 0;
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
-    if (!user) return 0
+    if (!user) return 0;
 
     const favoritedNewsletters = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId_isFavorited_isHidden_receivedAt", (q) =>
-        q.eq("userId", user._id).eq("isFavorited", true).eq("isHidden", false)
+        q.eq("userId", user._id).eq("isFavorited", true).eq("isHidden", false),
       )
-      .collect()
+      .collect();
 
     const folders = await ctx.db
       .query("folders")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect()
+      .collect();
     const hiddenFolderIds = new Set(
-      folders.filter((folder) => folder.isHidden).map((folder) => folder._id)
-    )
+      folders.filter((folder) => folder.isHidden).map((folder) => folder._id),
+    );
 
     const visibleFavorites = favoritedNewsletters.filter(
       (newsletter) =>
         !newsletter.isBinned &&
-        (!newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId))
-    )
+        (!newsletter.folderId || !hiddenFolderIds.has(newsletter.folderId)),
+    );
 
-    return visibleFavorites.length
+    return visibleFavorites.length;
   },
-})
+});
 
 async function backfillNewsletterSearchMetaRecentImpl(
   ctx: {
     db: {
-      query: (table: "userNewsletters" | "newsletterSearchMeta") => any
-      insert: (table: "newsletterSearchMeta", value: any) => Promise<any>
-      patch: (id: any, value: any) => Promise<void>
-    }
+      query: (table: "userNewsletters" | "newsletterSearchMeta") => any;
+      insert: (table: "newsletterSearchMeta", value: any) => Promise<any>;
+      patch: (id: any, value: any) => Promise<void>;
+    };
   },
-  args: { userId: Id<"users">; limit: number }
+  args: { userId: Id<"users">; limit: number },
 ): Promise<{ inserted: number; updated: number }> {
-  const limit = Math.max(1, Math.min(args.limit, 1000))
+  const limit = Math.max(1, Math.min(args.limit, 1000));
 
   const newsletters = (await ctx.db
     .query("userNewsletters")
     .withIndex("by_userId_receivedAt", (q: any) => q.eq("userId", args.userId))
     .order("desc")
-    .take(limit)) as Array<Doc<"userNewsletters">>
+    .take(limit)) as Array<Doc<"userNewsletters">>;
 
   const existingMeta = (await ctx.db
     .query("newsletterSearchMeta")
     .withIndex("by_userId_receivedAt", (q: any) => q.eq("userId", args.userId))
     .order("desc")
-    .take(limit)) as Array<Doc<"newsletterSearchMeta">>
+    .take(limit)) as Array<Doc<"newsletterSearchMeta">>;
 
   const metaByNewsletterId = new Map(
     existingMeta.map((doc: Doc<"newsletterSearchMeta">) => [
       doc.userNewsletterId,
       doc,
-    ])
-  )
+    ]),
+  );
 
-  let inserted = 0
-  let updated = 0
+  let inserted = 0;
+  let updated = 0;
 
   for (const newsletter of newsletters) {
-    const current = metaByNewsletterId.get(newsletter._id)
-	    const desired = {
-	      subject: newsletter.subject,
-	      senderEmail: newsletter.senderEmail,
-	      senderName: newsletter.senderName,
-	      receivedAt: newsletter.receivedAt,
-	      isHidden: newsletter.isHidden,
-	      isBinned: Boolean(newsletter.isBinned),
-	      isRead: newsletter.isRead,
-	      isLockedByPlan: Boolean(newsletter.isLockedByPlan),
-	    }
+    const current = metaByNewsletterId.get(newsletter._id);
+    const desired = {
+      subject: newsletter.subject,
+      senderEmail: newsletter.senderEmail,
+      senderName: newsletter.senderName,
+      receivedAt: newsletter.receivedAt,
+      isHidden: newsletter.isHidden,
+      isBinned: Boolean(newsletter.isBinned),
+      isRead: newsletter.isRead,
+      isLockedByPlan: Boolean(newsletter.isLockedByPlan),
+    };
 
     if (!current) {
       await ctx.db.insert("newsletterSearchMeta", {
         userId: args.userId,
         userNewsletterId: newsletter._id,
         ...desired,
-      })
-      inserted++
-      continue
+      });
+      inserted++;
+      continue;
     }
 
-    const patch: any = {}
-    if (current.subject !== desired.subject) patch.subject = desired.subject
+    const patch: any = {};
+    if (current.subject !== desired.subject) patch.subject = desired.subject;
     if (current.senderEmail !== desired.senderEmail)
-      patch.senderEmail = desired.senderEmail
+      patch.senderEmail = desired.senderEmail;
     if (current.senderName !== desired.senderName)
-      patch.senderName = desired.senderName
+      patch.senderName = desired.senderName;
     if (current.receivedAt !== desired.receivedAt)
-      patch.receivedAt = desired.receivedAt
-	    if (current.isHidden !== desired.isHidden) patch.isHidden = desired.isHidden
-	    if (Boolean(current.isBinned) !== desired.isBinned) patch.isBinned = desired.isBinned
-	    if (current.isRead !== desired.isRead) patch.isRead = desired.isRead
-	    if (current.isLockedByPlan !== desired.isLockedByPlan)
-	      patch.isLockedByPlan = desired.isLockedByPlan
+      patch.receivedAt = desired.receivedAt;
+    if (current.isHidden !== desired.isHidden)
+      patch.isHidden = desired.isHidden;
+    if (Boolean(current.isBinned) !== desired.isBinned)
+      patch.isBinned = desired.isBinned;
+    if (current.isRead !== desired.isRead) patch.isRead = desired.isRead;
+    if (current.isLockedByPlan !== desired.isLockedByPlan)
+      patch.isLockedByPlan = desired.isLockedByPlan;
 
     if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(current._id, patch)
-      updated++
+      await ctx.db.patch(current._id, patch);
+      updated++;
     }
   }
 
-  return { inserted, updated }
+  return { inserted, updated };
 }
 
 export const backfillNewsletterSearchMetaRecentForUser = internalMutation({
@@ -2378,50 +2589,62 @@ export const backfillNewsletterSearchMetaRecentForUser = internalMutation({
     userId: v.id("users"),
     limit: v.number(),
   },
-  handler: async (ctx, args): Promise<{ inserted: number; updated: number }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ inserted: number; updated: number }> => {
     return await backfillNewsletterSearchMetaRecentImpl(ctx, {
       userId: args.userId,
       limit: args.limit,
-    })
+    });
   },
-})
+});
 
 export const backfillNewsletterSearchMetaRecent = mutation({
   args: {
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, args): Promise<{ inserted: number; updated: number }> => {
-    const identity = await ctx.auth.getUserIdentity()
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ inserted: number; updated: number }> => {
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    const limit = Math.min(args.limit ?? 500, 1000)
+    const limit = Math.min(args.limit ?? 500, 1000);
     return await backfillNewsletterSearchMetaRecentImpl(ctx, {
       userId: user._id,
       limit,
-    })
+    });
   },
-})
+});
 
 type NewsletterSearchMetaResult = {
-  userNewsletterId: Id<"userNewsletters">
-  subject: string
-  senderEmail: string
-  senderName?: string
-  receivedAt: number
-  isHidden: boolean
-  isRead: boolean
-}
+  userNewsletterId: Id<"userNewsletters">;
+  subject: string;
+  senderEmail: string;
+  senderName?: string;
+  receivedAt: number;
+  isHidden: boolean;
+  isRead: boolean;
+};
 
 /**
  * Search the current user's newsletters by subject + sender name/email.
@@ -2436,38 +2659,45 @@ export const searchUserNewslettersMeta = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<NewsletterSearchMetaResult[]> => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    const q = args.query.trim().toLowerCase()
-    if (q.length < 2) return []
+    const q = args.query.trim().toLowerCase();
+    if (q.length < 2) return [];
 
-    const limit = Math.min(args.limit ?? 20, 50)
+    const limit = Math.min(args.limit ?? 20, 50);
 
     const recent = await ctx.db
       .query("newsletterSearchMeta")
       .withIndex("by_userId_receivedAt", (q2: any) => q2.eq("userId", user._id))
       .order("desc")
-      .take(500)
+      .take(500);
 
     const matches = recent.filter((doc: Doc<"newsletterSearchMeta">) => {
-      if (doc.isBinned) return false
-      if (doc.subject.toLowerCase().includes(q)) return true
-      if (doc.senderEmail.toLowerCase().includes(q)) return true
-      if (doc.senderName && doc.senderName.toLowerCase().includes(q)) return true
-      return false
-    })
+      if (doc.isBinned) return false;
+      if (doc.subject.toLowerCase().includes(q)) return true;
+      if (doc.senderEmail.toLowerCase().includes(q)) return true;
+      if (doc.senderName && doc.senderName.toLowerCase().includes(q))
+        return true;
+      return false;
+    });
 
     return matches.slice(0, limit).map((doc) => ({
       userNewsletterId: doc.userNewsletterId,
@@ -2477,9 +2707,9 @@ export const searchUserNewslettersMeta = query({
       receivedAt: doc.receivedAt,
       isHidden: doc.isHidden,
       isRead: doc.isRead,
-    }))
+    }));
   },
-})
+});
 
 // ============================================================
 // Story 6.4: Empty State Detection
@@ -2495,23 +2725,23 @@ export const searchUserNewslettersMeta = query({
 export const hasAnyNewsletters = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return false
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return false;
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
-    if (!user) return false
+      .first();
+    if (!user) return false;
 
     const firstNewsletter = await ctx.db
       .query("userNewsletters")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .first()
+      .first();
 
-    return firstNewsletter !== null
+    return firstNewsletter !== null;
   },
-})
+});
 
 // ============================================================
 // Story 9.10: Delete Newsletter with Community Import Support
@@ -2520,39 +2750,42 @@ export const hasAnyNewsletters = query({
 async function deleteUserNewsletterRecord(
   ctx: any,
   userId: Id<"users">,
-  userNewsletter: Doc<"userNewsletters">
+  userNewsletter: Doc<"userNewsletters">,
 ): Promise<void> {
   if (userNewsletter.source === "community" && userNewsletter.contentId) {
-    const content = await ctx.db.get(userNewsletter.contentId)
+    const content = await ctx.db.get(userNewsletter.contentId);
     if (content) {
-      const newImportCount = Math.max(0, (content.importCount ?? 1) - 1)
+      const newImportCount = Math.max(0, (content.importCount ?? 1) - 1);
       await ctx.db.patch(userNewsletter.contentId, {
         importCount: newImportCount,
-      })
+      });
     }
   }
 
-  const searchMeta = await getSearchMetaDoc(ctx, userId, userNewsletter._id)
+  const searchMeta = await getSearchMetaDoc(ctx, userId, userNewsletter._id);
   if (searchMeta) {
-    await ctx.db.delete(searchMeta._id)
+    await ctx.db.delete(searchMeta._id);
   }
 
   const counters = await ctx.db
     .query("userUsageCounters")
     .withIndex("by_userId", (q: any) => q.eq("userId", userId))
-    .first()
+    .first();
 
   if (counters) {
-    const wasLocked = Boolean(userNewsletter.isLockedByPlan)
+    const wasLocked = Boolean(userNewsletter.isLockedByPlan);
     await ctx.db.patch(counters._id, {
       totalStored: Math.max(0, counters.totalStored - 1),
-      unlockedStored: Math.max(0, counters.unlockedStored - (wasLocked ? 0 : 1)),
+      unlockedStored: Math.max(
+        0,
+        counters.unlockedStored - (wasLocked ? 0 : 1),
+      ),
       lockedStored: Math.max(0, counters.lockedStored - (wasLocked ? 1 : 0)),
       updatedAt: Date.now(),
-    })
+    });
   }
 
-  await ctx.db.delete(userNewsletter._id)
+  await ctx.db.delete(userNewsletter._id);
 }
 
 /**
@@ -2570,36 +2803,48 @@ async function deleteUserNewsletterRecord(
 export const deleteUserNewsletter = mutation({
   args: { userNewsletterId: v.id("userNewsletters") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
-      .first()
+      .first();
 
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId)
+    const userNewsletter = await ctx.db.get(args.userNewsletterId);
 
     if (!userNewsletter) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Newsletter not found",
+      });
     }
 
     // Verify ownership
     if (userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Not your newsletter" })
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Not your newsletter",
+      });
     }
 
-    await deleteUserNewsletterRecord(ctx, user._id, userNewsletter)
+    await deleteUserNewsletterRecord(ctx, user._id, userNewsletter);
 
-    return { deleted: true }
+    return { deleted: true };
   },
-})
+});
 
 export const emptyBinBatchDelete = internalMutation({
   args: {
@@ -2609,53 +2854,63 @@ export const emptyBinBatchDelete = internalMutation({
   },
   handler: async (
     ctx,
-    args
-  ): Promise<{ deletedCount: number; continueCursor: string | null; isDone: boolean }> => {
-    const pageSize = Math.max(1, Math.min(args.numItems ?? 100, 200))
+    args,
+  ): Promise<{
+    deletedCount: number;
+    continueCursor: string | null;
+    isDone: boolean;
+  }> => {
+    const pageSize = Math.max(1, Math.min(args.numItems ?? 100, 200));
     const result = await (ctx.db.query("userNewsletters") as any)
       .withIndex("by_userId_isBinned_binnedAt", (q: any) =>
-        q.eq("userId", args.userId).eq("isBinned", true)
+        q.eq("userId", args.userId).eq("isBinned", true),
       )
       .order("asc")
-      .paginate({ numItems: pageSize, cursor: args.cursor })
+      .paginate({ numItems: pageSize, cursor: args.cursor });
 
-    let deletedCount = 0
+    let deletedCount = 0;
     for (const newsletter of result.page as Array<Doc<"userNewsletters">>) {
-      await deleteUserNewsletterRecord(ctx, args.userId, newsletter)
-      deletedCount++
+      await deleteUserNewsletterRecord(ctx, args.userId, newsletter);
+      deletedCount++;
     }
 
     return {
       deletedCount,
       continueCursor: result.continueCursor ?? null,
       isDone: result.isDone ?? true,
-    }
+    };
   },
-})
+});
 
 export const emptyBin = action({
   args: {},
   handler: async (ctx): Promise<{ deletedCount: number }> => {
     type EmptyBinBatchDeleteResult = {
-      deletedCount: number
-      continueCursor: string | null
-      isDone: boolean
-    }
+      deletedCount: number;
+      continueCursor: string | null;
+      isDone: boolean;
+    };
 
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
     }
 
     const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
       authId: identity.subject,
-    })
+    });
     if (!user) {
-      throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not found",
+      });
     }
 
-    let deletedCount = 0
-    let cursor: string | null = null
+    let deletedCount = 0;
+    let cursor: string | null = null;
 
     while (true) {
       const batch: EmptyBinBatchDeleteResult = await ctx.runMutation(
@@ -2664,37 +2919,41 @@ export const emptyBin = action({
           userId: user._id,
           cursor,
           numItems: 100,
-        }
-      )
-      deletedCount += batch.deletedCount
+        },
+      );
+      deletedCount += batch.deletedCount;
 
       if (batch.isDone || batch.continueCursor === null) {
-        break
+        break;
       }
-      cursor = batch.continueCursor
+      cursor = batch.continueCursor;
     }
 
-    return { deletedCount }
+    return { deletedCount };
   },
-})
+});
 
 export const cleanupExpiredBinnedNewsletters = internalMutation({
   args: {},
   handler: async (ctx): Promise<{ deletedCount: number }> => {
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
-    const expiredBinnedNewsletters = await (ctx.db.query("userNewsletters") as any)
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const expiredBinnedNewsletters = await (
+      ctx.db.query("userNewsletters") as any
+    )
       .withIndex("by_isBinned_binnedAt", (q: any) =>
-        q.eq("isBinned", true).lte("binnedAt", cutoff)
+        q.eq("isBinned", true).lte("binnedAt", cutoff),
       )
       .order("asc")
-      .take(200)
+      .take(200);
 
-    let deletedCount = 0
-    for (const newsletter of expiredBinnedNewsletters as Array<Doc<"userNewsletters">>) {
-      await deleteUserNewsletterRecord(ctx, newsletter.userId, newsletter)
-      deletedCount++
+    let deletedCount = 0;
+    for (const newsletter of expiredBinnedNewsletters as Array<
+      Doc<"userNewsletters">
+    >) {
+      await deleteUserNewsletterRecord(ctx, newsletter.userId, newsletter);
+      deletedCount++;
     }
 
-    return { deletedCount }
+    return { deletedCount };
   },
-})
+});

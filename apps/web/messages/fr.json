@@ -998,7 +998,7 @@
   "sidebar_filterAll": "Tous",
   "sidebar_filterStarred": "Favoris",
   "sidebar_filterUnread": "Non lus",
-  "sidebar_recentUnreadSinceLastVisit": "Nouveaux non lus depuis la dernière visite",
+  "sidebar_recentUnreadSinceLastVisit": "Fraîchement arrivé",
   "sidebar_senderFolders": "Dossiers d'expéditeurs",
   "recentActivity_fromSender": "de {email}",
   "recentActivity_listLabel": "Liste d'activité récente",

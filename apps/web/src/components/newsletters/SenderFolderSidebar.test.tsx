@@ -255,7 +255,7 @@ describe("SenderFolderSidebar", () => {
 
   it("shows empty state in starred tab when there are no favorites", () => {
     render(<SenderFolderSidebar {...defaultProps} />);
-    expect(screen.getByText("No starred newsletters yet.")).toBeInTheDocument();
+    expect(screen.getByText("No starred newsletters")).toBeInTheDocument();
   });
 
   it("renders starred newsletter rows in starred tab", () => {
@@ -470,7 +470,7 @@ describe("SenderFolderSidebar", () => {
 
     render(<SenderFolderSidebar {...defaultProps} selectedFilter={null} />);
 
-    expect(screen.getByText("New unread since last visit")).toBeInTheDocument();
+    expect(screen.getByText("Fresh arrivals")).toBeInTheDocument();
     expect(screen.getByText("Unread one")).toBeInTheDocument();
     expect(screen.queryByText("Read should not show")).not.toBeInTheDocument();
   });
@@ -534,17 +534,46 @@ describe("SenderFolderSidebar", () => {
     const { rerender } = render(
       <SenderFolderSidebar {...defaultProps} selectedFilter={null} />,
     );
-    expect(screen.getByText("New unread since last visit")).toBeInTheDocument();
+    expect(screen.getByText("Fresh arrivals")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Unread" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unread" }));
     expect(
-      screen.queryByText("New unread since last visit"),
+      screen.queryByText("Fresh arrivals"),
     ).not.toBeInTheDocument();
 
     rerender(<SenderFolderSidebar {...defaultProps} selectedFilter="hidden" />);
     expect(
-      screen.queryByText("New unread since last visit"),
+      screen.queryByText("Fresh arrivals"),
     ).not.toBeInTheDocument();
+  });
+
+  it("collapses and expands the recent unread section", () => {
+    recentUnreadHeadData = {
+      page: [
+        {
+          _id: "recent-unread-1" as Id<"userNewsletters">,
+          subject: "Unread one",
+          senderEmail: "sender1@example.com",
+          receivedAt: Date.now(),
+          isRead: false,
+          isHidden: false,
+          isPrivate: false,
+        },
+      ],
+      isDone: true,
+      continueCursor: null,
+    };
+
+    render(<SenderFolderSidebar {...defaultProps} selectedFilter={null} />);
+
+    const toggle = screen.getByRole("button", { name: "Fresh arrivals" });
+    expect(screen.getByText("Unread one")).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByText("Unread one")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.getByText("Unread one")).toBeInTheDocument();
   });
 
   it("passes lastConnectedAt and initial page size to recent unread head query", async () => {

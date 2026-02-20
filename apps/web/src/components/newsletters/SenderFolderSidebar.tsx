@@ -28,6 +28,7 @@ import {
   ArrowLeft,
   Star,
   CheckCircle2,
+  ChevronDown,
 } from "lucide-react";
 import { SidebarEmptyState } from "./SidebarEmptyState";
 import {
@@ -480,6 +481,7 @@ export function SenderFolderSidebar({
   const [recentCursor, setRecentCursor] = useState<string | null>(null);
   const [recentIsDone, setRecentIsDone] = useState(true);
   const [recentIsLoadingMore, setRecentIsLoadingMore] = useState(false);
+  const [isRecentUnreadExpanded, setIsRecentUnreadExpanded] = useState(true);
   const [dismissedRecentNewsletterIds, setDismissedRecentNewsletterIds] =
     useState<Set<string>>(() => new Set());
   const recentLoadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -1107,7 +1109,7 @@ export function SenderFolderSidebar({
   ]);
 
   useEffect(() => {
-    if (!canLoadMoreRecent) return;
+    if (!canLoadMoreRecent || !isRecentUnreadExpanded) return;
     const sentinel = recentLoadMoreRef.current;
     const section = recentSectionRef.current;
     if (!sentinel || !section) return;
@@ -1128,7 +1130,7 @@ export function SenderFolderSidebar({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [canLoadMoreRecent, handleLoadMoreRecent]);
+  }, [canLoadMoreRecent, handleLoadMoreRecent, isRecentUnreadExpanded]);
 
   // Whether one of the management detail panels is active
   const isManagementDetailActive =
@@ -1241,7 +1243,10 @@ export function SenderFolderSidebar({
                       <SidebarEmptyState
                         icon={Archive}
                         title={m.archive_emptyState?.() ?? "No archived items"}
-                        description={m.archive_emptyStateDesc?.() ?? "Newsletters and folders you archive will appear here."}
+                        description={
+                          m.archive_emptyStateDesc?.() ??
+                          "Newsletters and folders you archive will appear here."
+                        }
                       />
                     )}
 
@@ -1274,7 +1279,10 @@ export function SenderFolderSidebar({
                       <SidebarEmptyState
                         icon={Trash2}
                         title={m.bin_emptyState?.() ?? "Bin is empty"}
-                        description={m.bin_emptyStateDesc?.() ?? "Newsletters you delete will be moved here."}
+                        description={
+                          m.bin_emptyStateDesc?.() ??
+                          "Newsletters you delete will be moved here."
+                        }
                       />
                     ) : (
                       <>
@@ -1384,6 +1392,83 @@ export function SenderFolderSidebar({
               //transition={{ type: "spring", stiffness: 400, damping: 35 }}
               transition={{ duration: 0.2, ease: "easeInOut" }}
             >
+              {hasRecentUnreadSection && (
+                <div className="px-2 pt-2">
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-2 py-1 rounded-md text-left hover:bg-accent/50"
+                    aria-expanded={isRecentUnreadExpanded}
+                    onClick={() =>
+                      setIsRecentUnreadExpanded((current) => !current)
+                    }
+                  >
+                    <p className="text-[13px] text-muted-foreground">
+                      {m.sidebar_recentUnreadSinceLastVisit()}
+                    </p>
+                    <ChevronDown
+                      className={cn(
+                        "size-4 text-muted-foreground transition-transform",
+                        isRecentUnreadExpanded ? "rotate-0" : "-rotate-90",
+                      )}
+                    />
+                  </button>
+
+                  {isRecentUnreadExpanded && (
+                    <div ref={recentSectionRef} className="max-h-60">
+                      <ScrollArea scrollFade className="*:max-h-60 min-h-0">
+                        <div className="space-y-0.5 min-h-0">
+                          {recentUnreadPending ? (
+                            <div className="space-y-1 py-1">
+                              {[0, 1, 2].map((index) => (
+                                <div
+                                  key={index}
+                                  className="animate-pulse px-3 py-2"
+                                >
+                                  <div className="h-3.5 bg-muted rounded w-4/5" />
+                                  <div className="h-3 bg-muted rounded w-1/2 mt-1" />
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            recentUnreadNewsletters.map((newsletter) => (
+                              <NewsletterListItem
+                                key={newsletter._id}
+                                newsletter={newsletter}
+                                isSelected={
+                                  selectedNewsletterId === newsletter._id
+                                }
+                                isFavorited={getIsFavorited(
+                                  newsletter._id,
+                                  Boolean(newsletter.isFavorited),
+                                )}
+                                isFavoritePending={isFavoritePending(
+                                  newsletter._id,
+                                )}
+                                enableHideAction
+                                onHide={handleDismissRecentNewsletter}
+                                onClick={onNewsletterSelect}
+                                onToggleFavorite={onToggleFavorite}
+                                onToggleRead={handleToggleRead}
+                                onBin={handleMoveToBin}
+                              />
+                            ))
+                          )}
+
+                          {canLoadMoreRecent && (
+                            <div ref={recentLoadMoreRef} className="h-8" />
+                          )}
+                          {recentIsLoadingMore && (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">
+                              Loading...
+                            </p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Header: title + filter pills */}
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <h2 className="text-[13px] text-muted-foreground">
@@ -1419,76 +1504,6 @@ export function SenderFolderSidebar({
               {/* Folder list */}
               <ScrollArea className="h-fit mt-2">
                 <div className="px-2 pb-2 space-y-0.5">
-                  {hasRecentUnreadSection && (
-                    <>
-                      <div className="px-2 py-1">
-                        <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                          {m.sidebar_recentUnreadSinceLastVisit()}
-                        </p>
-                      </div>
-
-                      <div
-                        ref={recentSectionRef}
-                        className="max-h-60 rounded-lg border border-border/70 bg-muted/20"
-                      >
-                        <ScrollArea className="h-full">
-                          <div className="p-1 space-y-0.5">
-                            {recentUnreadPending ? (
-                              <div className="space-y-1 py-1">
-                                {[0, 1, 2].map((index) => (
-                                  <div
-                                    key={index}
-                                    className="animate-pulse px-3 py-2"
-                                  >
-                                    <div className="h-3.5 bg-muted rounded w-4/5" />
-                                    <div className="h-3 bg-muted rounded w-1/2 mt-1" />
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              recentUnreadNewsletters.map((newsletter) => (
-                                <NewsletterListItem
-                                  key={newsletter._id}
-                                  newsletter={newsletter}
-                                  isSelected={
-                                    selectedNewsletterId === newsletter._id
-                                  }
-                                  isFavorited={getIsFavorited(
-                                    newsletter._id,
-                                    Boolean(newsletter.isFavorited),
-                                  )}
-                                  isFavoritePending={isFavoritePending(
-                                    newsletter._id,
-                                  )}
-                                  enableHideAction
-                                  onHide={handleDismissRecentNewsletter}
-                                  onClick={onNewsletterSelect}
-                                  onToggleFavorite={onToggleFavorite}
-                                  onToggleRead={handleToggleRead}
-                                  onBin={handleMoveToBin}
-                                />
-                              ))
-                            )}
-
-                            {canLoadMoreRecent && (
-                              <div ref={recentLoadMoreRef} className="h-8" />
-                            )}
-                            {recentIsLoadingMore && (
-                              <p className="px-3 py-2 text-xs text-muted-foreground">
-                                Loading...
-                              </p>
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </div>
-
-                      <div
-                        className="h-px bg-border my-2 mx-2"
-                        role="separator"
-                      />
-                    </>
-                  )}
-
                   {sidebarFilter === "starred" ? (
                     favoritedPending ? (
                       <SidebarSkeleton />
@@ -1496,7 +1511,10 @@ export function SenderFolderSidebar({
                       <SidebarEmptyState
                         icon={Star}
                         title={m.newsletters_noStarredNewsletters()}
-                        description={m.newsletters_noStarredDesc?.() ?? "Star newsletters you want to find again quickly."}
+                        description={
+                          m.newsletters_noStarredDesc?.() ??
+                          "Star newsletters you want to find again quickly."
+                        }
                       />
                     ) : (
                       <div className="space-y-0.5">
@@ -1542,7 +1560,10 @@ export function SenderFolderSidebar({
                       <SidebarEmptyState
                         icon={CheckCircle2}
                         title={m.sidebar_allCaughtUp?.() ?? "All caught up!"}
-                        description={m.sidebar_allCaughtUpDesc?.() ?? "No unread newsletters right now."}
+                        description={
+                          m.sidebar_allCaughtUpDesc?.() ??
+                          "No unread newsletters right now."
+                        }
                         iconClassName="text-emerald-500"
                       />
                     ) : (

@@ -10,6 +10,13 @@ import { generateDedicatedEmail } from "./_internal/emailGeneration"
 
 // Site URL from environment (set in Convex dashboard)
 const siteUrl = process.env.SITE_URL!
+const trustedOrigins = Array.from(
+  new Set(
+    [siteUrl, ...(process.env.AUTH_TRUSTED_ORIGINS ?? "").split(",")]
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0),
+  ),
+)
 
 // Auth functions for triggers
 const authFunctions: AuthFunctions = internal.auth
@@ -52,6 +59,7 @@ export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
   return betterAuth({
     baseURL: siteUrl,
+    trustedOrigins,
     database: authComponent.adapter(ctx),
     emailAndPassword: {
       enabled: true,

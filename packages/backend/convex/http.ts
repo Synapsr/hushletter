@@ -12,6 +12,13 @@ import {
 import { handleOAuthCallback } from "./gmailConnections"
 
 const http = httpRouter()
+const authAllowedOrigins = Array.from(
+  new Set(
+    [process.env.SITE_URL, ...(process.env.AUTH_TRUSTED_ORIGINS ?? "").split(",")]
+      .map((origin) => origin?.trim())
+      .filter((origin): origin is string => Boolean(origin)),
+  ),
+)
 
 // Simple test route to verify HTTP routing works
 http.route({
@@ -245,9 +252,7 @@ registerRoutes(http, components.stripe, {
 // Register Better Auth routes with CORS enabled for client-side framework compatibility
 // Note: Better Auth handles its own error responses for auth failures
 authComponent.registerRoutes(http, createAuth, {
-  cors: process.env.SITE_URL
-    ? { allowedOrigins: [process.env.SITE_URL] }
-    : true,
+  cors: authAllowedOrigins.length > 0 ? { allowedOrigins: authAllowedOrigins } : true,
 })
 
 // Fallback route for unmatched paths (optional - provides better error messages)

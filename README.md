@@ -111,6 +111,8 @@ These are needed for specific features:
 
 | Variable | Where to set | Feature |
 | --- | --- | --- |
+| `SITE_URL` | Convex env | Primary app origin for Better Auth redirects + backend CORS |
+| `AUTH_TRUSTED_ORIGINS` | Convex env | Extra origins (comma-separated), e.g. localhost when developing against prod auth |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Convex env | Gmail import |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Convex env | Billing |
 | `RESEND_API_KEY` | Convex env | Transactional emails |

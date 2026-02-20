@@ -17,6 +17,8 @@ interface UseScrollProgressOptions {
   resetSignal?: number
   /** Skip initial "content fits => report 100%" check on mount/effect */
   skipInitialCheck?: boolean
+  /** Disable scroll tracking/listeners until caller is ready */
+  enabled?: boolean
 }
 
 interface UseScrollProgressReturn {
@@ -54,6 +56,7 @@ export function useScrollProgress({
   thresholdPercent = 5,
   resetSignal,
   skipInitialCheck = false,
+  enabled = true,
 }: UseScrollProgressOptions): UseScrollProgressReturn {
   const lastReportedProgress = useRef(0)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -94,6 +97,8 @@ export function useScrollProgress({
   )
 
   useEffect(() => {
+    if (!enabled) return
+
     const container = containerElement ?? containerRef.current
     if (!container) return
 
@@ -142,6 +147,7 @@ export function useScrollProgress({
     reportProgress,
     debounceMs,
     skipInitialCheck,
+    enabled,
     resetSignal,
     onProgressPreview,
   ])

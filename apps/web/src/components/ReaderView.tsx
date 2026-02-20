@@ -595,6 +595,9 @@ export function ReaderView({
     cachedIframeHeight ?? DEFAULT_IFRAME_HEIGHT,
   );
   const [iframeMeasured, setIframeMeasured] = useState(false);
+  const waitingForExternalProgressContainer = progressContainerElement === null;
+  const progressTrackingEnabled =
+    !isLoading && iframeMeasured && !waitingForExternalProgressContainer;
 
   // Ref for scrollable container (Story 3.4: AC1)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -613,6 +616,7 @@ export function ReaderView({
   useScrollProgress({
     containerRef: scrollContainerRef,
     containerElement: progressContainerElement,
+    enabled: progressTrackingEnabled,
     onProgressPreview: onReadProgressChange,
     onProgress: (progress) => {
       onReadProgressChange?.(progress);
@@ -628,7 +632,7 @@ export function ReaderView({
     debounceMs: 2000,
     thresholdPercent: 5,
     resetSignal: progressResetSignal,
-    skipInitialCheck: skipInitialProgressCheck || isLoading || !iframeMeasured,
+    skipInitialCheck: skipInitialProgressCheck || !progressTrackingEnabled,
   });
 
   const syncIframeHeight = useCallback(() => {

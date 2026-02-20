@@ -21,6 +21,8 @@ import { ReaderActionBar } from "./ReaderActionBar";
 import { AnimatePresence, motion } from "motion/react";
 import { FloatingSummaryPanel } from "./FloatingSummaryPanel";
 import { m } from "@/paraglide/messages.js";
+import { Calligraph } from "calligraph";
+import { TextMorph } from "torph/react";
 
 interface InlineReaderPaneProps {
   newsletterId: Id<"userNewsletters">;
@@ -55,7 +57,7 @@ interface NewsletterMetadata {
 
 // Dev-only debug memory that survives InlineReaderPane remounts when switching newsletters.
 const debugResetSkipInitialIds = new Set<string>();
-const dismissedReadEstimateIds = new Set<string>();
+const COMPLETION_BADGE_AUTO_HIDE_MS = 3500;
 
 function ContentErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   console.error("[InlineReader] Content error:", error);
@@ -176,7 +178,7 @@ export function InlineReaderPane({
   }, [newsletterId]);
 
   useEffect(() => {
-    setIsReadEstimateDismissed(dismissedReadEstimateIds.has(newsletterId));
+    setIsReadEstimateDismissed(false);
     setIsReadMetaHovered(false);
   }, [newsletterId]);
 
@@ -190,6 +192,7 @@ export function InlineReaderPane({
 
   useEffect(() => {
     let rafId = 0;
+    let rafId2 = 0;
     const resolveProgressContainer = () => {
       const viewport = paneRef.current?.querySelector<HTMLElement>(
         "[data-slot='scroll-area-viewport']",
@@ -199,11 +202,15 @@ export function InlineReaderPane({
 
     resolveProgressContainer();
     rafId = window.requestAnimationFrame(resolveProgressContainer);
+    rafId2 = window.requestAnimationFrame(() => {
+      resolveProgressContainer();
+    });
 
     return () => {
       window.cancelAnimationFrame(rafId);
+      window.cancelAnimationFrame(rafId2);
     };
-  }, [newsletterId]);
+  }, [newsletterId, isPending]);
 
   useEffect(() => {
     if (!isAppearanceOpen) return;
@@ -251,6 +258,32 @@ export function InlineReaderPane({
       window.removeEventListener("blur", handleWindowBlur);
     };
   }, [isAppearanceOpen]);
+
+  const persistedReadProgressForCompletion =
+    typeof newsletter?.readProgress === "number" ? newsletter.readProgress : 0;
+  const effectiveReadProgressForCompletion = Math.min(
+    100,
+    Math.max(
+      0,
+      typeof debugLiveReadProgress === "number"
+        ? debugLiveReadProgress
+        : persistedReadProgressForCompletion,
+    ),
+  );
+  const isReadingCompleteForCompletion =
+    Boolean(newsletter?.isRead) || effectiveReadProgressForCompletion >= 100;
+
+  useEffect(() => {
+    if (!isReadingCompleteForCompletion || isReadEstimateDismissed) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setIsReadEstimateDismissed(true);
+    }, COMPLETION_BADGE_AUTO_HIDE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isReadingCompleteForCompletion, isReadEstimateDismissed, newsletterId]);
 
   if (isPending) {
     return (
@@ -351,7 +384,6 @@ export function InlineReaderPane({
   const senderDisplay = newsletter.senderName || newsletter.senderEmail;
   const hasReadEstimate =
     estimatedReadMinutes !== undefined && estimatedReadMinutes !== null;
-  console.log({ estimatedReadMinutes });
   const persistedReadProgress =
     typeof newsletter.readProgress === "number" ? newsletter.readProgress : 0;
   const effectiveReadProgress = Math.min(
@@ -377,16 +409,19 @@ export function InlineReaderPane({
     : null;
   const isReadingComplete = newsletter.isRead || effectiveReadProgress >= 100;
 
-  console.log({ isReadingComplete, hasReadEstimate, remainingReadMinutes });
   const readEstimateLabel =
     !isReadingComplete && remainingReadMinutes !== null
       ? remainingReadMinutes < 1
         ? m.reader_minuteRead({ minutes: "<1" })
         : m.reader_minuteRead({ minutes: remainingReadMinutes })
       : null;
+  const readProgressFallbackLabel = m.newsletters_readProgress({
+    progress: Math.round(effectiveReadProgress),
+  });
   const readingCompleteLabel = isReadingComplete ? "Terminé" : null;
-  const readMetaLabel = readEstimateLabel ?? readingCompleteLabel;
-  const canRestoreReadEstimate = isReadEstimateDismissed;
+  const readMetaLabel =
+    readEstimateLabel ?? readingCompleteLabel ?? readProgressFallbackLabel;
+  const canRestoreReadEstimate = isReadEstimateDismissed && !isReadingComplete;
   const favoritedValue = getIsFavorited
     ? getIsFavorited(newsletter._id, Boolean(newsletter.isFavorited))
     : Boolean(newsletter.isFavorited);
@@ -485,11 +520,8 @@ export function InlineReaderPane({
   };
 
   const handleRestoreReadEstimate = () => {
-    dismissedReadEstimateIds.delete(newsletterId);
     setIsReadEstimateDismissed(false);
   };
-
-  console.log("effectiveReadProgress", readEstimateLabel);
 
   return (
     <div
@@ -604,17 +636,17 @@ export function InlineReaderPane({
                   setIsReadMetaHovered(false);
                 }
               }}
-              className="inline-flex items-center rounded-full border border-border/60 bg-background/90 px-2 py-0.5 text-xs text-muted-foreground shadow-sm backdrop-blur"
+              className="inline-flex justify-center items-center rounded-full border border-border/60 bg-background/90 px-2 py-0.5 text-xs text-muted-foreground shadow-sm backdrop-blur"
             >
-              {isReadingComplete ? (
-                <>
-                  <span className="font-medium text-foreground">
-                    {readingCompleteLabel}
-                  </span>
-                </>
-              ) : (
-                <span className="">{readEstimateLabel}</span>
-              )}
+              <Calligraph
+                variant="text"
+                animation="smooth"
+                className="text-center"
+              >
+                {isReadingComplete
+                  ? (readingCompleteLabel ?? "")
+                  : (readEstimateLabel ?? "")}
+              </Calligraph>
               <AnimatePresence initial={false}>
                 {isReadMetaHovered ? (
                   <motion.div
@@ -629,7 +661,6 @@ export function InlineReaderPane({
                       type="button"
                       aria-label="Hide read time"
                       onClick={() => {
-                        dismissedReadEstimateIds.add(newsletterId);
                         setIsReadEstimateDismissed(true);
                       }}
                       className="flex size-4 items-center justify-center rounded-full text-muted-foreground/80 hover:bg-accent hover:text-foreground"

@@ -117,6 +117,59 @@ describe("useScrollProgress hook", () => {
     expect(onProgress).not.toHaveBeenCalled()
   })
 
+  it("does not report progress while disabled", () => {
+    Object.defineProperties(mockContainer, {
+      scrollHeight: { value: 400 },
+      clientHeight: { value: 500 },
+      scrollTop: { value: 0, writable: true },
+    })
+
+    const onProgress = vi.fn()
+
+    renderHook(() =>
+      useScrollProgress({
+        containerRef,
+        onProgress,
+        enabled: false,
+      })
+    )
+
+    act(() => {
+      mockContainer.dispatchEvent(new Event("scroll"))
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(onProgress).not.toHaveBeenCalled()
+  })
+
+  it("runs the initial fit check after being enabled", () => {
+    Object.defineProperties(mockContainer, {
+      scrollHeight: { value: 400 },
+      clientHeight: { value: 500 },
+    })
+
+    const onProgress = vi.fn()
+
+    const { rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useScrollProgress({
+          containerRef,
+          onProgress,
+          enabled,
+        }),
+      {
+        initialProps: { enabled: false },
+      }
+    )
+
+    expect(onProgress).not.toHaveBeenCalled()
+
+    rerender({ enabled: true })
+
+    expect(onProgress).toHaveBeenCalledWith(100)
+    expect(onProgress).toHaveBeenCalledTimes(1)
+  })
+
   it("debounces progress updates", () => {
     const onProgress = vi.fn()
     const onProgressPreview = vi.fn()

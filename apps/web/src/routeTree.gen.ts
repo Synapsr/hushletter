@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as Char123LocaleChar125IndexRouteImport } from './routes/{-$locale}/index'
+import { Route as Char123LocaleChar125TermsRouteImport } from './routes/{-$locale}/terms'
 import { Route as Char123LocaleChar125SignupRouteImport } from './routes/{-$locale}/signup'
 import { Route as Char123LocaleChar125ResetPasswordRouteImport } from './routes/{-$locale}/reset-password'
+import { Route as Char123LocaleChar125PrivacyRouteImport } from './routes/{-$locale}/privacy'
 import { Route as Char123LocaleChar125LoginRouteImport } from './routes/{-$locale}/login'
 import { Route as Char123LocaleChar125ForgotPasswordRouteImport } from './routes/{-$locale}/forgot-password'
 import { Route as Char123LocaleChar1258RouteImport } from './routes/{-$locale}/8'
@@ -56,6 +58,12 @@ const Char123LocaleChar125IndexRoute =
     path: '/{-$locale}/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const Char123LocaleChar125TermsRoute =
+  Char123LocaleChar125TermsRouteImport.update({
+    id: '/{-$locale}/terms',
+    path: '/{-$locale}/terms',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const Char123LocaleChar125SignupRoute =
   Char123LocaleChar125SignupRouteImport.update({
     id: '/{-$locale}/signup',
@@ -66,6 +74,12 @@ const Char123LocaleChar125ResetPasswordRoute =
   Char123LocaleChar125ResetPasswordRouteImport.update({
     id: '/{-$locale}/reset-password',
     path: '/{-$locale}/reset-password',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char123LocaleChar125PrivacyRoute =
+  Char123LocaleChar125PrivacyRouteImport.update({
+    id: '/{-$locale}/privacy',
+    path: '/{-$locale}/privacy',
     getParentRoute: () => rootRouteImport,
   } as any)
 const Char123LocaleChar125LoginRoute =
@@ -260,8 +274,10 @@ export interface FileRoutesByFullPath {
   '/{-$locale}/8': typeof Char123LocaleChar1258Route
   '/{-$locale}/forgot-password': typeof Char123LocaleChar125ForgotPasswordRoute
   '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
+  '/{-$locale}/privacy': typeof Char123LocaleChar125PrivacyRoute
   '/{-$locale}/reset-password': typeof Char123LocaleChar125ResetPasswordRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
+  '/{-$locale}/terms': typeof Char123LocaleChar125TermsRoute
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/admin': typeof AuthedNavigationAdminRouteRouteWithChildren
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
@@ -297,8 +313,10 @@ export interface FileRoutesByTo {
   '/{-$locale}/8': typeof Char123LocaleChar1258Route
   '/{-$locale}/forgot-password': typeof Char123LocaleChar125ForgotPasswordRoute
   '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
+  '/{-$locale}/privacy': typeof Char123LocaleChar125PrivacyRoute
   '/{-$locale}/reset-password': typeof Char123LocaleChar125ResetPasswordRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
+  '/{-$locale}/terms': typeof Char123LocaleChar125TermsRoute
   '/{-$locale}': typeof Char123LocaleChar125IndexRoute
   '/newsletters/$id': typeof AuthedNewslettersIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -335,8 +353,10 @@ export interface FileRoutesById {
   '/{-$locale}/8': typeof Char123LocaleChar1258Route
   '/{-$locale}/forgot-password': typeof Char123LocaleChar125ForgotPasswordRoute
   '/{-$locale}/login': typeof Char123LocaleChar125LoginRoute
+  '/{-$locale}/privacy': typeof Char123LocaleChar125PrivacyRoute
   '/{-$locale}/reset-password': typeof Char123LocaleChar125ResetPasswordRoute
   '/{-$locale}/signup': typeof Char123LocaleChar125SignupRoute
+  '/{-$locale}/terms': typeof Char123LocaleChar125TermsRoute
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/_authed/_navigation/admin': typeof AuthedNavigationAdminRouteRouteWithChildren
   '/_authed/newsletters/$id': typeof AuthedNewslettersIdRoute
@@ -374,8 +394,10 @@ export interface FileRouteTypes {
     | '/{-$locale}/8'
     | '/{-$locale}/forgot-password'
     | '/{-$locale}/login'
+    | '/{-$locale}/privacy'
     | '/{-$locale}/reset-password'
     | '/{-$locale}/signup'
+    | '/{-$locale}/terms'
     | '/{-$locale}/'
     | '/admin'
     | '/newsletters/$id'
@@ -411,8 +433,10 @@ export interface FileRouteTypes {
     | '/{-$locale}/8'
     | '/{-$locale}/forgot-password'
     | '/{-$locale}/login'
+    | '/{-$locale}/privacy'
     | '/{-$locale}/reset-password'
     | '/{-$locale}/signup'
+    | '/{-$locale}/terms'
     | '/{-$locale}'
     | '/newsletters/$id'
     | '/api/auth/$'
@@ -448,8 +472,10 @@ export interface FileRouteTypes {
     | '/{-$locale}/8'
     | '/{-$locale}/forgot-password'
     | '/{-$locale}/login'
+    | '/{-$locale}/privacy'
     | '/{-$locale}/reset-password'
     | '/{-$locale}/signup'
+    | '/{-$locale}/terms'
     | '/{-$locale}/'
     | '/_authed/_navigation/admin'
     | '/_authed/newsletters/$id'
@@ -485,8 +511,10 @@ export interface RootRouteChildren {
   Char123LocaleChar1258Route: typeof Char123LocaleChar1258Route
   Char123LocaleChar125ForgotPasswordRoute: typeof Char123LocaleChar125ForgotPasswordRoute
   Char123LocaleChar125LoginRoute: typeof Char123LocaleChar125LoginRoute
+  Char123LocaleChar125PrivacyRoute: typeof Char123LocaleChar125PrivacyRoute
   Char123LocaleChar125ResetPasswordRoute: typeof Char123LocaleChar125ResetPasswordRoute
   Char123LocaleChar125SignupRoute: typeof Char123LocaleChar125SignupRoute
+  Char123LocaleChar125TermsRoute: typeof Char123LocaleChar125TermsRoute
   Char123LocaleChar125IndexRoute: typeof Char123LocaleChar125IndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   Char123LocaleChar125ShareTokenRoute: typeof Char123LocaleChar125ShareTokenRoute
@@ -508,6 +536,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char123LocaleChar125IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/{-$locale}/terms': {
+      id: '/{-$locale}/terms'
+      path: '/{-$locale}/terms'
+      fullPath: '/{-$locale}/terms'
+      preLoaderRoute: typeof Char123LocaleChar125TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/{-$locale}/signup': {
       id: '/{-$locale}/signup'
       path: '/{-$locale}/signup'
@@ -520,6 +555,13 @@ declare module '@tanstack/react-router' {
       path: '/{-$locale}/reset-password'
       fullPath: '/{-$locale}/reset-password'
       preLoaderRoute: typeof Char123LocaleChar125ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/privacy': {
+      id: '/{-$locale}/privacy'
+      path: '/{-$locale}/privacy'
+      fullPath: '/{-$locale}/privacy'
+      preLoaderRoute: typeof Char123LocaleChar125PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/{-$locale}/login': {
@@ -836,9 +878,11 @@ const rootRouteChildren: RootRouteChildren = {
   Char123LocaleChar125ForgotPasswordRoute:
     Char123LocaleChar125ForgotPasswordRoute,
   Char123LocaleChar125LoginRoute: Char123LocaleChar125LoginRoute,
+  Char123LocaleChar125PrivacyRoute: Char123LocaleChar125PrivacyRoute,
   Char123LocaleChar125ResetPasswordRoute:
     Char123LocaleChar125ResetPasswordRoute,
   Char123LocaleChar125SignupRoute: Char123LocaleChar125SignupRoute,
+  Char123LocaleChar125TermsRoute: Char123LocaleChar125TermsRoute,
   Char123LocaleChar125IndexRoute: Char123LocaleChar125IndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   Char123LocaleChar125ShareTokenRoute: Char123LocaleChar125ShareTokenRoute,

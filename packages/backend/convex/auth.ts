@@ -45,6 +45,8 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           totalStored: 0,
           unlockedStored: 0,
           lockedStored: 0,
+          gmailImportedEmails: 0,
+          gmailImportedSenderEmails: [],
           updatedAt: Date.now(),
         })
       },

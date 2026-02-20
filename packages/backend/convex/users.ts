@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server"
+import { query, mutation, action } from "./_generated/server"
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
 import { authComponent } from "./auth"
@@ -225,5 +225,98 @@ export const getEmailDomain = query({
   args: {},
   handler: async () => {
     return getEmailDomainInternal()
+  },
+})
+
+/**
+ * Send authenticated user feedback to Discord via webhook.
+ */
+export const sendFeedbackToDiscord = action({
+  args: {
+    subject: v.string(),
+    message: v.string(),
+    page: v.optional(v.string()),
+  },
+  returns: v.object({
+    ok: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to send feedback",
+      })
+    }
+
+    const subject = args.subject.trim()
+    const message = args.message.trim()
+    const page = args.page?.trim()
+
+    if (subject.length < 3 || subject.length > 120) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: "Subject must be between 3 and 120 characters.",
+      })
+    }
+
+    if (message.length < 10 || message.length > 2000) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: "Message must be between 10 and 2000 characters.",
+      })
+    }
+
+    const webhookUrl = process.env.DISCORD_FEEDBACK_WEBHOOK_URL
+    if (!webhookUrl) {
+      throw new ConvexError({
+        code: "CONFIG_ERROR",
+        message: "Feedback webhook is not configured.",
+      })
+    }
+
+    const feedbackUser = await authComponent.getAuthUser(ctx).catch(() => null)
+    const userLabel = feedbackUser?.name
+      ? `${feedbackUser.name} <${feedbackUser.email}>`
+      : feedbackUser?.email ?? identity.tokenIdentifier
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        embeds: [
+          {
+            title: subject,
+            description: message,
+            fields: [
+              {
+                name: "User",
+                value: userLabel.slice(0, 1024),
+              },
+              {
+                name: "Page",
+                value: (page && page.length > 0 ? page : "Unknown").slice(
+                  0,
+                  1024,
+                ),
+              },
+            ],
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      await response.text().catch(() => "unknown")
+      throw new ConvexError({
+        code: "EXTERNAL_SERVICE_ERROR",
+        message: "Failed to submit feedback. Please try again.",
+      })
+    }
+
+    return { ok: true }
   },
 })

@@ -207,7 +207,10 @@ export function NewsletterListItem({
           senderName={newsletter.senderName}
           senderEmail={newsletter.senderEmail}
           size="sm"
-          className="shrink-0 mt-0.5"
+          className={cn(
+            "shrink-0 mt-0.5",
+            newsletter.isRead ? "text-muted-foreground border" : "",
+          )}
         />
         <button
           type="button"

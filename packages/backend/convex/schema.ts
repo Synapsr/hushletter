@@ -258,6 +258,8 @@ export default defineSchema({
 	    totalStored: v.number(),
 	    unlockedStored: v.number(),
 	    lockedStored: v.number(),
+	    gmailImportedEmails: v.optional(v.number()),
+	    gmailImportedSenderEmails: v.optional(v.array(v.string())),
 	    updatedAt: v.number(), // Unix timestamp ms
 	  }).index("by_userId", ["userId"]),
 

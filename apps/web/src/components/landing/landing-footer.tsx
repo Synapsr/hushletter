@@ -1,4 +1,5 @@
 import { m } from "@/paraglide/messages.js";
+import { Link } from "@tanstack/react-router";
 import { SharedLogo } from "../shared/shared-logo";
 
 export function LandingFooter() {
@@ -29,6 +30,12 @@ export function LandingFooter() {
             >
               {m.landing_footerPricing()}
             </a>
+            <Link to="/{-$locale}/privacy" className="hover:text-gray-900">
+              Privacy
+            </Link>
+            <Link to="/{-$locale}/terms" className="hover:text-gray-900">
+              Terms
+            </Link>
           </nav>
 
           <p className="text-sm text-gray-400">{`© ${new Date().getFullYear()} Hushletter`}</p>

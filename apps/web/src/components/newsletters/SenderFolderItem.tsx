@@ -264,7 +264,7 @@ export function SenderFolderItem({
             {folder.unreadCount > 0 && (
               <Badge
                 variant="default"
-                className="!size-4 p-0 shrink-0 text-[10px] absolute -top-1  -right-1 font-medium  opacity-0 group-hover:opacity-100 transition-opacity"
+                className="!size-4 p-0 z-20 shrink-0 text-[10px] absolute -top-1  -right-1 font-medium  opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 {folder.unreadCount}
               </Badge>

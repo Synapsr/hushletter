@@ -34,7 +34,9 @@ vi.mock("@hushletter/backend", () => ({
     gmail: {
       getDetectedSenders: "getDetectedSenders",
       getSelectedSendersCount: "getSelectedSendersCount",
+      getGmailImportPreviewStatus: "getGmailImportPreviewStatus",
       updateSenderSelection: "updateSenderSelection",
+      setExclusiveSenderSelection: "setExclusiveSenderSelection",
       selectAllSenders: "selectAllSenders",
       deselectAllSenders: "deselectAllSenders",
       approveSelectedSenders: "approveSelectedSenders",
@@ -85,10 +87,21 @@ const mockSenders = [
 
 // Mock mutation functions
 const mockUpdateSelection = vi.fn()
+const mockSetExclusiveSelection = vi.fn()
 const mockSelectAll = vi.fn()
 const mockDeselectAll = vi.fn()
 const mockApproveSelected = vi.fn()
 const mockStartHistoricalImport = vi.fn()
+const proPreviewStatus = {
+  isPro: true,
+  senderCap: 0,
+  emailCap: 0,
+  importedSenders: 0,
+  importedEmails: 0,
+  remainingSenders: 0,
+  remainingEmails: 0,
+  importedSenderEmails: [],
+}
 
 describe("SenderReview", () => {
   beforeEach(() => {
@@ -102,12 +115,18 @@ describe("SenderReview", () => {
       if (queryRef === "getSelectedSendersCount") {
         return { selectedCount: 2, totalCount: 3 }
       }
+      if (queryRef === "getGmailImportPreviewStatus") {
+        return proPreviewStatus
+      }
       return undefined
     })
 
     mockUseMutation.mockImplementation((mutationRef: string) => {
       if (mutationRef === "updateSenderSelection") {
         return mockUpdateSelection
+      }
+      if (mutationRef === "setExclusiveSenderSelection") {
+        return mockSetExclusiveSelection
       }
       if (mutationRef === "selectAllSenders") {
         return mockSelectAll
@@ -130,6 +149,7 @@ describe("SenderReview", () => {
 
     // Default: mutations resolve successfully
     mockUpdateSelection.mockResolvedValue(undefined)
+    mockSetExclusiveSelection.mockResolvedValue({ updatedCount: 2 })
     mockSelectAll.mockResolvedValue({ updatedCount: 1 })
     mockDeselectAll.mockResolvedValue({ updatedCount: 2 })
     mockApproveSelected.mockResolvedValue({ approvedCount: 2 })
@@ -154,7 +174,7 @@ describe("SenderReview", () => {
       render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       expect(
-        screen.getByText("2 of 3 senders selected for import")
+        screen.getByText("2 of 3 selected")
       ).toBeInTheDocument()
     })
 
@@ -261,7 +281,7 @@ describe("SenderReview", () => {
         await user.click(senderRow)
       }
 
-      expect(screen.getByText("Sample subjects:")).toBeInTheDocument()
+      expect(screen.getByText("Sample subjects")).toBeInTheDocument()
       expect(screen.getByText("Weekly Update #1")).toBeInTheDocument()
       expect(screen.getByText("Weekly Update #2")).toBeInTheDocument()
     })
@@ -276,9 +296,9 @@ describe("SenderReview", () => {
         await user.click(senderRow)
       }
 
-      expect(screen.getByText("Domain:")).toBeInTheDocument()
+      expect(screen.getByText("Domain")).toBeInTheDocument()
       expect(screen.getByText("example.com")).toBeInTheDocument()
-      expect(screen.getByText("Confidence:")).toBeInTheDocument()
+      expect(screen.getByText("Confidence")).toBeInTheDocument()
     })
 
     it("detail shows detected date", async () => {
@@ -291,7 +311,7 @@ describe("SenderReview", () => {
         await user.click(senderRow)
       }
 
-      expect(screen.getByText("Detected:")).toBeInTheDocument()
+      expect(screen.getByText(/Detected /i)).toBeInTheDocument()
     })
 
     it("clicking again collapses detail", async () => {
@@ -349,7 +369,7 @@ describe("SenderReview", () => {
 
       // Should show confirmation view - check for the descriptive text
       expect(
-        screen.getByText(/you're about to import newsletters from 2 senders/i)
+        screen.getByText(/import newsletters from 2 senders/i)
       ).toBeInTheDocument()
       // Check for Go Back button which only appears in confirm view
       expect(screen.getByRole("button", { name: /go back/i })).toBeInTheDocument()
@@ -383,7 +403,7 @@ describe("SenderReview", () => {
       await user.click(confirmButton)
 
       await waitFor(() => {
-        expect(screen.getByText("Senders Approved!")).toBeInTheDocument()
+        expect(screen.getByText("Senders approved")).toBeInTheDocument()
         expect(
           screen.getByText(/2 senders ready for import/i)
         ).toBeInTheDocument()
@@ -498,6 +518,77 @@ describe("SenderReview", () => {
     })
   })
 
+  describe("Free Preview Behavior", () => {
+    it("auto-normalizes preselected senders to one selection", async () => {
+      mockUseQuery.mockImplementation((queryRef: string) => {
+        if (queryRef === "getDetectedSenders") {
+          return mockSenders
+        }
+        if (queryRef === "getSelectedSendersCount") {
+          return { selectedCount: 2, totalCount: 3 }
+        }
+        if (queryRef === "getGmailImportPreviewStatus") {
+          return {
+            isPro: false,
+            senderCap: 1,
+            emailCap: 25,
+            importedSenders: 0,
+            importedEmails: 0,
+            remainingSenders: 1,
+            remainingEmails: 25,
+            importedSenderEmails: [],
+          }
+        }
+        return undefined
+      })
+
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
+
+      await waitFor(() => {
+        expect(mockSetExclusiveSelection).toHaveBeenCalledWith({
+          senderId: "sender1",
+        })
+      })
+    })
+
+    it("keeps Select all disabled for free users", async () => {
+      const mostlyUnselectedSenders = [
+        mockSenders[0],
+        { ...mockSenders[1], isSelected: false },
+        mockSenders[2],
+      ]
+      mockUseQuery.mockImplementation((queryRef: string) => {
+        if (queryRef === "getDetectedSenders") {
+          return mostlyUnselectedSenders
+        }
+        if (queryRef === "getSelectedSendersCount") {
+          return { selectedCount: 1, totalCount: 3 }
+        }
+        if (queryRef === "getGmailImportPreviewStatus") {
+          return {
+            isPro: false,
+            senderCap: 1,
+            emailCap: 25,
+            importedSenders: 0,
+            importedEmails: 0,
+            remainingSenders: 1,
+            remainingEmails: 25,
+            importedSenderEmails: [],
+          }
+        }
+        return undefined
+      })
+
+      render(<SenderReview gmailConnectionId={mockConnectionId} />)
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /^select all$/i })
+        ).toBeDisabled()
+      })
+    })
+  })
+
   describe("Loading and Empty States", () => {
     it("shows loading skeleton when data is undefined", () => {
       mockUseQuery.mockReturnValue(undefined)
@@ -522,7 +613,7 @@ describe("SenderReview", () => {
 
       render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
-      expect(screen.getByText("No Senders to Review")).toBeInTheDocument()
+      expect(screen.getByText("No senders to review")).toBeInTheDocument()
     })
   })
 
@@ -551,7 +642,7 @@ describe("SenderReview", () => {
       await user.click(confirmButton)
 
       await waitFor(() => {
-        expect(screen.getByText("Senders Approved!")).toBeInTheDocument()
+        expect(screen.getByText("Senders approved")).toBeInTheDocument()
       })
 
       const startImportButton = screen.getByRole("button", { name: /start import/i })
@@ -565,7 +656,7 @@ describe("SenderReview", () => {
     it("has aria-live region for count updates", () => {
       render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
-      const description = screen.getByText(/2 of 3 senders selected for import/i)
+      const description = screen.getByText(/2 of 3 selected/i)
       expect(description).toHaveAttribute("aria-live", "polite")
     })
 
@@ -573,10 +664,10 @@ describe("SenderReview", () => {
       render(<SenderReview gmailConnectionId={mockConnectionId} />)
 
       expect(
-        screen.getByRole("checkbox", { name: /select example newsletter for import/i })
+        screen.getByRole("checkbox", { name: /select example newsletter/i })
       ).toBeInTheDocument()
       expect(
-        screen.getByRole("checkbox", { name: /select news digest for import/i })
+        screen.getByRole("checkbox", { name: /select news digest/i })
       ).toBeInTheDocument()
     })
 

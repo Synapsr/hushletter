@@ -63,6 +63,29 @@ describe("ReaderActionBar", () => {
     expect(onOpenFullscreen).toHaveBeenCalledTimes(1);
   });
 
+  it("calls fullscreen handler from keyboard shortcut", () => {
+    const onOpenFullscreen = vi.fn();
+
+    render(
+      <ReaderActionBar
+        isRead={false}
+        isHidden={false}
+        isFavorited={false}
+        isFavoritePending={false}
+        onArchive={() => {}}
+        onToggleFavorite={() => {}}
+        onOpenFullscreen={onOpenFullscreen}
+        senderName="Sender"
+        subject="Subject"
+      />,
+    );
+
+    document.body.focus();
+    fireEvent.keyDown(document, { key: "F", code: "KeyF" });
+
+    expect(onOpenFullscreen).toHaveBeenCalledTimes(1);
+  });
+
   it("calls onShare when share button is clicked", () => {
     const onShare = vi.fn();
 

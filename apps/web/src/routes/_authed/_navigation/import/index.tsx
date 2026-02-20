@@ -101,25 +101,25 @@ function UpgradePrompt() {
           </div>
           <div>
             <h2 className="text-lg font-semibold">
-              Upgrade to import from Gmail
+              Free preview: Gmail import
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Gmail sync is a Pro feature. Upgrade to automatically discover and
-              import your newsletter subscriptions.
+              Free accounts can import from Gmail as a lifetime preview.
+              Upgrade to Pro for unlimited sender and email imports.
             </p>
 
             <ul className="mt-4 space-y-2.5 text-sm text-muted-foreground">
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-primary" />
-                Auto-detect newsletters in your inbox
+                Import from 1 sender lifetime on Free
               </li>
               <li className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary" />
-                One-click bulk import
+                Import up to 25 emails lifetime on Free
               </li>
               <li className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                Read-only access — your emails stay private
+                Unlimited Gmail import with Pro
               </li>
             </ul>
 
@@ -146,6 +146,7 @@ function ImportPage() {
     | null
     | undefined;
   const isPro = Boolean(entitlements?.isPro);
+  const isEntitlementsLoading = entitlements === undefined;
 
   const [selectedConnectionId, setSelectedConnectionId] =
     useState<Id<"gmailConnections"> | null>(null);
@@ -194,23 +195,19 @@ function ImportPage() {
 
       {/* Content */}
       <div className="space-y-5">
-        {!isPro ? (
-          <UpgradePrompt />
-        ) : (
-          <>
-            <ErrorBoundary FallbackComponent={GmailConnectError}>
-              <GmailConnect
-                selectedConnectionId={selectedConnectionId}
-                onSelectConnection={handleSelectConnection}
-              />
-            </ErrorBoundary>
+        {!isEntitlementsLoading && !isPro && <UpgradePrompt />}
 
-            {selectedConnectionId && (
-              <ErrorBoundary FallbackComponent={SenderScannerError}>
-                <SenderScanner gmailConnectionId={selectedConnectionId} />
-              </ErrorBoundary>
-            )}
-          </>
+        <ErrorBoundary FallbackComponent={GmailConnectError}>
+          <GmailConnect
+            selectedConnectionId={selectedConnectionId}
+            onSelectConnection={handleSelectConnection}
+          />
+        </ErrorBoundary>
+
+        {selectedConnectionId && (
+          <ErrorBoundary FallbackComponent={SenderScannerError}>
+            <SenderScanner gmailConnectionId={selectedConnectionId} />
+          </ErrorBoundary>
         )}
       </div>
 

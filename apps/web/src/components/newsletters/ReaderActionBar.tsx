@@ -48,6 +48,7 @@ import {
 } from "@/hooks/useReaderPreferences";
 import { m } from "@/paraglide/messages.js";
 import { cn } from "@hushletter/ui/lib/utils";
+import { useHotkey } from "@tanstack/react-hotkeys";
 
 interface ReaderActionBarProps {
   isRead: boolean;
@@ -122,6 +123,10 @@ export function ReaderActionBar({
   const archiveLabel = isHidden ? m.newsletters_unhide() : m.reader_archive();
   const binLabel = m.bin_label?.() ?? "Bin";
 
+  useHotkey("F", () => {
+    onOpenFullscreen?.();
+  });
+
   return (
     <div className="flex items-center justify-between px-2 py-2 border-b bg-background/70 backdrop-blur-sm absolute w-full top-0 z-10">
       <TooltipProvider>
@@ -149,7 +154,7 @@ export function ReaderActionBar({
               }
             />
             <TooltipContent>
-              {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              {isFullscreen ? "Exit fullscreen (F)" : "Fullscreen (F)"}
             </TooltipContent>
           </Tooltip>
 

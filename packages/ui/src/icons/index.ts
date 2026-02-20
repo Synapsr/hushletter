@@ -25,6 +25,7 @@ import {
   Dots,
   Glasses,
   Sparkles,
+  Message,
 } from "@mynaui/icons-react";
 import SolarArchiveBold from "./SolarArchiveBold";
 import SolarArchiveLinear from "./SolarArchiveLinear";
@@ -65,4 +66,5 @@ export {
   Dots as DotsIcon,
   Glasses as GlassesIcon,
   Sparkles as SparklesIcon,
+  Message as MessageIcon,
 };

@@ -10,7 +10,7 @@
  * - Optimistic updates for instant selection feedback
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import {
@@ -43,6 +43,44 @@ type DetectedSender = {
   isApproved: boolean;
 };
 
+type GmailImportPreviewStatus = {
+  isPro: boolean;
+  senderCap: number;
+  emailCap: number;
+  importedSenders: number;
+  importedEmails: number;
+  remainingSenders: number;
+  remainingEmails: number;
+  importedSenderEmails: string[];
+};
+
+type StartImportResult =
+  | { success: true }
+  | {
+      success: false;
+      error: string;
+      errorCode?: "FREE_PREVIEW_SENDER_LIMIT" | "FREE_PREVIEW_EMAIL_LIMIT";
+    };
+
+function normalizeSenderEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function getConvexErrorDetails(error: unknown): {
+  message?: string;
+  code?: string;
+} {
+  if (typeof error !== "object" || error === null) {
+    return {};
+  }
+  const maybeData = (error as { data?: { message?: string; code?: string } })
+    .data;
+  return {
+    message: maybeData?.message,
+    code: maybeData?.code,
+  };
+}
+
 function LoadingSkeleton() {
   return (
     <div className="rounded-xl border border-border/60 bg-card p-5">
@@ -72,10 +110,14 @@ function formatDate(timestamp: number): string {
 function SenderRow({
   sender,
   optimisticSelected,
+  selectionDisabled,
+  selectionDisabledReason,
   onSelectionChange,
 }: {
   sender: DetectedSender;
   optimisticSelected?: boolean;
+  selectionDisabled?: boolean;
+  selectionDisabledReason?: string;
   onSelectionChange: (isSelected: boolean) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -109,8 +151,10 @@ function SenderRow({
         >
           <Checkbox
             checked={isSelected}
+            disabled={selectionDisabled}
             onCheckedChange={(checked) => onSelectionChange(checked === true)}
             aria-label={`Select ${sender.name || sender.email}`}
+            title={selectionDisabledReason}
           />
         </div>
 
@@ -299,11 +343,15 @@ function ApprovalSuccessView({
   approvedCount,
   onStartImport,
   isStartingImport,
+  isStartDisabled,
+  startDisabledReason,
   importError,
 }: {
   approvedCount: number;
   onStartImport: () => void;
   isStartingImport: boolean;
+  isStartDisabled?: boolean;
+  startDisabledReason?: string;
   importError: string | null;
 }) {
   return (
@@ -330,10 +378,15 @@ function ApprovalSuccessView({
           {importError}
         </p>
       )}
+      {startDisabledReason && !importError && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+          {startDisabledReason}
+        </p>
+      )}
 
       <Button
         onClick={onStartImport}
-        disabled={isStartingImport}
+        disabled={isStartingImport || isStartDisabled}
         className="w-full"
       >
         {isStartingImport ? (
@@ -369,7 +422,10 @@ export function SenderReview({
   const [error, setError] = useState<string | null>(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isStartingImport, setIsStartingImport] = useState(false);
+  const [isUpdatingSelection, setIsUpdatingSelection] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [hasAutoNormalizedSelection, setHasAutoNormalizedSelection] =
+    useState(false);
   const [optimisticUpdates, setOptimisticUpdates] = useState<
     Map<string, boolean>
   >(new Map());
@@ -378,8 +434,12 @@ export function SenderReview({
     gmailConnectionId,
   }) as DetectedSender[] | undefined;
   const senderCounts = useQuery(api.gmail.getSelectedSendersCount);
+  const previewStatus = useQuery(
+    api.gmail.getGmailImportPreviewStatus,
+  ) as GmailImportPreviewStatus | undefined;
 
   const updateSelection = useMutation(api.gmail.updateSenderSelection);
+  const setExclusiveSelection = useMutation(api.gmail.setExclusiveSenderSelection);
   const selectAll = useMutation(api.gmail.selectAllSenders);
   const deselectAll = useMutation(api.gmail.deselectAllSenders);
   const approveSelected = useMutation(api.gmail.approveSelectedSenders);
@@ -407,15 +467,146 @@ export function SenderReview({
     };
   }, [detectedSenders, senderCounts, optimisticUpdates]);
 
+  const isFreePreview = previewStatus ? !previewStatus.isPro : false;
+  const importedSenderEmailSet = useMemo(
+    () =>
+      new Set(
+        (previewStatus?.importedSenderEmails ?? []).map((email) =>
+          normalizeSenderEmail(email),
+        ),
+      ),
+    [previewStatus?.importedSenderEmails],
+  );
+  const remainingSenderSlots = previewStatus?.remainingSenders ?? 0;
+  const remainingEmailSlots = previewStatus?.remainingEmails ?? 0;
+
+  const getEffectiveSelected = useCallback(
+    (sender: DetectedSender) => {
+      return optimisticUpdates.get(sender._id) ?? sender.isSelected;
+    },
+    [optimisticUpdates],
+  );
+
+  const isSenderImportedBefore = useCallback(
+    (sender: DetectedSender) =>
+      importedSenderEmailSet.has(normalizeSenderEmail(sender.email)),
+    [importedSenderEmailSet],
+  );
+
+  const selectedNewSenderCount = useMemo(() => {
+    if (!detectedSenders || !isFreePreview) return 0;
+    return detectedSenders.filter((sender) => {
+      if (isSenderImportedBefore(sender)) return false;
+      return getEffectiveSelected(sender);
+    }).length;
+  }, [
+    detectedSenders,
+    getEffectiveSelected,
+    isFreePreview,
+    isSenderImportedBefore,
+  ]);
+  const isSelectionOverFreeSenderLimit =
+    isFreePreview && selectedNewSenderCount > remainingSenderSlots;
+  const isEmailPreviewExhausted =
+    isFreePreview && previewStatus !== undefined && remainingEmailSlots <= 0;
+
+  useEffect(() => {
+    if (!isFreePreview || !detectedSenders || hasAutoNormalizedSelection) {
+      return;
+    }
+
+    const selectedSenders = detectedSenders.filter(getEffectiveSelected);
+    if (selectedSenders.length <= 1) {
+      setHasAutoNormalizedSelection(true);
+      return;
+    }
+
+    const senderToKeep =
+      selectedSenders.find(isSenderImportedBefore) ?? selectedSenders[0];
+    setHasAutoNormalizedSelection(true);
+
+    setOptimisticUpdates(() => {
+      const next = new Map<string, boolean>();
+      for (const sender of detectedSenders) {
+        next.set(sender._id, sender._id === senderToKeep._id);
+      }
+      return next;
+    });
+
+    void (async () => {
+      setIsUpdatingSelection(true);
+      try {
+        await setExclusiveSelection({
+          senderId:
+            senderToKeep._id as Parameters<typeof setExclusiveSelection>[0]["senderId"],
+        });
+      } catch (err) {
+        console.error("[SenderReview] Failed to normalize free selection:", err);
+        setError(
+          "We could not apply free preview selection limits automatically. Please select one sender.",
+        );
+      } finally {
+        setOptimisticUpdates(new Map());
+        setIsUpdatingSelection(false);
+      }
+    })();
+  }, [
+    detectedSenders,
+    getEffectiveSelected,
+    hasAutoNormalizedSelection,
+    isFreePreview,
+    isSenderImportedBefore,
+    setExclusiveSelection,
+  ]);
+
   const handleSelectionChange = useCallback(
     async (senderId: string, isSelected: boolean) => {
+      if (isUpdatingSelection) return;
       setError(null);
+
+      const sender = detectedSenders?.find((item) => item._id === senderId);
+      if (!sender) return;
+
+      if (isSelected && isFreePreview && detectedSenders) {
+        if (!isSenderImportedBefore(sender) && remainingSenderSlots <= 0) {
+          setError(
+            "Free preview includes Gmail imports from 1 sender lifetime. Upgrade to Pro to import from additional senders.",
+          );
+          return;
+        }
+
+        setOptimisticUpdates(() => {
+          const next = new Map<string, boolean>();
+          for (const candidate of detectedSenders) {
+            next.set(candidate._id, candidate._id === senderId);
+          }
+          return next;
+        });
+
+        setIsUpdatingSelection(true);
+        try {
+          await setExclusiveSelection({
+            senderId:
+              senderId as Parameters<typeof setExclusiveSelection>[0]["senderId"],
+          });
+          setOptimisticUpdates(new Map());
+        } catch (err) {
+          console.error("[SenderReview] Failed to update selection:", err);
+          setOptimisticUpdates(new Map());
+          setError("Failed to update selection. Please try again.");
+        } finally {
+          setIsUpdatingSelection(false);
+        }
+        return;
+      }
+
       setOptimisticUpdates((prev) => {
         const next = new Map(prev);
         next.set(senderId, isSelected);
         return next;
       });
 
+      setIsUpdatingSelection(true);
       try {
         await updateSelection({
           senderId: senderId as Parameters<typeof updateSelection>[0]["senderId"],
@@ -434,13 +625,29 @@ export function SenderReview({
           return next;
         });
         setError("Failed to update selection. Please try again.");
+      } finally {
+        setIsUpdatingSelection(false);
       }
     },
-    [updateSelection],
+    [
+      detectedSenders,
+      isFreePreview,
+      isSenderImportedBefore,
+      isUpdatingSelection,
+      remainingSenderSlots,
+      setExclusiveSelection,
+      updateSelection,
+    ],
   );
 
   const handleSelectAll = useCallback(async () => {
     setError(null);
+    if (isFreePreview) {
+      setError(
+        "Free preview supports one sender lifetime. Select a single sender to continue, or upgrade to Pro.",
+      );
+      return;
+    }
     if (detectedSenders) {
       setOptimisticUpdates((prev) => {
         const next = new Map(prev);
@@ -451,6 +658,7 @@ export function SenderReview({
       });
     }
 
+    setIsUpdatingSelection(true);
     try {
       await selectAll();
       setOptimisticUpdates(new Map());
@@ -458,8 +666,10 @@ export function SenderReview({
       console.error("[SenderReview] Failed to select all:", err);
       setOptimisticUpdates(new Map());
       setError("Failed to select all senders. Please try again.");
+    } finally {
+      setIsUpdatingSelection(false);
     }
-  }, [selectAll, detectedSenders]);
+  }, [detectedSenders, isFreePreview, selectAll]);
 
   const handleDeselectAll = useCallback(async () => {
     setError(null);
@@ -473,6 +683,7 @@ export function SenderReview({
       });
     }
 
+    setIsUpdatingSelection(true);
     try {
       await deselectAll();
       setOptimisticUpdates(new Map());
@@ -480,10 +691,19 @@ export function SenderReview({
       console.error("[SenderReview] Failed to deselect all:", err);
       setOptimisticUpdates(new Map());
       setError("Failed to deselect all senders. Please try again.");
+    } finally {
+      setIsUpdatingSelection(false);
     }
   }, [deselectAll, detectedSenders]);
 
   const handleApprove = useCallback(async () => {
+    if (isFreePreview && selectedNewSenderCount > remainingSenderSlots) {
+      setError(
+        "Free preview includes Gmail imports from 1 sender lifetime. Deselect extra senders or upgrade to Pro.",
+      );
+      return;
+    }
+
     setIsApproving(true);
     setError(null);
     try {
@@ -492,29 +712,67 @@ export function SenderReview({
       setView("success");
     } catch (err) {
       console.error("[SenderReview] Failed to approve senders:", err);
-      setError("Failed to approve senders. Please try again.");
+      const details = getConvexErrorDetails(err);
+      if (details.code === "FREE_PREVIEW_SENDER_LIMIT") {
+        setError(
+          "Free preview includes Gmail imports from 1 sender lifetime. Deselect extra senders or upgrade to Pro.",
+        );
+      } else {
+        setError(details.message || "Failed to approve senders. Please try again.");
+      }
     } finally {
       setIsApproving(false);
     }
-  }, [approveSelected]);
+  }, [
+    approveSelected,
+    isFreePreview,
+    remainingSenderSlots,
+    selectedNewSenderCount,
+  ]);
 
   const handleStartImport = useCallback(async () => {
+    if (isFreePreview && remainingEmailSlots <= 0) {
+      setImportError(
+        "Free preview limit reached: you can import up to 25 Gmail emails lifetime. Upgrade to Pro for unlimited imports.",
+      );
+      return;
+    }
+
     setIsStartingImport(true);
     setImportError(null);
     try {
-      const result = await startHistoricalImport({ gmailConnectionId });
+      const result = (await startHistoricalImport({
+        gmailConnectionId,
+      })) as StartImportResult;
       if (result.success) {
         onStartImport?.();
       } else {
-        setImportError(result.error || "Failed to start import.");
+        if (result.errorCode === "FREE_PREVIEW_SENDER_LIMIT") {
+          setImportError(
+            "Free preview includes Gmail imports from 1 sender lifetime. Deselect extra senders or upgrade to Pro.",
+          );
+        } else if (result.errorCode === "FREE_PREVIEW_EMAIL_LIMIT") {
+          setImportError(
+            "Free preview limit reached: you can import up to 25 Gmail emails lifetime. Upgrade to Pro for unlimited imports.",
+          );
+        } else {
+          setImportError(result.error || "Failed to start import.");
+        }
       }
     } catch (err) {
       console.error("[SenderReview] Failed to start import:", err);
-      setImportError("Failed to start import. Please try again.");
+      const details = getConvexErrorDetails(err);
+      setImportError(details.message || "Failed to start import. Please try again.");
     } finally {
       setIsStartingImport(false);
     }
-  }, [startHistoricalImport, gmailConnectionId, onStartImport]);
+  }, [
+    gmailConnectionId,
+    isFreePreview,
+    onStartImport,
+    remainingEmailSlots,
+    startHistoricalImport,
+  ]);
 
   if (detectedSenders === undefined) {
     return <LoadingSkeleton />;
@@ -562,6 +820,13 @@ export function SenderReview({
                   ? "Confirm your selection"
                   : "Approval complete"}
             </p>
+            {isFreePreview && previewStatus && (
+              <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+                Free preview remaining: {remainingSenderSlots} sender slot
+                {remainingSenderSlots !== 1 ? "s" : ""}, {remainingEmailSlots}{" "}
+                email{remainingEmailSlots !== 1 ? "s" : ""} lifetime
+              </p>
+            )}
           </div>
           {view === "review" && (
             <div className="flex gap-1.5">
@@ -569,7 +834,9 @@ export function SenderReview({
                 variant="ghost"
                 size="sm"
                 onClick={handleSelectAll}
-                disabled={selectedCount === totalCount}
+                disabled={
+                  selectedCount === totalCount || isFreePreview || isUpdatingSelection
+                }
                 className="h-7 px-2 text-xs"
               >
                 Select all
@@ -578,7 +845,7 @@ export function SenderReview({
                 variant="ghost"
                 size="sm"
                 onClick={handleDeselectAll}
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || isUpdatingSelection}
                 className="h-7 px-2 text-xs"
               >
                 Deselect all
@@ -591,19 +858,50 @@ export function SenderReview({
       {/* Content */}
       <div className="p-5">
         {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
+        {isSelectionOverFreeSenderLimit && (
+          <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+            Free preview includes Gmail imports from 1 sender lifetime. Deselect
+            extra senders or upgrade to Pro.
+          </p>
+        )}
+        {isEmailPreviewExhausted && (
+          <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+            You&apos;ve used your free Gmail preview (25 emails lifetime). Upgrade
+            to Pro for unlimited imports.
+          </p>
+        )}
 
         {view === "review" && (
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {detectedSenders.map((sender) => (
-              <SenderRow
-                key={sender._id}
-                sender={sender}
-                optimisticSelected={optimisticUpdates.get(sender._id)}
-                onSelectionChange={(isSelected) =>
-                  handleSelectionChange(sender._id, isSelected)
-                }
-              />
-            ))}
+            {detectedSenders.map((sender) => {
+              const isSelected = getEffectiveSelected(sender);
+              const isImportedSender = isSenderImportedBefore(sender);
+              const disableNewSelection =
+                isFreePreview &&
+                !isImportedSender &&
+                !isSelected &&
+                remainingSenderSlots <= 0;
+              const selectionDisabled = disableNewSelection || isUpdatingSelection;
+
+              return (
+                <SenderRow
+                  key={sender._id}
+                  sender={sender}
+                  optimisticSelected={optimisticUpdates.get(sender._id)}
+                  selectionDisabled={selectionDisabled}
+                  selectionDisabledReason={
+                    disableNewSelection
+                      ? "Free preview supports 1 sender lifetime. Upgrade to Pro to import more senders."
+                      : isUpdatingSelection
+                        ? "Updating selection..."
+                      : undefined
+                  }
+                  onSelectionChange={(isSelected) =>
+                    handleSelectionChange(sender._id, isSelected)
+                  }
+                />
+              );
+            })}
           </div>
         )}
 
@@ -621,6 +919,12 @@ export function SenderReview({
             approvedCount={approvedCount}
             onStartImport={handleStartImport}
             isStartingImport={isStartingImport}
+            isStartDisabled={isEmailPreviewExhausted}
+            startDisabledReason={
+              isEmailPreviewExhausted
+                ? "You've used your free Gmail preview (25 emails lifetime). Upgrade to Pro for unlimited imports."
+                : undefined
+            }
             importError={importError}
           />
         )}
@@ -638,7 +942,12 @@ export function SenderReview({
           <div className="flex-1" />
           <Button
             onClick={() => setView("confirm")}
-            disabled={selectedCount === 0}
+            disabled={
+              selectedCount === 0 ||
+              isSelectionOverFreeSenderLimit ||
+              isEmailPreviewExhausted ||
+              isUpdatingSelection
+            }
             size="sm"
           >
             Import {selectedCount} sender{selectedCount !== 1 ? "s" : ""}

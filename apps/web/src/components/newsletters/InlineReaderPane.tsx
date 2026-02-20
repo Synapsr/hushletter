@@ -22,7 +22,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { FloatingSummaryPanel } from "./FloatingSummaryPanel";
 import { m } from "@/paraglide/messages.js";
 import { Calligraph } from "calligraph";
-import { TextMorph } from "torph/react";
 
 interface InlineReaderPaneProps {
   newsletterId: Id<"userNewsletters">;
@@ -57,7 +56,6 @@ interface NewsletterMetadata {
 
 // Dev-only debug memory that survives InlineReaderPane remounts when switching newsletters.
 const debugResetSkipInitialIds = new Set<string>();
-const COMPLETION_BADGE_AUTO_HIDE_MS = 3500;
 
 function ContentErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   console.error("[InlineReader] Content error:", error);
@@ -259,32 +257,6 @@ export function InlineReaderPane({
     };
   }, [isAppearanceOpen]);
 
-  const persistedReadProgressForCompletion =
-    typeof newsletter?.readProgress === "number" ? newsletter.readProgress : 0;
-  const effectiveReadProgressForCompletion = Math.min(
-    100,
-    Math.max(
-      0,
-      typeof debugLiveReadProgress === "number"
-        ? debugLiveReadProgress
-        : persistedReadProgressForCompletion,
-    ),
-  );
-  const isReadingCompleteForCompletion =
-    Boolean(newsletter?.isRead) || effectiveReadProgressForCompletion >= 100;
-
-  useEffect(() => {
-    if (!isReadingCompleteForCompletion || isReadEstimateDismissed) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setIsReadEstimateDismissed(true);
-    }, COMPLETION_BADGE_AUTO_HIDE_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isReadingCompleteForCompletion, isReadEstimateDismissed, newsletterId]);
-
   if (isPending) {
     return (
       <div
@@ -418,9 +390,7 @@ export function InlineReaderPane({
   const readProgressFallbackLabel = m.newsletters_readProgress({
     progress: Math.round(effectiveReadProgress),
   });
-  const readingCompleteLabel = isReadingComplete ? "Terminé" : null;
-  const readMetaLabel =
-    readEstimateLabel ?? readingCompleteLabel ?? readProgressFallbackLabel;
+  const readMetaLabel = readEstimateLabel ?? readProgressFallbackLabel;
   const canRestoreReadEstimate = isReadEstimateDismissed && !isReadingComplete;
   const favoritedValue = getIsFavorited
     ? getIsFavorited(newsletter._id, Boolean(newsletter.isFavorited))
@@ -607,7 +577,7 @@ export function InlineReaderPane({
       )}
 
       <AnimatePresence mode="wait" initial={false}>
-        {readMetaLabel && !isReadEstimateDismissed && (
+        {!isReadingComplete && readMetaLabel && !isReadEstimateDismissed && (
           <motion.div
             key={`read-estimate-${newsletterId}`}
             initial={{ opacity: 0, y: -8, scale: 0.95 }}
@@ -643,9 +613,7 @@ export function InlineReaderPane({
                 animation="smooth"
                 className="text-center"
               >
-                {isReadingComplete
-                  ? (readingCompleteLabel ?? "")
-                  : (readEstimateLabel ?? "")}
+                {readEstimateLabel ?? readProgressFallbackLabel}
               </Calligraph>
               <AnimatePresence initial={false}>
                 {isReadMetaHovered ? (

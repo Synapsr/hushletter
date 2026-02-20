@@ -30,6 +30,14 @@ interface ReaderViewProps {
   preferences?: ReaderPreferences;
   /** Callback to report estimated read time in minutes */
   onEstimatedReadMinutesChange?: (minutes: number | null) => void;
+  /** Callback to report current read progress while scrolling */
+  onReadProgressChange?: (progress: number) => void;
+  /** Optional explicit scroll container used for read-progress tracking */
+  progressContainerElement?: HTMLElement | null;
+  /** Optional signal to reset/cancel pending progress reporting state */
+  progressResetSignal?: number;
+  /** Skip the initial "content fits => 100%" auto-progress check */
+  skipInitialProgressCheck?: boolean;
 }
 
 /**
@@ -41,6 +49,8 @@ interface ReaderViewProps {
 const MAX_CACHE_SIZE = 50;
 const contentCache = new Map<string, string | null>();
 const readTimeCache = new Map<string, number | null>();
+const iframeHeightCache = new Map<string, number>();
+const contentLoadInFlight = new Map<string, Promise<void>>();
 const MIN_IFRAME_HEIGHT = 200;
 const DEFAULT_IFRAME_HEIGHT = 480;
 const IFRAME_HEIGHT_BUFFER = 4;
@@ -116,12 +126,15 @@ function stripResidualExecutableContent(doc: Document): void {
 export function clearContentCache(): void {
   contentCache.clear();
   readTimeCache.clear();
+  iframeHeightCache.clear();
+  contentLoadInFlight.clear();
 }
 
 /** Clear a specific entry from the cache (for error boundary reset) */
 export function clearCacheEntry(userNewsletterId: string): void {
   contentCache.delete(userNewsletterId);
   readTimeCache.delete(userNewsletterId);
+  iframeHeightCache.delete(userNewsletterId);
 }
 
 /**
@@ -139,6 +152,7 @@ function setCacheEntry(key: string, value: string | null): void {
     if (oldestKey !== undefined) {
       contentCache.delete(oldestKey);
       readTimeCache.delete(oldestKey);
+      iframeHeightCache.delete(oldestKey);
     }
   }
   contentCache.set(key, value);
@@ -146,6 +160,93 @@ function setCacheEntry(key: string, value: string | null): void {
 
 function setReadTimeCacheEntry(key: string, value: number | null): void {
   readTimeCache.set(key, value);
+}
+
+function getCachedReadMinutes(
+  userNewsletterId: Id<"userNewsletters">,
+  cachedDocument: string | null,
+): number | null {
+  const cachedValue = readTimeCache.get(userNewsletterId);
+  if (cachedValue !== undefined) {
+    return cachedValue ?? null;
+  }
+
+  if (!cachedDocument) {
+    setReadTimeCacheEntry(userNewsletterId, null);
+    return null;
+  }
+
+  const estimated = estimateReadMinutesFromContent(cachedDocument);
+  setReadTimeCacheEntry(userNewsletterId, estimated);
+  return estimated;
+}
+
+type NewsletterContentActionResult = {
+  contentStatus: "available" | "missing" | "error" | "locked";
+  contentUrl?: string | null;
+};
+
+type GetNewsletterWithContentFn = (args: {
+  userNewsletterId: Id<"userNewsletters">;
+}) => Promise<NewsletterContentActionResult>;
+
+async function loadReaderContentIntoCache(
+  userNewsletterId: Id<"userNewsletters">,
+  getNewsletterWithContent: GetNewsletterWithContentFn,
+): Promise<void> {
+  if (contentCache.has(userNewsletterId)) return;
+
+  const existingPromise = contentLoadInFlight.get(userNewsletterId);
+  if (existingPromise) {
+    await existingPromise;
+    return;
+  }
+
+  const loadPromise = (async () => {
+    const result = await getNewsletterWithContent({ userNewsletterId });
+
+    if (result.contentStatus === "missing") {
+      setCacheEntry(userNewsletterId, null);
+      setReadTimeCacheEntry(userNewsletterId, null);
+      iframeHeightCache.delete(userNewsletterId);
+      return;
+    }
+
+    if (result.contentStatus === "error" || !result.contentUrl) {
+      throw new Error(m.reader_contentUnavailable());
+    }
+
+    const response = await fetch(result.contentUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch content: ${response.status}`);
+    }
+
+    const rawContent = await response.text();
+    const nextEstimatedReadMinutes = estimateReadMinutesFromContent(rawContent);
+    const sanitizedDocument = buildReaderDocument(rawContent);
+
+    setCacheEntry(userNewsletterId, sanitizedDocument);
+    setReadTimeCacheEntry(userNewsletterId, nextEstimatedReadMinutes);
+  })();
+
+  contentLoadInFlight.set(userNewsletterId, loadPromise);
+  try {
+    await loadPromise;
+  } finally {
+    if (contentLoadInFlight.get(userNewsletterId) === loadPromise) {
+      contentLoadInFlight.delete(userNewsletterId);
+    }
+  }
+}
+
+export function prefetchReaderContent(
+  userNewsletterId: Id<"userNewsletters">,
+  getNewsletterWithContent: GetNewsletterWithContentFn,
+): void {
+  void loadReaderContentIntoCache(
+    userNewsletterId,
+    getNewsletterWithContent,
+  ).catch(() => {});
 }
 
 /** Escape plain text for safe HTML fallback rendering */
@@ -466,16 +567,33 @@ export function ReaderView({
   className,
   preferences,
   onEstimatedReadMinutesChange,
+  onReadProgressChange,
+  progressContainerElement,
+  progressResetSignal,
+  skipInitialProgressCheck = false,
 }: ReaderViewProps) {
+  const hasCachedContent = contentCache.has(userNewsletterId);
+  const cachedContentDocument = hasCachedContent
+    ? (contentCache.get(userNewsletterId) ?? null)
+    : null;
+  const cachedReadMinutes = hasCachedContent
+    ? getCachedReadMinutes(userNewsletterId, cachedContentDocument)
+    : null;
+  const cachedIframeHeight = iframeHeightCache.get(userNewsletterId);
+
   const { preferences: persistedPreferences } = useReaderPreferences();
-  const [contentDocument, setContentDocument] = useState<string | null>(null);
+  const [contentDocument, setContentDocument] = useState<string | null>(
+    cachedContentDocument,
+  );
   const [estimatedReadMinutes, setEstimatedReadMinutes] = useState<
     number | null
-  >(null);
+  >(cachedReadMinutes);
   // Exception: useAction doesn't have isPending, manual loading state required
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!hasCachedContent);
   const [error, setError] = useState<string | null>(null);
-  const [iframeHeight, setIframeHeight] = useState(DEFAULT_IFRAME_HEIGHT);
+  const [iframeHeight, setIframeHeight] = useState(
+    cachedIframeHeight ?? DEFAULT_IFRAME_HEIGHT,
+  );
   const [iframeMeasured, setIframeMeasured] = useState(false);
 
   // Ref for scrollable container (Story 3.4: AC1)
@@ -494,7 +612,11 @@ export function ReaderView({
   // Story 3.4: Track scroll progress with debounce
   useScrollProgress({
     containerRef: scrollContainerRef,
+    containerElement: progressContainerElement,
+    onProgressPreview: onReadProgressChange,
     onProgress: (progress) => {
+      onReadProgressChange?.(progress);
+
       // Update progress in database
       updateReadProgress({ userNewsletterId, progress });
 
@@ -505,6 +627,8 @@ export function ReaderView({
     },
     debounceMs: 2000,
     thresholdPercent: 5,
+    resetSignal: progressResetSignal,
+    skipInitialCheck: skipInitialProgressCheck || isLoading || !iframeMeasured,
   });
 
   const syncIframeHeight = useCallback(() => {
@@ -533,8 +657,9 @@ export function ReaderView({
       measuredHeight + (hasVerticalOverflow ? IFRAME_HEIGHT_BUFFER : 0),
     );
 
+    iframeHeightCache.set(userNewsletterId, nextHeight);
     setIframeHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-  }, []);
+  }, [userNewsletterId]);
 
   const handleIframeLoad = useCallback(() => {
     syncIframeHeight();
@@ -574,64 +699,33 @@ export function ReaderView({
       if (contentCache.has(userNewsletterId)) {
         const cached = contentCache.get(userNewsletterId);
         setContentDocument(cached ?? null);
-        setEstimatedReadMinutes(readTimeCache.get(userNewsletterId) ?? null);
-        setIframeHeight(DEFAULT_IFRAME_HEIGHT);
+        setEstimatedReadMinutes(
+          getCachedReadMinutes(userNewsletterId, cached ?? null),
+        );
+        setIframeHeight(
+          iframeHeightCache.get(userNewsletterId) ?? DEFAULT_IFRAME_HEIGHT,
+        );
         setIframeMeasured(false);
+        setError(null);
         setIsLoading(false);
         return;
       }
 
       setIsLoading(true);
       setError(null);
+      setContentDocument(null);
       setEstimatedReadMinutes(null);
 
       try {
-        // Get newsletter with signed content URL
-        const result = await getNewsletterWithContent({ userNewsletterId });
-
+        await loadReaderContentIntoCache(userNewsletterId, getNewsletterWithContent);
         if (cancelled) return;
 
-        // Check content status
-        if (result.contentStatus === "missing") {
-          setCacheEntry(userNewsletterId, null);
-          setReadTimeCacheEntry(userNewsletterId, null);
-          setContentDocument(null);
-          setEstimatedReadMinutes(null);
-          setIsLoading(false);
-          return;
-        }
-
-        if (result.contentStatus === "error" || !result.contentUrl) {
-          // Don't cache errors - allow retry
-          setError(m.reader_contentUnavailable());
-          setEstimatedReadMinutes(null);
-          setIsLoading(false);
-          return;
-        }
-
-        // Fetch content from signed R2 URL (HTML or plain text)
-        const response = await fetch(result.contentUrl);
-
-        if (cancelled) return;
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch content: ${response.status}`);
-        }
-
-        const rawContent = await response.text();
-
-        if (cancelled) return;
-
-        const nextEstimatedReadMinutes =
-          estimateReadMinutesFromContent(rawContent);
-        const sanitizedDocument = buildReaderDocument(rawContent);
-
-        // Cache the sanitized document (LRU eviction if at capacity)
-        setCacheEntry(userNewsletterId, sanitizedDocument);
-        setReadTimeCacheEntry(userNewsletterId, nextEstimatedReadMinutes);
-        setContentDocument(sanitizedDocument);
-        setEstimatedReadMinutes(nextEstimatedReadMinutes);
-        setIframeHeight(DEFAULT_IFRAME_HEIGHT);
+        const cached = contentCache.get(userNewsletterId) ?? null;
+        setContentDocument(cached);
+        setEstimatedReadMinutes(readTimeCache.get(userNewsletterId) ?? null);
+        setIframeHeight(
+          iframeHeightCache.get(userNewsletterId) ?? DEFAULT_IFRAME_HEIGHT,
+        );
         setIframeMeasured(false);
       } catch (err) {
         if (cancelled) return;
@@ -669,12 +763,15 @@ export function ReaderView({
     ) {
       // Small delay to ensure content is rendered and measured
       const timeoutId = setTimeout(() => {
-        scrollToProgress(scrollContainerRef, initialProgress);
+        scrollToProgress(
+          progressContainerElement ?? scrollContainerRef.current,
+          initialProgress,
+        );
       }, 100);
 
       return () => clearTimeout(timeoutId);
     }
-  }, [isLoading, contentDocument, initialProgress]);
+  }, [isLoading, contentDocument, initialProgress, progressContainerElement]);
 
   const effectivePreferences = preferences ?? persistedPreferences;
 
@@ -710,6 +807,11 @@ export function ReaderView({
 
   // Render sanitized content inside sandboxed iframe for layout fidelity and style isolation.
   // The iframe is hidden until the first height measurement to avoid a flash of clipped content.
+  const canRenderCachedFrameImmediately =
+    !isLoading &&
+    contentDocument !== null &&
+    iframeHeightCache.has(userNewsletterId);
+
   return (
     <div
       ref={scrollContainerRef}
@@ -720,7 +822,7 @@ export function ReaderView({
           READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
       }}
     >
-      {!iframeMeasured && <ContentSkeleton />}
+      {!iframeMeasured && !canRenderCachedFrameImmediately && <ContentSkeleton />}
       <iframe
         ref={iframeRef}
         title="Newsletter content"
@@ -734,8 +836,11 @@ export function ReaderView({
           minHeight: MIN_IFRAME_HEIGHT,
           backgroundColor:
             READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
-          opacity: iframeMeasured ? 1 : 0,
-          position: iframeMeasured ? "relative" : "absolute",
+          opacity: iframeMeasured || canRenderCachedFrameImmediately ? 1 : 0,
+          position:
+            iframeMeasured || canRenderCachedFrameImmediately
+              ? "relative"
+              : "absolute",
         }}
         onLoad={handleIframeLoad}
       />
@@ -748,10 +853,9 @@ export function ReaderView({
  * Story 3.4: AC2 - Resume reading from saved position
  */
 function scrollToProgress(
-  containerRef: React.RefObject<HTMLElement | null>,
+  container: HTMLElement | null,
   progress: number,
 ): void {
-  const container = containerRef.current;
   if (!container) return;
 
   const { scrollHeight, clientHeight } = container;

@@ -3,12 +3,20 @@ import { useEffect, useRef, useCallback } from "react"
 interface UseScrollProgressOptions {
   /** Ref to the scrollable container element */
   containerRef: React.RefObject<HTMLElement | null>
+  /** Optional explicit container element to observe instead of the ref */
+  containerElement?: HTMLElement | null
   /** Callback fired when progress changes significantly */
   onProgress: (progress: number) => void
+  /** Optional callback fired immediately on every scroll calculation */
+  onProgressPreview?: (progress: number) => void
   /** Debounce delay in milliseconds (default: 2000) */
   debounceMs?: number
   /** Minimum progress change threshold to trigger callback (default: 5) */
   thresholdPercent?: number
+  /** Optional signal to clear pending debounced updates and reset last reported progress */
+  resetSignal?: number
+  /** Skip initial "content fits => report 100%" check on mount/effect */
+  skipInitialCheck?: boolean
 }
 
 interface UseScrollProgressReturn {
@@ -39,15 +47,27 @@ interface UseScrollProgressReturn {
  */
 export function useScrollProgress({
   containerRef,
+  containerElement,
   onProgress,
+  onProgressPreview,
   debounceMs = 2000,
   thresholdPercent = 5,
+  resetSignal,
+  skipInitialCheck = false,
 }: UseScrollProgressOptions): UseScrollProgressReturn {
   const lastReportedProgress = useRef(0)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = undefined
+    }
+    lastReportedProgress.current = 0
+  }, [resetSignal])
+
   const calculateProgress = useCallback(() => {
-    const container = containerRef.current
+    const container = containerElement ?? containerRef.current
     if (!container) return 0
 
     const { scrollTop, scrollHeight, clientHeight } = container
@@ -58,7 +78,7 @@ export function useScrollProgress({
 
     const progress = Math.round((scrollTop / scrollableHeight) * 100)
     return Math.min(100, Math.max(0, progress))
-  }, [containerRef])
+  }, [containerRef, containerElement])
 
   const reportProgress = useCallback(
     (progress: number) => {
@@ -74,11 +94,12 @@ export function useScrollProgress({
   )
 
   useEffect(() => {
-    const container = containerRef.current
+    const container = containerElement ?? containerRef.current
     if (!container) return
 
     const handleScroll = () => {
       const progress = calculateProgress()
+      onProgressPreview?.(progress)
 
       // Clear previous timeout
       if (timeoutRef.current) {
@@ -99,11 +120,13 @@ export function useScrollProgress({
 
     container.addEventListener("scroll", handleScroll)
 
-    // Check initial state - if content fits without scrolling, report 100% immediately
-    // This handles short newsletters that don't require scrolling
-    const initialProgress = calculateProgress()
-    if (initialProgress === 100) {
-      reportProgress(100)
+    // Check initial state - if content fits without scrolling, report 100% immediately.
+    // This handles short newsletters that don't require scrolling.
+    if (!skipInitialCheck) {
+      const initialProgress = calculateProgress()
+      if (initialProgress === 100) {
+        reportProgress(100)
+      }
     }
 
     return () => {
@@ -112,7 +135,16 @@ export function useScrollProgress({
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [containerRef, calculateProgress, reportProgress, debounceMs])
+  }, [
+    containerRef,
+    containerElement,
+    calculateProgress,
+    reportProgress,
+    debounceMs,
+    skipInitialCheck,
+    resetSignal,
+    onProgressPreview,
+  ])
 
   return { calculateProgress }
 }

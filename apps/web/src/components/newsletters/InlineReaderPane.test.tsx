@@ -8,6 +8,8 @@ const mockUseQuery = vi.fn();
 const mockHideNewsletter = vi.fn();
 const mockUnhideNewsletter = vi.fn();
 const mockMarkRead = vi.fn();
+const mockMarkUnread = vi.fn();
+const mockBinNewsletter = vi.fn();
 const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
 
@@ -29,6 +31,8 @@ vi.mock("@hushletter/backend", () => ({
       hideNewsletter: "hideNewsletter",
       unhideNewsletter: "unhideNewsletter",
       markNewsletterRead: "markNewsletterRead",
+      markNewsletterUnread: "markNewsletterUnread",
+      binNewsletter: "binNewsletter",
     },
     share: {
       ensureNewsletterShareToken: "ensureNewsletterShareToken",
@@ -41,6 +45,8 @@ vi.mock("convex/react", () => ({
     if (mutationRef === "hideNewsletter") return mockHideNewsletter;
     if (mutationRef === "unhideNewsletter") return mockUnhideNewsletter;
     if (mutationRef === "markNewsletterRead") return mockMarkRead;
+    if (mutationRef === "markNewsletterUnread") return mockMarkUnread;
+    if (mutationRef === "binNewsletter") return mockBinNewsletter;
     return vi.fn();
   },
 }));
@@ -144,6 +150,8 @@ describe("InlineReaderPane archive/unarchive flow", () => {
     mockHideNewsletter.mockResolvedValue(undefined);
     mockUnhideNewsletter.mockResolvedValue(undefined);
     mockMarkRead.mockResolvedValue(undefined);
+    mockMarkUnread.mockResolvedValue(undefined);
+    mockBinNewsletter.mockResolvedValue(undefined);
   });
 
   afterEach(() => {

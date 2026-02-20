@@ -16,7 +16,7 @@ import {
 } from "@/components/FolderSidebar";
 import { SenderFolderSidebar } from "@/components/newsletters/SenderFolderSidebar";
 import { InlineReaderPane } from "@/components/newsletters/InlineReaderPane";
-import { ContentSkeleton } from "@/components/ReaderView";
+import { ContentSkeleton, prefetchReaderContent } from "@/components/ReaderView";
 import { WelcomeSidebar } from "@/components/newsletters/WelcomeSidebar";
 import { WelcomeReaderPane } from "@/components/newsletters/WelcomeReaderPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -85,6 +85,11 @@ interface GetPostEmptyBinSearchArgs {
   selectedNewsletterId?: string | null;
 }
 
+interface GetFilterSelectionSearchArgs {
+  filter: FilterType | null;
+  selectedNewsletterId?: string;
+}
+
 function isValidConvexId(id: string | undefined): boolean {
   if (!id || typeof id !== "string") return false;
   return id.length > 0 && id.trim() === id && !/\s/.test(id);
@@ -127,6 +132,16 @@ export function getPostEmptyBinSearch({
   // selectedNewsletterId is accepted for call-site clarity.
   void selectedNewsletterId;
   return { filter: FILTER_BIN };
+}
+
+export function getFilterSelectionSearch({
+  filter,
+  selectedNewsletterId,
+}: GetFilterSelectionSearchArgs): NewsletterSearchParams {
+  return {
+    ...(filter ? { filter } : {}),
+    ...(selectedNewsletterId ? { newsletter: selectedNewsletterId } : {}),
+  };
 }
 
 export function validateNewsletterSearch(
@@ -215,6 +230,8 @@ function ReaderPaneSkeleton() {
       {/* Action bar skeleton — matches ReaderActionBar's px-6 py-2 border-b */}
       <div className="flex items-center justify-between px-6 py-2 border-b bg-background/95">
         <div className="flex items-center gap-1">
+          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="h-4 w-px" />
           <Skeleton className="h-8 w-8 rounded-md" />
           <Skeleton className="h-8 w-8 rounded-md" />
         </div>
@@ -328,16 +345,15 @@ function NewslettersPage() {
 
   // Mobile sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isReaderFullscreen, setIsReaderFullscreen] = useState(false);
   const [pendingFilter, setPendingFilter] = useState<
     FilterType | null | undefined
   >(undefined);
   const effectiveFilter: FilterType | null =
     pendingFilter !== undefined ? pendingFilter : (filterParam ?? null);
-  const isFilterTransitioning =
-    pendingFilter !== undefined && (filterParam ?? null) !== pendingFilter;
-  const effectiveNewsletterId = isFilterTransitioning
-    ? undefined
-    : newsletterIdParam;
+  // Keep the reader mounted during filter transitions to avoid
+  // skeleton -> empty -> skeleton flicker for an already selected newsletter.
+  const effectiveNewsletterId = newsletterIdParam;
 
   useEffect(() => {
     if (pendingFilter === undefined) return;
@@ -345,6 +361,11 @@ function NewslettersPage() {
       setPendingFilter(undefined);
     }
   }, [pendingFilter, filterParam]);
+
+  useEffect(() => {
+    if (effectiveNewsletterId) return;
+    setIsReaderFullscreen(false);
+  }, [effectiveNewsletterId]);
 
   // Restore last read newsletter on desktop when no newsletter param
   useEffect(() => {
@@ -413,16 +434,18 @@ function NewslettersPage() {
     !isFilteringByHidden &&
     !isFilteringByStarred &&
     !isFilteringByBinned;
-  const shouldFetchDesktopEmptyPaneList = isDesktop && !effectiveNewsletterId;
-  const headListSize = isDesktop ? 12 : 30;
+  const headListSize = isDesktop
+    ? effectiveNewsletterId
+      ? 30
+      : 12
+    : 30;
 
   // Reactive head pages (subscribed) for the active list only.
   // Important: with @convex-dev/react-query, you must pass args === "skip" to avoid subscriptions.
   const { data: allHead, isPending: allHeadPending } = useQuery(
     convexQuery(
       api.newsletters.listAllNewslettersHead,
-      (!isDesktop || shouldFetchDesktopEmptyPaneList) &&
-        !isFilteringByFolder &&
+      !isFilteringByFolder &&
         !isFilteringByHidden &&
         !isFilteringByStarred &&
         !isFilteringByBinned
@@ -434,7 +457,7 @@ function NewslettersPage() {
   const { data: folderHead, isPending: folderHeadPending } = useQuery(
     convexQuery(
       api.newsletters.listUserNewslettersByFolderHead,
-      (!isDesktop || shouldFetchDesktopEmptyPaneList) && isFilteringByFolder
+      isFilteringByFolder
         ? { folderId: folderIdParam as Id<"folders">, numItems: headListSize }
         : "skip",
     ),
@@ -484,27 +507,15 @@ function NewslettersPage() {
         ? folderHead
         : allHead;
 
-  // On desktop, allHead and folderHead queries are skipped (their data comes
-  // from SenderFolderSidebar instead). Skipped queries report isPending=true
-  // permanently, so treat them as not pending to avoid an infinite skeleton.
-  const isActiveQuerySkipped =
-    isDesktop &&
-    !shouldFetchDesktopEmptyPaneList &&
-    !isFilteringByHidden &&
-    !isFilteringByStarred &&
-    !isFilteringByBinned;
-
-  const activeHeadPending = isActiveQuerySkipped
-    ? false
-    : isFilteringByHidden
-      ? hiddenHeadPending
-      : isFilteringByStarred
-        ? favoritedHeadPending
-        : isFilteringByBinned
-          ? binnedHeadPending
-        : isFilteringByFolder
-          ? folderHeadPending
-          : allHeadPending;
+  const activeHeadPending = isFilteringByHidden
+    ? hiddenHeadPending
+    : isFilteringByStarred
+      ? favoritedHeadPending
+      : isFilteringByBinned
+        ? binnedHeadPending
+      : isFilteringByFolder
+        ? folderHeadPending
+        : allHeadPending;
 
   const listAllPage = useAction(api.newsletters.listAllNewslettersPage);
   const listFolderPage = useAction(
@@ -516,6 +527,9 @@ function NewslettersPage() {
   );
   const listBinnedPage = useAction(
     (api.newsletters as any).listBinnedNewslettersPage,
+  );
+  const getNewsletterWithContent = useAction(
+    api.newsletters.getUserNewsletterWithContent,
   );
   const emptyBinAction = useAction((api.newsletters as any).emptyBin);
 
@@ -662,13 +676,20 @@ function NewslettersPage() {
     setPendingFilter(filter);
     navigate({
       to: "/newsletters",
-      search: filter ? { filter } : {},
+      search: getFilterSelectionSearch({
+        filter,
+        selectedNewsletterId: newsletterIdParam,
+      }),
     });
     setSidebarOpen(false);
   };
 
   // Handle newsletter selection for inline reader
   const handleNewsletterSelect = (id: string) => {
+    prefetchReaderContent(
+      id as Id<"userNewsletters">,
+      getNewsletterWithContent,
+    );
     navigate({
       to: "/newsletters",
       search: {
@@ -745,6 +766,28 @@ function NewslettersPage() {
       })),
     [visibleNewsletterList],
   );
+  const selectedNewsletterIndex = useMemo(
+    () =>
+      effectiveNewsletterId
+        ? visibleNewsletterList.findIndex(
+            (newsletter) => newsletter._id === effectiveNewsletterId,
+          )
+        : -1,
+    [effectiveNewsletterId, visibleNewsletterList],
+  );
+  const previousNewsletterId =
+    selectedNewsletterIndex > 0
+      ? visibleNewsletterList[selectedNewsletterIndex - 1]?._id ?? null
+      : null;
+  const nextNewsletterId =
+    selectedNewsletterIndex >= 0 &&
+    selectedNewsletterIndex < visibleNewsletterList.length - 1
+      ? visibleNewsletterList[selectedNewsletterIndex + 1]?._id ?? null
+      : null;
+
+  const handleToggleInlineFullscreen = useCallback(() => {
+    setIsReaderFullscreen((current) => !current);
+  }, []);
 
   const autoSelectedStarredNewsletterId = getStarredAutoSelectionId({
     isDesktop,
@@ -823,6 +866,7 @@ function NewslettersPage() {
 
   // ── Desktop layout: split-pane ──
   // Left: SenderFolderSidebar | Right: InlineReaderPane or empty state
+  const showDesktopSidebar = !isReaderFullscreen || !effectiveNewsletterId;
   const desktopLayout = isGlobalEmpty ? (
     <div className="hidden md:flex h-full">
       <WelcomeSidebar />
@@ -830,7 +874,16 @@ function NewslettersPage() {
     </div>
   ) : (
     <div className="hidden md:flex h-full">
-      <SenderFolderSidebar {...senderFolderSidebarProps} />
+      <div
+        className={`h-full shrink-0 overflow-hidden transition-[width,opacity] duration-200 ease-in-out [&>aside]:h-full ${
+          showDesktopSidebar
+            ? "w-[300px] opacity-100"
+            : "w-0 opacity-0 pointer-events-none"
+        }`}
+        aria-hidden={!showDesktopSidebar}
+      >
+        <SenderFolderSidebar {...senderFolderSidebarProps} />
+      </div>
 
       {effectiveNewsletterId ? (
         <InlineReaderPane
@@ -839,6 +892,20 @@ function NewslettersPage() {
           getIsFavorited={getIsFavorited}
           isFavoritePending={isFavoritePending}
           onToggleFavorite={onToggleFavorite}
+          canGoPrevious={Boolean(previousNewsletterId)}
+          canGoNext={Boolean(nextNewsletterId)}
+          onPrevious={
+            previousNewsletterId
+              ? () => handleNewsletterSelect(previousNewsletterId)
+              : undefined
+          }
+          onNext={
+            nextNewsletterId
+              ? () => handleNewsletterSelect(nextNewsletterId)
+              : undefined
+          }
+          onOpenFullscreen={handleToggleInlineFullscreen}
+          isFullscreen={isReaderFullscreen}
         />
       ) : activeListPending ? (
         <ReaderPaneSkeleton />

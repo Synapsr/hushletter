@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  getFilterSelectionSearch,
   getPostEmptyBinSearch,
   getStarredAutoSelectionId,
   validateNewsletterSearch,
@@ -124,5 +125,30 @@ describe("getPostEmptyBinSearch", () => {
         selectedNewsletterId: "k123newsletter",
       }),
     ).toBeNull();
+  });
+});
+
+describe("getFilterSelectionSearch", () => {
+  it("keeps selected newsletter while switching filters", () => {
+    expect(
+      getFilterSelectionSearch({
+        filter: "hidden",
+        selectedNewsletterId: "k123newsletter",
+      }),
+    ).toEqual({
+      filter: "hidden",
+      newsletter: "k123newsletter",
+    });
+  });
+
+  it("returns only newsletter when clearing filter", () => {
+    expect(
+      getFilterSelectionSearch({
+        filter: null,
+        selectedNewsletterId: "k123newsletter",
+      }),
+    ).toEqual({
+      newsletter: "k123newsletter",
+    });
   });
 });

@@ -17,6 +17,14 @@ import {
   CheckCircleSolid,
   ClockCircle,
   EditOne,
+  Share,
+  Mail,
+  MailOpen,
+  CornerUpLeft,
+  MinusCircle,
+  Dots,
+  Glasses,
+  Sparkles,
 } from "@mynaui/icons-react";
 import SolarArchiveBold from "./SolarArchiveBold";
 import SolarArchiveLinear from "./SolarArchiveLinear";
@@ -49,4 +57,12 @@ export {
   ClockCircle as ClockCircleIcon,
   BookOpen as BookOpenIcon,
   EditOne as EditOneIcon,
+  Share as ShareIcon,
+  Mail as MailIcon,
+  MailOpen as MailOpenIcon,
+  CornerUpLeft as CornerUpLeftIcon,
+  MinusCircle as MinusCircleIcon,
+  Dots as DotsIcon,
+  Glasses as GlassesIcon,
+  Sparkles as SparklesIcon,
 };

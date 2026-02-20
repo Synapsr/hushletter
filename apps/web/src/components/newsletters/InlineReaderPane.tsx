@@ -7,6 +7,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { Button, ScrollArea, Skeleton } from "@hushletter/ui";
 import { toast } from "sonner";
+import { Check, X } from "lucide-react";
 import {
   ReaderView,
   ContentSkeleton,
@@ -17,7 +18,7 @@ import {
   useReaderPreferences,
 } from "@/hooks/useReaderPreferences";
 import { ReaderActionBar } from "./ReaderActionBar";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { FloatingSummaryPanel } from "./FloatingSummaryPanel";
 import { m } from "@/paraglide/messages.js";
 
@@ -29,6 +30,12 @@ interface InlineReaderPaneProps {
     newsletterId: string,
     currentValue: boolean,
   ) => Promise<void>;
+  canGoPrevious?: boolean;
+  canGoNext?: boolean;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  onOpenFullscreen?: () => void;
+  isFullscreen?: boolean;
 }
 
 interface NewsletterMetadata {
@@ -45,6 +52,10 @@ interface NewsletterMetadata {
   contentStatus: "available" | "missing" | "error" | "locked";
   source?: "email" | "gmail" | "manual" | "community";
 }
+
+// Dev-only debug memory that survives InlineReaderPane remounts when switching newsletters.
+const debugResetSkipInitialIds = new Set<string>();
+const dismissedReadEstimateIds = new Set<string>();
 
 function ContentErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   console.error("[InlineReader] Content error:", error);
@@ -69,6 +80,8 @@ function ReaderSkeleton() {
       {/* Action bar skeleton — matches ReaderActionBar's px-6 py-2 border-b */}
       <div className="flex items-center justify-between px-6 py-2 border-b bg-background/95">
         <div className="flex items-center gap-1">
+          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="h-4 w-px" />
           <Skeleton className="h-8 w-8 rounded-md" />
           <Skeleton className="h-8 w-8 rounded-md" />
         </div>
@@ -100,6 +113,12 @@ export function InlineReaderPane({
   getIsFavorited,
   isFavoritePending,
   onToggleFavorite,
+  canGoPrevious = false,
+  canGoNext = false,
+  onPrevious,
+  onNext,
+  onOpenFullscreen,
+  isFullscreen = false,
 }: InlineReaderPaneProps) {
   const { preferences, setBackground, setFont, setFontSize } =
     useReaderPreferences();
@@ -107,11 +126,25 @@ export function InlineReaderPane({
     READER_BACKGROUND_OPTIONS[preferences.background].color;
   const paneRef = useRef<HTMLDivElement>(null);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [isAppearanceOpen, setIsAppearanceOpen] = useState(false);
   const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
   const [isArchivePending, setIsArchivePending] = useState(false);
+  const [isReadTogglePending, setIsReadTogglePending] = useState(false);
+  const [isBinPending, setIsBinPending] = useState(false);
+  const [isDebugResetPending, setIsDebugResetPending] = useState(false);
+  const [progressContainerElement, setProgressContainerElement] =
+    useState<HTMLElement | null>(null);
+  const [debugLiveReadProgress, setDebugLiveReadProgress] = useState<
+    number | null
+  >(null);
+  const [debugProgressResetSignal, setDebugProgressResetSignal] = useState(0);
+  const [skipInitialReadProgressCheck, setSkipInitialReadProgressCheck] =
+    useState(false);
   const [estimatedReadMinutes, setEstimatedReadMinutes] = useState<
     number | null
   >(null);
+  const [isReadEstimateDismissed, setIsReadEstimateDismissed] = useState(false);
+  const [isReadMetaHovered, setIsReadMetaHovered] = useState(false);
   const { data: entitlementsData } = useQuery(
     convexQuery(api.entitlements.getEntitlements, {}),
   );
@@ -123,9 +156,17 @@ export function InlineReaderPane({
     }),
   );
   const newsletter = data as NewsletterMetadata | null | undefined;
+  const showReadStateDebugOverlay =
+    import.meta.env.DEV && import.meta.env.MODE !== "test";
 
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
   const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
+  const markNewsletterRead = useMutation(api.newsletters.markNewsletterRead);
+  const markNewsletterUnread = useMutation(
+    api.newsletters.markNewsletterUnread,
+  );
+  const binNewsletter = useMutation((api.newsletters as any).binNewsletter);
+  const setReadProgress = useMutation(api.newsletters.setReadProgress);
   const ensureNewsletterShareToken = useMutation(
     api.share.ensureNewsletterShareToken,
   );
@@ -133,6 +174,83 @@ export function InlineReaderPane({
   useEffect(() => {
     setEstimatedReadMinutes(null);
   }, [newsletterId]);
+
+  useEffect(() => {
+    setIsReadEstimateDismissed(dismissedReadEstimateIds.has(newsletterId));
+    setIsReadMetaHovered(false);
+  }, [newsletterId]);
+
+  useEffect(() => {
+    setDebugProgressResetSignal(0);
+    setSkipInitialReadProgressCheck(
+      showReadStateDebugOverlay && debugResetSkipInitialIds.has(newsletterId),
+    );
+    setDebugLiveReadProgress(null);
+  }, [newsletterId, showReadStateDebugOverlay]);
+
+  useEffect(() => {
+    let rafId = 0;
+    const resolveProgressContainer = () => {
+      const viewport = paneRef.current?.querySelector<HTMLElement>(
+        "[data-slot='scroll-area-viewport']",
+      );
+      setProgressContainerElement(viewport ?? null);
+    };
+
+    resolveProgressContainer();
+    rafId = window.requestAnimationFrame(resolveProgressContainer);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [newsletterId]);
+
+  useEffect(() => {
+    if (!isAppearanceOpen) return;
+
+    const handlePointerDownCapture = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const isInsideAppearanceTrigger = Boolean(
+        target.closest("[data-slot='popover-trigger']"),
+      );
+      const isInsideAppearancePopup = Boolean(
+        target.closest("[data-slot='popover-popup']"),
+      );
+      const isInsideAppearanceSelect = Boolean(
+        target.closest(
+          "[data-slot='select-trigger'], [data-slot='select-content']",
+        ),
+      );
+
+      if (
+        isInsideAppearanceTrigger ||
+        isInsideAppearancePopup ||
+        isInsideAppearanceSelect
+      ) {
+        return;
+      }
+
+      setIsAppearanceOpen(false);
+    };
+
+    const handleWindowBlur = () => {
+      setIsAppearanceOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDownCapture, true);
+    window.addEventListener("blur", handleWindowBlur);
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDownCapture,
+        true,
+      );
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, [isAppearanceOpen]);
 
   if (isPending) {
     return (
@@ -231,6 +349,44 @@ export function InlineReaderPane({
 
   const date = new Date(newsletter.receivedAt);
   const senderDisplay = newsletter.senderName || newsletter.senderEmail;
+  const hasReadEstimate =
+    estimatedReadMinutes !== undefined && estimatedReadMinutes !== null;
+  console.log({ estimatedReadMinutes });
+  const persistedReadProgress =
+    typeof newsletter.readProgress === "number" ? newsletter.readProgress : 0;
+  const effectiveReadProgress = Math.min(
+    100,
+    Math.max(
+      0,
+      typeof debugLiveReadProgress === "number"
+        ? debugLiveReadProgress
+        : persistedReadProgress,
+    ),
+  );
+  const remainingReadMinutes = hasReadEstimate
+    ? (() => {
+        const totalMinutes = estimatedReadMinutes;
+        if (totalMinutes === null) return null;
+        if (totalMinutes < 1) return 0;
+
+        const remainingRatio = 1 - effectiveReadProgress / 100;
+        const rawRemainingMinutes = totalMinutes * remainingRatio;
+        if (rawRemainingMinutes < 1) return 0;
+        return Math.ceil(rawRemainingMinutes);
+      })()
+    : null;
+  const isReadingComplete = newsletter.isRead || effectiveReadProgress >= 100;
+
+  console.log({ isReadingComplete, hasReadEstimate, remainingReadMinutes });
+  const readEstimateLabel =
+    !isReadingComplete && remainingReadMinutes !== null
+      ? remainingReadMinutes < 1
+        ? m.reader_minuteRead({ minutes: "<1" })
+        : m.reader_minuteRead({ minutes: remainingReadMinutes })
+      : null;
+  const readingCompleteLabel = isReadingComplete ? "Terminé" : null;
+  const readMetaLabel = readEstimateLabel ?? readingCompleteLabel;
+  const canRestoreReadEstimate = isReadEstimateDismissed;
   const favoritedValue = getIsFavorited
     ? getIsFavorited(newsletter._id, Boolean(newsletter.isFavorited))
     : Boolean(newsletter.isFavorited);
@@ -270,6 +426,71 @@ export function InlineReaderPane({
     }
   };
 
+  const handleDebugResetReadState = async () => {
+    if (!showReadStateDebugOverlay || isDebugResetPending) return;
+
+    debugResetSkipInitialIds.add(newsletterId);
+    setDebugProgressResetSignal((prev) => prev + 1);
+    setSkipInitialReadProgressCheck(true);
+    setDebugLiveReadProgress(0);
+
+    progressContainerElement?.scrollTo({ top: 0, behavior: "auto" });
+
+    setIsDebugResetPending(true);
+    try {
+      await setReadProgress({ userNewsletterId: newsletterId, progress: 0 });
+      await markNewsletterUnread({ userNewsletterId: newsletterId });
+      toast.success("Debug: read state reset");
+    } catch {
+      toast.error("Debug reset failed");
+    } finally {
+      setIsDebugResetPending(false);
+    }
+  };
+
+  const handleToggleRead = async () => {
+    if (isReadTogglePending) return;
+
+    setIsReadTogglePending(true);
+    try {
+      if (newsletter.isRead) {
+        await markNewsletterUnread({ userNewsletterId: newsletterId });
+        return;
+      }
+      await markNewsletterRead({ userNewsletterId: newsletterId });
+    } catch (error) {
+      console.error("[InlineReaderPane] Failed to update read status:", error);
+      toast.error(m.common_error());
+    } finally {
+      setIsReadTogglePending(false);
+    }
+  };
+
+  const handleBin = async () => {
+    if (isBinPending) return;
+
+    setIsBinPending(true);
+    try {
+      await binNewsletter({ userNewsletterId: newsletterId });
+      toast.success("Moved to bin");
+    } catch (error) {
+      console.error(
+        "[InlineReaderPane] Failed to move newsletter to bin:",
+        error,
+      );
+      toast.error("Failed to move newsletter to bin");
+    } finally {
+      setIsBinPending(false);
+    }
+  };
+
+  const handleRestoreReadEstimate = () => {
+    dismissedReadEstimateIds.delete(newsletterId);
+    setIsReadEstimateDismissed(false);
+  };
+
+  console.log("effectiveReadProgress", readEstimateLabel);
+
   return (
     <div
       ref={paneRef}
@@ -291,14 +512,26 @@ export function InlineReaderPane({
         onArchive={handleArchive}
         onToggleFavorite={handleFavoriteToggle}
         onShare={handleShare}
-        estimatedReadMinutes={estimatedReadMinutes ?? undefined}
+        onToggleRead={isReadTogglePending ? undefined : handleToggleRead}
+        onBin={handleBin}
+        isBinPending={isBinPending}
         preferences={preferences}
         onBackgroundChange={setBackground}
         onFontChange={setFont}
         onFontSizeChange={setFontSize}
         isPro={isPro}
+        isAppearanceOpen={isAppearanceOpen}
+        onAppearanceOpenChange={setIsAppearanceOpen}
         onToggleSummary={() => setIsSummaryOpen((prev) => !prev)}
         isSummaryOpen={isSummaryOpen}
+        canGoPrevious={canGoPrevious}
+        canGoNext={canGoNext}
+        onPrevious={onPrevious}
+        onNext={onNext}
+        onOpenFullscreen={onOpenFullscreen}
+        isFullscreen={isFullscreen}
+        isReadEstimateHidden={canRestoreReadEstimate}
+        onShowReadEstimate={handleRestoreReadEstimate}
       />
 
       <AnimatePresence>
@@ -311,57 +544,122 @@ export function InlineReaderPane({
         )}
       </AnimatePresence>
 
+      {showReadStateDebugOverlay && (
+        <div className="absolute right-4 top-14 z-30 rounded-md border border-amber-400/60 bg-amber-50/95 px-2.5 py-1.5 text-[11px] font-mono text-amber-900 shadow-sm">
+          <p>
+            readProgress:{" "}
+            {typeof debugLiveReadProgress === "number"
+              ? `${Math.round(debugLiveReadProgress)}%`
+              : typeof newsletter.readProgress === "number"
+                ? `${Math.round(newsletter.readProgress)}%`
+                : "n/a"}
+          </p>
+          <p>isRead: {newsletter.isRead ? "true" : "false"}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2 h-6 border-amber-400/70 bg-amber-100 px-2 text-[10px] text-amber-900 hover:bg-amber-200"
+            disabled={isDebugResetPending}
+            onClick={() => void handleDebugResetReadState()}
+          >
+            {isDebugResetPending ? "Resetting..." : "Reset read + viewed"}
+          </Button>
+        </div>
+      )}
+
       {favoriteFeedback && (
         <div className="px-6 py-2 text-xs text-destructive" role="status">
           {favoriteFeedback}
         </div>
       )}
 
+      <AnimatePresence mode="wait" initial={false}>
+        {readMetaLabel && !isReadEstimateDismissed && (
+          <motion.div
+            key={`read-estimate-${newsletterId}`}
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute left-1/2 top-14 z-20 -translate-x-1/2"
+          >
+            <motion.div
+              layout
+              onHoverStart={() => {
+                setIsReadMetaHovered(true);
+              }}
+              onHoverEnd={() => {
+                setIsReadMetaHovered(false);
+              }}
+              onFocusCapture={() => {
+                setIsReadMetaHovered(true);
+              }}
+              onBlurCapture={(event) => {
+                const nextFocused = event.relatedTarget;
+                if (
+                  !(nextFocused instanceof Node) ||
+                  !event.currentTarget.contains(nextFocused)
+                ) {
+                  setIsReadMetaHovered(false);
+                }
+              }}
+              className="inline-flex items-center rounded-full border border-border/60 bg-background/90 px-2 py-0.5 text-xs text-muted-foreground shadow-sm backdrop-blur"
+            >
+              {isReadingComplete ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {readingCompleteLabel}
+                  </span>
+                </>
+              ) : (
+                <span className="">{readEstimateLabel}</span>
+              )}
+              <AnimatePresence initial={false}>
+                {isReadMetaHovered ? (
+                  <motion.div
+                    key={`dismiss-read-meta-${newsletterId}`}
+                    initial={{ width: 0, opacity: 0, marginLeft: 0 }}
+                    animate={{ width: 16, opacity: 1, marginLeft: 4 }}
+                    exit={{ width: 0, opacity: 0, marginLeft: 0 }}
+                    transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <motion.button
+                      type="button"
+                      aria-label="Hide read time"
+                      onClick={() => {
+                        dismissedReadEstimateIds.add(newsletterId);
+                        setIsReadEstimateDismissed(true);
+                      }}
+                      className="flex size-4 items-center justify-center rounded-full text-muted-foreground/80 hover:bg-accent hover:text-foreground"
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.92 }}
+                    >
+                      <X className="h-3 w-3" />
+                    </motion.button>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <ScrollArea
         className="flex-1"
         style={{ backgroundColor: paneBackgroundColor }}
+        onPointerDownCapture={() => {
+          setIsAppearanceOpen(false);
+        }}
       >
-        {/* Newsletter header */}
-        {/*   <div className="px-6 pt-6 pb-4 max-w-3xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <SenderAvatar
-              senderName={newsletter.senderName}
-              senderEmail={newsletter.senderEmail}
-              size="lg"
-            />
-            <div>
-              <p className="font-semibold text-foreground">{senderDisplay}</p>
-              <p className="text-sm text-muted-foreground">
-                <time dateTime={date.toISOString()}>
-                  {date.toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </time>
-                {newsletter.senderName && (
-                  <span> &middot; {newsletter.senderEmail}</span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            {newsletter.subject}
-          </h1>
-
-          <hr className="my-6 border-border" />
-        </div> */}
-
-        {/* AI Summary */}
-        {/* <div className="px-6 max-w-3xl mx-auto">
-          <ErrorBoundary FallbackComponent={SummaryErrorFallback}>
-            <SummaryPanel userNewsletterId={newsletterId} />
-          </ErrorBoundary>
-        </div> */}
-
         {/* Newsletter content */}
-        <div className="px-6 pt-6 pb-12 max-w-3xl mx-auto ">
+        <div
+          className="px-6 pt-16 pb-12 max-w-3xl mx-auto "
+          onPointerDownCapture={() => {
+            setIsAppearanceOpen(false);
+          }}
+        >
           <ErrorBoundary
             FallbackComponent={ContentErrorFallback}
             onReset={handleContentReset}
@@ -372,6 +670,10 @@ export function InlineReaderPane({
               className="max-h-none overflow-visible"
               preferences={preferences}
               onEstimatedReadMinutesChange={setEstimatedReadMinutes}
+              onReadProgressChange={setDebugLiveReadProgress}
+              progressContainerElement={progressContainerElement}
+              progressResetSignal={debugProgressResetSignal}
+              skipInitialProgressCheck={skipInitialReadProgressCheck}
             />
           </ErrorBoundary>
         </div>

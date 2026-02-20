@@ -98,13 +98,34 @@ describe("useScrollProgress hook", () => {
     expect(onProgress).toHaveBeenCalledTimes(1)
   })
 
-  it("debounces progress updates", () => {
+  it("skips initial 100% report when skipInitialCheck is true", () => {
+    Object.defineProperties(mockContainer, {
+      scrollHeight: { value: 400 },
+      clientHeight: { value: 500 },
+    })
+
     const onProgress = vi.fn()
 
     renderHook(() =>
       useScrollProgress({
         containerRef,
         onProgress,
+        skipInitialCheck: true,
+      })
+    )
+
+    expect(onProgress).not.toHaveBeenCalled()
+  })
+
+  it("debounces progress updates", () => {
+    const onProgress = vi.fn()
+    const onProgressPreview = vi.fn()
+
+    renderHook(() =>
+      useScrollProgress({
+        containerRef,
+        onProgress,
+        onProgressPreview,
         debounceMs: 2000,
         thresholdPercent: 5,
       })
@@ -115,6 +136,8 @@ describe("useScrollProgress hook", () => {
     act(() => {
       mockContainer.dispatchEvent(new Event("scroll"))
     })
+
+    expect(onProgressPreview).toHaveBeenCalledWith(50)
 
     // Progress callback should not be called immediately
     expect(onProgress).not.toHaveBeenCalled()
@@ -255,6 +278,35 @@ describe("useScrollProgress hook", () => {
     })
 
     // Callback should not be called after unmount
+    expect(onProgress).not.toHaveBeenCalled()
+  })
+
+  it("clears pending timeout when resetSignal changes", () => {
+    const onProgress = vi.fn()
+
+    const { rerender } = renderHook(
+      ({ resetSignal }) =>
+        useScrollProgress({
+          containerRef,
+          onProgress,
+          debounceMs: 5000,
+          thresholdPercent: 0,
+          resetSignal,
+        }),
+      { initialProps: { resetSignal: 0 } }
+    )
+
+    Object.defineProperty(mockContainer, "scrollTop", { value: 250 })
+    act(() => {
+      mockContainer.dispatchEvent(new Event("scroll"))
+    })
+
+    rerender({ resetSignal: 1 })
+
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+
     expect(onProgress).not.toHaveBeenCalled()
   })
 })

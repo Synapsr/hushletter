@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   EditOneIcon,
 } from "@hushletter/ui";
-import { MoreHorizontal, Pencil, EyeOff, Merge } from "lucide-react";
+import { MoreHorizontal, Merge } from "lucide-react";
 import { RenameFolderDialog } from "./RenameFolderDialog";
 import { MergeFolderDialog } from "./MergeFolderDialog";
 import { m } from "@/paraglide/messages.js";

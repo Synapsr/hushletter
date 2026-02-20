@@ -18,7 +18,6 @@ import {
   Button,
   Skeleton,
   ArchiveBoldIcon,
-  TrashIcon,
   TrashBoldIcon,
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";

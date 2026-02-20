@@ -7,7 +7,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { Button, ScrollArea, Skeleton } from "@hushletter/ui";
 import { toast } from "sonner";
-import { Check, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   ReaderView,
   ContentSkeleton,

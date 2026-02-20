@@ -21,19 +21,12 @@ import {
   MenuTrigger,
 } from "@hushletter/ui/components";
 import {
-  Check,
   ChevronsUpDownIcon,
-  Copy,
-  Download,
   ExternalLink,
-  LogOut,
-  Settings,
-  Shield,
 } from "lucide-react";
 import { importDialogHandle } from "../import";
 import {
   CheckCircleSolidIcon,
-  CheckIcon,
   CogFourIcon,
   CopyIcon,
   DownloadIcon,

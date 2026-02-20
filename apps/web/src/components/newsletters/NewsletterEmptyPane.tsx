@@ -1,5 +1,5 @@
 import { type ReactNode, useMemo } from "react";
-import { ArrowRight, BookOpen, Clock, Inbox } from "lucide-react";
+import { Clock, Inbox } from "lucide-react";
 import { SenderAvatar } from "./SenderAvatar";
 import { m } from "@/paraglide/messages.js";
 import { BookOpenIcon, ClockCircleIcon } from "@hushletter/ui/icons";

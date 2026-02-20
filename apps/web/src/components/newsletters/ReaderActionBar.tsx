@@ -31,23 +31,12 @@ import {
   GlassesIcon,
 } from "@hushletter/ui";
 import {
-  Archive,
-  ArchiveRestore,
-  Check,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Maximize2,
   Minimize2,
-  MailMinus,
-  MailX,
-  Reply,
-  Star,
-  Sparkles,
-  Share2,
-  SlidersHorizontal,
   MoreHorizontal,
-  Trash2,
 } from "lucide-react";
 import {
   type ReaderBackgroundPreference,

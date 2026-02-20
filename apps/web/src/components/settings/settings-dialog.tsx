@@ -18,14 +18,12 @@ import {
   Palette,
   Trash2,
   CreditCard,
-  FolderX,
 } from "lucide-react";
 import { SettingsProfile } from "./settings-profile";
 import { SettingsPassword } from "./settings-password";
 import { SettingsNotifications } from "./settings-notifications";
 import { SettingsAppearance } from "./settings-appearance";
 import { SettingsBilling } from "./settings-billing";
-import { HiddenFoldersSection } from "../HiddenFoldersSection";
 
 const tabs = [
   { id: "profile", label: "Edit profile", icon: User },

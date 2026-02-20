@@ -2636,6 +2636,12 @@ export const emptyBinBatchDelete = internalMutation({
 export const emptyBin = action({
   args: {},
   handler: async (ctx): Promise<{ deletedCount: number }> => {
+    type EmptyBinBatchDeleteResult = {
+      deletedCount: number
+      continueCursor: string | null
+      isDone: boolean
+    }
+
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
       throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authenticated" })
@@ -2652,11 +2658,14 @@ export const emptyBin = action({
     let cursor: string | null = null
 
     while (true) {
-      const batch = await ctx.runMutation((internal as any).newsletters.emptyBinBatchDelete, {
-        userId: user._id,
-        cursor,
-        numItems: 100,
-      })
+      const batch: EmptyBinBatchDeleteResult = await ctx.runMutation(
+        (internal as any).newsletters.emptyBinBatchDelete,
+        {
+          userId: user._id,
+          cursor,
+          numItems: 100,
+        }
+      )
       deletedCount += batch.deletedCount
 
       if (batch.isDone || batch.continueCursor === null) {

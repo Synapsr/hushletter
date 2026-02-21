@@ -67,7 +67,7 @@ export const SharedFeedback = () => {
   }, [open, formState, feedback]);
 
   return (
-    <div className="z-20 absolute bottom-4 right-4  w-fit flex justify-center items-center max-md:hidden">
+    <div className="z-20 fixed bottom-4 right-4  w-fit flex justify-center items-center max-md:hidden">
       <motion.button
         layoutId="wrapper"
         onClick={() => {

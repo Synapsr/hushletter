@@ -21,6 +21,7 @@ import { Route as Char123LocaleChar1258RouteImport } from './routes/{-$locale}/8
 import { Route as Char123LocaleChar1257RouteImport } from './routes/{-$locale}/7'
 import { Route as Char123LocaleChar1256RouteImport } from './routes/{-$locale}/6'
 import { Route as Char123LocaleChar1255RouteImport } from './routes/{-$locale}/5'
+import { Route as Char123LocaleChar1254RouteImport } from './routes/{-$locale}/4'
 import { Route as Char123LocaleChar1253RouteImport } from './routes/{-$locale}/3'
 import { Route as Char123LocaleChar1251RouteImport } from './routes/{-$locale}/1'
 import { Route as ShareTokenRouteImport } from './routes/share/$token'
@@ -112,6 +113,11 @@ const Char123LocaleChar1256Route = Char123LocaleChar1256RouteImport.update({
 const Char123LocaleChar1255Route = Char123LocaleChar1255RouteImport.update({
   id: '/{-$locale}/5',
   path: '/{-$locale}/5',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char123LocaleChar1254Route = Char123LocaleChar1254RouteImport.update({
+  id: '/{-$locale}/4',
+  path: '/{-$locale}/4',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char123LocaleChar1253Route = Char123LocaleChar1253RouteImport.update({
@@ -268,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/share/$token': typeof ShareTokenRoute
   '/{-$locale}/1': typeof Char123LocaleChar1251Route
   '/{-$locale}/3': typeof Char123LocaleChar1253Route
+  '/{-$locale}/4': typeof Char123LocaleChar1254Route
   '/{-$locale}/5': typeof Char123LocaleChar1255Route
   '/{-$locale}/6': typeof Char123LocaleChar1256Route
   '/{-$locale}/7': typeof Char123LocaleChar1257Route
@@ -307,6 +314,7 @@ export interface FileRoutesByTo {
   '/share/$token': typeof ShareTokenRoute
   '/{-$locale}/1': typeof Char123LocaleChar1251Route
   '/{-$locale}/3': typeof Char123LocaleChar1253Route
+  '/{-$locale}/4': typeof Char123LocaleChar1254Route
   '/{-$locale}/5': typeof Char123LocaleChar1255Route
   '/{-$locale}/6': typeof Char123LocaleChar1256Route
   '/{-$locale}/7': typeof Char123LocaleChar1257Route
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   '/share/$token': typeof ShareTokenRoute
   '/{-$locale}/1': typeof Char123LocaleChar1251Route
   '/{-$locale}/3': typeof Char123LocaleChar1253Route
+  '/{-$locale}/4': typeof Char123LocaleChar1254Route
   '/{-$locale}/5': typeof Char123LocaleChar1255Route
   '/{-$locale}/6': typeof Char123LocaleChar1256Route
   '/{-$locale}/7': typeof Char123LocaleChar1257Route
@@ -388,6 +397,7 @@ export interface FileRouteTypes {
     | '/share/$token'
     | '/{-$locale}/1'
     | '/{-$locale}/3'
+    | '/{-$locale}/4'
     | '/{-$locale}/5'
     | '/{-$locale}/6'
     | '/{-$locale}/7'
@@ -427,6 +437,7 @@ export interface FileRouteTypes {
     | '/share/$token'
     | '/{-$locale}/1'
     | '/{-$locale}/3'
+    | '/{-$locale}/4'
     | '/{-$locale}/5'
     | '/{-$locale}/6'
     | '/{-$locale}/7'
@@ -466,6 +477,7 @@ export interface FileRouteTypes {
     | '/share/$token'
     | '/{-$locale}/1'
     | '/{-$locale}/3'
+    | '/{-$locale}/4'
     | '/{-$locale}/5'
     | '/{-$locale}/6'
     | '/{-$locale}/7'
@@ -505,6 +517,7 @@ export interface RootRouteChildren {
   ShareTokenRoute: typeof ShareTokenRoute
   Char123LocaleChar1251Route: typeof Char123LocaleChar1251Route
   Char123LocaleChar1253Route: typeof Char123LocaleChar1253Route
+  Char123LocaleChar1254Route: typeof Char123LocaleChar1254Route
   Char123LocaleChar1255Route: typeof Char123LocaleChar1255Route
   Char123LocaleChar1256Route: typeof Char123LocaleChar1256Route
   Char123LocaleChar1257Route: typeof Char123LocaleChar1257Route
@@ -604,6 +617,13 @@ declare module '@tanstack/react-router' {
       path: '/{-$locale}/5'
       fullPath: '/{-$locale}/5'
       preLoaderRoute: typeof Char123LocaleChar1255RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/4': {
+      id: '/{-$locale}/4'
+      path: '/{-$locale}/4'
+      fullPath: '/{-$locale}/4'
+      preLoaderRoute: typeof Char123LocaleChar1254RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/{-$locale}/3': {
@@ -871,6 +891,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShareTokenRoute: ShareTokenRoute,
   Char123LocaleChar1251Route: Char123LocaleChar1251Route,
   Char123LocaleChar1253Route: Char123LocaleChar1253Route,
+  Char123LocaleChar1254Route: Char123LocaleChar1254Route,
   Char123LocaleChar1255Route: Char123LocaleChar1255Route,
   Char123LocaleChar1256Route: Char123LocaleChar1256Route,
   Char123LocaleChar1257Route: Char123LocaleChar1257Route,

@@ -5,14 +5,24 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
-import { Button, ScrollArea, Skeleton } from "@hushletter/ui";
+import {
+  Button,
+  ScrollArea,
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@hushletter/ui";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { X, XIcon } from "lucide-react";
 import {
   ReaderView,
   ContentSkeleton,
   clearCacheEntry,
 } from "@/components/ReaderView";
+import { PricingDialog } from "@/components/pricing-dialog";
 import {
   READER_BACKGROUND_OPTIONS,
   useReaderPreferences,
@@ -36,6 +46,7 @@ interface InlineReaderPaneProps {
   onPrevious?: () => void;
   onNext?: () => void;
   onOpenFullscreen?: () => void;
+  onClose?: () => void;
   isFullscreen?: boolean;
 }
 
@@ -118,6 +129,7 @@ export function InlineReaderPane({
   onPrevious,
   onNext,
   onOpenFullscreen,
+  onClose,
   isFullscreen = false,
 }: InlineReaderPaneProps) {
   const { preferences, setBackground, setFont, setFontSize } =
@@ -127,6 +139,7 @@ export function InlineReaderPane({
   const paneRef = useRef<HTMLDivElement>(null);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isAppearanceOpen, setIsAppearanceOpen] = useState(false);
+  const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false);
   const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
   const [isArchivePending, setIsArchivePending] = useState(false);
   const [isReadTogglePending, setIsReadTogglePending] = useState(false);
@@ -156,8 +169,11 @@ export function InlineReaderPane({
     }),
   );
   const newsletter = data as NewsletterMetadata | null | undefined;
-  const showReadStateDebugOverlay =
-    import.meta.env.DEV && import.meta.env.MODE !== "test";
+  const showReadStateDebugOverlay = false;
+  const currentReturnPath =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : undefined;
 
   const hideNewsletter = useMutation(api.newsletters.hideNewsletter);
   const unhideNewsletter = useMutation(api.newsletters.unhideNewsletter);
@@ -170,6 +186,10 @@ export function InlineReaderPane({
   const ensureNewsletterShareToken = useMutation(
     api.share.ensureNewsletterShareToken,
   );
+
+  useHotkey("Escape", () => {
+    onClose?.();
+  });
 
   useEffect(() => {
     setEstimatedReadMinutes(null);
@@ -293,11 +313,22 @@ export function InlineReaderPane({
             locked until you upgrade.
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button render={<a href="/settings" />}>Upgrade to Pro</Button>
-            <Button variant="outline" render={<a href="/settings" />}>
+            <Button onClick={() => setIsPricingDialogOpen(true)}>
+              Upgrade to Pro
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsPricingDialogOpen(true)}
+            >
               View plan
             </Button>
           </div>
+          <PricingDialog
+            open={isPricingDialogOpen}
+            onOpenChange={setIsPricingDialogOpen}
+            returnPath={currentReturnPath}
+            billingSource="settings_dialog"
+          />
         </div>
       </div>
     );
@@ -534,7 +565,28 @@ export function InlineReaderPane({
         isFullscreen={isFullscreen}
         isReadEstimateHidden={canRestoreReadEstimate}
         onShowReadEstimate={handleRestoreReadEstimate}
+        onUpgradeToPro={() => setIsPricingDialogOpen(true)}
       />
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                size="icon-sm"
+                variant="outline"
+                className="absolute z-10 top-14 left-2 rounded-full bg-background/50 backdrop-blur-sm"
+                aria-label="Close inline reader pane"
+                onClick={onClose}
+                disabled={!onClose}
+              >
+                <XIcon />
+              </Button>
+            }
+          />
+          <TooltipContent>Close (Esc)</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <AnimatePresence>
         {isSummaryOpen && (
@@ -677,6 +729,12 @@ export function InlineReaderPane({
           </ErrorBoundary>
         </div>
       </ScrollArea>
+      <PricingDialog
+        open={isPricingDialogOpen}
+        onOpenChange={setIsPricingDialogOpen}
+        returnPath={currentReturnPath}
+        billingSource="settings_dialog"
+      />
     </div>
   );
 }

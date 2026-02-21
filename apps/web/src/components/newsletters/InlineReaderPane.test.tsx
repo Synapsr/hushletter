@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import type { ComponentProps } from "react";
 import { m } from "@/paraglide/messages.js";
 import { InlineReaderPane } from "./InlineReaderPane";
 
@@ -54,6 +55,11 @@ vi.mock("convex/react", () => ({
 vi.mock("@/components/ReaderView", () => ({
   ReaderView: () => <div data-testid="reader-view">Reader</div>,
   clearCacheEntry: vi.fn(),
+}));
+
+vi.mock("@/components/pricing-dialog", () => ({
+  PricingDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="pricing-dialog-mock">Pricing dialog</div> : null,
 }));
 
 vi.mock("@/hooks/useReaderPreferences", () => ({
@@ -121,7 +127,10 @@ const baseNewsletter: NewsletterMetadata = {
   source: "email" as const,
 };
 
-function renderPane(overrides?: Partial<NewsletterMetadata>) {
+function renderPane(
+  overrides?: Partial<NewsletterMetadata>,
+  props?: Partial<ComponentProps<typeof InlineReaderPane>>,
+) {
   mockUseQuery.mockImplementation((query: any) => {
     const key = query?.queryKey?.[0];
     if (key === "getEntitlements") {
@@ -139,6 +148,7 @@ function renderPane(overrides?: Partial<NewsletterMetadata>) {
       getIsFavorited={vi.fn(() => false)}
       isFavoritePending={vi.fn(() => false)}
       onToggleFavorite={vi.fn().mockResolvedValue(undefined)}
+      {...props}
     />,
   );
 }
@@ -248,6 +258,32 @@ describe("InlineReaderPane archive/unarchive flow", () => {
   it("shows upgrade paywall for locked newsletters", async () => {
     renderPane({ contentStatus: "locked" as const });
     expect(screen.getByText("Upgrade to read this newsletter")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Upgrade to Pro" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
+    expect(screen.getByTestId("pricing-dialog-mock")).toBeTruthy();
+  });
+
+  it("closes inline reader when close button is clicked", async () => {
+    const onClose = vi.fn();
+    renderPane(undefined, { onClose });
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Close inline reader pane" }),
+      );
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes inline reader on Escape hotkey", () => {
+    const onClose = vi.fn();
+    renderPane(undefined, { onClose });
+
+    act(() => {
+      document.body.focus();
+      fireEvent.keyDown(document, { key: "Escape", code: "Escape" });
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

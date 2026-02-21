@@ -700,6 +700,16 @@ function NewslettersPage() {
     });
   };
 
+  const handleCloseInlineReader = useCallback(() => {
+    navigate({
+      to: "/newsletters",
+      search: {
+        ...(folderIdParam ? { folder: folderIdParam } : {}),
+        ...(effectiveFilter ? { filter: effectiveFilter } : {}),
+      },
+    });
+  }, [navigate, folderIdParam, effectiveFilter]);
+
   const handleEmptyBin = useCallback(async () => {
     if (isEmptyingBin) return;
     setIsEmptyingBin(true);
@@ -904,6 +914,7 @@ function NewslettersPage() {
               ? () => handleNewsletterSelect(nextNewsletterId)
               : undefined
           }
+          onClose={handleCloseInlineReader}
           onOpenFullscreen={handleToggleInlineFullscreen}
           isFullscreen={isReaderFullscreen}
         />

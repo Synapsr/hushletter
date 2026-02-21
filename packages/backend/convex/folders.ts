@@ -116,11 +116,12 @@ export const updateFolder = mutation({
     }
 
     // Check for duplicate name if changing name
-    if (args.name && args.name !== folder.name) {
+    const nextName = args.name
+    if (nextName !== undefined && nextName !== folder.name) {
       const existingFolder = await ctx.db
         .query("folders")
         .withIndex("by_userId_name", (q) =>
-          q.eq("userId", user._id).eq("name", args.name)
+          q.eq("userId", user._id).eq("name", nextName)
         )
         .first()
 

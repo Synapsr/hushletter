@@ -26,7 +26,6 @@ import {
   AlertCircle,
   Trash2,
   Archive,
-  ArrowLeft,
   Star,
   CheckCircle2,
   ChevronDown,

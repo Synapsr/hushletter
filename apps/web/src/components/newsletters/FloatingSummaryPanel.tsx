@@ -1,7 +1,7 @@
 import { motion, useDragControls } from "motion/react";
 import { Button, ScrollArea, SparklesIcon } from "@hushletter/ui";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
-import { AlertCircle, GripVertical, X } from "lucide-react";
+import { AlertCircle, X } from "lucide-react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { SummaryPanel } from "@/components/SummaryPanel";
 import { m } from "@/paraglide/messages.js";

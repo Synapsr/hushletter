@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import type { ReactElement } from "react"
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 import { ReaderView, clearContentCache } from "./ReaderView"
 import { READER_PREFERENCES_STORAGE_KEY } from "@/hooks/useReaderPreferences"
@@ -62,7 +63,7 @@ function createWords(count: number): string {
   return Array.from({ length: count }, (_, index) => `word${index + 1}`).join(" ")
 }
 
-function renderReader(ui: JSX.Element) {
+function renderReader(ui: ReactElement) {
   return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
 }
 

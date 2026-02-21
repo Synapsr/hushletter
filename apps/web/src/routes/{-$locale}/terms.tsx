@@ -130,7 +130,7 @@ function TermsOfServicePage() {
             <p>
               Your use of the service is also subject to our{" "}
               <Link
-                to="/privacy"
+                to="/{-$locale}/privacy"
                 className="underline decoration-slate-300 underline-offset-4 transition-colors hover:text-slate-900"
               >
                 Privacy Policy

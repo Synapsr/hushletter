@@ -10,7 +10,6 @@ import {
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { r2 } from "./r2";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -196,7 +195,6 @@ async function getHiddenFolderIdSet(
 }
 
 const DEFAULT_RECENT_UNREAD_WINDOW_DAYS = 7;
-const NEWSLETTER_R2_CACHE_CONTROL = "private, max-age=3600";
 
 function getRecentUnreadWindowStart(
   lastConnectedAt: number | undefined,
@@ -408,17 +406,10 @@ export const storeNewsletterContent = internalAction({
       console.log(
         `[newsletters] Uploading private content to R2: key=${r2Key}, size=${effectiveContent.length}`,
       );
-      await r2.r2.send(
-        new PutObjectCommand({
-          Bucket: r2.config.bucket,
-          Key: r2Key,
-          Body: effectiveContent,
-          ContentType: `${contentType}; charset=utf-8`,
-          CacheControl: NEWSLETTER_R2_CACHE_CONTROL,
-        }),
-      );
-      // Keep component metadata in sync (same behavior as r2.store).
-      await r2.syncMetadata(ctx, r2Key);
+      const blob = new Blob([effectiveContent], {
+        type: `${contentType}; charset=utf-8`,
+      });
+      await r2.store(ctx, blob, { key: r2Key, type: contentType });
       console.log(`[newsletters] R2 upload successful: ${r2Key}`);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -2613,7 +2604,7 @@ async function backfillNewsletterSearchMetaRecentImpl(
       patch.isLockedByPlan = desired.isLockedByPlan;
 
     if (Object.keys(patch).length > 0) {
-      await ctx.db.patch("newsletterSearchMeta", current._id, patch);
+      await ctx.db.patch(current._id, patch);
       updated++;
     }
   }

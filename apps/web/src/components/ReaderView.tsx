@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useConvex, useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
@@ -193,12 +193,9 @@ type ReaderPerfTimingMetric = {
   seenCount: number;
 };
 
-type ConvexActionCaller = {
-  action: (
-    functionReference: unknown,
-    args: { userNewsletterId: Id<"userNewsletters"> },
-  ) => Promise<NewsletterContentActionResult>;
-};
+type GetNewsletterWithContentAction = (
+  args: { userNewsletterId: Id<"userNewsletters"> },
+) => Promise<NewsletterContentActionResult>;
 
 function getReaderContentQueryKey(
   userNewsletterId: Id<"userNewsletters"> | string,
@@ -405,7 +402,7 @@ function recordReaderPerfClickToIframeMs(clickToIframeMs: number | null): void {
 }
 
 async function fetchReaderContent(
-  convex: ConvexActionCaller,
+  getNewsletterWithContent: GetNewsletterWithContentAction,
   userNewsletterId: Id<"userNewsletters">,
   source: ReaderLoadSource = "view",
 ): Promise<ReaderContentQueryData> {
@@ -415,7 +412,7 @@ async function fetchReaderContent(
 
   try {
     const actionStartedAt = getPerfNowMs();
-    const result = await convex.action(api.newsletters.getUserNewsletterWithContent, {
+    const result = await getNewsletterWithContent({
       userNewsletterId,
     });
     actionMs = Math.round(getPerfNowMs() - actionStartedAt);
@@ -519,7 +516,7 @@ async function fetchReaderContent(
 
 export function prefetchReaderContent(
   queryClient: QueryClient,
-  convex: ConvexActionCaller,
+  getNewsletterWithContent: GetNewsletterWithContentAction,
   userNewsletterId: Id<"userNewsletters">,
 ): void {
   activeReaderQueryClient = queryClient;
@@ -543,7 +540,12 @@ export function prefetchReaderContent(
   void queryClient
     .prefetchQuery({
       queryKey,
-      queryFn: () => fetchReaderContent(convex, userNewsletterId, "prefetch"),
+      queryFn: () =>
+        fetchReaderContent(
+          getNewsletterWithContent,
+          userNewsletterId,
+          "prefetch",
+        ),
       staleTime: Infinity,
       gcTime: READER_CONTENT_GC_MS,
       retry: 1,
@@ -895,13 +897,16 @@ export function ReaderView({
   skipInitialProgressCheck = false,
 }: ReaderViewProps) {
   const queryClient = useQueryClient();
-  const convex = useConvex();
+  const getNewsletterWithContent = useAction(
+    api.newsletters.getUserNewsletterWithContent,
+  );
   activeReaderQueryClient = queryClient;
 
   const { preferences: persistedPreferences } = useReaderPreferences();
   const readerContentQuery = useQuery({
     queryKey: getReaderContentQueryKey(userNewsletterId),
-    queryFn: () => fetchReaderContent(convex, userNewsletterId, "view"),
+    queryFn: () =>
+      fetchReaderContent(getNewsletterWithContent, userNewsletterId, "view"),
     staleTime: Infinity,
     gcTime: READER_CONTENT_GC_MS,
     retry: 1,

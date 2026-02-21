@@ -7,6 +7,8 @@ import Stripe from "stripe"
 
 type Currency = "usd" | "eur"
 type Interval = "month" | "year"
+type CheckoutReturnTo = "settings" | "onboarding" | "import"
+type CheckoutBillingSource = "settings_dialog"
 type LocalSubscription = {
   stripeSubscriptionId?: string
   stripeCustomerId?: string
@@ -65,6 +67,49 @@ function getStripeClient() {
   })
 }
 
+function getLegacyReturnPath(returnTo?: CheckoutReturnTo): string {
+  if (returnTo === "onboarding") return "/onboarding"
+  if (returnTo === "import") return "/import"
+  return "/settings"
+}
+
+function resolveCheckoutReturnPath(args: {
+  returnTo?: CheckoutReturnTo
+  returnPath?: string
+}): string {
+  const fallbackPath = getLegacyReturnPath(args.returnTo)
+  if (!args.returnPath) return fallbackPath
+
+  const siteUrl = getSiteUrl()
+  try {
+    const resolvedUrl = new URL(args.returnPath, siteUrl)
+    const siteOrigin = new URL(siteUrl).origin
+    if (resolvedUrl.origin !== siteOrigin) return fallbackPath
+
+    const normalizedPath = `${resolvedUrl.pathname}${resolvedUrl.search}`
+    if (!normalizedPath.startsWith("/") || normalizedPath.startsWith("//")) {
+      return fallbackPath
+    }
+
+    return normalizedPath
+  } catch {
+    return fallbackPath
+  }
+}
+
+function buildCheckoutReturnUrl(args: {
+  returnPath: string
+  billingStatus: "success" | "cancel"
+  billingSource?: CheckoutBillingSource
+}): string {
+  const url = new URL(args.returnPath, getSiteUrl())
+  url.searchParams.set("billing", args.billingStatus)
+  if (args.billingSource) {
+    url.searchParams.set("billingSource", args.billingSource)
+  }
+  return url.toString()
+}
+
 function pickBestLocalSubscription(subs: LocalSubscription[]): LocalSubscription | null {
   const withPeriod = subs.filter(
     (s) => typeof s?.currentPeriodEnd === "number" && Number.isFinite(s.currentPeriodEnd)
@@ -82,10 +127,39 @@ async function createSubscriptionCheckoutSessionWithPromoCode(args: {
   subscriptionMetadata?: Record<string, string>
 }): Promise<{ url: string | null }> {
   const stripe = new Stripe(getStripeSecretKey())
-  const sessionParams: Stripe.Checkout.SessionCreateParams = {
+  const sessionParams = buildSubscriptionCheckoutSessionParams(args)
+
+  try {
+    const session = await stripe.checkout.sessions.create(sessionParams)
+    return { url: session.url ?? null }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error("[billing.createSubscriptionCheckoutSessionWithPromoCode] Stripe SDK error", message)
+    throw new ConvexError({
+      code: "BILLING_ERROR",
+      message: "Failed to create Stripe checkout session.",
+    })
+  }
+}
+
+export function buildSubscriptionCheckoutSessionParams(args: {
+  customerId: string
+  priceId: string
+  successUrl: string
+  cancelUrl: string
+  subscriptionMetadata?: Record<string, string>
+}): Stripe.Checkout.SessionCreateParams {
+  return {
     mode: "subscription",
     customer: args.customerId,
     allow_promotion_codes: true,
+    automatic_tax: { enabled: true },
+    billing_address_collection: "required",
+    tax_id_collection: { enabled: true },
+    customer_update: {
+      address: "auto",
+      name: "auto",
+    },
     success_url: args.successUrl,
     cancel_url: args.cancelUrl,
     line_items: [
@@ -99,18 +173,6 @@ async function createSubscriptionCheckoutSessionWithPromoCode(args: {
           metadata: args.subscriptionMetadata,
         }
       : undefined,
-  }
-
-  try {
-    const session = await stripe.checkout.sessions.create(sessionParams)
-    return { url: session.url ?? null }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    console.error("[billing.createSubscriptionCheckoutSessionWithPromoCode] Stripe SDK error", message)
-    throw new ConvexError({
-      code: "BILLING_ERROR",
-      message: "Failed to create Stripe checkout session.",
-    })
   }
 }
 
@@ -155,6 +217,8 @@ export const createProCheckoutUrl = action({
     interval: v.union(v.literal("month"), v.literal("year")),
     currency: v.union(v.literal("usd"), v.literal("eur")),
     returnTo: v.optional(v.union(v.literal("settings"), v.literal("onboarding"), v.literal("import"))),
+    returnPath: v.optional(v.string()),
+    billingSource: v.optional(v.literal("settings_dialog")),
   },
   handler: async (ctx, args): Promise<{ url: string }> => {
     const identity = await ctx.auth.getUserIdentity()
@@ -180,12 +244,23 @@ export const createProCheckoutUrl = action({
       stripeCustomerId: customerId,
     })
 
-    const returnPath = args.returnTo === "onboarding" ? "/onboarding" : args.returnTo === "import" ? "/import" : "/settings"
+    const returnPath = resolveCheckoutReturnPath({
+      returnTo: args.returnTo as CheckoutReturnTo | undefined,
+      returnPath: args.returnPath,
+    })
     const { url } = await createSubscriptionCheckoutSessionWithPromoCode({
       customerId,
       priceId: getPriceId(args.interval as Interval, args.currency as Currency),
-      successUrl: `${getSiteUrl()}${returnPath}?billing=success`,
-      cancelUrl: `${getSiteUrl()}${returnPath}?billing=cancel`,
+      successUrl: buildCheckoutReturnUrl({
+        returnPath,
+        billingStatus: "success",
+        billingSource: args.billingSource as CheckoutBillingSource | undefined,
+      }),
+      cancelUrl: buildCheckoutReturnUrl({
+        returnPath,
+        billingStatus: "cancel",
+        billingSource: args.billingSource as CheckoutBillingSource | undefined,
+      }),
       subscriptionMetadata: {
         userId: identity.subject,
       },

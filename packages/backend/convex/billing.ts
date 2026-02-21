@@ -7,6 +7,13 @@ import Stripe from "stripe"
 
 type Currency = "usd" | "eur"
 type Interval = "month" | "year"
+type LocalSubscription = {
+  stripeSubscriptionId?: string
+  stripeCustomerId?: string
+  status?: string
+  cancelAtPeriodEnd?: boolean
+  currentPeriodEnd?: number
+}
 
 function getSiteUrl(): string {
   const siteUrl = process.env.SITE_URL
@@ -56,6 +63,15 @@ function getStripeClient() {
   return new StripeSubscriptions(components.stripe, {
     STRIPE_SECRET_KEY: getStripeSecretKey(),
   })
+}
+
+function pickBestLocalSubscription(subs: LocalSubscription[]): LocalSubscription | null {
+  const withPeriod = subs.filter(
+    (s) => typeof s?.currentPeriodEnd === "number" && Number.isFinite(s.currentPeriodEnd)
+  )
+  if (withPeriod.length === 0) return null
+
+  return withPeriod.sort((a, b) => (b.currentPeriodEnd ?? 0) - (a.currentPeriodEnd ?? 0))[0] ?? null
 }
 
 async function createSubscriptionCheckoutSessionWithPromoCode(args: {
@@ -247,27 +263,46 @@ export const syncProStatusFromStripe = action({
     //
     // This fixes cases where Stripe webhooks were processed (so `stripe.subscriptions` exists)
     // but our app user record didn't get updated (e.g. handler skipped / old data / dev hiccups).
-    const localSubs = await ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, {
+    const localSubsByUser = await ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, {
       userId: identity.subject,
     })
-    const bestLocal = (Array.isArray(localSubs) ? localSubs : [])
-      .filter((s) => typeof (s as any)?.currentPeriodEnd === "number")
-      .sort((a, b) => ((b as any).currentPeriodEnd ?? 0) - ((a as any).currentPeriodEnd ?? 0))[0]
+    const localSubsByCustomer = user.stripeCustomerId
+      ? await ctx.runQuery(components.stripe.public.listSubscriptions, {
+          stripeCustomerId: user.stripeCustomerId,
+        })
+      : []
+    const localSubById = user.stripeSubscriptionId
+      ? await ctx.runQuery(components.stripe.public.getSubscription, {
+          stripeSubscriptionId: user.stripeSubscriptionId,
+        })
+      : null
+
+    const mergedLocalSubs = [
+      ...(Array.isArray(localSubsByUser) ? localSubsByUser : []),
+      ...(Array.isArray(localSubsByCustomer) ? localSubsByCustomer : []),
+      ...(localSubById ? [localSubById] : []),
+    ]
+
+    const dedupedLocalSubs = Array.from(
+      new Map(
+        mergedLocalSubs
+          .filter((s) => typeof s?.stripeSubscriptionId === "string")
+          .map((s) => [s.stripeSubscriptionId as string, s as LocalSubscription])
+      ).values()
+    )
+
+    const bestLocal = pickBestLocalSubscription(dedupedLocalSubs)
 
     if (bestLocal) {
       const result = await ctx.runMutation(internal.billing.applySubscriptionUpdate, {
         userId: identity.subject,
-        stripeCustomerId: (bestLocal as any).stripeCustomerId,
-        stripeSubscriptionId: (bestLocal as any).stripeSubscriptionId,
-        status: typeof (bestLocal as any).status === "string" ? (bestLocal as any).status : undefined,
+        stripeCustomerId: bestLocal.stripeCustomerId,
+        stripeSubscriptionId: bestLocal.stripeSubscriptionId,
+        status: typeof bestLocal.status === "string" ? bestLocal.status : undefined,
         cancelAtPeriodEnd:
-          typeof (bestLocal as any).cancelAtPeriodEnd === "boolean"
-            ? (bestLocal as any).cancelAtPeriodEnd
-            : undefined,
+          typeof bestLocal.cancelAtPeriodEnd === "boolean" ? bestLocal.cancelAtPeriodEnd : undefined,
         currentPeriodEnd:
-          typeof (bestLocal as any).currentPeriodEnd === "number"
-            ? (bestLocal as any).currentPeriodEnd
-            : undefined,
+          typeof bestLocal.currentPeriodEnd === "number" ? bestLocal.currentPeriodEnd : undefined,
         eventType: "sync.local",
       })
 

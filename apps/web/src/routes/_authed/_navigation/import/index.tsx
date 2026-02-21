@@ -6,10 +6,10 @@
  * Supports multiple Gmail accounts.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@hushletter/backend";
 import { GmailConnect } from "./-GmailConnect";
 import { SenderScanner } from "./-SenderScanner";
@@ -26,6 +26,7 @@ import {
 import { m } from "@/paraglide/messages.js";
 import { PricingDialog } from "@/components/pricing-dialog";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authed/_navigation/import/")({
   component: ImportPage,
@@ -141,15 +142,60 @@ function UpgradePrompt() {
 }
 
 function ImportPage() {
+  const syncProStatus = useAction(api.billing.syncProStatusFromStripe);
   const entitlements = useQuery(api.entitlements.getEntitlements) as
     | { isPro?: boolean }
     | null
     | undefined;
   const isPro = Boolean(entitlements?.isPro);
   const isEntitlementsLoading = entitlements === undefined;
+  const [billingSyncPending, setBillingSyncPending] = useState(false);
+  const [billingSyncError, setBillingSyncError] = useState<string | null>(null);
 
   const [selectedConnectionId, setSelectedConnectionId] =
     useState<Id<"gmailConnections"> | null>(null);
+
+  const handleBillingSync = useCallback(async () => {
+    setBillingSyncPending(true);
+    setBillingSyncError(null);
+    try {
+      const res = await syncProStatus({});
+      if (!res.ok) {
+        setBillingSyncError(
+          res.reason === "no_subscription_found"
+            ? "Payment received, but subscription is still activating. Try again in a moment."
+            : "Could not sync subscription status from Stripe. Please try again.",
+        );
+      }
+    } catch {
+      setBillingSyncError(
+        "Could not sync subscription status from Stripe. Please try again.",
+      );
+    } finally {
+      setBillingSyncPending(false);
+    }
+  }, [syncProStatus]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const billing = params.get("billing");
+    if (billing !== "success" && billing !== "cancel") return;
+
+    params.delete("billing");
+    const next = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${next ? `?${next}` : ""}`,
+    );
+
+    if (billing === "cancel") {
+      toast.info("Checkout canceled");
+      return;
+    }
+
+    void handleBillingSync();
+  }, [handleBillingSync]);
 
   const handleSelectConnection = useCallback(
     (id: Id<"gmailConnections"> | null) => {
@@ -195,7 +241,46 @@ function ImportPage() {
 
       {/* Content */}
       <div className="space-y-5">
-        {!isEntitlementsLoading && !isPro && <UpgradePrompt />}
+        {billingSyncPending && (
+          <div className="rounded-xl border border-border/60 bg-card p-5 text-sm text-muted-foreground">
+            Activating your Pro plan...
+          </div>
+        )}
+
+        {billingSyncError && (
+          <div className="rounded-xl border border-amber-300/70 bg-amber-50 dark:bg-amber-950/20 p-5 text-sm text-amber-900 dark:text-amber-200 space-y-3">
+            <p>{billingSyncError}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void handleBillingSync()}
+              disabled={billingSyncPending}
+            >
+              Retry sync
+            </Button>
+          </div>
+        )}
+
+        {!isEntitlementsLoading && !isPro && !billingSyncPending && (
+          <>
+            <div className="rounded-xl border border-border/60 bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Already completed payment?
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleBillingSync()}
+                  disabled={billingSyncPending}
+                >
+                  Sync subscription
+                </Button>
+              </div>
+            </div>
+            <UpgradePrompt />
+          </>
+        )}
 
         <ErrorBoundary FallbackComponent={GmailConnectError}>
           <GmailConnect

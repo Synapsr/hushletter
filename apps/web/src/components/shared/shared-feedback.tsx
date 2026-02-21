@@ -67,7 +67,7 @@ export const SharedFeedback = () => {
   }, [open, formState, feedback]);
 
   return (
-    <div className="z-20  absolute bottom-4 right-4  w-fit flex justify-center items-center">
+    <div className="z-20 absolute bottom-4 right-4  w-fit flex justify-center items-center max-md:hidden">
       <motion.button
         layoutId="wrapper"
         onClick={() => {
@@ -230,7 +230,9 @@ export const SharedFeedback = () => {
 
                     <button
                       type="submit"
-                      disabled={formState === "loading" || feedback.trim().length < 10}
+                      disabled={
+                        formState === "loading" || feedback.trim().length < 10
+                      }
                       className="
                         ml-auto
                         flex

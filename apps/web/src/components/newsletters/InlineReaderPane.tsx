@@ -711,7 +711,7 @@ export function InlineReaderPane({
       >
         {/* Newsletter content */}
         <div
-          className="px-6 pt-16 pb-12 max-w-3xl mx-auto "
+          className="md:px-6 pt-[52px] md:pt-16  max-w-3xl mx-auto "
           onPointerDownCapture={() => {
             setIsAppearanceOpen(false);
           }}

@@ -5,15 +5,8 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useAction, useConvex } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
-import {
-  NewsletterCard,
-  type NewsletterData,
-} from "@/components/NewsletterCard";
-import { EmptyNewsletterState } from "@/components/EmptyNewsletterState";
-import {
-  FolderSidebar,
-  type FolderData,
-} from "@/components/FolderSidebar";
+import { type NewsletterData } from "@/components/NewsletterCard";
+import { type FolderData } from "@/components/FolderSidebar";
 import { SenderFolderSidebar } from "@/components/newsletters/SenderFolderSidebar";
 import { InlineReaderPane } from "@/components/newsletters/InlineReaderPane";
 import {
@@ -25,24 +18,7 @@ import { WelcomeSidebar } from "@/components/newsletters/WelcomeSidebar";
 import { WelcomeReaderPane } from "@/components/newsletters/WelcomeReaderPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useOptimisticNewsletterFavorite } from "@/hooks/useOptimisticNewsletterFavorite";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-  Button,
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-  Skeleton,
-} from "@hushletter/ui";
-import { Menu, Inbox, Trash2, Star, EyeOff } from "lucide-react";
+import { Skeleton } from "@hushletter/ui";
 import {
   NewsletterEmptyPane,
   type NewsletterEmptyPaneItem,
@@ -181,17 +157,6 @@ type CurrentUserData = {
   vanityEmail: string | null;
 } | null;
 
-/**
- * Sender data returned by listSendersInFolder query
- */
-interface FolderSenderData {
-  _id: string;
-  email: string;
-  name?: string;
-  displayName: string;
-  domain: string;
-}
-
 function NewsletterCardSkeleton({ delay = 0 }: { delay?: number }) {
   return (
     <div
@@ -310,34 +275,6 @@ function PageSkeleton() {
   );
 }
 
-function FolderHeader({ folderId }: { folderId: string }) {
-  const { data: folderData } = useQuery(
-    convexQuery(api.folders.getFolderWithSenders, {
-      folderId: folderId as Id<"folders">,
-    }),
-  );
-
-  if (!folderData) return null;
-
-  const senderList = (folderData.senders ?? []) as FolderSenderData[];
-
-  return (
-    <div className="mb-6">
-      <h1 className="text-3xl font-bold text-foreground">{folderData.name}</h1>
-      {senderList.length > 0 && (
-        <p className="text-sm text-muted-foreground mt-1">
-          {m.newsletters_fromSender({
-            displayName:
-              senderList.length === 1
-                ? senderList[0].displayName
-                : senderList.map((s) => s.displayName).join(", "),
-          })}
-        </p>
-      )}
-    </div>
-  );
-}
-
 function NewslettersPage() {
   const {
     folder: folderIdParam,
@@ -347,8 +284,6 @@ function NewslettersPage() {
   const navigate = useNavigate();
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  // Mobile sidebar state
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isReaderFullscreen, setIsReaderFullscreen] = useState(false);
   const [pendingFilter, setPendingFilter] = useState<
     FilterType | null | undefined
@@ -403,20 +338,6 @@ function NewslettersPage() {
     }
   }, [newsletterIdParam]);
 
-  // Mobile: redirect to detail page when newsletter param is present
-  // Uses direct matchMedia check to avoid hydration timing issues with useSyncExternalStore
-  useEffect(() => {
-    if (!newsletterIdParam) return;
-    const isMobile = !window.matchMedia("(min-width: 768px)").matches;
-    if (isMobile) {
-      navigate({
-        to: "/newsletters/$id",
-        params: { id: newsletterIdParam },
-        replace: true,
-      });
-    }
-  }, [newsletterIdParam, navigate]);
-
   // Get current user for dedicated email (used in empty state)
   const { data: userData, isPending: userPending } = useQuery(
     convexQuery(api.auth.getCurrentUser, {}),
@@ -438,11 +359,7 @@ function NewslettersPage() {
     !isFilteringByHidden &&
     !isFilteringByStarred &&
     !isFilteringByBinned;
-  const headListSize = isDesktop
-    ? effectiveNewsletterId
-      ? 30
-      : 12
-    : 30;
+  const headListSize = isDesktop ? (effectiveNewsletterId ? 30 : 12) : 30;
 
   // Reactive head pages (subscribed) for the active list only.
   // Important: with @convex-dev/react-query, you must pass args === "skip" to avoid subscriptions.
@@ -507,9 +424,9 @@ function NewslettersPage() {
       ? favoritedHead
       : isFilteringByBinned
         ? binnedHead
-      : isFilteringByFolder
-        ? folderHead
-        : allHead;
+        : isFilteringByFolder
+          ? folderHead
+          : allHead;
 
   const activeHeadPending = isFilteringByHidden
     ? hiddenHeadPending
@@ -517,9 +434,9 @@ function NewslettersPage() {
       ? favoritedHeadPending
       : isFilteringByBinned
         ? binnedHeadPending
-      : isFilteringByFolder
-        ? folderHeadPending
-        : allHeadPending;
+        : isFilteringByFolder
+          ? folderHeadPending
+          : allHeadPending;
 
   const queryClient = useQueryClient();
   const convex = useConvex();
@@ -598,7 +515,7 @@ function NewslettersPage() {
             ? await listFavoritedPage({ cursor, numItems })
             : isFilteringByBinned
               ? await listBinnedPage({ cursor, numItems })
-            : await listAllPage({ cursor, numItems });
+              : await listAllPage({ cursor, numItems });
 
       const page = (result.page ?? []) as NewsletterData[];
       setTailPages((prev) => [...prev, page]);
@@ -641,11 +558,6 @@ function NewslettersPage() {
     return () => observer.disconnect();
   }, [canLoadMore, handleLoadMore]);
 
-  const selectedFolder = useMemo(() => {
-    if (!folderIdParam) return null;
-    return folders.find((f) => f._id === folderIdParam) ?? null;
-  }, [folders, folderIdParam]);
-
   const favoriteSnapshots = useMemo(() => {
     const deduped = new Map<string, { _id: string; isFavorited?: boolean }>();
     for (const newsletter of mergedActiveList) {
@@ -671,7 +583,6 @@ function NewslettersPage() {
         ? { folder: selectedFolderId, newsletter: newsletterIdParam }
         : { newsletter: newsletterIdParam },
     });
-    setSidebarOpen(false);
   };
 
   // Handle filter selection
@@ -684,17 +595,12 @@ function NewslettersPage() {
         selectedNewsletterId: newsletterIdParam,
       }),
     });
-    setSidebarOpen(false);
   };
 
   // Handle newsletter selection for inline reader
   const prefetchNewsletterContent = useCallback(
     (id: string) => {
-      prefetchReaderContent(
-        queryClient,
-        convex,
-        id as Id<"userNewsletters">,
-      );
+      prefetchReaderContent(queryClient, convex, id as Id<"userNewsletters">);
     },
     [queryClient, convex],
   );
@@ -799,12 +705,12 @@ function NewslettersPage() {
   );
   const previousNewsletterId =
     selectedNewsletterIndex > 0
-      ? visibleNewsletterList[selectedNewsletterIndex - 1]?._id ?? null
+      ? (visibleNewsletterList[selectedNewsletterIndex - 1]?._id ?? null)
       : null;
   const nextNewsletterId =
     selectedNewsletterIndex >= 0 &&
     selectedNewsletterIndex < visibleNewsletterList.length - 1
-      ? visibleNewsletterList[selectedNewsletterIndex + 1]?._id ?? null
+      ? (visibleNewsletterList[selectedNewsletterIndex + 1]?._id ?? null)
       : null;
 
   useEffect(() => {
@@ -885,14 +791,6 @@ function NewslettersPage() {
     onToggleFavorite,
   };
 
-  // Mobile sidebar props (old FolderSidebar)
-  const mobileSidebarProps = {
-    selectedFolderId: folderIdParam ?? null,
-    selectedFilter: effectiveFilter,
-    onFolderSelect: handleFolderSelect,
-    onFilterSelect: handleFilterSelect,
-  };
-
   // True empty state: no filtering active, user/folders loaded, zero folders
   // (folders are auto-created from newsletter senders, so zero folders = zero newsletters)
   const isGlobalEmpty =
@@ -958,180 +856,23 @@ function NewslettersPage() {
     </div>
   );
 
-  // ── Mobile layout: card list (existing behavior) ──
+  // ── Mobile layout: full-screen sidebar, tap navigates to /newsletters/$id ──
+  const handleMobileNewsletterSelect = (id: string) => {
+    markReaderSelectionStart(id);
+    prefetchNewsletterContent(id);
+    navigate({ to: "/newsletters/$id", params: { id } });
+  };
+
   const mobileLayout = isGlobalEmpty ? (
     <div className="md:hidden flex flex-col h-full">
       <WelcomeReaderPane dedicatedEmail={dedicatedEmail} />
     </div>
   ) : (
-    <div className="md:hidden flex flex-col h-full">
-      {/* Mobile sidebar trigger */}
-      <div className="fixed top-4 left-4 z-50">
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetTrigger
-            render={
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label={m.newsletters_openFolderMenu()}
-              />
-            }
-          >
-            <Menu className="h-4 w-4" />
-          </SheetTrigger>
-          <SheetContent
-            side="left"
-            className="p-0 w-72"
-            showCloseButton={false}
-          >
-            <SheetTitle className="sr-only">
-              {m.newsletters_folderNavigation()}
-            </SheetTitle>
-            <FolderSidebar {...mobileSidebarProps} />
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {/* Mobile main content */}
-      <main className="flex-1 p-6 pt-16 overflow-y-auto">
-        {isFilteringByHidden ? (
-          <h1 className="text-3xl font-bold text-foreground mb-6">
-            {m.newsletters_hiddenNewsletters()}
-          </h1>
-        ) : isFilteringByBinned ? (
-          <div className="mb-6 flex items-center justify-between gap-3">
-            <h1 className="text-3xl font-bold text-foreground">
-              {m.bin_label?.() ?? "Bin"}
-            </h1>
-            {!activeListPending && visibleNewsletterList.length > 0 && (
-              <AlertDialog>
-                <AlertDialogTrigger
-                  render={
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={isEmptyingBin}
-                    />
-                  }
-                >
-                  {m.bin_emptyAction?.() ?? "Empty Bin"}
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      {m.bin_emptyConfirmTitle?.() ?? "Empty Bin?"}
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {m.bin_emptyConfirmDescription?.() ??
-                        "This will permanently delete all newsletters currently in Bin. This action cannot be undone."}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>{m.common_cancel()}</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => {
-                        void handleEmptyBin();
-                      }}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      disabled={isEmptyingBin}
-                    >
-                      {m.common_delete()}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-        ) : isFilteringByStarred ? (
-          <h1 className="text-3xl font-bold text-foreground mb-6">
-            {m.newsletters_starredNewsletters()}
-          </h1>
-        ) : selectedFolder && folderIdParam ? (
-          <FolderHeader folderId={folderIdParam} />
-        ) : (
-          <h1 className="text-3xl font-bold text-foreground mb-6">
-            {m.newsletters_allNewsletters()}
-          </h1>
-        )}
-
-        {activeListPending ? (
-          <NewsletterListSkeleton />
-        ) : visibleNewsletterList.length === 0 ? (
-          isFilteringByHidden ? (
-            <div className="flex flex-col items-center text-center py-16 px-6">
-              <div className="mb-4 flex items-center justify-center size-12 rounded-2xl bg-muted">
-                <EyeOff className="size-6 text-muted-foreground/50" />
-              </div>
-              <p className="text-base font-medium text-foreground/80">
-                {m.newsletters_noHiddenNewsletters()}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
-                {m.newsletters_noHiddenDesc?.() ?? "Newsletters you hide will appear here."}
-              </p>
-            </div>
-          ) : isFilteringByBinned ? (
-            <div className="flex flex-col items-center text-center py-16 px-6">
-              <div className="mb-4 flex items-center justify-center size-12 rounded-2xl bg-muted">
-                <Trash2 className="size-6 text-muted-foreground/50" />
-              </div>
-              <p className="text-base font-medium text-foreground/80">
-                {m.bin_emptyState?.() ?? "Bin is empty"}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
-                {m.bin_emptyStateDesc?.() ?? "Newsletters you delete will be moved here."}
-              </p>
-            </div>
-          ) : isFilteringByStarred ? (
-            <div className="flex flex-col items-center text-center py-16 px-6">
-              <div className="mb-4 flex items-center justify-center size-12 rounded-2xl bg-muted">
-                <Star className="size-6 text-muted-foreground/50" />
-              </div>
-              <p className="text-base font-medium text-foreground/80">
-                {m.newsletters_noStarredNewsletters()}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
-                {m.newsletters_noStarredDesc?.() ?? "Star newsletters you want to find again quickly."}
-              </p>
-            </div>
-          ) : selectedFolder ? (
-            <div className="flex flex-col items-center text-center py-16 px-6">
-              <div className="mb-4 flex items-center justify-center size-12 rounded-2xl bg-muted">
-                <Inbox className="size-6 text-muted-foreground/50" />
-              </div>
-              <p className="text-base font-medium text-foreground/80">
-                {m.newsletters_noNewslettersInFolder({
-                  folderName: selectedFolder.name,
-                })}
-              </p>
-            </div>
-          ) : (
-            <EmptyNewsletterState dedicatedEmail={dedicatedEmail} />
-          )
-        ) : (
-          <div className="space-y-3">
-            {visibleNewsletterList.map((newsletter) => (
-              <NewsletterCard
-                key={newsletter._id}
-                newsletter={newsletter}
-                showUnhide={isFilteringByHidden}
-                onPrefetch={prefetchNewsletterContent}
-                isFavorited={getIsFavorited(
-                  newsletter._id,
-                  Boolean(newsletter.isFavorited),
-                )}
-                isFavoritePending={isFavoritePending(newsletter._id)}
-                onToggleFavorite={onToggleFavorite}
-              />
-            ))}
-            {canLoadMore && <div ref={loadMoreRef} className="h-10" />}
-            {isLoadingMore && (
-              <div className="text-center text-sm text-muted-foreground py-4">
-                Loading more...
-              </div>
-            )}
-          </div>
-        )}
-      </main>
+    <div className="md:hidden flex flex-col h-full [&>aside]:w-full [&>aside]:h-full [&>aside]:border-r-0">
+      <SenderFolderSidebar
+        {...senderFolderSidebarProps}
+        onNewsletterSelect={handleMobileNewsletterSelect}
+      />
     </div>
   );
 

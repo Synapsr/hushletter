@@ -263,8 +263,8 @@ export function NewsletterListItem({
       <TooltipProvider delay={100}>
         <div
           className={cn(
-            "absolute  -translate-y-1/2 -top-0 right-2 z-20 flex items-center gap-1 rounded-lg border bg-background p-1 shadow-xs transition-opacity",
-            "opacity-100 md:opacity-0 group-first/news-item:top-1/2 group-first/news-item:-translate-y-1/2",
+            "absolute  -translate-y-1/2 -top-0 right-2 z-20 items-center gap-1 rounded-lg border bg-background p-1 shadow-xs transition-opacity",
+            "hidden md:flex md:opacity-0 group-first/news-item:top-1/2 group-first/news-item:-translate-y-1/2",
             "md:pointer-events-none md:group-hover/news-item:pointer-events-auto",
             "md:group-hover/news-item:opacity-100",
             isSelected && "opacity-100 pointer-events-auto",

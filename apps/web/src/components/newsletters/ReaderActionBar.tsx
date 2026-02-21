@@ -151,6 +151,7 @@ export function ReaderActionBar({
                   }
                   onClick={onOpenFullscreen}
                   disabled={!onOpenFullscreen}
+                  className="hidden md:inline-flex"
                 >
                   {isFullscreen ? (
                     <Minimize2 className="h-4 w-4" />
@@ -167,7 +168,7 @@ export function ReaderActionBar({
             </TooltipContent>
           </Tooltip>
 
-          <Separator orientation="vertical" className="h-4 mx-1" />
+          <Separator orientation="vertical" className="hidden md:block h-4 mx-1" />
 
           <Tooltip>
             <TooltipTrigger
@@ -357,7 +358,7 @@ export function ReaderActionBar({
           <Separator orientation="vertical" className="h-4" />
 
           <div className="flex items-center gap-0.5">
-            {/* Favorite */}
+            {/* Favorite — desktop only */}
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -372,7 +373,10 @@ export function ReaderActionBar({
                     }
                     disabled={isFavoritePending}
                     onClick={onToggleFavorite}
-                    className={isFavorited ? "text-yellow-500" : undefined}
+                    className={cn(
+                      "hidden md:inline-flex",
+                      isFavorited && "text-yellow-500",
+                    )}
                   >
                     <StarIcon
                       className={cn("size-4", isFavorited && "fill-current")}
@@ -383,7 +387,7 @@ export function ReaderActionBar({
               <TooltipContent>{m.reader_star()}</TooltipContent>
             </Tooltip>
 
-            {/* Archive */}
+            {/* Archive — desktop only */}
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -393,6 +397,7 @@ export function ReaderActionBar({
                     aria-label={archiveLabel}
                     disabled={isArchivePending}
                     onClick={onArchive}
+                    className="hidden md:inline-flex"
                   >
                     {isHidden ? (
                       <ArchiveUpBoldIcon className="size-4 text-muted-foreground" />
@@ -405,7 +410,7 @@ export function ReaderActionBar({
               <TooltipContent>{archiveLabel}</TooltipContent>
             </Tooltip>
 
-            {/* Bin */}
+            {/* Bin — desktop only */}
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -415,7 +420,7 @@ export function ReaderActionBar({
                     aria-label={binLabel}
                     disabled={isBinPending || !onBin}
                     onClick={onBin}
-                    className="text-muted-foreground hover:text-destructive"
+                    className="hidden md:inline-flex text-muted-foreground hover:text-destructive"
                   >
                     <TrashBoldIcon className="size-4" />
                   </Button>
@@ -434,6 +439,43 @@ export function ReaderActionBar({
                 }
               />
               <DropdownMenuContent align="end" className="w-56">
+                {/* Star/Archive/Bin — mobile only (hidden on desktop via icon buttons) */}
+                <DropdownMenuItem
+                  onClick={onToggleFavorite}
+                  disabled={isFavoritePending}
+                  className="md:hidden"
+                >
+                  <StarIcon
+                    className={cn("size-4", isFavorited && "fill-current text-yellow-500")}
+                  />
+                  {isFavorited
+                    ? m.newsletters_favoritedLabel()
+                    : m.newsletters_favoriteLabel()}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={onArchive}
+                  disabled={isArchivePending}
+                  className="md:hidden"
+                >
+                  {isHidden ? (
+                    <ArchiveUpBoldIcon className="size-4" />
+                  ) : (
+                    <ArchiveBoldIcon className="size-4" />
+                  )}
+                  {archiveLabel}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    onBin?.();
+                  }}
+                  disabled={isBinPending || !onBin}
+                  className="md:hidden text-destructive"
+                >
+                  <TrashBoldIcon className="size-4" />
+                  {binLabel}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="md:hidden" />
+
                 <DropdownMenuItem
                   onClick={() => {
                     onShare?.();

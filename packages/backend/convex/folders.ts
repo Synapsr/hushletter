@@ -105,7 +105,7 @@ export const updateFolder = mutation({
       throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
     }
 
-    const folder = await ctx.db.get(args.folderId)
+    const folder = await ctx.db.get("folders", args.folderId)
     if (!folder) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Folder not found" })
     }
@@ -132,14 +132,14 @@ export const updateFolder = mutation({
       }
     }
 
-    await ctx.db.patch(args.folderId, {
+    await ctx.db.patch("folders", args.folderId, {
       ...(args.name !== undefined ? { name: args.name } : {}),
       ...(args.color !== undefined ? { color: args.color } : {}),
       ...(args.isHidden !== undefined ? { isHidden: args.isHidden } : {}),
       updatedAt: Date.now(), // Story 9.1: Track folder modification time
     })
 
-    return await ctx.db.get(args.folderId)
+    return await ctx.db.get("folders", args.folderId)
   },
 })
 
@@ -389,7 +389,7 @@ export const getFolder = query({
 
     if (!user) return null
 
-    const folder = await ctx.db.get(args.folderId)
+    const folder = await ctx.db.get("folders", args.folderId)
     if (!folder) return null
 
     // Verify ownership
@@ -419,7 +419,7 @@ export const getFolderWithSenders = query({
 
     if (!user) return null
 
-    const folder = await ctx.db.get(args.folderId)
+    const folder = await ctx.db.get("folders", args.folderId)
     if (!folder) return null
 
     // Verify ownership
@@ -435,7 +435,7 @@ export const getFolderWithSenders = query({
 
     const senders = await Promise.all(
       settings.map(async (setting) => {
-        const sender = await ctx.db.get(setting.senderId)
+        const sender = await ctx.db.get("senders", setting.senderId)
         if (!sender) return null
         return {
           _id: sender._id,
@@ -482,10 +482,10 @@ export const reorderFolders = mutation({
 
     const now = Date.now()
     for (let i = 0; i < args.orderedFolderIds.length; i++) {
-      const folder = await ctx.db.get(args.orderedFolderIds[i])
+      const folder = await ctx.db.get("folders", args.orderedFolderIds[i])
       if (!folder || folder.userId !== user._id) continue
       if (folder.sortOrder === i) continue
-      await ctx.db.patch(args.orderedFolderIds[i], {
+      await ctx.db.patch("folders", args.orderedFolderIds[i], {
         sortOrder: i,
         updatedAt: now,
       })
@@ -512,7 +512,7 @@ export const deleteFolder = mutation({
       throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
     }
 
-    const folder = await ctx.db.get(args.folderId)
+    const folder = await ctx.db.get("folders", args.folderId)
     if (!folder) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Folder not found" })
     }
@@ -531,7 +531,9 @@ export const deleteFolder = mutation({
       .collect()
 
     for (const setting of settingsWithFolder) {
-      await ctx.db.patch(setting._id, { folderId: undefined })
+      await ctx.db.patch("userSenderSettings", setting._id, {
+        folderId: undefined,
+      })
     }
 
     // Story 9.1: Also remove folder reference from userNewsletters
@@ -543,10 +545,12 @@ export const deleteFolder = mutation({
       .collect()
 
     for (const newsletter of newslettersWithFolder) {
-      await ctx.db.patch(newsletter._id, { folderId: undefined })
+      await ctx.db.patch("userNewsletters", newsletter._id, {
+        folderId: undefined,
+      })
     }
 
-    await ctx.db.delete(args.folderId)
+    await ctx.db.delete("folders", args.folderId)
   },
 })
 
@@ -607,7 +611,7 @@ export const renameFolder = mutation({
     }
 
     // Validate ownership
-    const folder = await ctx.db.get(args.folderId)
+    const folder = await ctx.db.get("folders", args.folderId)
     if (!folder || folder.userId !== user._id) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Folder not found" })
     }
@@ -638,7 +642,7 @@ export const renameFolder = mutation({
     const finalName = makeUniqueFolderName(trimmedName, otherFolders)
 
     // Update folder - Task 1.4
-    await ctx.db.patch(args.folderId, {
+    await ctx.db.patch("folders", args.folderId, {
       name: finalName,
       updatedAt: Date.now(),
     })
@@ -672,12 +676,12 @@ export const hideFolder = mutation({
       throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
     }
 
-    const folder = await ctx.db.get(args.folderId)
+    const folder = await ctx.db.get("folders", args.folderId)
     if (!folder || folder.userId !== user._id) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Folder not found" })
     }
 
-    await ctx.db.patch(args.folderId, {
+    await ctx.db.patch("folders", args.folderId, {
       isHidden: true,
       updatedAt: Date.now(),
     })
@@ -709,12 +713,12 @@ export const unhideFolder = mutation({
       throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
     }
 
-    const folder = await ctx.db.get(args.folderId)
+    const folder = await ctx.db.get("folders", args.folderId)
     if (!folder || folder.userId !== user._id) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Folder not found" })
     }
 
-    await ctx.db.patch(args.folderId, {
+    await ctx.db.patch("folders", args.folderId, {
       isHidden: false,
       updatedAt: Date.now(),
     })
@@ -828,8 +832,8 @@ export const mergeFolders = mutation({
     }
 
     // Validate ownership of both folders
-    const sourceFolder = await ctx.db.get(args.sourceFolderId)
-    const targetFolder = await ctx.db.get(args.targetFolderId)
+    const sourceFolder = await ctx.db.get("folders", args.sourceFolderId)
+    const targetFolder = await ctx.db.get("folders", args.targetFolderId)
 
     if (!sourceFolder || sourceFolder.userId !== user._id) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Source folder not found" })
@@ -847,7 +851,9 @@ export const mergeFolders = mutation({
       .collect()
 
     for (const setting of senderSettings) {
-      await ctx.db.patch(setting._id, { folderId: args.targetFolderId })
+      await ctx.db.patch("userSenderSettings", setting._id, {
+        folderId: args.targetFolderId,
+      })
     }
 
     // Move userNewsletters to target folder - Task 3.3
@@ -859,7 +865,9 @@ export const mergeFolders = mutation({
       .collect()
 
     for (const newsletter of newsletters) {
-      await ctx.db.patch(newsletter._id, { folderId: args.targetFolderId })
+      await ctx.db.patch("userNewsletters", newsletter._id, {
+        folderId: args.targetFolderId,
+      })
     }
 
     // Store merge history for undo - Task 6.1, 6.2
@@ -878,10 +886,10 @@ export const mergeFolders = mutation({
     })
 
     // Delete source folder - Task 3.4
-    await ctx.db.delete(args.sourceFolderId)
+    await ctx.db.delete("folders", args.sourceFolderId)
 
     // Update target folder timestamp
-    await ctx.db.patch(args.targetFolderId, { updatedAt: now })
+    await ctx.db.patch("folders", args.targetFolderId, { updatedAt: now })
 
     return {
       mergeId,
@@ -965,9 +973,11 @@ export const undoFolderMerge = mutation({
     let skippedNewsletterCount = 0
 
     for (const settingId of history.movedSenderSettingIds) {
-      const setting = await ctx.db.get(settingId)
+      const setting = await ctx.db.get("userSenderSettings", settingId)
       if (setting && setting.userId === user._id) {
-        await ctx.db.patch(settingId, { folderId: newFolderId })
+        await ctx.db.patch("userSenderSettings", settingId, {
+          folderId: newFolderId,
+        })
         restoredSenderCount++
       } else {
         skippedSenderCount++
@@ -975,9 +985,11 @@ export const undoFolderMerge = mutation({
     }
 
     for (const newsletterId of history.movedNewsletterIds) {
-      const newsletter = await ctx.db.get(newsletterId)
+      const newsletter = await ctx.db.get("userNewsletters", newsletterId)
       if (newsletter && newsletter.userId === user._id) {
-        await ctx.db.patch(newsletterId, { folderId: newFolderId })
+        await ctx.db.patch("userNewsletters", newsletterId, {
+          folderId: newFolderId,
+        })
         restoredNewsletterCount++
       } else {
         skippedNewsletterCount++
@@ -985,7 +997,7 @@ export const undoFolderMerge = mutation({
     }
 
     // Delete history record
-    await ctx.db.delete(history._id)
+    await ctx.db.delete("folderMergeHistory", history._id)
 
     return {
       restoredFolderId: newFolderId,
@@ -1019,7 +1031,7 @@ export const cleanupExpiredMergeHistory = internalMutation({
 
     let deletedCount = 0
     for (const record of expiredRecords) {
-      await ctx.db.delete(record._id)
+      await ctx.db.delete("folderMergeHistory", record._id)
       deletedCount++
     }
 

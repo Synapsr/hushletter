@@ -108,23 +108,17 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       },
     },
     // Social providers for OAuth authentication
-    // Story 4.1: Gmail OAuth integration for newsletter import
+    // Keep sign-in scopes minimal. Gmail access is requested later via
+    // explicit "Connect Gmail" consent in gmailConnections.generateOAuthUrl.
     socialProviders: {
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        // Request Gmail read-only access for newsletter import (Stories 4.2-4.4)
-        // plus standard scopes for user identification
         scope: [
           "openid",
           "email",
           "profile",
-          "https://www.googleapis.com/auth/gmail.readonly",
         ],
-        // Story 4.2 fix: Required to get refresh tokens for Gmail API access
-        // Without these, Google only returns tokens on first consent
-        accessType: "offline",
-        prompt: "consent",
       },
     },
     plugins: [

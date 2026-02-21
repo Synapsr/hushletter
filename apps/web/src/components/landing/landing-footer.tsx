@@ -30,10 +30,10 @@ export function LandingFooter() {
             >
               {m.landing_footerPricing()}
             </a>
-            <Link to="/{-$locale}/privacy" className="hover:text-gray-900">
+            <Link to="/privacy" className="hover:text-gray-900">
               Privacy
             </Link>
-            <Link to="/{-$locale}/terms" className="hover:text-gray-900">
+            <Link to="/terms" className="hover:text-gray-900">
               Terms
             </Link>
           </nav>

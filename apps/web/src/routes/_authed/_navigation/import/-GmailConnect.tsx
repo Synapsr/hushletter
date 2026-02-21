@@ -2,7 +2,6 @@
  * GmailConnect Component - Multi-Account Support
  *
  * Displays connected Gmail accounts and allows adding/removing connections.
- * Auto-connects from Better Auth if user signed in with Google.
  */
 
 import { useState, useEffect } from "react";
@@ -250,13 +249,11 @@ export function GmailConnect({
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [disconnectTarget, setDisconnectTarget] = useState<GmailConnection | null>(null);
-  const [autoConnectDone, setAutoConnectDone] = useState(false);
 
   const searchParams = useSearch({ strict: false }) as ImportSearchParams;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const autoConnect = useAction(api.gmailConnections.autoConnectFromBetterAuth);
   const generateOAuthUrl = useAction(api.gmailConnections.generateOAuthUrl);
   const removeConnection = useAction(api.gmailConnections.removeConnection);
 
@@ -266,20 +263,6 @@ export function GmailConnect({
     error: queryError,
   } = useQuery(convexQuery(api.gmailConnections.getGmailConnections, {}));
   const connections = (connectionsData ?? []) as GmailConnection[];
-
-  // Auto-connect from Better Auth on first load
-  useEffect(() => {
-    if (autoConnectDone || isPending || connections.length > 0) return;
-    setAutoConnectDone(true);
-
-    autoConnect({}).then((result) => {
-      if (result.connected) {
-        queryClient.invalidateQueries();
-      }
-    }).catch(() => {
-      // silently fail - user can connect manually
-    });
-  }, [autoConnectDone, isPending, connections.length, autoConnect, queryClient]);
 
   // Auto-select first connection if none selected
   useEffect(() => {

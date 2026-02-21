@@ -274,9 +274,13 @@ export const generateOAuthUrl = action({
         "https://www.googleapis.com/auth/gmail.readonly",
       ].join(" "),
       access_type: "offline",
-      prompt: "consent",
+      prompt: "consent select_account",
+      include_granted_scopes: "true",
       state,
     })
+    if (authUser.email) {
+      params.set("login_hint", authUser.email)
+    }
 
     return { url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` }
   },

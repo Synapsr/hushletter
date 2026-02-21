@@ -4,7 +4,7 @@ export const Route = createFileRoute("/{-$locale}/terms")({
   component: TermsOfServicePage,
 });
 
-const LAST_UPDATED = "February 20, 2026";
+const LAST_UPDATED = "February 21, 2026";
 
 function TermsOfServicePage() {
   return (
@@ -70,8 +70,14 @@ function TermsOfServicePage() {
               Gmail Connection
             </h2>
             <p>
-              If you connect Gmail, you grant read-only access needed to import
-              newsletters. You can disconnect Gmail at any time.
+              If you connect Gmail, you grant Hushletter read-only access to
+              your Gmail account for newsletter import features. Hushletter
+              does not send, delete, or modify your emails, labels, or mailbox
+              settings.
+            </p>
+            <p>
+              You can disconnect Gmail at any time from Hushletter settings or
+              by revoking access in your Google account permissions.
             </p>
           </section>
 
@@ -119,6 +125,22 @@ function TermsOfServicePage() {
 
           <section className="space-y-3">
             <h2 className="text-xl font-semibold text-slate-900">
+              Privacy
+            </h2>
+            <p>
+              Your use of the service is also subject to our{" "}
+              <Link
+                to="/privacy"
+                className="underline decoration-slate-300 underline-offset-4 transition-colors hover:text-slate-900"
+              >
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-semibold text-slate-900">
               Changes To These Terms
             </h2>
             <p>
@@ -132,10 +154,10 @@ function TermsOfServicePage() {
             <p>
               For legal questions, contact{" "}
               <a
-                href="mailto:hello@hushletter.com"
+                href="mailto:teo.goulois.dev@gmail.com"
                 className="underline decoration-slate-300 underline-offset-4 transition-colors hover:text-slate-900"
               >
-                hello@hushletter.com
+                teo.goulois.dev@gmail.com
               </a>
               .
             </p>

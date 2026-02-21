@@ -4,7 +4,7 @@ export const Route = createFileRoute("/{-$locale}/privacy")({
   component: PrivacyPolicyPage,
 });
 
-const LAST_UPDATED = "February 20, 2026";
+const LAST_UPDATED = "February 21, 2026";
 
 function PrivacyPolicyPage() {
   return (
@@ -82,10 +82,22 @@ function PrivacyPolicyPage() {
               Google User Data And Gmail Access
             </h2>
             <p>
-              If you connect Gmail, Hushletter requests read-only Gmail access
-              to scan and import newsletters. We do not use this access to send
-              email or modify your mailbox.
+              If you connect Gmail, Hushletter requests only read-only Gmail
+              access to scan and import newsletter messages for your own
+              account. We do not use Gmail access to send, delete, or modify
+              emails, labels, or mailbox settings.
             </p>
+            <p>OAuth scopes currently requested for this feature:</p>
+            <ul className="list-disc space-y-1 pl-6">
+              <li>
+                <code>openid</code>, <code>email</code>, <code>profile</code>
+                {" "}for account authentication and identity.
+              </li>
+              <li>
+                <code>https://www.googleapis.com/auth/gmail.readonly</code> for
+                read-only import of newsletter content chosen by the user.
+              </li>
+            </ul>
             <p>
               Hushletter&apos;s use and transfer of information received from
               Google APIs will adhere to the{" "}
@@ -99,6 +111,10 @@ function PrivacyPolicyPage() {
               </a>
               , including the Limited Use requirements.
             </p>
+            <p>
+              We do not sell Google user data, do not use it for advertising,
+              and do not use it to train generalized AI or ML models.
+            </p>
           </section>
 
           <section className="space-y-3">
@@ -109,8 +125,33 @@ function PrivacyPolicyPage() {
               We do not sell personal data. We may share information only with
               trusted service providers that help us operate Hushletter (for
               example infrastructure, authentication, payments, and email
-              delivery), and only as needed to provide the service.
+              delivery), and only as needed to provide the service under
+              contractual protections.
             </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-semibold text-slate-900">
+              Why Gmail Read-Only Is Needed
+            </h2>
+            <p>
+              More limited metadata-only access is not sufficient for this
+              feature because Hushletter needs message body content to display
+              and import newsletter emails into your private library.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-semibold text-slate-900">
+              User Controls
+            </h2>
+            <ul className="list-disc space-y-1 pl-6">
+              <li>You choose whether to connect Gmail.</li>
+              <li>You can disconnect Gmail at any time from app settings.</li>
+              <li>
+                You can also revoke access from your Google account permissions.
+              </li>
+            </ul>
           </section>
 
           <section className="space-y-3">
@@ -118,9 +159,9 @@ function PrivacyPolicyPage() {
               Data Retention And Deletion
             </h2>
             <p>
-              We keep data as long as needed to provide the service or comply
-              with legal obligations. You can disconnect Gmail at any time and
-              request account deletion by contacting us.
+              We keep data only as long as needed to provide the service and
+              meet legal obligations. You can request deletion of your account
+              and imported data by contacting us.
             </p>
           </section>
 

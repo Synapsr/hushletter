@@ -9,7 +9,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import { GmailConnect } from "./-GmailConnect";
 import { SenderScanner } from "./-SenderScanner";
@@ -17,14 +17,9 @@ import { Button } from "@hushletter/ui";
 import {
   AlertCircle,
   RefreshCw,
-  ArrowRight,
-  Mail,
-  ShieldCheck,
-  Zap,
   Lock,
 } from "lucide-react";
 import { m } from "@/paraglide/messages.js";
-import { PricingDialog } from "@/components/pricing-dialog";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { toast } from "sonner";
 
@@ -90,65 +85,8 @@ function SenderScannerError(props: FallbackProps) {
   );
 }
 
-function UpgradePrompt() {
-  const [pricingOpen, setPricingOpen] = useState(false);
-
-  return (
-    <>
-      <div className="rounded-xl border border-border/60 bg-card p-6">
-        <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Zap className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">
-              Free preview: Gmail import
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Free accounts can import from Gmail as a lifetime preview.
-              Upgrade to Pro for unlimited sender and email imports.
-            </p>
-
-            <ul className="mt-4 space-y-2.5 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-primary" />
-                Import from 1 sender lifetime on Free
-              </li>
-              <li className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-primary" />
-                Import up to 25 emails lifetime on Free
-              </li>
-              <li className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                Unlimited Gmail import with Pro
-              </li>
-            </ul>
-
-            <Button onClick={() => setPricingOpen(true)} className="mt-5 gap-2">
-              Upgrade to Pro
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <PricingDialog
-        open={pricingOpen}
-        onOpenChange={setPricingOpen}
-        returnTo="import"
-      />
-    </>
-  );
-}
-
 function ImportPage() {
   const syncProStatus = useAction(api.billing.syncProStatusFromStripe);
-  const entitlements = useQuery(api.entitlements.getEntitlements) as
-    | { isPro?: boolean }
-    | null
-    | undefined;
-  const isPro = Boolean(entitlements?.isPro);
-  const isEntitlementsLoading = entitlements === undefined;
   const [billingSyncPending, setBillingSyncPending] = useState(false);
   const [billingSyncError, setBillingSyncError] = useState<string | null>(null);
 
@@ -208,28 +146,6 @@ function ImportPage() {
     <div className="mx-auto w-full max-w-xl px-4 py-10 overflow-auto h-full min-h-0">
       {/* Header */}
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-50 to-orange-50 ring-1 ring-red-200/60 dark:from-red-950/40 dark:to-orange-950/40 dark:ring-red-800/40">
-          <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M2 6l10 7 10-7"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-red-500"
-            />
-            <rect
-              x="2"
-              y="5"
-              width="20"
-              height="14"
-              rx="3"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              className="text-red-400"
-            />
-          </svg>
-        </div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Import from Gmail
         </h1>
@@ -261,27 +177,6 @@ function ImportPage() {
           </div>
         )}
 
-        {!isEntitlementsLoading && !isPro && !billingSyncPending && (
-          <>
-            <div className="rounded-xl border border-border/60 bg-card p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Already completed payment?
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void handleBillingSync()}
-                  disabled={billingSyncPending}
-                >
-                  Sync subscription
-                </Button>
-              </div>
-            </div>
-            <UpgradePrompt />
-          </>
-        )}
-
         <ErrorBoundary FallbackComponent={GmailConnectError}>
           <GmailConnect
             selectedConnectionId={selectedConnectionId}
@@ -290,7 +185,7 @@ function ImportPage() {
         </ErrorBoundary>
 
         {selectedConnectionId && (
-          <ErrorBoundary FallbackComponent={SenderScannerError}>
+          <ErrorBoundary key={selectedConnectionId} FallbackComponent={SenderScannerError}>
             <SenderScanner gmailConnectionId={selectedConnectionId} />
           </ErrorBoundary>
         )}

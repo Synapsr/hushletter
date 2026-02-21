@@ -2,20 +2,18 @@
  * SenderScanner Component
  *
  * Provides interface for scanning Gmail for newsletter senders.
- * Shows scan progress in real-time and displays detected senders.
+ * Auto-starts scan on mount and transitions directly to review when done.
+ * Flow: Scan → Review → Import (3 steps)
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@hushletter/backend";
 import { Button, Progress } from "@hushletter/ui";
 import {
-  Search,
   Loader2,
-  Mail,
   RefreshCw,
   AlertCircle,
-  CheckCircle2,
   Inbox,
 } from "lucide-react";
 import { SenderReview } from "./-SenderReview";
@@ -52,49 +50,6 @@ function LoadingSkeleton() {
           <div className="h-4 w-32 animate-pulse rounded bg-muted" />
           <div className="h-3 w-48 animate-pulse rounded bg-muted" />
         </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Idle state — prompt to start scanning
- */
-function IdleState({
-  onStartScan,
-  isStarting,
-}: {
-  onStartScan: () => void;
-  isStarting: boolean;
-}) {
-  return (
-    <div className="p-5">
-      <div className="flex items-start gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-          <Search className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <h3 className="text-sm font-medium">Find your newsletters</h3>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            We&apos;ll scan for emails with newsletter characteristics —
-            unsubscribe links, known platforms, and mailing list headers.
-          </p>
-        </div>
-      </div>
-      <div className="mt-4 border-t border-border/40 pt-4">
-        <Button onClick={onStartScan} disabled={isStarting} className="w-full">
-          {isStarting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Starting scan...
-            </>
-          ) : (
-            <>
-              <Search className="mr-2 h-4 w-4" />
-              Scan for newsletters
-            </>
-          )}
-        </Button>
       </div>
     </div>
   );
@@ -232,86 +187,7 @@ function ErrorState({
   );
 }
 
-/**
- * Complete state — senders detected, prompt to review
- */
-function CompleteState({
-  senders,
-  onRescan,
-  isRescanning,
-  onReview,
-}: {
-  senders: DetectedSender[];
-  onRescan: () => void;
-  isRescanning: boolean;
-  onReview: () => void;
-}) {
-  return (
-    <div className="space-y-4 p-5">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <div>
-          <p className="text-sm font-medium">
-            Found {senders.length} newsletter
-            {senders.length !== 1 ? "s" : ""}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Review and select which senders to import
-          </p>
-        </div>
-      </div>
-
-      {senders.length > 0 && (
-        <div className="space-y-1.5">
-          {senders.slice(0, 4).map((sender) => (
-            <div
-              key={sender._id}
-              className="flex items-center gap-2.5 rounded-lg bg-muted/50 px-3 py-2"
-            >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
-                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <span className="flex-1 truncate text-sm">
-                {sender.name || sender.email}
-              </span>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {sender.emailCount} emails
-              </span>
-            </div>
-          ))}
-          {senders.length > 4 && (
-            <p className="py-1 text-center text-xs text-muted-foreground">
-              +{senders.length - 4} more
-            </p>
-          )}
-        </div>
-      )}
-
-      <div className="flex gap-2 border-t border-border/40 pt-4">
-        <Button onClick={onReview} className="flex-1">
-          Review & Import
-        </Button>
-        <Button
-          onClick={onRescan}
-          disabled={isRescanning}
-          variant="outline"
-          size="icon-xl"
-          title="Rescan"
-        >
-          {isRescanning ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-type ScannerView = "scanner" | "review" | "importing";
+type ScannerView = "scanner" | "importing";
 
 /**
  * SenderScanner — scans Gmail for newsletters and manages the scan→review→import flow
@@ -354,7 +230,7 @@ export function SenderScanner({
     };
   }, []);
 
-  const handleStartScan = async () => {
+  const handleStartScan = useCallback(async () => {
     setIsStarting(true);
     setLocalError(null);
 
@@ -375,7 +251,16 @@ export function SenderScanner({
         setIsStarting(false);
       }
     }
-  };
+  }, [gmailConnectionId, startScan]);
+
+  // Auto-start scan when no prior scan exists
+  const hasAutoStartedRef = useRef(false);
+  useEffect(() => {
+    if (scanProgress === null && !isStarting && !hasAutoStartedRef.current) {
+      hasAutoStartedRef.current = true;
+      void handleStartScan();
+    }
+  }, [handleStartScan, isStarting, scanProgress]);
 
   if (currentView === "importing") {
     return (
@@ -386,11 +271,16 @@ export function SenderScanner({
     );
   }
 
-  if (currentView === "review") {
+  const hasDetectedSenders = (detectedSenders?.length ?? 0) > 0;
+  const shouldShowReview =
+    currentView === "scanner" &&
+    scanProgress?.status === "complete" &&
+    hasDetectedSenders;
+
+  if (shouldShowReview) {
     return (
       <SenderReview
         gmailConnectionId={gmailConnectionId}
-        onBack={() => setCurrentView("scanner")}
         onStartImport={() => setCurrentView("importing")}
       />
     );
@@ -400,11 +290,10 @@ export function SenderScanner({
     return <LoadingSkeleton />;
   }
 
-  const isScanning = scanProgress?.status === "scanning";
   const isComplete = scanProgress?.status === "complete";
   const hasError = scanProgress?.status === "error" || localError;
   const errorMessage = localError || scanProgress?.error || "An error occurred";
-  const isEmpty = isComplete && (detectedSenders?.length ?? 0) === 0;
+  const isEmpty = isComplete && !hasDetectedSenders;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
@@ -414,21 +303,10 @@ export function SenderScanner({
           onRetry={handleStartScan}
           isRetrying={isStarting}
         />
-      ) : isScanning ? (
-        <ScanningState progress={scanProgress} />
-      ) : isComplete ? (
-        isEmpty ? (
-          <EmptyState onRescan={handleStartScan} isRescanning={isStarting} />
-        ) : (
-          <CompleteState
-            senders={detectedSenders ?? []}
-            onRescan={handleStartScan}
-            isRescanning={isStarting}
-            onReview={() => setCurrentView("review")}
-          />
-        )
+      ) : isEmpty ? (
+        <EmptyState onRescan={handleStartScan} isRescanning={isStarting} />
       ) : (
-        <IdleState onStartScan={handleStartScan} isStarting={isStarting} />
+        <ScanningState progress={scanProgress ?? { status: "scanning", totalEmails: 0, processedEmails: 0, sendersFound: 0 }} />
       )}
     </div>
   );

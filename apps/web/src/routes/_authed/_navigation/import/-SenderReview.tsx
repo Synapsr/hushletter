@@ -22,7 +22,6 @@ import {
   ChevronDown,
   Mail,
   Loader2,
-  CheckCircle2,
   AlertCircle,
   Calendar,
   ArrowLeft,
@@ -272,140 +271,6 @@ function ErrorAlert({
 }
 
 /**
- * Confirm import step
- */
-function ConfirmImportView({
-  selectedCount,
-  onConfirm,
-  onCancel,
-  isApproving,
-}: {
-  selectedCount: number;
-  onConfirm: () => void;
-  onCancel: () => void;
-  isApproving: boolean;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-          <CheckCircle2 className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <p className="text-sm font-medium">Confirm import</p>
-          <p className="text-xs text-muted-foreground">
-            Import newsletters from {selectedCount} sender
-            {selectedCount !== 1 ? "s" : ""}
-          </p>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        We&apos;ll start importing historical emails from the selected senders.
-        This may take some time depending on the number of emails.
-      </p>
-
-      <div className="flex gap-2.5">
-        <Button
-          variant="outline"
-          onClick={onCancel}
-          disabled={isApproving}
-          className="flex-1"
-        >
-          Go back
-        </Button>
-        <Button
-          onClick={onConfirm}
-          disabled={isApproving}
-          className="flex-1"
-        >
-          {isApproving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Approving...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Confirm import
-            </>
-          )}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Success view — senders approved, trigger import
- */
-function ApprovalSuccessView({
-  approvedCount,
-  onStartImport,
-  isStartingImport,
-  isStartDisabled,
-  startDisabledReason,
-  importError,
-}: {
-  approvedCount: number;
-  onStartImport: () => void;
-  isStartingImport: boolean;
-  isStartDisabled?: boolean;
-  startDisabledReason?: string;
-  importError: string | null;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <div>
-          <p className="text-sm font-medium">Senders approved</p>
-          <p className="text-xs text-muted-foreground">
-            {approvedCount} sender{approvedCount !== 1 ? "s" : ""} ready for
-            import
-          </p>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        Start importing historical emails from your approved senders.
-      </p>
-
-      {importError && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-          {importError}
-        </p>
-      )}
-      {startDisabledReason && !importError && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-          {startDisabledReason}
-        </p>
-      )}
-
-      <Button
-        onClick={onStartImport}
-        disabled={isStartingImport || isStartDisabled}
-        className="w-full"
-      >
-        {isStartingImport ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Starting import...
-          </>
-        ) : (
-          <>
-            <Mail className="mr-2 h-4 w-4" />
-            Start import
-          </>
-        )}
-      </Button>
-    </div>
-  );
-}
-
-/**
  * SenderReview — review and select senders for import
  */
 export function SenderReview({
@@ -417,13 +282,9 @@ export function SenderReview({
   onBack?: () => void;
   onStartImport?: () => void;
 }) {
-  const [view, setView] = useState<"review" | "confirm" | "success">("review");
-  const [approvedCount, setApprovedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [isApproving, setIsApproving] = useState(false);
-  const [isStartingImport, setIsStartingImport] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [isUpdatingSelection, setIsUpdatingSelection] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
   const [hasAutoNormalizedSelection, setHasAutoNormalizedSelection] =
     useState(false);
   const [optimisticUpdates, setOptimisticUpdates] = useState<
@@ -696,20 +557,24 @@ export function SenderReview({
     }
   }, [deselectAll, detectedSenders]);
 
-  const handleApprove = useCallback(async () => {
+  const handleImport = useCallback(async () => {
     if (isFreePreview && selectedNewSenderCount > remainingSenderSlots) {
       setError(
         "Free preview includes Gmail imports from 1 sender lifetime. Deselect extra senders or upgrade to Pro.",
       );
       return;
     }
+    if (isFreePreview && remainingEmailSlots <= 0) {
+      setError(
+        "Free preview limit reached: you can import up to 25 Gmail emails lifetime. Upgrade to Pro for unlimited imports.",
+      );
+      return;
+    }
 
-    setIsApproving(true);
+    setIsImporting(true);
     setError(null);
     try {
-      const result = await approveSelected();
-      setApprovedCount(result.approvedCount);
-      setView("success");
+      await approveSelected();
     } catch (err) {
       console.error("[SenderReview] Failed to approve senders:", err);
       const details = getConvexErrorDetails(err);
@@ -720,26 +585,10 @@ export function SenderReview({
       } else {
         setError(details.message || "Failed to approve senders. Please try again.");
       }
-    } finally {
-      setIsApproving(false);
-    }
-  }, [
-    approveSelected,
-    isFreePreview,
-    remainingSenderSlots,
-    selectedNewSenderCount,
-  ]);
-
-  const handleStartImport = useCallback(async () => {
-    if (isFreePreview && remainingEmailSlots <= 0) {
-      setImportError(
-        "Free preview limit reached: you can import up to 25 Gmail emails lifetime. Upgrade to Pro for unlimited imports.",
-      );
+      setIsImporting(false);
       return;
     }
 
-    setIsStartingImport(true);
-    setImportError(null);
     try {
       const result = (await startHistoricalImport({
         gmailConnectionId,
@@ -748,29 +597,32 @@ export function SenderReview({
         onStartImport?.();
       } else {
         if (result.errorCode === "FREE_PREVIEW_SENDER_LIMIT") {
-          setImportError(
+          setError(
             "Free preview includes Gmail imports from 1 sender lifetime. Deselect extra senders or upgrade to Pro.",
           );
         } else if (result.errorCode === "FREE_PREVIEW_EMAIL_LIMIT") {
-          setImportError(
+          setError(
             "Free preview limit reached: you can import up to 25 Gmail emails lifetime. Upgrade to Pro for unlimited imports.",
           );
         } else {
-          setImportError(result.error || "Failed to start import.");
+          setError(result.error || "Failed to start import.");
         }
       }
     } catch (err) {
       console.error("[SenderReview] Failed to start import:", err);
       const details = getConvexErrorDetails(err);
-      setImportError(details.message || "Failed to start import. Please try again.");
+      setError(details.message || "Failed to start import. Please try again.");
     } finally {
-      setIsStartingImport(false);
+      setIsImporting(false);
     }
   }, [
+    approveSelected,
     gmailConnectionId,
     isFreePreview,
     onStartImport,
     remainingEmailSlots,
+    remainingSenderSlots,
+    selectedNewSenderCount,
     startHistoricalImport,
   ]);
 
@@ -814,11 +666,7 @@ export function SenderReview({
               aria-live="polite"
               aria-atomic="true"
             >
-              {view === "review"
-                ? `${selectedCount} of ${totalCount} selected`
-                : view === "confirm"
-                  ? "Confirm your selection"
-                  : "Approval complete"}
+              {selectedCount} of {totalCount} selected
             </p>
             {isFreePreview && previewStatus && (
               <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
@@ -828,30 +676,28 @@ export function SenderReview({
               </p>
             )}
           </div>
-          {view === "review" && (
-            <div className="flex gap-1.5">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSelectAll}
-                disabled={
-                  selectedCount === totalCount || isFreePreview || isUpdatingSelection
-                }
-                className="h-7 px-2 text-xs"
-              >
-                Select all
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDeselectAll}
-                disabled={selectedCount === 0 || isUpdatingSelection}
-                className="h-7 px-2 text-xs"
-              >
-                Deselect all
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSelectAll}
+              disabled={
+                selectedCount === totalCount || isFreePreview || isUpdatingSelection || isImporting
+              }
+              className="h-7 px-2 text-xs"
+            >
+              Select all
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDeselectAll}
+              disabled={selectedCount === 0 || isUpdatingSelection || isImporting}
+              className="h-7 px-2 text-xs"
+            >
+              Deselect all
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -871,89 +717,69 @@ export function SenderReview({
           </p>
         )}
 
-        {view === "review" && (
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {detectedSenders.map((sender) => {
-              const isSelected = getEffectiveSelected(sender);
-              const isImportedSender = isSenderImportedBefore(sender);
-              const disableNewSelection =
-                isFreePreview &&
-                !isImportedSender &&
-                !isSelected &&
-                remainingSenderSlots <= 0;
-              const selectionDisabled = disableNewSelection || isUpdatingSelection;
+        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+          {detectedSenders.map((sender) => {
+            const isSelected = getEffectiveSelected(sender);
+            const isImportedSender = isSenderImportedBefore(sender);
+            const disableNewSelection =
+              isFreePreview &&
+              !isImportedSender &&
+              !isSelected &&
+              remainingSenderSlots <= 0;
+            const selectionDisabled = disableNewSelection || isUpdatingSelection || isImporting;
 
-              return (
-                <SenderRow
-                  key={sender._id}
-                  sender={sender}
-                  optimisticSelected={optimisticUpdates.get(sender._id)}
-                  selectionDisabled={selectionDisabled}
-                  selectionDisabledReason={
-                    disableNewSelection
-                      ? "Free preview supports 1 sender lifetime. Upgrade to Pro to import more senders."
-                      : isUpdatingSelection
-                        ? "Updating selection..."
-                      : undefined
-                  }
-                  onSelectionChange={(isSelected) =>
-                    handleSelectionChange(sender._id, isSelected)
-                  }
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {view === "confirm" && (
-          <ConfirmImportView
-            selectedCount={selectedCount}
-            onConfirm={handleApprove}
-            onCancel={() => setView("review")}
-            isApproving={isApproving}
-          />
-        )}
-
-        {view === "success" && (
-          <ApprovalSuccessView
-            approvedCount={approvedCount}
-            onStartImport={handleStartImport}
-            isStartingImport={isStartingImport}
-            isStartDisabled={isEmailPreviewExhausted}
-            startDisabledReason={
-              isEmailPreviewExhausted
-                ? "You've used your free Gmail preview (25 emails lifetime). Upgrade to Pro for unlimited imports."
-                : undefined
-            }
-            importError={importError}
-          />
-        )}
+            return (
+              <SenderRow
+                key={sender._id}
+                sender={sender}
+                optimisticSelected={optimisticUpdates.get(sender._id)}
+                selectionDisabled={selectionDisabled}
+                selectionDisabledReason={
+                  disableNewSelection
+                    ? "Free preview supports 1 sender lifetime. Upgrade to Pro to import more senders."
+                    : isUpdatingSelection
+                      ? "Updating selection..."
+                    : undefined
+                }
+                onSelectionChange={(isSelected) =>
+                  handleSelectionChange(sender._id, isSelected)
+                }
+              />
+            );
+          })}
+        </div>
       </div>
 
       {/* Footer */}
-      {view === "review" && (
-        <div className="flex items-center gap-2.5 border-t border-border/40 px-5 py-3">
-          {onBack && (
-            <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back
-            </Button>
-          )}
-          <div className="flex-1" />
-          <Button
-            onClick={() => setView("confirm")}
-            disabled={
-              selectedCount === 0 ||
-              isSelectionOverFreeSenderLimit ||
-              isEmailPreviewExhausted ||
-              isUpdatingSelection
-            }
-            size="sm"
-          >
-            Import {selectedCount} sender{selectedCount !== 1 ? "s" : ""}
+      <div className="flex items-center gap-2.5 border-t border-border/40 px-5 py-3">
+        {onBack && (
+          <Button variant="ghost" size="sm" onClick={onBack} disabled={isImporting} className="gap-1.5">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
           </Button>
-        </div>
-      )}
+        )}
+        <div className="flex-1" />
+        <Button
+          onClick={handleImport}
+          disabled={
+            selectedCount === 0 ||
+            isSelectionOverFreeSenderLimit ||
+            isEmailPreviewExhausted ||
+            isUpdatingSelection ||
+            isImporting
+          }
+          size="sm"
+        >
+          {isImporting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Importing...
+            </>
+          ) : (
+            <>Import {selectedCount} sender{selectedCount !== 1 ? "s" : ""}</>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

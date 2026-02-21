@@ -26,7 +26,6 @@ import {
 import {
   Button,
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -35,7 +34,7 @@ import {
   Label,
   Textarea,
 } from "@hushletter/ui";
-import { ChevronsUpDownIcon, ExternalLink, MessageSquare } from "lucide-react";
+import { ChevronsUpDownIcon, ExternalLink } from "lucide-react";
 import { importDialogHandle } from "../import";
 import {
   CheckCircleSolidIcon,

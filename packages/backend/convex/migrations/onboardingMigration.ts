@@ -46,7 +46,7 @@ export const getUsersWithoutOnboarding = internalQuery({
 export const markOnboardingComplete = internalMutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
+    await ctx.db.patch("users", args.userId, {
       onboardingCompletedAt: Date.now(),
     })
   },

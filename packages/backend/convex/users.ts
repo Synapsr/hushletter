@@ -41,7 +41,7 @@ export const updateProfile = mutation({
     }
 
     // Update the user's name
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch("users", user._id, {
       name: args.name,
     })
 
@@ -174,7 +174,7 @@ export const claimEmailPrefix = mutation({
       })
     }
 
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch("users", user._id, {
       vanityEmail,
       onboardingCompletedAt: user.onboardingCompletedAt ?? Date.now(),
     })
@@ -210,7 +210,7 @@ export const completeOnboarding = mutation({
       })
     }
 
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch("users", user._id, {
       onboardingCompletedAt: Date.now(),
     })
 

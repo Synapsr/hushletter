@@ -99,7 +99,7 @@ export const updateExistingFolders = internalMutation({
       // Check using 'in' operator since we're looking for field existence
       const folderRecord = folder as Record<string, unknown>
       if (!("isHidden" in folderRecord) || !("updatedAt" in folderRecord)) {
-        await ctx.db.patch(folder._id, {
+        await ctx.db.patch("folders", folder._id, {
           isHidden: false,
           updatedAt: Date.now(),
         })
@@ -179,7 +179,7 @@ export const migrateUserData = internalMutation({
       }
 
       // Get sender info for folder name
-      const sender = await ctx.db.get(setting.senderId)
+      const sender = await ctx.db.get("senders", setting.senderId)
       if (!sender) {
         // Task 3.1: Handle missing sender (shouldn't happen, but be defensive)
         continue
@@ -212,7 +212,7 @@ export const migrateUserData = internalMutation({
       result.foldersCreated++
 
       // Task 2.3: Update setting with folderId
-      await ctx.db.patch(setting._id, { folderId })
+      await ctx.db.patch("userSenderSettings", setting._id, { folderId })
       result.senderSettingsUpdated++
     }
 
@@ -245,7 +245,7 @@ export const migrateUserData = internalMutation({
         // Task 3.3: Handle newsletters without matching userSenderSettings
         if (!folderId) {
           // Need to create settings record first, then folder
-          const sender = await ctx.db.get(newsletter.senderId)
+          const sender = await ctx.db.get("senders", newsletter.senderId)
           if (sender) {
             // Create folder for this sender
             let baseFolderName = sender.name || sender.email
@@ -293,7 +293,7 @@ export const migrateUserData = internalMutation({
       }
 
       if (Object.keys(updates).length > 0) {
-        await ctx.db.patch(newsletter._id, updates)
+        await ctx.db.patch("userNewsletters", newsletter._id, updates)
         result.newslettersUpdated++
       }
     }

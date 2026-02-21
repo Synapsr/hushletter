@@ -55,7 +55,7 @@ export const ensureDedicatedEmailShareToken = mutation({
     }
 
     const token = generateShareToken()
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch("users", user._id, {
       dedicatedEmailShareToken: token,
       dedicatedEmailShareTokenUpdatedAt: Date.now(),
     })
@@ -81,7 +81,7 @@ export const rotateDedicatedEmailShareToken = mutation({
     }
 
     const token = generateShareToken()
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch("users", user._id, {
       dedicatedEmailShareToken: token,
       dedicatedEmailShareTokenUpdatedAt: Date.now(),
     })
@@ -139,7 +139,7 @@ export const ensureNewsletterShareToken = mutation({
   handler: async (ctx, args) => {
     const user = await requireAuthedUserDoc(ctx)
 
-    const newsletter = await ctx.db.get(args.userNewsletterId)
+    const newsletter = await ctx.db.get("userNewsletters", args.userNewsletterId)
     if (!newsletter) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
     }
@@ -152,7 +152,7 @@ export const ensureNewsletterShareToken = mutation({
     }
 
     const token = generateShareToken()
-    await ctx.db.patch(newsletter._id, {
+    await ctx.db.patch("userNewsletters", newsletter._id, {
       shareToken: token,
       shareTokenUpdatedAt: Date.now(),
     })
@@ -171,7 +171,7 @@ export const rotateNewsletterShareToken = mutation({
   handler: async (ctx, args) => {
     const user = await requireAuthedUserDoc(ctx)
 
-    const newsletter = await ctx.db.get(args.userNewsletterId)
+    const newsletter = await ctx.db.get("userNewsletters", args.userNewsletterId)
     if (!newsletter) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
     }
@@ -180,7 +180,7 @@ export const rotateNewsletterShareToken = mutation({
     }
 
     const token = generateShareToken()
-    await ctx.db.patch(newsletter._id, {
+    await ctx.db.patch("userNewsletters", newsletter._id, {
       shareToken: token,
       shareTokenUpdatedAt: Date.now(),
     })

@@ -208,7 +208,7 @@ export const setStripeCustomerIdForUser = internalMutation({
       .first()
     if (!user) return
     if (user.stripeCustomerId === args.stripeCustomerId) return
-    await ctx.db.patch(user._id, { stripeCustomerId: args.stripeCustomerId })
+    await ctx.db.patch("users", user._id, { stripeCustomerId: args.stripeCustomerId })
   },
 })
 
@@ -569,7 +569,7 @@ export const applySubscriptionUpdate = internalMutation({
       proExpiresAt = undefined
     }
 
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch("users", user._id, {
       plan,
       proExpiresAt,
       stripeCustomerId: args.stripeCustomerId ?? user.stripeCustomerId,

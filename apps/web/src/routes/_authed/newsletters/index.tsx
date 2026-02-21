@@ -16,7 +16,11 @@ import {
 } from "@/components/FolderSidebar";
 import { SenderFolderSidebar } from "@/components/newsletters/SenderFolderSidebar";
 import { InlineReaderPane } from "@/components/newsletters/InlineReaderPane";
-import { ContentSkeleton, prefetchReaderContent } from "@/components/ReaderView";
+import {
+  ContentSkeleton,
+  markReaderSelectionStart,
+  prefetchReaderContent,
+} from "@/components/ReaderView";
 import { WelcomeSidebar } from "@/components/newsletters/WelcomeSidebar";
 import { WelcomeReaderPane } from "@/components/newsletters/WelcomeReaderPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -696,6 +700,7 @@ function NewslettersPage() {
   );
 
   const handleNewsletterSelect = (id: string) => {
+    markReaderSelectionStart(id);
     prefetchNewsletterContent(id);
     navigate({
       to: "/newsletters",

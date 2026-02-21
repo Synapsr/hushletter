@@ -49,10 +49,18 @@ const READER_CONTENT_QUERY_KEY_PREFIX = "readerContent";
 const READER_CONTENT_GC_MS = 1000 * 60 * 60 * 6; // 6 hours (session-oriented)
 const READER_PERF_LOG_ENABLED =
   import.meta.env.DEV && import.meta.env.MODE !== "test";
+const READER_PERF_AGGREGATE_INTERVAL = 10;
+const READER_PERF_MAX_SAMPLES = 200;
+const READER_CLICK_METRIC_MAX_AGE_MS = 1000 * 30;
+const READER_SELECTION_START_MAX_ENTRIES = 500;
 const iframeHeightCache = new Map<string, number>();
 let activeReaderQueryClient: QueryClient | null = null;
+const readerContentPrefetchInFlight = new Set<string>();
+const readerSelectionStartByNewsletterId = new Map<string, number>();
 const MIN_IFRAME_HEIGHT = 200;
-const DEFAULT_IFRAME_HEIGHT = 480;
+const DEFAULT_IFRAME_HEIGHT = 1400;
+const DEFAULT_IFRAME_VIEWPORT_MULTIPLIER = 2.5;
+const MAX_DEFAULT_IFRAME_HEIGHT = 3000;
 const IFRAME_HEIGHT_BUFFER = 4;
 const DEFAULT_SCROLL_CLASS = "overflow-y-auto max-h-[calc(100vh-200px)]";
 
@@ -137,6 +145,23 @@ export function clearCacheEntry(
   const client = queryClient ?? activeReaderQueryClient;
   client?.removeQueries({ queryKey: getReaderContentQueryKey(userNewsletterId) });
   iframeHeightCache.delete(userNewsletterId);
+  readerSelectionStartByNewsletterId.delete(userNewsletterId);
+}
+
+/** Mark the start of an explicit user selection (used for click-to-render timing). */
+export function markReaderSelectionStart(
+  userNewsletterId: Id<"userNewsletters"> | string,
+): void {
+  const key = String(userNewsletterId);
+  readerSelectionStartByNewsletterId.set(key, getPerfNowMs());
+  if (readerSelectionStartByNewsletterId.size <= READER_SELECTION_START_MAX_ENTRIES) {
+    return;
+  }
+
+  const oldestKey = readerSelectionStartByNewsletterId.keys().next().value;
+  if (oldestKey !== undefined) {
+    readerSelectionStartByNewsletterId.delete(oldestKey);
+  }
 }
 
 type NewsletterContentActionResult = {
@@ -147,6 +172,25 @@ type NewsletterContentActionResult = {
 type ReaderContentQueryData = {
   baseDocument: string | null;
   estimatedReadMinutes: number | null;
+};
+type ReaderLoadSource = "view" | "prefetch";
+type ReaderLoadStatus = "available" | "missing" | "error";
+
+type ReaderPerfLoadSample = {
+  source: ReaderLoadSource;
+  status: ReaderLoadStatus;
+  totalMs: number;
+  actionMs: number;
+  fetchMs?: number;
+  textMs?: number;
+  buildMs?: number;
+  bytes?: number;
+};
+
+type ReaderPerfTimingMetric = {
+  name: string;
+  samplesMs: number[];
+  seenCount: number;
 };
 
 type ConvexActionCaller = {
@@ -167,6 +211,45 @@ function getPerfNowMs(): number {
   return Date.now();
 }
 
+function getDefaultIframeHeight(): number {
+  if (typeof window === "undefined") return DEFAULT_IFRAME_HEIGHT;
+  const viewportBasedHeight = Math.round(
+    window.innerHeight * DEFAULT_IFRAME_VIEWPORT_MULTIPLIER,
+  );
+  return Math.min(
+    MAX_DEFAULT_IFRAME_HEIGHT,
+    Math.max(DEFAULT_IFRAME_HEIGHT, viewportBasedHeight),
+  );
+}
+
+function getIntrinsicDocumentHeight(iframeDoc: Document): number {
+  const body = iframeDoc.body;
+  if (!body) return 0;
+
+  // Prefer content extents from top-level body children so small emails can shrink
+  // even when html/body roots expand to the iframe viewport.
+  let maxChildBottom = 0;
+  for (const child of Array.from(body.children)) {
+    const childElement = child as HTMLElement;
+    const childBottom = childElement.offsetTop + childElement.offsetHeight;
+    maxChildBottom = Math.max(maxChildBottom, childBottom);
+  }
+  if (maxChildBottom > 0) return Math.ceil(maxChildBottom);
+
+  // Fallback: range-based measurement for documents without normal body children.
+  const range = iframeDoc.createRange();
+  range.selectNodeContents(body);
+  if ("getBoundingClientRect" in range) {
+    const getRect = (range as Range & { getBoundingClientRect?: () => DOMRect }).getBoundingClientRect;
+    if (typeof getRect === "function") {
+      const rangeHeight = Math.ceil(getRect.call(range).height);
+      if (rangeHeight > 0) return rangeHeight;
+    }
+  }
+
+  return 0;
+}
+
 function logReaderPerf(
   event: string,
   details: Record<string, unknown>,
@@ -175,30 +258,190 @@ function logReaderPerf(
   console.log(`[ReaderPerf] ${event}`, details);
 }
 
+function logReaderPerfSummary(summary: string): void {
+  if (!READER_PERF_LOG_ENABLED) return;
+  console.log(`[ReaderPerfSummary] ${summary}`);
+}
+
+function logReaderPerfAggregate(summary: string): void {
+  if (!READER_PERF_LOG_ENABLED) return;
+  console.log(`[ReaderPerfAggregate] ${summary}`);
+}
+
+const readerPerfLoadSamples: Record<ReaderLoadSource, ReaderPerfLoadSample[]> = {
+  view: [],
+  prefetch: [],
+};
+const readerPerfLoadSeenCount: Record<ReaderLoadSource, number> = {
+  view: 0,
+  prefetch: 0,
+};
+const readerPerfContentToFrameMetric: ReaderPerfTimingMetric = {
+  name: "content_to_iframe",
+  samplesMs: [],
+  seenCount: 0,
+};
+const readerPerfDisplayOverrideMetric: ReaderPerfTimingMetric = {
+  name: "display_overrides",
+  samplesMs: [],
+  seenCount: 0,
+};
+const readerPerfClickToIframeMetric: ReaderPerfTimingMetric = {
+  name: "click_to_iframe",
+  samplesMs: [],
+  seenCount: 0,
+};
+
+function summarizeTimings(
+  values: number[],
+): { avg: number; p50: number; p95: number } | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const avg = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  const p50 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.5))];
+  const p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
+  return { avg, p50, p95 };
+}
+
+function formatTimingSummary(
+  label: string,
+  summary: { avg: number; p50: number; p95: number } | null,
+): string | null {
+  if (!summary) return null;
+  return `${label}(avg/p50/p95)=${summary.avg}/${summary.p50}/${summary.p95}ms`;
+}
+
+function recordReaderPerfLoadSample(sample: ReaderPerfLoadSample): void {
+  if (!READER_PERF_LOG_ENABLED) return;
+
+  const samplesForSource = readerPerfLoadSamples[sample.source];
+  samplesForSource.push(sample);
+  if (samplesForSource.length > READER_PERF_MAX_SAMPLES) {
+    samplesForSource.shift();
+  }
+
+  readerPerfLoadSeenCount[sample.source] += 1;
+  const seenCount = readerPerfLoadSeenCount[sample.source];
+  if (seenCount % READER_PERF_AGGREGATE_INTERVAL !== 0) return;
+
+  let availableCount = 0;
+  let missingCount = 0;
+  let errorCount = 0;
+  const totalValues: number[] = [];
+  const actionValues: number[] = [];
+  const fetchValues: number[] = [];
+  const textValues: number[] = [];
+  const buildValues: number[] = [];
+  const bytesValues: number[] = [];
+
+  for (const loadSample of samplesForSource) {
+    if (loadSample.status === "available") availableCount += 1;
+    if (loadSample.status === "missing") missingCount += 1;
+    if (loadSample.status === "error") errorCount += 1;
+
+    totalValues.push(loadSample.totalMs);
+    actionValues.push(loadSample.actionMs);
+    if (typeof loadSample.fetchMs === "number") fetchValues.push(loadSample.fetchMs);
+    if (typeof loadSample.textMs === "number") textValues.push(loadSample.textMs);
+    if (typeof loadSample.buildMs === "number") buildValues.push(loadSample.buildMs);
+    if (typeof loadSample.bytes === "number") bytesValues.push(loadSample.bytes);
+  }
+
+  const summaryParts = [
+    `source=${sample.source}`,
+    `samples=${samplesForSource.length}`,
+    `seen=${seenCount}`,
+    `status=available:${availableCount},missing:${missingCount},error:${errorCount}`,
+    formatTimingSummary("total", summarizeTimings(totalValues)),
+    formatTimingSummary("action", summarizeTimings(actionValues)),
+    formatTimingSummary("fetch", summarizeTimings(fetchValues)),
+    formatTimingSummary("text", summarizeTimings(textValues)),
+    formatTimingSummary("build", summarizeTimings(buildValues)),
+    bytesValues.length > 0
+      ? `bytes(avg)=${Math.round(
+          bytesValues.reduce((sum, value) => sum + value, 0) / bytesValues.length,
+        )}`
+      : null,
+  ].filter((part): part is string => part !== null);
+
+  logReaderPerfAggregate(summaryParts.join(" "));
+}
+
+function recordReaderPerfTimingMetric(
+  metric: ReaderPerfTimingMetric,
+  valueMs: number | null,
+): void {
+  if (!READER_PERF_LOG_ENABLED || valueMs === null) return;
+
+  metric.samplesMs.push(valueMs);
+  if (metric.samplesMs.length > READER_PERF_MAX_SAMPLES) {
+    metric.samplesMs.shift();
+  }
+
+  metric.seenCount += 1;
+  if (metric.seenCount % READER_PERF_AGGREGATE_INTERVAL !== 0) {
+    return;
+  }
+
+  const summary = summarizeTimings(metric.samplesMs);
+  const formatted = formatTimingSummary(metric.name, summary);
+  if (!formatted) return;
+
+  logReaderPerfAggregate(
+    `${formatted} samples=${metric.samplesMs.length} seen=${metric.seenCount}`,
+  );
+}
+
+function recordReaderPerfContentToFrameMs(contentToFrameMs: number | null): void {
+  recordReaderPerfTimingMetric(readerPerfContentToFrameMetric, contentToFrameMs);
+}
+
+function recordReaderPerfDisplayOverrideMs(displayOverrideMs: number): void {
+  recordReaderPerfTimingMetric(readerPerfDisplayOverrideMetric, displayOverrideMs);
+}
+
+function recordReaderPerfClickToIframeMs(clickToIframeMs: number | null): void {
+  recordReaderPerfTimingMetric(readerPerfClickToIframeMetric, clickToIframeMs);
+}
+
 async function fetchReaderContent(
   convex: ConvexActionCaller,
   userNewsletterId: Id<"userNewsletters">,
+  source: ReaderLoadSource = "view",
 ): Promise<ReaderContentQueryData> {
   const startedAt = getPerfNowMs();
-  logReaderPerf("load_start", { userNewsletterId });
+  logReaderPerf("load_start", { userNewsletterId, source });
+  let actionMs = 0;
 
   try {
     const actionStartedAt = getPerfNowMs();
     const result = await convex.action(api.newsletters.getUserNewsletterWithContent, {
       userNewsletterId,
     });
-    const actionMs = Math.round(getPerfNowMs() - actionStartedAt);
+    actionMs = Math.round(getPerfNowMs() - actionStartedAt);
     logReaderPerf("action_complete", {
       userNewsletterId,
+      source,
       contentStatus: result.contentStatus,
       actionMs,
     });
 
     if (result.contentStatus === "missing") {
+      const totalMs = Math.round(getPerfNowMs() - startedAt);
+      recordReaderPerfLoadSample({
+        source,
+        status: "missing",
+        totalMs,
+        actionMs,
+      });
       logReaderPerf("load_complete_missing", {
         userNewsletterId,
-        totalMs: Math.round(getPerfNowMs() - startedAt),
+        source,
+        totalMs,
       });
+      logReaderPerfSummary(
+        `id=${userNewsletterId} source=${source} status=missing total=${totalMs}ms action=${actionMs}ms`,
+      );
       return {
         baseDocument: null,
         estimatedReadMinutes: null,
@@ -224,26 +467,52 @@ async function fetchReaderContent(
     const baseDocument = buildReaderDocument(rawContent);
     const estimatedReadMinutes = estimateReadMinutesFromContent(rawContent);
     const buildMs = Math.round(getPerfNowMs() - buildStartedAt);
+    const totalMs = Math.round(getPerfNowMs() - startedAt);
+    recordReaderPerfLoadSample({
+      source,
+      status: "available",
+      totalMs,
+      actionMs,
+      fetchMs: responseMs,
+      textMs,
+      buildMs,
+      bytes: rawContent.length,
+    });
 
     logReaderPerf("load_complete", {
       userNewsletterId,
+      source,
       responseMs,
       textMs,
       buildMs,
       contentBytes: rawContent.length,
-      totalMs: Math.round(getPerfNowMs() - startedAt),
+      totalMs,
     });
+    logReaderPerfSummary(
+      `id=${userNewsletterId} source=${source} status=available total=${totalMs}ms action=${actionMs}ms fetch=${responseMs}ms text=${textMs}ms build=${buildMs}ms bytes=${rawContent.length}`,
+    );
 
     return {
       baseDocument,
       estimatedReadMinutes,
     };
   } catch (error) {
+    const totalMs = Math.round(getPerfNowMs() - startedAt);
+    recordReaderPerfLoadSample({
+      source,
+      status: "error",
+      totalMs,
+      actionMs,
+    });
     logReaderPerf("load_error", {
       userNewsletterId,
-      totalMs: Math.round(getPerfNowMs() - startedAt),
+      source,
+      totalMs,
       message: error instanceof Error ? error.message : String(error),
     });
+    logReaderPerfSummary(
+      `id=${userNewsletterId} source=${source} status=error total=${totalMs}ms action=${actionMs}ms message="${error instanceof Error ? error.message : String(error)}"`,
+    );
     throw error;
   }
 }
@@ -254,13 +523,27 @@ export function prefetchReaderContent(
   userNewsletterId: Id<"userNewsletters">,
 ): void {
   activeReaderQueryClient = queryClient;
+  const newsletterId = String(userNewsletterId);
   const queryKey = getReaderContentQueryKey(userNewsletterId);
   const hasCachedEntry = queryClient.getQueryData(queryKey) !== undefined;
+  if (hasCachedEntry) {
+    return;
+  }
+
+  const currentState = queryClient.getQueryState(queryKey);
+  if (
+    currentState?.fetchStatus === "fetching" ||
+    readerContentPrefetchInFlight.has(newsletterId)
+  ) {
+    return;
+  }
+
+  readerContentPrefetchInFlight.add(newsletterId);
   const prefetchStartedAt = getPerfNowMs();
   void queryClient
     .prefetchQuery({
       queryKey,
-      queryFn: () => fetchReaderContent(convex, userNewsletterId),
+      queryFn: () => fetchReaderContent(convex, userNewsletterId, "prefetch"),
       staleTime: Infinity,
       gcTime: READER_CONTENT_GC_MS,
       retry: 1,
@@ -280,6 +563,9 @@ export function prefetchReaderContent(
         durationMs: Math.round(getPerfNowMs() - prefetchStartedAt),
         message: error instanceof Error ? error.message : String(error),
       });
+    })
+    .finally(() => {
+      readerContentPrefetchInFlight.delete(newsletterId);
     });
 }
 
@@ -353,6 +639,14 @@ function buildReaderDocument(rawContent: string): string {
   const parser = new DOMParser();
   const doc = parser.parseFromString(sanitized, "text/html");
   stripResidualExecutableContent(doc);
+
+  // Reduce iframe load blocking from newsletter media-heavy markup.
+  doc.querySelectorAll<HTMLImageElement>("img").forEach((image) => {
+    image.setAttribute("loading", "lazy");
+    image.setAttribute("decoding", "async");
+    image.setAttribute("fetchpriority", "low");
+  });
+
   const styleElement = doc.createElement("style");
   styleElement.textContent = EMAIL_GUARD_CSS;
   doc.head.prepend(styleElement);
@@ -525,9 +819,6 @@ function withReaderDisplayOverrides(
     background-color: ${backgroundColor} !important;
     overflow-x: hidden !important;
     overflow-y: hidden !important;
-  }
-  body {
-    min-height: 100vh;
   }${fontRule}${fontSizeRule}
 `;
 
@@ -610,7 +901,7 @@ export function ReaderView({
   const { preferences: persistedPreferences } = useReaderPreferences();
   const readerContentQuery = useQuery({
     queryKey: getReaderContentQueryKey(userNewsletterId),
-    queryFn: () => fetchReaderContent(convex, userNewsletterId),
+    queryFn: () => fetchReaderContent(convex, userNewsletterId, "view"),
     staleTime: Infinity,
     gcTime: READER_CONTENT_GC_MS,
     retry: 1,
@@ -629,13 +920,13 @@ export function ReaderView({
     : null;
 
   const [iframeHeight, setIframeHeight] = useState(
-    iframeHeightCache.get(userNewsletterId) ?? DEFAULT_IFRAME_HEIGHT,
+    iframeHeightCache.get(userNewsletterId) ?? getDefaultIframeHeight(),
   );
   const [iframeMeasured, setIframeMeasured] = useState(false);
 
   useEffect(() => {
     setIframeHeight(
-      iframeHeightCache.get(userNewsletterId) ?? DEFAULT_IFRAME_HEIGHT,
+      iframeHeightCache.get(userNewsletterId) ?? getDefaultIframeHeight(),
     );
     setIframeMeasured(false);
   }, [userNewsletterId]);
@@ -686,18 +977,19 @@ export function ReaderView({
     const viewportHeight = iframe?.clientHeight ?? 0;
     const bodyScrollHeight = body?.scrollHeight ?? 0;
     const htmlScrollHeight = html?.scrollHeight ?? 0;
-    const measuredHeight = Math.max(
-      bodyScrollHeight,
-      body?.offsetHeight ?? 0,
-      htmlScrollHeight,
-      html?.offsetHeight ?? 0,
-      MIN_IFRAME_HEIGHT,
-    );
+    const intrinsicHeight = getIntrinsicDocumentHeight(iframeDoc);
+    const scrollMeasuredHeight = Math.max(bodyScrollHeight, htmlScrollHeight);
     // Only add a small buffer when content actually overflows the iframe viewport.
     // This avoids a ResizeObserver feedback loop where the iframe keeps growing by a few pixels.
     const hasVerticalOverflow =
       viewportHeight > 0 &&
       (bodyScrollHeight > viewportHeight || htmlScrollHeight > viewportHeight);
+    const measuredHeight = Math.max(
+      hasVerticalOverflow
+        ? Math.max(intrinsicHeight, scrollMeasuredHeight)
+        : intrinsicHeight,
+      MIN_IFRAME_HEIGHT,
+    );
     const nextHeight = Math.ceil(
       measuredHeight + (hasVerticalOverflow ? IFRAME_HEIGHT_BUFFER : 0),
     );
@@ -710,13 +1002,28 @@ export function ReaderView({
     syncIframeHeight();
     setIframeMeasured(true);
 
+    const nowMs = getPerfNowMs();
     const contentReadyAt = contentReadyAtRef.current;
+    const contentToFrameMs = contentReadyAt === null ? null : Math.round(nowMs - contentReadyAt);
+
+    const selectionStartedAt = readerSelectionStartByNewsletterId.get(userNewsletterId);
+    let clickToIframeMs: number | null = null;
+    if (selectionStartedAt !== undefined) {
+      const selectionAgeMs = nowMs - selectionStartedAt;
+      if (selectionAgeMs <= READER_CLICK_METRIC_MAX_AGE_MS) {
+        clickToIframeMs = Math.round(selectionAgeMs);
+      }
+      readerSelectionStartByNewsletterId.delete(userNewsletterId);
+    }
+
     logReaderPerf("iframe_load", {
       userNewsletterId,
       iframeHeight: iframeHeightCache.get(userNewsletterId) ?? iframeHeight,
-      contentToFrameMs:
-        contentReadyAt === null ? null : Math.round(getPerfNowMs() - contentReadyAt),
+      contentToFrameMs,
+      clickToIframeMs,
     });
+    recordReaderPerfContentToFrameMs(contentToFrameMs);
+    recordReaderPerfClickToIframeMs(clickToIframeMs);
 
     resizeObserverRef.current?.disconnect();
     if (typeof ResizeObserver === "undefined") return;
@@ -796,14 +1103,29 @@ export function ReaderView({
 
   const renderedDocument = useMemo(() => {
     if (!contentDocument) return null;
-    return withReaderDisplayOverrides(
+    const displayOverrideStartedAt = getPerfNowMs();
+    const documentWithOverrides = withReaderDisplayOverrides(
       contentDocument,
       effectivePreferences.font,
       effectivePreferences.background,
       effectivePreferences.fontSize,
     );
+    const displayOverrideMs = Math.round(getPerfNowMs() - displayOverrideStartedAt);
+
+    logReaderPerf("display_overrides_complete", {
+      userNewsletterId,
+      displayOverrideMs,
+      contentBytes: contentDocument.length,
+      font: effectivePreferences.font,
+      background: effectivePreferences.background,
+      fontSize: effectivePreferences.fontSize,
+    });
+    recordReaderPerfDisplayOverrideMs(displayOverrideMs);
+
+    return documentWithOverrides;
   }, [
     contentDocument,
+    userNewsletterId,
     effectivePreferences.font,
     effectivePreferences.background,
     effectivePreferences.fontSize,
@@ -825,11 +1147,7 @@ export function ReaderView({
   }
 
   // Render sanitized content inside sandboxed iframe for layout fidelity and style isolation.
-  // The iframe is hidden until the first height measurement to avoid a flash of clipped content.
-  const canRenderCachedFrameImmediately =
-    !isLoading &&
-    contentDocument !== null &&
-    iframeHeightCache.has(userNewsletterId);
+  // Keep it visible immediately (even before onLoad) to avoid perceived loading flashes.
 
   return (
     <div
@@ -841,7 +1159,6 @@ export function ReaderView({
           READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
       }}
     >
-      {!iframeMeasured && !canRenderCachedFrameImmediately && <ContentSkeleton />}
       <iframe
         ref={iframeRef}
         title="Newsletter content"
@@ -855,11 +1172,8 @@ export function ReaderView({
           minHeight: MIN_IFRAME_HEIGHT,
           backgroundColor:
             READER_BACKGROUND_OPTIONS[effectivePreferences.background].color,
-          opacity: iframeMeasured || canRenderCachedFrameImmediately ? 1 : 0,
-          position:
-            iframeMeasured || canRenderCachedFrameImmediately
-              ? "relative"
-              : "absolute",
+          opacity: 1,
+          position: "relative",
         }}
         onLoad={handleIframeLoad}
       />

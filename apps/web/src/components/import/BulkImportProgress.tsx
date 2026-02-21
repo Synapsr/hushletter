@@ -102,10 +102,12 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
   const [isProcessing, setIsProcessing] = useState(true);
   const [showFailures, setShowFailures] = useState(false);
 
-  // Track cancellation to prevent state updates after unmount
-  const cancelledRef = useRef(false);
-
   const importAction = useAction(api.manualImport.importEmlNewsletter);
+  const importActionRef = useRef(importAction);
+
+  useEffect(() => {
+    importActionRef.current = importAction;
+  }, [importAction]);
 
   // Calculate counts
   // Story 8.4: Add duplicate count, separate from skipped (parse errors)
@@ -118,30 +120,29 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
 
   // Process files with concurrency limit
   useEffect(() => {
-    // Reset cancellation flag on mount
-    cancelledRef.current = false;
+    let isCancelled = false;
+
+    setResults(files.map((f) => ({ filename: f.name, status: "importing" as const })));
+    setIsProcessing(true);
+    setShowFailures(false);
 
     const processFiles = async () => {
-      // Create a queue using shift() for thread-safe consumption
-      const queue = [...files];
-      // Map filenames to indices for accurate result updates
-      const filenameToIndex = new Map(files.map((f, i) => [f.name, i]));
+      // Queue file entries with stable indices. Using names as keys can collide.
+      const queue = files.map((file, index) => ({ file, index }));
 
       const processNext = async (): Promise<void> => {
-        while (!cancelledRef.current) {
+        while (!isCancelled) {
           // Thread-safe: shift() removes and returns first element atomically
-          const file = queue.shift();
-          if (!file) return;
-
-          const fileIndex = filenameToIndex.get(file.name) ?? -1;
-          if (fileIndex === -1) continue;
+          const next = queue.shift();
+          if (!next) return;
+          const { file, index: fileIndex } = next;
 
           try {
             // 1. Parse the file client-side
             const buffer = await readFileAsArrayBuffer(file);
             const parseResult: EmlParseResult = await parseEmlFile(buffer);
 
-            if (cancelledRef.current) return;
+            if (isCancelled) return;
 
             if (!parseResult.success) {
               // Parser error
@@ -162,7 +163,7 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
             const parsed: ParsedEml = parseResult.data;
 
             // 2. Import via Convex action
-            const result = await importAction({
+            const result = await importActionRef.current({
               subject: parsed.subject,
               senderEmail: parsed.senderEmail,
               senderName: parsed.senderName ?? undefined,
@@ -172,7 +173,7 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
               messageId: parsed.messageId ?? undefined,
             });
 
-            if (cancelledRef.current) return;
+            if (isCancelled) return;
 
             // 3. Handle server-side skips (duplicates, plan limit, etc.)
             if (result.skipped) {
@@ -219,7 +220,7 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
               ),
             );
           } catch (error) {
-            if (cancelledRef.current) return;
+            if (isCancelled) return;
 
             // Import error
             const errorMessage =
@@ -247,7 +248,7 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
           .map(() => processNext()),
       );
 
-      if (!cancelledRef.current) {
+      if (!isCancelled) {
         setIsProcessing(false);
       }
     };
@@ -256,9 +257,9 @@ export function BulkImportProgress({ files, onComplete, onCancel }: BulkImportPr
 
     // Cleanup: prevent state updates after unmount
     return () => {
-      cancelledRef.current = true;
+      isCancelled = true;
     };
-  }, [files, importAction]);
+  }, [files]);
 
   const failedResults = results.filter((r) => r.status === "error");
 

@@ -56,7 +56,7 @@ async function getBlockedSenderEmails(ctx: QueryCtx): Promise<Set<string>> {
   const emails = new Set<string>()
 
   for (const block of blockedSenders) {
-    const sender = await ctx.db.get(block.senderId)
+    const sender = await ctx.db.get("senders", block.senderId)
     if (sender) {
       emails.add(sender.email)
     }
@@ -201,7 +201,7 @@ export const checkUserHasNewsletters = query({
 
     // Load content records for matching by subject/sender
     const contentRecords = await Promise.all(
-      contentIdsToCheck.map((id) => ctx.db.get(id))
+      contentIdsToCheck.map((id) => ctx.db.get("newsletterContent", id))
     )
 
     // Build map of contentId → ownership
@@ -705,7 +705,7 @@ export const getCommunityNewsletterContent = action({
 export const getNewsletterContentInternal = internalQuery({
   args: { contentId: v.id("newsletterContent") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.contentId)
+    return await ctx.db.get("newsletterContent", args.contentId)
   },
 })
 
@@ -718,7 +718,7 @@ export const getNewsletterContentInternal = internalQuery({
 export const getNewsletterContentWithModerationCheck = internalQuery({
   args: { contentId: v.id("newsletterContent") },
   handler: async (ctx, args) => {
-    const content = await ctx.db.get(args.contentId)
+    const content = await ctx.db.get("newsletterContent", args.contentId)
     if (!content) return null
 
     // Check if content is hidden
@@ -786,7 +786,7 @@ export const addToCollection = mutation({
     }
 
     // 3. Get the content
-    const content = await ctx.db.get(args.contentId)
+    const content = await ctx.db.get("newsletterContent", args.contentId)
     if (!content) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter content not found" })
     }
@@ -806,7 +806,9 @@ export const addToCollection = mutation({
 
     if (existing) {
       // Story 9.9: Get folder name for response
-      const folder = existing.folderId ? await ctx.db.get(existing.folderId) : null
+      const folder = existing.folderId
+        ? await ctx.db.get("folders", existing.folderId)
+        : null
       return {
         alreadyExists: true,
         userNewsletterId: existing._id,
@@ -829,7 +831,7 @@ export const addToCollection = mutation({
         subscriberCount: 1,
         newsletterCount: 1,
       })
-      sender = (await ctx.db.get(senderId))!
+      sender = (await ctx.db.get("senders", senderId))!
     }
 
     // 6. Story 9.9: Get or create folder for this sender
@@ -847,7 +849,7 @@ export const addToCollection = mutation({
     if (existingSettings?.folderId) {
       // Use existing folder
       folderId = existingSettings.folderId
-      const folder = await ctx.db.get(folderId)
+      const folder = await ctx.db.get("folders", folderId)
       folderName = folder?.name ?? sender.name ?? sender.email
     } else {
       // Create folder for this sender (Story 9.3 pattern)
@@ -856,8 +858,9 @@ export const addToCollection = mutation({
       // Check if folder with this name exists (avoid duplicates)
       const existingFolder = await ctx.db
         .query("folders")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .filter((q) => q.eq(q.field("name"), senderDisplayName))
+        .withIndex("by_userId_name", (q) =>
+          q.eq("userId", user._id).eq("name", senderDisplayName)
+        )
         .first()
 
       if (existingFolder) {
@@ -877,7 +880,7 @@ export const addToCollection = mutation({
 
       // Create or update userSenderSettings with folderId
       if (existingSettings) {
-        await ctx.db.patch(existingSettings._id, { folderId })
+        await ctx.db.patch("userSenderSettings", existingSettings._id, { folderId })
       } else {
         await ctx.db.insert("userSenderSettings", {
           userId: user._id,
@@ -886,7 +889,7 @@ export const addToCollection = mutation({
           folderId,
         })
         // Increment subscriberCount since this is a new user-sender relationship
-        await ctx.db.patch(sender._id, {
+        await ctx.db.patch("senders", sender._id, {
           subscriberCount: sender.subscriberCount + 1,
         })
       }
@@ -922,7 +925,7 @@ export const addToCollection = mutation({
 
     // 8. Increment readerCount AND importCount
     // Story 9.9: Track imports separately from reader count
-    await ctx.db.patch(args.contentId, {
+    await ctx.db.patch("newsletterContent", args.contentId, {
       readerCount: content.readerCount + 1,
       importCount: (content.importCount ?? 0) + 1,
     })
@@ -1020,7 +1023,7 @@ export const bulkImportFromCommunity = mutation({
         }
 
         // Get content
-        const content = await ctx.db.get(contentId)
+        const content = await ctx.db.get("newsletterContent", contentId)
         if (!content) {
           results.push({ contentId, status: "error", error: "Content not found" })
           failed++
@@ -1048,7 +1051,7 @@ export const bulkImportFromCommunity = mutation({
             subscriberCount: 1,
             newsletterCount: 1,
           })
-          sender = (await ctx.db.get(senderId))!
+          sender = (await ctx.db.get("senders", senderId))!
         }
 
         // Get or create folder
@@ -1059,7 +1062,7 @@ export const bulkImportFromCommunity = mutation({
         const existingSetting = settingsBySenderId.get(sender._id)
         if (existingSetting?.folderId) {
           folderId = existingSetting.folderId
-          const folder = await ctx.db.get(folderId)
+          const folder = await ctx.db.get("folders", folderId)
           folderName = folder?.name ?? senderDisplayName
         } else {
           // Check if folder exists or was created in this batch
@@ -1088,7 +1091,7 @@ export const bulkImportFromCommunity = mutation({
 
           // Create or update settings
           if (existingSetting) {
-            await ctx.db.patch(existingSetting._id, { folderId })
+            await ctx.db.patch("userSenderSettings", existingSetting._id, { folderId })
             settingsBySenderId.set(sender._id, { ...existingSetting, folderId })
           } else {
             const settingsId = await ctx.db.insert("userSenderSettings", {
@@ -1106,7 +1109,7 @@ export const bulkImportFromCommunity = mutation({
               folderId,
               _creationTime: Date.now(),
             } as Doc<"userSenderSettings">)
-            await ctx.db.patch(sender._id, {
+            await ctx.db.patch("senders", sender._id, {
               subscriberCount: sender.subscriberCount + 1,
             })
           }
@@ -1140,7 +1143,7 @@ export const bulkImportFromCommunity = mutation({
         })
 
         // Increment counts
-        await ctx.db.patch(contentId, {
+        await ctx.db.patch("newsletterContent", contentId, {
           readerCount: content.readerCount + 1,
           importCount: (content.importCount ?? 0) + 1,
         })
@@ -1215,7 +1218,7 @@ export const dismissSharingOnboarding = mutation({
       throw new ConvexError({ code: "UNAUTHORIZED", message: "User not found" })
     }
 
-    await ctx.db.patch(user._id, { hasSeenSharingOnboarding: true })
+    await ctx.db.patch("users", user._id, { hasSeenSharingOnboarding: true })
   },
 })
 
@@ -1279,7 +1282,7 @@ export const followSender = mutation({
     })
 
     // 6. Increment subscriberCount
-    await ctx.db.patch(sender._id, {
+    await ctx.db.patch("senders", sender._id, {
       subscriberCount: sender.subscriberCount + 1,
     })
 
@@ -1347,10 +1350,10 @@ export const unfollowSender = mutation({
     }
 
     // Delete settings (pure follow with no newsletters)
-    await ctx.db.delete(settings._id)
+    await ctx.db.delete("userSenderSettings", settings._id)
 
     // Decrement subscriberCount
-    await ctx.db.patch(sender._id, {
+    await ctx.db.patch("senders", sender._id, {
       subscriberCount: Math.max(0, sender.subscriberCount - 1),
     })
 

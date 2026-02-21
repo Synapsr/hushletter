@@ -1,8 +1,4 @@
-import {
-  createFileRoute,
-  Outlet,
-  redirect,
-} from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { RouterContext } from "@/router";
@@ -11,6 +7,7 @@ import { ImportMethodDialog } from "@/components/import/ImportMethodDialog";
 import { BillingCheckoutSuccessDialog } from "@/components/billing/billing-checkout-success-dialog";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import { AppHotkeysProvider } from "@/hooks/use-app-hotkeys";
+import { SharedFeedback } from "@/components/shared/shared-feedback";
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ context, location }) => {
@@ -63,6 +60,7 @@ function AuthedLayoutContent() {
           <BillingCheckoutSuccessDialog />
           <SettingsDialog />
           <ImportMethodDialog />
+          <SharedFeedback />
         </main>
       </div>
     </>

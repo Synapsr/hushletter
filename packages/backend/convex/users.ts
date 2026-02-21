@@ -1,4 +1,5 @@
-import { query, mutation, action } from "./_generated/server"
+import { query, mutation, internalAction, internalQuery } from "./_generated/server"
+import { internal } from "./_generated/api"
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
 import { authComponent } from "./auth"
@@ -8,6 +9,38 @@ import {
   getEmailDomain as getEmailDomainInternal,
 } from "./_internal/emailGeneration"
 import { isUserPro } from "./entitlements"
+
+type FeedbackInput = {
+  subject: string
+  message: string
+  page?: string
+}
+
+function normalizeFeedbackInput(args: FeedbackInput): FeedbackInput {
+  const subject = args.subject.trim()
+  const message = args.message.trim()
+  const page = args.page?.trim()
+
+  if (subject.length < 3 || subject.length > 120) {
+    throw new ConvexError({
+      code: "VALIDATION_ERROR",
+      message: "Subject must be between 3 and 120 characters.",
+    })
+  }
+
+  if (message.length < 10 || message.length > 2000) {
+    throw new ConvexError({
+      code: "VALIDATION_ERROR",
+      message: "Message must be between 10 and 2000 characters.",
+    })
+  }
+
+  return {
+    subject,
+    message,
+    page: page && page.length > 0 ? page : undefined,
+  }
+}
 
 /**
  * Update the current user's profile information.
@@ -229,9 +262,29 @@ export const getEmailDomain = query({
 })
 
 /**
- * Send authenticated user feedback to Discord via webhook.
+ * Read a lightweight feedback-user profile for internal action formatting.
  */
-export const sendFeedbackToDiscord = action({
+export const getFeedbackUserById = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId)
+    if (!user) {
+      return null
+    }
+
+    return {
+      name: user.name,
+      email: user.email,
+    }
+  },
+})
+
+/**
+ * Capture authenticated feedback intent and schedule webhook delivery.
+ */
+export const sendFeedbackToDiscord = mutation({
   args: {
     subject: v.string(),
     message: v.string(),
@@ -241,31 +294,32 @@ export const sendFeedbackToDiscord = action({
     ok: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
+    const authUser = await authComponent.getAuthUser(ctx).catch(() => null)
+    if (!authUser) {
       throw new ConvexError({
         code: "UNAUTHORIZED",
         message: "You must be logged in to send feedback",
       })
     }
 
-    const subject = args.subject.trim()
-    const message = args.message.trim()
-    const page = args.page?.trim()
-
-    if (subject.length < 3 || subject.length > 120) {
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
+      .first()
+    if (!currentUser) {
       throw new ConvexError({
-        code: "VALIDATION_ERROR",
-        message: "Subject must be between 3 and 120 characters.",
+        code: "NOT_FOUND",
+        message: "User profile not found",
       })
     }
 
-    if (message.length < 10 || message.length > 2000) {
-      throw new ConvexError({
-        code: "VALIDATION_ERROR",
-        message: "Message must be between 10 and 2000 characters.",
-      })
-    }
+    const { subject, message, page } = normalizeFeedbackInput(args)
+    const identity = await ctx.auth.getUserIdentity()
+    const fallbackIdentity =
+      currentUser.email ??
+      identity?.email ??
+      identity?.tokenIdentifier ??
+      `user:${currentUser._id}`
 
     const webhookUrl = process.env.DISCORD_FEEDBACK_WEBHOOK_URL
     if (!webhookUrl) {
@@ -275,10 +329,48 @@ export const sendFeedbackToDiscord = action({
       })
     }
 
-    const feedbackUser = await authComponent.getAuthUser(ctx).catch(() => null)
+    await ctx.scheduler.runAfter(0, internal.users.sendFeedbackToDiscordWebhookInternal, {
+      userId: currentUser._id,
+      fallbackIdentity,
+      subject,
+      message,
+      page,
+    })
+
+    return { ok: true }
+  },
+})
+
+/**
+ * Send scheduled feedback payloads to Discord webhook.
+ */
+export const sendFeedbackToDiscordWebhookInternal = internalAction({
+  args: {
+    userId: v.id("users"),
+    fallbackIdentity: v.string(),
+    subject: v.string(),
+    message: v.string(),
+    page: v.optional(v.string()),
+  },
+  returns: v.object({
+    ok: v.boolean(),
+  }),
+  handler: async (ctx, args): Promise<{ ok: boolean }> => {
+    const webhookUrl = process.env.DISCORD_FEEDBACK_WEBHOOK_URL
+    if (!webhookUrl) {
+      throw new ConvexError({
+        code: "CONFIG_ERROR",
+        message: "Feedback webhook is not configured.",
+      })
+    }
+
+    const feedbackUser = await ctx.runQuery(internal.users.getFeedbackUserById, {
+      userId: args.userId,
+    })
+    const userEmail = feedbackUser?.email ?? args.fallbackIdentity
     const userLabel = feedbackUser?.name
-      ? `${feedbackUser.name} <${feedbackUser.email}>`
-      : feedbackUser?.email ?? identity.tokenIdentifier
+      ? `${feedbackUser.name} <${userEmail}>`
+      : userEmail
 
     const response = await fetch(webhookUrl, {
       method: "POST",
@@ -288,8 +380,8 @@ export const sendFeedbackToDiscord = action({
       body: JSON.stringify({
         embeds: [
           {
-            title: subject,
-            description: message,
+            title: args.subject,
+            description: args.message,
             fields: [
               {
                 name: "User",
@@ -297,7 +389,7 @@ export const sendFeedbackToDiscord = action({
               },
               {
                 name: "Page",
-                value: (page && page.length > 0 ? page : "Unknown").slice(
+                value: (args.page && args.page.length > 0 ? args.page : "Unknown").slice(
                   0,
                   1024,
                 ),

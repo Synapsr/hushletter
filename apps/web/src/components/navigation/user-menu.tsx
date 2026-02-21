@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
-import { useAction } from "convex/react";
+import { useMutation } from "convex/react";
 import { signOut, useSession } from "@/lib/auth-client";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
 import {
@@ -52,7 +52,7 @@ import { useAppHotkeys } from "@/hooks/use-app-hotkeys";
 export const UserMenu = () => {
   const { bindings } = useAppHotkeys();
   const { data: session } = useSession();
-  const sendFeedback = useAction(api.users.sendFeedbackToDiscord);
+  const sendFeedback = useMutation(api.users.sendFeedbackToDiscord);
   const { data: currentUser } = useQuery(
     convexQuery(api.auth.getCurrentUser, {}),
   );

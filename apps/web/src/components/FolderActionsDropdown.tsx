@@ -13,9 +13,10 @@ import {
   DropdownMenuTrigger,
   EditOneIcon,
 } from "@hushletter/ui";
-import { MoreHorizontal, Merge } from "lucide-react";
+import { MoreHorizontal, Merge, Tag } from "lucide-react";
 import { RenameFolderDialog } from "./RenameFolderDialog";
 import { MergeFolderDialog } from "./MergeFolderDialog";
+import { CategoryPickerDialog } from "./CategoryPickerDialog";
 import { m } from "@/paraglide/messages.js";
 
 /**
@@ -31,17 +32,20 @@ import { m } from "@/paraglide/messages.js";
 interface FolderActionsDropdownProps {
   folderId: string;
   folderName: string;
+  currentCategory?: string;
   onHideSuccess?: () => void;
 }
 
 export function FolderActionsDropdown({
   folderId,
   folderName,
+  currentCategory,
   onHideSuccess,
 }: FolderActionsDropdownProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Code Review Fix MEDIUM-1: Use specific query keys for invalidation
@@ -89,6 +93,10 @@ export function FolderActionsDropdown({
             <EditOneIcon className="size-4" />
             {m.folderActions_rename()}
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setIsCategoryOpen(true)}>
+            <Tag className="size-4" />
+            {m.folderActions_category()}
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={handleHide}
             disabled={hideMutation.isPending}
@@ -116,6 +124,13 @@ export function FolderActionsDropdown({
         onOpenChange={setIsMergeOpen}
         sourceFolderId={folderId}
         sourceFolderName={folderName}
+      />
+
+      <CategoryPickerDialog
+        open={isCategoryOpen}
+        onOpenChange={setIsCategoryOpen}
+        folderId={folderId}
+        currentCategory={currentCategory}
       />
     </>
   );

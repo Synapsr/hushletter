@@ -2,6 +2,22 @@ import { internalMutation, mutation, query } from "./_generated/server"
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
 
+const MAX_FOLDER_CATEGORY_LENGTH = 40
+
+function normalizeFolderCategory(
+  category: string | null | undefined
+): string | undefined {
+  if (category === undefined || category === null) return undefined
+
+  const normalized = category
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, MAX_FOLDER_CATEGORY_LENGTH)
+    .trim()
+
+  return normalized.length > 0 ? normalized : undefined
+}
+
 /**
  * Create a new folder for organizing senders
  * Story 2.5.1: Folder CRUD for Epic 3 (basic structure created now)
@@ -10,6 +26,7 @@ export const createFolder = mutation({
   args: {
     name: v.string(),
     color: v.optional(v.string()),
+    category: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -42,10 +59,12 @@ export const createFolder = mutation({
     }
 
     const now = Date.now()
+    const category = normalizeFolderCategory(args.category)
     const folderId = await ctx.db.insert("folders", {
       userId: user._id,
       name: args.name,
       color: args.color,
+      ...(category !== undefined ? { category } : {}),
       isHidden: false, // Story 9.1: New folders are visible by default
       createdAt: now,
       updatedAt: now, // Story 9.1: Track folder modification time
@@ -88,6 +107,7 @@ export const updateFolder = mutation({
     folderId: v.id("folders"),
     name: v.optional(v.string()),
     color: v.optional(v.string()),
+    category: v.optional(v.union(v.string(), v.null())),
     isHidden: v.optional(v.boolean()), // Story 9.1: Allow toggling folder visibility
   },
   handler: async (ctx, args) => {
@@ -136,6 +156,9 @@ export const updateFolder = mutation({
     await ctx.db.patch("folders", args.folderId, {
       ...(args.name !== undefined ? { name: args.name } : {}),
       ...(args.color !== undefined ? { color: args.color } : {}),
+      ...(args.category !== undefined
+        ? { category: normalizeFolderCategory(args.category) }
+        : {}),
       ...(args.isHidden !== undefined ? { isHidden: args.isHidden } : {}),
       updatedAt: Date.now(), // Story 9.1: Track folder modification time
     })
@@ -879,6 +902,7 @@ export const mergeFolders = mutation({
       userId: user._id,
       sourceFolderName: sourceFolder.name,
       sourceFolderColor: sourceFolder.color,
+      sourceFolderCategory: sourceFolder.category,
       targetFolderId: args.targetFolderId,
       movedSenderSettingIds: senderSettings.map((s) => s._id),
       movedNewsletterIds: newsletters.map((n) => n._id),
@@ -961,6 +985,7 @@ export const undoFolderMerge = mutation({
       userId: user._id,
       name: history.sourceFolderName,
       color: history.sourceFolderColor,
+      category: history.sourceFolderCategory,
       isHidden: false,
       createdAt: now,
       updatedAt: now,

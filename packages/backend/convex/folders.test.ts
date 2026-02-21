@@ -117,6 +117,7 @@ describe("createFolder mutation contract (Story 2.5.1, Story 3.3 AC1)", () => {
     const expectedArgsShape = {
       name: "required string - folder name",
       color: "optional string - folder color for UI",
+      category: "optional string - folder category label",
     }
     expect(expectedArgsShape).toHaveProperty("name")
     expect(expectedArgsShape).toHaveProperty("color")
@@ -185,6 +186,7 @@ describe("updateFolder mutation contract (Story 2.5.1)", () => {
       folderId: "required Id<'folders'>",
       name: "optional string - new folder name",
       color: "optional string - new folder color",
+      category: "optional string|null - new folder category label",
     }
     expect(expectedArgsShape).toHaveProperty("folderId")
     expect(expectedArgsShape).toHaveProperty("name")
@@ -470,6 +472,7 @@ describe("mergeFolders mutation contract (Story 9.5 Task 3)", () => {
       userId: "Id<'users'>",
       sourceFolderName: "string - for recreation",
       sourceFolderColor: "string | undefined",
+      sourceFolderCategory: "string | undefined",
       targetFolderId: "Id<'folders'>",
       movedSenderSettingIds: "Id<'userSenderSettings'>[]",
       movedNewsletterIds: "Id<'userNewsletters'>[]",
@@ -524,7 +527,14 @@ describe("undoFolderMerge mutation contract (Story 9.5 Task 6)", () => {
 
   it("recreates source folder with original name and color (Task 6.4)", () => {
     const recreateBehavior = {
-      fields: ["name", "color", "isHidden=false", "createdAt", "updatedAt"],
+      fields: [
+        "name",
+        "color",
+        "category",
+        "isHidden=false",
+        "createdAt",
+        "updatedAt",
+      ],
       source: "From folderMergeHistory record",
     }
     expect(recreateBehavior.source).toBe("From folderMergeHistory record")
@@ -577,6 +587,7 @@ describe("folderMergeHistory table schema (Story 9.5 Task 6.1)", () => {
       userId: "v.id('users')",
       sourceFolderName: "v.string()",
       sourceFolderColor: "v.optional(v.string())",
+      sourceFolderCategory: "v.optional(v.string())",
       targetFolderId: "v.id('folders')",
       movedSenderSettingIds: "v.array(v.id('userSenderSettings'))",
       movedNewsletterIds: "v.array(v.id('userNewsletters'))",

@@ -18,6 +18,7 @@ import { SenderAvatar, SenderAvatarGroup } from "./SenderAvatar";
 import { FolderActionsDropdown } from "@/components/FolderActionsDropdown";
 import type { FolderData } from "@/components/FolderSidebar";
 import type { NewsletterData } from "@/components/NewsletterCard";
+import { getCategoryLabel } from "@/lib/folder-categories";
 import { m } from "@/paraglide/messages.js";
 import { ChevronRightIcon } from "@hushletter/ui";
 import { RotateCcw } from "lucide-react";
@@ -272,16 +273,23 @@ export function SenderFolderItem({
               </Badge>
             )}
           </span>
-          <span
-            className={cn(
-              "text-sm truncate font-medium transition-colors",
-              folder.unreadCount > 0 || isExpanded
-                ? "text-primary"
-                : "text-muted-foreground group-hover:text-foreground",
-            )}
-          >
-            {folder.name}
-          </span>
+          <div className="min-w-0 flex flex-col gap-1">
+            <span
+              className={cn(
+                "text-sm truncate font-medium transition-colors",
+                folder.unreadCount > 0 || isExpanded
+                  ? "text-primary"
+                  : "text-muted-foreground group-hover:text-foreground",
+              )}
+            >
+              {folder.name}
+            </span>
+            {folder.category ? (
+              <Badge variant="outline" className="w-fit text-[10px] font-medium">
+                {getCategoryLabel(folder.category)}
+              </Badge>
+            ) : null}
+          </div>
         </button>
 
         {(showFolderActions || onRestoreFolder) && (
@@ -315,6 +323,7 @@ export function SenderFolderItem({
               <FolderActionsDropdown
                 folderId={folder._id}
                 folderName={folder.name}
+                currentCategory={folder.category}
                 onHideSuccess={onHideSuccess}
               />
             )}

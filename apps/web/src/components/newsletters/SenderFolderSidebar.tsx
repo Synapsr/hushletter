@@ -79,6 +79,7 @@ interface HiddenFolderData {
     senderName?: string;
   }>;
   color?: string;
+  category?: string;
   isHidden?: boolean;
   createdAt?: number;
   updatedAt?: number;
@@ -220,6 +221,7 @@ function toFolderDataFromGroup({
       newsletters[0]?.senderEmail,
     senderPreviews,
     color: baseFolder?.color,
+    category: baseFolder?.category,
     isHidden: isHidden ?? baseFolder?.isHidden ?? false,
     createdAt: baseFolder?.createdAt ?? 0,
     updatedAt: baseFolder?.updatedAt ?? 0,

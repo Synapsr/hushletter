@@ -26,6 +26,7 @@ export interface FolderData {
     senderName?: string;
   }>;
   color?: string;
+  category?: string;
   isHidden: boolean;
   createdAt: number;
   updatedAt: number;
@@ -269,6 +270,7 @@ export function FolderSidebar({
                 <FolderActionsDropdown
                   folderId={folder._id}
                   folderName={folder.name}
+                  currentCategory={folder.category}
                   onHideSuccess={() => {
                     // If hidden folder was selected, clear selection
                     if (selectedFolderId === folder._id) {

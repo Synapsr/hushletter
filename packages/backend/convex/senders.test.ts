@@ -1310,6 +1310,7 @@ describe("Folder creation fields (Story 9.3 Task 1.7)", () => {
     const folderFields = {
       userId: "Id<'users'>",
       name: "string - derived from sender",
+      category: "undefined - uncategorized by default",
       isHidden: false,
       createdAt: now,
       updatedAt: now,

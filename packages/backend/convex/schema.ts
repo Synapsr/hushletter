@@ -214,6 +214,7 @@ export default defineSchema({
     userId: v.id("users"),
     name: v.string(),
     color: v.optional(v.string()), // Optional color for UI
+    category: v.optional(v.string()), // Optional folder category label
     isHidden: v.boolean(), // Story 9.1: For folder hiding feature
     sortOrder: v.optional(v.number()), // Drag-to-reorder position
     createdAt: v.number(), // Unix timestamp ms
@@ -235,11 +236,12 @@ export default defineSchema({
    * - IDs of moved items to restore their original folder
    * - TTL for undo window (30 seconds)
    */
-		  folderMergeHistory: defineTable({
+	  folderMergeHistory: defineTable({
     mergeId: v.string(), // UUID for identifying this merge operation
     userId: v.id("users"),
     sourceFolderName: v.string(),
     sourceFolderColor: v.optional(v.string()),
+    sourceFolderCategory: v.optional(v.string()),
     targetFolderId: v.id("folders"),
     movedSenderSettingIds: v.array(v.id("userSenderSettings")),
     movedNewsletterIds: v.array(v.id("userNewsletters")),

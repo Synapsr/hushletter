@@ -57,6 +57,7 @@ const FILTER_BIN = "bin" as const;
 const LAST_NEWSLETTERS_VISIT_KEY = "hushletter:lastNewslettersVisit";
 const RECENT_UNREAD_HEAD_SIZE = 8;
 const RECENT_UNREAD_PAGE_SIZE = 20;
+const RECENT_UNREAD_NOW_BUCKET_MS = 60_000;
 type FilterType =
   | typeof FILTER_HIDDEN
   | typeof FILTER_STARRED
@@ -182,6 +183,13 @@ function buildSenderPreviews(newsletters: NewsletterData[]) {
     if (deduped.size >= 3) break;
   }
   return [...deduped.values()];
+}
+
+function getRecentUnreadNowBucket() {
+  return (
+    Math.floor(Date.now() / RECENT_UNREAD_NOW_BUCKET_MS) *
+    RECENT_UNREAD_NOW_BUCKET_MS
+  );
 }
 
 function toFolderDataFromGroup({
@@ -476,6 +484,9 @@ export function SenderFolderSidebar({
     undefined,
   );
   const [isLastConnectedReady, setIsLastConnectedReady] = useState(false);
+  const [recentUnreadNowTs, setRecentUnreadNowTs] = useState<number>(() =>
+    getRecentUnreadNowBucket(),
+  );
   const [recentTailPages, setRecentTailPages] = useState<NewsletterData[][]>(
     [],
   );
@@ -554,6 +565,17 @@ export function SenderFolderSidebar({
     selectedFilter !== FILTER_STARRED &&
     selectedFilter !== FILTER_BIN;
 
+  useEffect(() => {
+    if (!shouldShowRecentSection) return;
+
+    setRecentUnreadNowTs(getRecentUnreadNowBucket());
+    const intervalId = window.setInterval(() => {
+      setRecentUnreadNowTs(getRecentUnreadNowBucket());
+    }, RECENT_UNREAD_NOW_BUCKET_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [shouldShowRecentSection]);
+
   const { data: recentUnreadHead, isPending: recentUnreadPending } = useQuery(
     convexQuery(
       api.newsletters.listRecentUnreadNewslettersHead,
@@ -561,6 +583,7 @@ export function SenderFolderSidebar({
         ? {
             lastConnectedAt,
             numItems: RECENT_UNREAD_HEAD_SIZE,
+            nowTs: recentUnreadNowTs,
           }
         : "skip",
     ),
@@ -1093,6 +1116,7 @@ export function SenderFolderSidebar({
         cursor: recentCursor,
         numItems: RECENT_UNREAD_PAGE_SIZE,
         lastConnectedAt,
+        nowTs: recentUnreadNowTs,
       });
       const page = (result.page ?? []) as NewsletterData[];
       setRecentTailPages((previous) => [...previous, page]);
@@ -1107,6 +1131,7 @@ export function SenderFolderSidebar({
     recentCursor,
     loadRecentUnreadPage,
     lastConnectedAt,
+    recentUnreadNowTs,
   ]);
 
   useEffect(() => {

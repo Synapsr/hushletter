@@ -192,12 +192,17 @@ async function getHiddenFolderIdSet(
 
 const DEFAULT_RECENT_UNREAD_WINDOW_DAYS = 7;
 
-function getRecentUnreadWindowStart(lastConnectedAt?: number): number {
+function getRecentUnreadWindowStart(
+  lastConnectedAt: number | undefined,
+  nowTs: number,
+): number {
+  const normalizedNow =
+    typeof nowTs === "number" && Number.isFinite(nowTs) ? Math.max(0, nowTs) : 0;
   const windowStartByDays =
-    Date.now() - DEFAULT_RECENT_UNREAD_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    normalizedNow - DEFAULT_RECENT_UNREAD_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   const normalizedLastConnectedAt =
     typeof lastConnectedAt === "number" && Number.isFinite(lastConnectedAt)
-      ? Math.max(0, Math.min(lastConnectedAt, Date.now()))
+      ? Math.max(0, Math.min(lastConnectedAt, normalizedNow))
       : 0;
   return Math.max(normalizedLastConnectedAt, windowStartByDays);
 }
@@ -1341,6 +1346,7 @@ export const listRecentUnreadNewslettersHead = query({
   args: {
     lastConnectedAt: v.optional(v.number()),
     numItems: v.optional(v.number()),
+    nowTs: v.number(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -1353,7 +1359,7 @@ export const listRecentUnreadNewslettersHead = query({
     if (!user) return { page: [], isDone: true, continueCursor: null };
 
     const hiddenFolderIds = await getHiddenFolderIdSet(ctx, user._id);
-    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt);
+    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt, args.nowTs);
 
     const result = await ctx.db
       .query("userNewsletters")
@@ -1382,10 +1388,11 @@ export const listRecentUnreadNewslettersPageInternal = internalQuery({
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
     lastConnectedAt: v.optional(v.number()),
+    nowTs: v.number(),
   },
   handler: async (ctx, args) => {
     const hiddenFolderIds = await getHiddenFolderIdSet(ctx, args.userId);
-    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt);
+    const windowStart = getRecentUnreadWindowStart(args.lastConnectedAt, args.nowTs);
 
     const result = await ctx.db
       .query("userNewsletters")
@@ -1413,6 +1420,7 @@ export const listRecentUnreadNewslettersPage = action({
     cursor: v.union(v.string(), v.null()),
     numItems: v.optional(v.number()),
     lastConnectedAt: v.optional(v.number()),
+    nowTs: v.number(),
   },
   handler: async (ctx, args): Promise<NewsletterListPageResult> => {
     const identity = await ctx.auth.getUserIdentity();
@@ -1440,6 +1448,7 @@ export const listRecentUnreadNewslettersPage = action({
         cursor: args.cursor,
         numItems: args.numItems ?? 20,
         lastConnectedAt: args.lastConnectedAt,
+        nowTs: args.nowTs,
       },
     );
   },

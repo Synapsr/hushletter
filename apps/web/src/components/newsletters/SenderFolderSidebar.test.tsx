@@ -595,6 +595,7 @@ describe("SenderFolderSidebar", () => {
       expect(recentCall?.[1]).toMatchObject({
         lastConnectedAt: 1700000000000,
         numItems: 8,
+        nowTs: expect.any(Number),
       });
     });
   });
@@ -639,11 +640,14 @@ describe("SenderFolderSidebar", () => {
     });
 
     await waitFor(() => {
-      expect(mockLoadRecentUnreadPage).toHaveBeenCalledWith({
-        cursor: "cursor-1",
-        numItems: 20,
-        lastConnectedAt: 1700000000000,
-      });
+      expect(mockLoadRecentUnreadPage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cursor: "cursor-1",
+          numItems: 20,
+          lastConnectedAt: 1700000000000,
+          nowTs: expect.any(Number),
+        }),
+      );
     });
   });
 

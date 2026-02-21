@@ -651,10 +651,7 @@ export const getUserNewsletter = query({
       });
     }
 
-    const userNewsletter = await ctx.db.get(
-      "userNewsletters",
-      args.userNewsletterId,
-    );
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",

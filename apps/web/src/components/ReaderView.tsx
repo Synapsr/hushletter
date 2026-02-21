@@ -47,6 +47,8 @@ interface ReaderViewProps {
  */
 const READER_CONTENT_QUERY_KEY_PREFIX = "readerContent";
 const READER_CONTENT_GC_MS = 1000 * 60 * 60 * 6; // 6 hours (session-oriented)
+const READER_PERF_LOG_ENABLED =
+  import.meta.env.DEV && import.meta.env.MODE !== "test";
 const iframeHeightCache = new Map<string, number>();
 let activeReaderQueryClient: QueryClient | null = null;
 const MIN_IFRAME_HEIGHT = 200;
@@ -160,35 +162,90 @@ function getReaderContentQueryKey(
   return [READER_CONTENT_QUERY_KEY_PREFIX, userNewsletterId] as const;
 }
 
+function getPerfNowMs(): number {
+  if (typeof performance !== "undefined") return performance.now();
+  return Date.now();
+}
+
+function logReaderPerf(
+  event: string,
+  details: Record<string, unknown>,
+): void {
+  if (!READER_PERF_LOG_ENABLED) return;
+  console.log(`[ReaderPerf] ${event}`, details);
+}
+
 async function fetchReaderContent(
   convex: ConvexActionCaller,
   userNewsletterId: Id<"userNewsletters">,
 ): Promise<ReaderContentQueryData> {
-  const result = await convex.action(api.newsletters.getUserNewsletterWithContent, {
-    userNewsletterId,
-  });
+  const startedAt = getPerfNowMs();
+  logReaderPerf("load_start", { userNewsletterId });
 
-  if (result.contentStatus === "missing") {
+  try {
+    const actionStartedAt = getPerfNowMs();
+    const result = await convex.action(api.newsletters.getUserNewsletterWithContent, {
+      userNewsletterId,
+    });
+    const actionMs = Math.round(getPerfNowMs() - actionStartedAt);
+    logReaderPerf("action_complete", {
+      userNewsletterId,
+      contentStatus: result.contentStatus,
+      actionMs,
+    });
+
+    if (result.contentStatus === "missing") {
+      logReaderPerf("load_complete_missing", {
+        userNewsletterId,
+        totalMs: Math.round(getPerfNowMs() - startedAt),
+      });
+      return {
+        baseDocument: null,
+        estimatedReadMinutes: null,
+      };
+    }
+
+    if (result.contentStatus === "error" || !result.contentUrl) {
+      throw new Error(m.reader_contentUnavailable());
+    }
+
+    const fetchStartedAt = getPerfNowMs();
+    const response = await fetch(result.contentUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch content: ${response.status}`);
+    }
+    const responseMs = Math.round(getPerfNowMs() - fetchStartedAt);
+
+    const textStartedAt = getPerfNowMs();
+    const rawContent = await response.text();
+    const textMs = Math.round(getPerfNowMs() - textStartedAt);
+
+    const buildStartedAt = getPerfNowMs();
+    const baseDocument = buildReaderDocument(rawContent);
+    const estimatedReadMinutes = estimateReadMinutesFromContent(rawContent);
+    const buildMs = Math.round(getPerfNowMs() - buildStartedAt);
+
+    logReaderPerf("load_complete", {
+      userNewsletterId,
+      responseMs,
+      textMs,
+      buildMs,
+      contentBytes: rawContent.length,
+      totalMs: Math.round(getPerfNowMs() - startedAt),
+    });
+
     return {
-      baseDocument: null,
-      estimatedReadMinutes: null,
+      baseDocument,
+      estimatedReadMinutes,
     };
+  } catch (error) {
+    logReaderPerf("load_error", {
+      userNewsletterId,
+      totalMs: Math.round(getPerfNowMs() - startedAt),
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
   }
-
-  if (result.contentStatus === "error" || !result.contentUrl) {
-    throw new Error(m.reader_contentUnavailable());
-  }
-
-  const response = await fetch(result.contentUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch content: ${response.status}`);
-  }
-
-  const rawContent = await response.text();
-  return {
-    baseDocument: buildReaderDocument(rawContent),
-    estimatedReadMinutes: estimateReadMinutesFromContent(rawContent),
-  };
 }
 
 export function prefetchReaderContent(
@@ -197,16 +254,33 @@ export function prefetchReaderContent(
   userNewsletterId: Id<"userNewsletters">,
 ): void {
   activeReaderQueryClient = queryClient;
+  const queryKey = getReaderContentQueryKey(userNewsletterId);
+  const hasCachedEntry = queryClient.getQueryData(queryKey) !== undefined;
+  const prefetchStartedAt = getPerfNowMs();
   void queryClient
     .prefetchQuery({
-      queryKey: getReaderContentQueryKey(userNewsletterId),
+      queryKey,
       queryFn: () => fetchReaderContent(convex, userNewsletterId),
       staleTime: Infinity,
       gcTime: READER_CONTENT_GC_MS,
       retry: 1,
       retryDelay: 250,
     })
-    .catch(() => {});
+    .then(() => {
+      logReaderPerf("prefetch_complete", {
+        userNewsletterId,
+        hadCache: hasCachedEntry,
+        durationMs: Math.round(getPerfNowMs() - prefetchStartedAt),
+      });
+    })
+    .catch((error) => {
+      logReaderPerf("prefetch_error", {
+        userNewsletterId,
+        hadCache: hasCachedEntry,
+        durationMs: Math.round(getPerfNowMs() - prefetchStartedAt),
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
 }
 
 /** Escape plain text for safe HTML fallback rendering */
@@ -574,6 +648,7 @@ export function ReaderView({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const contentReadyAtRef = useRef<number | null>(null);
 
   // Story 3.4: Mutation for updating read progress
   const updateReadProgress = useMutation(api.newsletters.setReadProgress);
@@ -635,6 +710,14 @@ export function ReaderView({
     syncIframeHeight();
     setIframeMeasured(true);
 
+    const contentReadyAt = contentReadyAtRef.current;
+    logReaderPerf("iframe_load", {
+      userNewsletterId,
+      iframeHeight: iframeHeightCache.get(userNewsletterId) ?? iframeHeight,
+      contentToFrameMs:
+        contentReadyAt === null ? null : Math.round(getPerfNowMs() - contentReadyAt),
+    });
+
     resizeObserverRef.current?.disconnect();
     if (typeof ResizeObserver === "undefined") return;
 
@@ -649,7 +732,7 @@ export function ReaderView({
     observer.observe(iframeDoc.body);
     observer.observe(iframeDoc.documentElement);
     resizeObserverRef.current = observer;
-  }, [syncIframeHeight]);
+  }, [syncIframeHeight, userNewsletterId, iframeHeight]);
 
   useEffect(() => {
     return () => {
@@ -660,6 +743,33 @@ export function ReaderView({
   useEffect(() => {
     onEstimatedReadMinutesChange?.(estimatedReadMinutes);
   }, [estimatedReadMinutes, onEstimatedReadMinutesChange]);
+
+  useEffect(() => {
+    contentReadyAtRef.current = null;
+    logReaderPerf("view_select", { userNewsletterId });
+  }, [userNewsletterId]);
+
+  useEffect(() => {
+    if (!readerContentQuery.isSuccess) return;
+    contentReadyAtRef.current = getPerfNowMs();
+    logReaderPerf("view_content_ready", {
+      userNewsletterId,
+      fromCache: !readerContentQuery.isFetchedAfterMount,
+      hasContent: contentDocument !== null,
+      dataUpdatedAt: readerContentQuery.dataUpdatedAt,
+    });
+  }, [
+    userNewsletterId,
+    readerContentQuery.isSuccess,
+    readerContentQuery.isFetchedAfterMount,
+    readerContentQuery.dataUpdatedAt,
+    contentDocument,
+  ]);
+
+  useEffect(() => {
+    if (!error) return;
+    logReaderPerf("view_error", { userNewsletterId, message: error });
+  }, [error, userNewsletterId]);
 
   // Story 3.4 AC2: Scroll to saved position when content loads and initialProgress is provided
   useEffect(() => {

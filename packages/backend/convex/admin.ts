@@ -91,10 +91,8 @@ export const getRecentActivity = query({
 
     // Count recent users (by _creationTime since createdAt may not exist on all records)
     // TODO: Add by_createdAt index for better performance at scale
-    const recentUsers = await ctx.db
-      .query("users")
-      .filter((q) => q.gte(q.field("_creationTime"), cutoff))
-      .collect()
+    const allUsers = await ctx.db.query("users").collect()
+    const recentUsersCount = allUsers.filter((user) => user._creationTime >= cutoff).length
 
     // Count recent newsletters using by_receivedAt index
     const recentNewsletters = await ctx.db
@@ -111,7 +109,7 @@ export const getRecentActivity = query({
     }))
 
     return {
-      newUsersCount: recentUsers.length,
+      newUsersCount: recentUsersCount,
       newNewslettersCount: recentNewsletters.length,
       recentItems,
       periodHours: hoursAgo,
@@ -186,8 +184,7 @@ export const getMetricsHistory = query({
 
     const history = await ctx.db
       .query("systemMetricsHistory")
-      .withIndex("by_recordedAt")
-      .filter((q) => q.gte(q.field("recordedAt"), cutoff))
+      .withIndex("by_recordedAt", (q) => q.gte("recordedAt", cutoff))
       .order("asc")
       .collect()
 
@@ -614,7 +611,7 @@ export const updateDeliveryStatus = internalMutation({
       update.hasPlainTextContent = args.hasPlainTextContent
     }
 
-    await ctx.db.patch(args.logId, update)
+    await ctx.db.patch("emailDeliveryLogs", args.logId, update)
   },
 })
 
@@ -636,7 +633,7 @@ export const acknowledgeFailedDelivery = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
 
-    await ctx.db.patch(args.logId, {
+    await ctx.db.patch("emailDeliveryLogs", args.logId, {
       isAcknowledged: true,
     })
   },
@@ -715,10 +712,8 @@ export const listPrivateSenders = query({
     const limit = Math.min(args.limit ?? 50, 100)
 
     // Get all sender settings where isPrivate is true
-    const privateSenderSettings = await ctx.db
-      .query("userSenderSettings")
-      .filter((q) => q.eq(q.field("isPrivate"), true))
-      .collect()
+    const allSenderSettings = await ctx.db.query("userSenderSettings").collect()
+    const privateSenderSettings = allSenderSettings.filter((setting) => setting.isPrivate)
 
     // Aggregate by sender
     const senderCounts = new Map<string, number>()
@@ -730,7 +725,7 @@ export const listPrivateSenders = query({
     // Get sender details
     const senderIds = Array.from(senderCounts.keys())
     const senders = await Promise.all(
-      senderIds.map((id) => ctx.db.get(id as Id<"senders">))
+      senderIds.map((id) => ctx.db.get("senders", id as Id<"senders">))
     )
 
     // Build result with user counts (no individual identities)
@@ -824,15 +819,12 @@ export const runPrivacyAudit = query({
     const violations: PrivacyViolation[] = []
 
     // Check 1: Private newsletters should NOT have contentId (they should use privateR2Key)
-    const privateWithContentId = await ctx.db
-      .query("userNewsletters")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("isPrivate"), true),
-          q.neq(q.field("contentId"), undefined)
-        )
-      )
-      .collect()
+    const allNewsletters = await ctx.db.query("userNewsletters").collect()
+    const privateNewsletters = allNewsletters.filter((newsletter) => newsletter.isPrivate)
+    const allPublicNewsletters = allNewsletters.filter((newsletter) => !newsletter.isPrivate)
+    const privateWithContentId = privateNewsletters.filter(
+      (newsletter) => newsletter.contentId !== undefined
+    )
 
     if (privateWithContentId.length > 0) {
       violations.push({
@@ -847,15 +839,9 @@ export const runPrivacyAudit = query({
     }
 
     // Check 2: Private newsletters should have privateR2Key
-    const privateMissingR2Key = await ctx.db
-      .query("userNewsletters")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("isPrivate"), true),
-          q.eq(q.field("privateR2Key"), undefined)
-        )
-      )
-      .collect()
+    const privateMissingR2Key = privateNewsletters.filter(
+      (newsletter) => newsletter.privateR2Key === undefined
+    )
 
     if (privateMissingR2Key.length > 0) {
       violations.push({
@@ -872,10 +858,6 @@ export const runPrivacyAudit = query({
     // Check 3: Verify newsletterContent table integrity
     // Compare readerCount with actual references
     const allContent = await ctx.db.query("newsletterContent").collect()
-    const allPublicNewsletters = await ctx.db
-      .query("userNewsletters")
-      .filter((q) => q.eq(q.field("isPrivate"), false))
-      .collect()
 
     // Build reference counts from userNewsletters
     const actualReaderCounts = new Map<string, number>()
@@ -905,11 +887,6 @@ export const runPrivacyAudit = query({
     }
 
     // Count totals
-    const totalPrivate = await ctx.db
-      .query("userNewsletters")
-      .filter((q) => q.eq(q.field("isPrivate"), true))
-      .collect()
-
     // Determine overall compliance status
     const hasCritical = violations.some((v) => v.severity === "critical")
     const hasWarning = violations.some((v) => v.severity === "warning")
@@ -919,7 +896,7 @@ export const runPrivacyAudit = query({
     return {
       status,
       auditedAt: Date.now(),
-      totalPrivateNewsletters: totalPrivate.length,
+      totalPrivateNewsletters: privateNewsletters.length,
       totalPublicNewsletters: allPublicNewsletters.length,
       violations,
       checks: [
@@ -1012,13 +989,13 @@ export const getNewsletterPrivacyStatus = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
 
-    const newsletter = await ctx.db.get(args.newsletterId)
+    const newsletter = await ctx.db.get("userNewsletters", args.newsletterId)
     if (!newsletter) {
       return null
     }
 
     // Get sender
-    const sender = await ctx.db.get(newsletter.senderId)
+    const sender = await ctx.db.get("senders", newsletter.senderId)
 
     // Get user's sender settings
     const senderSettings = await ctx.db
@@ -1029,12 +1006,12 @@ export const getNewsletterPrivacyStatus = query({
       .first()
 
     // Get user (for investigation, not exposure)
-    const user = await ctx.db.get(newsletter.userId)
+    const user = await ctx.db.get("users", newsletter.userId)
 
     // If public, get content info
     let contentInfo = null
     if (newsletter.contentId) {
-      const content = await ctx.db.get(newsletter.contentId)
+      const content = await ctx.db.get("newsletterContent", newsletter.contentId)
       if (content) {
         contentInfo = {
           contentHash: content.contentHash,
@@ -1099,7 +1076,7 @@ export const getSenderPrivacyDetails = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
 
-    const sender = await ctx.db.get(args.senderId)
+    const sender = await ctx.db.get("senders", args.senderId)
     if (!sender) {
       return null
     }
@@ -1325,13 +1302,13 @@ export const hideContentFromCommunity = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx)
 
-    const content = await ctx.db.get(args.contentId)
+    const content = await ctx.db.get("newsletterContent", args.contentId)
     if (!content) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Content not found" })
     }
 
     // Update content - soft delete for community
-    await ctx.db.patch(args.contentId, {
+    await ctx.db.patch("newsletterContent", args.contentId, {
       isHiddenFromCommunity: true,
       hiddenAt: Date.now(),
       hiddenBy: admin._id,
@@ -1365,13 +1342,13 @@ export const restoreContentToCommunity = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx)
 
-    const content = await ctx.db.get(args.contentId)
+    const content = await ctx.db.get("newsletterContent", args.contentId)
     if (!content) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Content not found" })
     }
 
     // Update content - restore visibility
-    await ctx.db.patch(args.contentId, {
+    await ctx.db.patch("newsletterContent", args.contentId, {
       isHiddenFromCommunity: false,
       hiddenAt: undefined,
       hiddenBy: undefined,
@@ -1410,7 +1387,7 @@ export const blockSenderFromCommunity = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx)
 
-    const sender = await ctx.db.get(args.senderId)
+    const sender = await ctx.db.get("senders", args.senderId)
     if (!sender) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Sender not found" })
     }
@@ -1443,7 +1420,7 @@ export const blockSenderFromCommunity = mutation({
       .collect()
 
     for (const content of senderContent) {
-      await ctx.db.patch(content._id, {
+      await ctx.db.patch("newsletterContent", content._id, {
         isHiddenFromCommunity: true,
         hiddenAt: Date.now(),
         hiddenBy: admin._id,
@@ -1483,7 +1460,7 @@ export const unblockSender = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx)
 
-    const sender = await ctx.db.get(args.senderId)
+    const sender = await ctx.db.get("senders", args.senderId)
     if (!sender) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Sender not found" })
     }
@@ -1498,7 +1475,7 @@ export const unblockSender = mutation({
       throw new ConvexError({ code: "NOT_FOUND", message: "Sender is not blocked" })
     }
 
-    await ctx.db.delete(block._id)
+    await ctx.db.delete("blockedSenders", block._id)
 
     // Optionally restore content
     let contentRestored = 0
@@ -1510,7 +1487,7 @@ export const unblockSender = mutation({
 
       for (const content of senderContent) {
         if (content.isHiddenFromCommunity) {
-          await ctx.db.patch(content._id, {
+          await ctx.db.patch("newsletterContent", content._id, {
             isHiddenFromCommunity: false,
             hiddenAt: undefined,
             hiddenBy: undefined,
@@ -1562,8 +1539,8 @@ export const listBlockedSenders = query({
     // Get sender details and content counts
     const results = await Promise.all(
       blocked.map(async (block) => {
-        const sender = await ctx.db.get(block.senderId)
-        const admin = await ctx.db.get(block.blockedBy)
+        const sender = await ctx.db.get("senders", block.senderId)
+        const admin = await ctx.db.get("users", block.blockedBy)
 
         // Count affected content
         const contentCount = sender
@@ -1634,22 +1611,19 @@ export const reportContent = mutation({
       throw new ConvexError({ code: "NOT_FOUND", message: "User not found" })
     }
 
-    const content = await ctx.db.get(args.contentId)
+    const content = await ctx.db.get("newsletterContent", args.contentId)
     if (!content) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Content not found" })
     }
 
     // Check for existing pending report from this user
-    const existingReport = await ctx.db
+    const reportsForContent = await ctx.db
       .query("contentReports")
       .withIndex("by_contentId", (q) => q.eq("contentId", args.contentId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("reporterId"), user._id),
-          q.eq(q.field("status"), "pending")
-        )
-      )
-      .first()
+      .collect()
+    const existingReport = reportsForContent.find(
+      (report) => report.reporterId === user._id && report.status === "pending"
+    )
 
     if (existingReport) {
       throw new ConvexError({
@@ -1700,8 +1674,8 @@ export const listContentReports = query({
     // Get content and reporter details
     const results = await Promise.all(
       reports.map(async (report) => {
-        const content = await ctx.db.get(report.contentId)
-        const reporter = await ctx.db.get(report.reporterId)
+        const content = await ctx.db.get("newsletterContent", report.contentId)
+        const reporter = await ctx.db.get("users", report.reporterId)
 
         return {
           id: report._id,
@@ -1738,13 +1712,13 @@ export const resolveReport = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx)
 
-    const report = await ctx.db.get(args.reportId)
+    const report = await ctx.db.get("contentReports", args.reportId)
     if (!report) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Report not found" })
     }
 
     // Update report
-    await ctx.db.patch(args.reportId, {
+    await ctx.db.patch("contentReports", args.reportId, {
       status: args.resolution,
       resolvedBy: admin._id,
       resolvedAt: Date.now(),
@@ -1753,7 +1727,7 @@ export const resolveReport = mutation({
 
     // Optionally hide the content
     if (args.hideContent && args.resolution === "resolved") {
-      await ctx.db.patch(report.contentId, {
+      await ctx.db.patch("newsletterContent", report.contentId, {
         isHiddenFromCommunity: true,
         hiddenAt: Date.now(),
         hiddenBy: admin._id,
@@ -1795,9 +1769,9 @@ export const bulkResolveReports = mutation({
 
     let resolved = 0
     for (const reportId of args.reportIds) {
-      const report = await ctx.db.get(reportId)
+      const report = await ctx.db.get("contentReports", reportId)
       if (report && report.status === "pending") {
-        await ctx.db.patch(reportId, {
+        await ctx.db.patch("contentReports", reportId, {
           status: args.resolution,
           resolvedBy: admin._id,
           resolvedAt: Date.now(),
@@ -1893,7 +1867,7 @@ export const listModerationLog = query({
     // Get admin details
     const results = await Promise.all(
       logs.slice(0, limit).map(async (log) => {
-        const admin = await ctx.db.get(log.adminId)
+        const admin = await ctx.db.get("users", log.adminId)
 
         return {
           id: log._id,
@@ -1994,7 +1968,7 @@ export const listModerationQueue = query({
     // Get sender details and apply sender filter
     const results = []
     for (const [senderId, group] of senderGroups) {
-      const sender = await ctx.db.get(senderId as Id<"senders">)
+      const sender = await ctx.db.get("senders", senderId as Id<"senders">)
       if (!sender) continue
 
       // Apply sender email filter (partial match)
@@ -2080,7 +2054,7 @@ export const listModerationNewslettersForSender = query({
     // Get user emails for each newsletter (audit info)
     const results = await Promise.all(
       limitedNewsletters.map(async (n) => {
-        const user = await ctx.db.get(n.userId)
+        const user = await ctx.db.get("users", n.userId)
         return {
           id: n._id,
           subject: n.subject,
@@ -2112,16 +2086,16 @@ export const getModerationNewsletterDetail = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
 
-    const newsletter = await ctx.db.get(args.userNewsletterId)
+    const newsletter = await ctx.db.get("userNewsletters", args.userNewsletterId)
     if (!newsletter) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
     }
 
     // Get user for audit
-    const user = await ctx.db.get(newsletter.userId)
+    const user = await ctx.db.get("users", newsletter.userId)
 
     // Get sender
-    const sender = await ctx.db.get(newsletter.senderId)
+    const sender = await ctx.db.get("senders", newsletter.senderId)
 
     // Note: PII detection runs on content in the action (getModerationNewsletterContent)
     // For this query, we just return metadata
@@ -2257,7 +2231,7 @@ export const getModerationNewsletterInternal = internalQuery({
     userNewsletterId: v.id("userNewsletters"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.userNewsletterId)
+    return await ctx.db.get("userNewsletters", args.userNewsletterId)
   },
 })
 
@@ -2459,7 +2433,7 @@ export const createCommunityContent = internalMutation({
       .first()
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("newsletterContent", existing._id, {
         readerCount: existing.readerCount + 1,
       })
       return existing._id
@@ -2493,7 +2467,7 @@ export const markNewsletterReviewed = internalMutation({
     reviewedBy: v.id("users"),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       reviewStatus: args.reviewStatus,
       reviewedAt: Date.now(),
       reviewedBy: args.reviewedBy,
@@ -2559,7 +2533,7 @@ export const rejectFromCommunity = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx)
 
-    const newsletter = await ctx.db.get(args.userNewsletterId)
+    const newsletter = await ctx.db.get("userNewsletters", args.userNewsletterId)
     if (!newsletter) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Newsletter not found" })
     }
@@ -2580,7 +2554,7 @@ export const rejectFromCommunity = mutation({
     }
 
     // Mark as reviewed (rejected) - does NOT modify content (AC #8)
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       reviewStatus: "rejected",
       reviewedAt: Date.now(),
       reviewedBy: admin._id,

@@ -825,7 +825,10 @@ function NewslettersPage() {
         }`}
         aria-hidden={!showDesktopSidebar}
       >
-        <SenderFolderSidebar {...senderFolderSidebarProps} />
+        <SenderFolderSidebar
+          {...senderFolderSidebarProps}
+          enableSearchHotkey={isDesktop}
+        />
       </div>
 
       {effectiveNewsletterId ? (
@@ -877,6 +880,7 @@ function NewslettersPage() {
     <div className="md:hidden flex flex-col h-full [&>aside]:w-full [&>aside]:h-full [&>aside]:border-r-0">
       <SenderFolderSidebar
         {...senderFolderSidebarProps}
+        enableSearchHotkey={!isDesktop}
         onNewsletterSelect={handleMobileNewsletterSelect}
       />
     </div>

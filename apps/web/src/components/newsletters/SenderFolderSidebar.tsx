@@ -123,6 +123,7 @@ interface SenderFolderSidebarProps {
   canLoadMore?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
+  enableSearchHotkey?: boolean;
 }
 
 function isFolderData(item: unknown): item is FolderData {
@@ -468,6 +469,7 @@ export function SenderFolderSidebar({
   canLoadMore,
   isLoadingMore,
   onLoadMore,
+  enableSearchHotkey = true,
 }: SenderFolderSidebarProps) {
   const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>(
     selectedFilter === FILTER_STARRED ? "starred" : "all",
@@ -1703,7 +1705,7 @@ export function SenderFolderSidebar({
           )}
         </AnimatePresence>
       </div>
-      <SidebarFooter />
+      <SidebarFooter enableSearchHotkey={enableSearchHotkey} />
     </aside>
   );
 }

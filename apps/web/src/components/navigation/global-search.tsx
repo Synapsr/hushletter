@@ -36,7 +36,9 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { formatDistanceToNow } from "date-fns";
 import { useAppHotkeys } from "@/hooks/use-app-hotkeys";
 
-type Props = {};
+type Props = {
+  enableHotkey?: boolean;
+};
 
 const LAST_READ_KEY = "hushletter:lastNewsletter";
 
@@ -76,7 +78,7 @@ export type Group = {
   items: Item[];
 };
 
-export const GlobalSearch = ({}: Props) => {
+export const GlobalSearch = ({ enableHotkey = true }: Props) => {
   const { bindings } = useAppHotkeys();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -284,6 +286,7 @@ export const GlobalSearch = ({}: Props) => {
   }
 
   useHotkey(bindings.toggleGlobalSearch, () => {
+    if (!enableHotkey) return;
     setOpen((open) => !open);
   });
 

@@ -4,12 +4,13 @@ import { useAction } from "convex/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
-import { Button } from "@hushletter/ui";
-import { Sparkles, Users } from "lucide-react";
+import { Button, SparklesIcon } from "@hushletter/ui";
+import { AlertCircle, RefreshCw, Users, Zap } from "lucide-react";
 import { ConvexError } from "convex/values";
+import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { m } from "@/paraglide/messages.js";
-import { Link } from "@tanstack/react-router";
+import { PricingDialog } from "@/components/pricing-dialog";
 
 interface SummaryPanelProps {
   /** userNewsletter document ID - typed for Convex safety */
@@ -27,15 +28,6 @@ interface SummaryData {
 
 /**
  * SummaryPanel - Displays AI-generated summary for a newsletter
- * Story 5.1: Task 5 - Summary display component
- * Story 5.2: Task 2 - Collapse preference persistence
- *
- * Features:
- * - Collapsible summary view with persistent preference
- * - Generate/Regenerate buttons
- * - Loading state with skeleton
- * - Error state with retry
- * - Community summary indicator for shared summaries
  *
  * Note on useState for isGenerating: This is an ACCEPTED EXCEPTION to project-context.md rules.
  * Convex useAction doesn't provide isPending like useMutation does, so manual loading
@@ -45,10 +37,10 @@ export function SummaryPanel({
   userNewsletterId,
   className,
 }: SummaryPanelProps) {
-  // Story 5.2: Use persisted preference for collapse state
   // Exception: useAction doesn't provide isPending, manual state required
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false);
 
   const { data: entitlements } = useQuery(
     convexQuery(api.entitlements.getEntitlements, {}),
@@ -57,15 +49,12 @@ export function SummaryPanel({
     (entitlements as { isPro?: boolean } | undefined)?.isPro,
   );
 
-  // Query for existing summary (resolves shared vs private automatically)
-  // Returns: { summary: string | null, isShared: boolean, generatedAt: number | null }
   const { data } = useQuery(
     convexQuery(
       api.ai.getNewsletterSummary,
       isPro ? { userNewsletterId } : "skip",
     ),
   );
-  // Code review fix: Trust the query return type, avoid manual type guards
   const summaryData = data as SummaryData | undefined;
 
   const generateSummaryAction = useAction(api.ai.generateSummary);
@@ -76,7 +65,6 @@ export function SummaryPanel({
 
     try {
       await generateSummaryAction({ userNewsletterId, forceRegenerate });
-      // Summary will appear via real-time subscription from useQuery
     } catch (err) {
       if (err instanceof ConvexError) {
         const data = err.data as { message?: string; code?: string };
@@ -91,100 +79,181 @@ export function SummaryPanel({
 
   const hasSummary = Boolean(summaryData?.summary);
   const isSharedSummary = summaryData?.isShared ?? false;
+  const currentReturnPath =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : undefined;
 
   return (
     <div className={cn("max-h-[calc(60vh-44px)]", className)}>
-      <div className="p-4 mb-6">
+      <div className="px-4 py-3">
+        {/* Pro upsell */}
         {!isPro && (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              AI summaries are included with Hushletter Pro.
-            </p>
-            <div className="flex justify-end">
-              <Button render={<Link to="/settings" />} size="sm">
-                Upgrade to Pro
-              </Button>
+          <div className="rounded-xl border border-border/50 bg-muted/30 p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <SparklesIcon className="size-4 text-primary" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <p className="text-[13px] leading-snug text-foreground/80">
+                  AI summaries are included with Hushletter Pro.
+                </p>
+                <Button size="sm" onClick={() => setIsPricingDialogOpen(true)}>
+                  Upgrade to Pro
+                </Button>
+              </div>
             </div>
+            <PricingDialog
+              open={isPricingDialogOpen}
+              onOpenChange={setIsPricingDialogOpen}
+              returnPath={currentReturnPath}
+              billingSource="settings_dialog"
+            />
           </div>
         )}
 
-        {/* Error state - Story 5.2 Task 5.2: Informative error message */}
+        {/* Error state */}
         {isPro && error && (
-          <div
-            className="text-sm text-destructive mb-4 p-3 bg-destructive/10 rounded-lg"
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-destructive/20 bg-destructive/5 p-3"
             role="alert"
           >
-            <p className="font-medium">{m.summaryPanel_errorTitle()}</p>
-            <p className="text-xs mt-1 opacity-80">{error}</p>
-          </div>
-        )}
-
-        {/* Loading state - animated skeleton */}
-        {isPro && isGenerating && (
-          <div
-            className="space-y-2 animate-pulse"
-            aria-label={m.summaryPanel_generatingSummary()}
-          >
-            <div className="h-4 bg-muted rounded w-full" />
-            <div className="h-4 bg-muted rounded w-5/6" />
-            <div className="h-4 bg-muted rounded w-4/5" />
-          </div>
-        )}
-
-        {/* Summary content - Story 5.2 Task 4.3: fade-in animation */}
-        {isPro && !isGenerating && hasSummary && summaryData?.summary && (
-          <div className="space-y-2 animate-in fade-in duration-300">
-            {/* Shared summary indicator (community summary) */}
-            {isSharedSummary && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Users className="h-3 w-3" aria-hidden="true" />
-                <span>{m.summaryPanel_communitySummary()}</span>
+            <div className="flex items-start gap-2.5">
+              <AlertCircle
+                className="mt-0.5 size-4 shrink-0 text-destructive/70"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[13px] font-medium text-destructive">
+                  {m.summaryPanel_errorTitle()}
+                </p>
+                <p className="text-xs leading-relaxed text-destructive/70">
+                  {error}
+                </p>
               </div>
-            )}
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <p className="text-muted-foreground whitespace-pre-wrap">
-                {summaryData.summary}
-              </p>
             </div>
-            {/* Story 5.2 Task 4.4: Generated date metadata */}
-            {summaryData.generatedAt && (
-              <p className="text-xs text-muted-foreground/70 pt-2">
-                {m.summaryPanel_generatedOn({
-                  date: new Date(summaryData.generatedAt).toLocaleDateString(
-                    undefined,
-                    {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    },
-                  ),
-                })}
-              </p>
-            )}
-          </div>
+          </motion.div>
         )}
 
-        {/* Generate/Regenerate button */}
-        {isPro && !isGenerating && !hasSummary && (
-          <div className="mt-4 flex justify-end">
-            <Button
-              variant={hasSummary ? "outline" : "default"}
-              size="sm"
-              onClick={() => handleGenerate(hasSummary)} // forceRegenerate = true if regenerating
-              disabled={isGenerating}
-              className="gap-2"
+        {/* Loading state — staggered shimmer lines */}
+        <AnimatePresence>
+          {isPro && isGenerating && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4"
+              aria-label={m.summaryPanel_generatingSummary()}
             >
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                >
+                  <SparklesIcon className="size-3.5" aria-hidden="true" />
+                </motion.div>
+                <span>{m.summaryPanel_generatingSummary()}</span>
+              </div>
+              <div className="space-y-2.5 pl-1 border-l-2 border-muted-foreground/10 ml-0.5">
+                {[100, 88, 72, 56].map((width, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -4 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.12, duration: 0.3 }}
+                    className="h-3 animate-pulse rounded bg-muted"
+                    style={{ width: `${width}%` }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Summary content */}
+        <AnimatePresence mode="wait">
+          {isPro && !isGenerating && hasSummary && summaryData?.summary && (
+            <motion.div
+              key="summary-content"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="space-y-3"
+            >
+              {/* Community indicator badge */}
+              {isSharedSummary && (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    <Users className="size-3" aria-hidden="true" />
+                    {m.summaryPanel_communitySummary()}
+                  </span>
+                </div>
+              )}
+
+              {/* Summary text with editorial left accent */}
+              <div className="border-l-2 border-primary/20 pl-3">
+                <p className="text-[13px] leading-[1.7] text-foreground/80 whitespace-pre-wrap">
+                  {summaryData.summary}
+                </p>
+              </div>
+
+              {/* Footer: timestamp + regenerate */}
+              <div className="flex items-center justify-between pt-1">
+                {summaryData.generatedAt ? (
+                  <span className="text-[11px] text-muted-foreground/60">
+                    {m.summaryPanel_generatedOn({
+                      date: new Date(
+                        summaryData.generatedAt,
+                      ).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      }),
+                    })}
+                  </span>
+                ) : (
+                  <span />
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleGenerate(true)}
+                  disabled={isGenerating}
+                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground/60 transition-colors hover:bg-muted hover:text-muted-foreground"
+                >
+                  <RefreshCw className="size-3" aria-hidden="true" />
+                  {m.summaryPanel_summarize()}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Empty state — generate CTA */}
+        {isPro && !isGenerating && !hasSummary && !error && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="flex flex-col items-center gap-3 py-2 text-center"
+          >
+            <div className="flex size-10 items-center justify-center rounded-full bg-muted/50">
+              <Zap className="size-4.5 text-muted-foreground/50" aria-hidden="true" />
+            </div>
+            <p className="max-w-[240px] text-[13px] leading-snug text-muted-foreground/70">
+              {m.summaryPanel_emptyStateGuidance()}
+            </p>
+            <Button
+              size="sm"
+              onClick={() => handleGenerate(false)}
+              disabled={isGenerating}
+              className="gap-1.5"
+            >
+              <SparklesIcon className="size-3.5" aria-hidden="true" />
               {m.summaryPanel_summarize()}
             </Button>
-          </div>
-        )}
-
-        {/* Empty state guidance - only when no summary and not generating */}
-        {isPro && !isGenerating && !hasSummary && !error && (
-          <p className="text-sm text-muted-foreground mb-4">
-            {m.summaryPanel_emptyStateGuidance()}
-          </p>
+          </motion.div>
         )}
       </div>
     </div>

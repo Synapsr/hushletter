@@ -19,6 +19,7 @@ import {
   Skeleton,
   ArchiveBoldIcon,
   TrashBoldIcon,
+  ChevronLeftIcon,
 } from "@hushletter/ui";
 import { cn } from "@/lib/utils";
 import {
@@ -1170,16 +1171,16 @@ export function SenderFolderSidebar({
               transition={{ duration: 0.2, ease: "easeInOut" }}
             >
               {/* Detail panel header */}
-              <div className="flex items-center gap-2 px-3 py-3 border-b flex-shrink-0">
+              <div className="flex items-center gap-1 px-3 py-3  shrink-0">
                 <button
                   type="button"
                   onClick={handleBackClick}
                   aria-label={m.sidebar_back?.() ?? "Back"}
-                  className="p-1 rounded-md hover:bg-accent transition-colors"
+                  className="p-1 rounded-md hover:bg-accent cursor-pointer text-muted-foreground transition-colors"
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ChevronLeftIcon className="size-4 stroke-[2.5px]" />
                 </button>
-                <h2 className="text-sm font-semibold">
+                <h2 className="text-sm font-medium ">
                   {selectedFilter === FILTER_HIDDEN
                     ? m.sidebar_archive()
                     : (m.bin_label?.() ?? "Bin")}

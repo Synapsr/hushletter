@@ -18,6 +18,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 // Mock Convex hooks
 const mockGenerateSummary = vi.fn()
 const mockSummaryData = vi.fn()
+let mockIsPro = true
 
 vi.mock("convex/react", () => ({
   useAction: () => mockGenerateSummary,
@@ -33,7 +34,7 @@ vi.mock("@tanstack/react-query", async () => {
 
       if (apiFn === "getEntitlements") {
         return {
-          data: { isPro: true },
+          data: { isPro: mockIsPro },
           isPending: false,
           error: null,
         }
@@ -64,6 +65,11 @@ vi.mock("@hushletter/backend", () => ({
   },
 }))
 
+vi.mock("@/components/pricing-dialog", () => ({
+  PricingDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="pricing-dialog-mock">Pricing dialog</div> : null,
+}))
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -81,6 +87,7 @@ describe("SummaryPanel", () => {
     vi.clearAllMocks()
     mockGenerateSummary.mockReset()
     mockSummaryData.mockReset()
+    mockIsPro = true
     try {
       localStorage.removeItem("hushletter:summary-collapsed")
     } catch {
@@ -124,6 +131,22 @@ describe("SummaryPanel", () => {
         screen.queryByRole("button", { name: /Expand summary|Collapse summary/i })
       ).not.toBeInTheDocument()
     })
+  })
+
+  it("opens shared pricing dialog for non-pro users", () => {
+    mockIsPro = false
+    mockSummaryData.mockReturnValue({
+      summary: null,
+      isShared: false,
+      generatedAt: null,
+    })
+
+    render(<SummaryPanel userNewsletterId={"test-id" as Id<"userNewsletters">} />, {
+      wrapper: createWrapper(),
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }))
+    expect(screen.getByTestId("pricing-dialog-mock")).toBeInTheDocument()
   })
 
   describe("Summary Display (Task 5.4)", () => {

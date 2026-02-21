@@ -16,10 +16,14 @@ export function PricingDialog({
   open,
   onOpenChange,
   returnTo,
+  returnPath,
+  billingSource,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   returnTo?: "settings" | "onboarding" | "import";
+  returnPath?: string;
+  billingSource?: "settings_dialog";
 }) {
   const locale = getLocale();
   const currency = locale.startsWith("fr")
@@ -48,6 +52,8 @@ export function PricingDialog({
         interval: billingInterval,
         currency,
         returnTo,
+        returnPath,
+        billingSource,
       });
       window.location.href = url;
     } catch (error) {

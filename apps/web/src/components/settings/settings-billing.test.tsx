@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 let mockLocale = "en";
 let mockEntitlements: unknown = {
@@ -45,6 +46,17 @@ vi.mock("@hushletter/backend", () => ({
   },
 }));
 
+vi.mock("@/components/pricing-dialog", () => ({
+  PricingDialog: ({
+    open,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    returnPath?: string;
+    billingSource?: "settings_dialog";
+  }) => (open ? <div data-testid="pricing-dialog-mock">Pricing dialog</div> : null),
+}));
+
 import { SettingsBilling } from "./settings-billing";
 
 describe("SettingsBilling", () => {
@@ -60,16 +72,23 @@ describe("SettingsBilling", () => {
     };
   });
 
-  it("renders USD pricing by default (en)", () => {
+  it("uses a single upgrade trigger and opens the shared pricing dialog", async () => {
+    const user = userEvent.setup();
     render(<SettingsBilling />);
-    expect(screen.getByText("$9/month · $90/year · + tax/VAT where applicable")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /upgrade monthly/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /upgrade to pro/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /upgrade monthly/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /upgrade yearly/i })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /upgrade to pro/i }));
+    expect(screen.getByTestId("pricing-dialog-mock")).toBeTruthy();
   });
 
-  it("renders EUR pricing for fr locale", () => {
+  it("opens shared pricing dialog for fr locale", async () => {
+    const user = userEvent.setup();
     mockLocale = "fr";
     render(<SettingsBilling />);
-    expect(screen.getByText("$9/month · $90/year · + tax/VAT where applicable")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /upgrade to pro/i }));
+    expect(screen.getByTestId("pricing-dialog-mock")).toBeTruthy();
   });
 
   it("renders manage subscription for Pro", () => {

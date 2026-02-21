@@ -8,6 +8,7 @@ import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { ReaderView, clearCacheEntry } from "@/components/ReaderView";
 import { SummaryPanel } from "@/components/SummaryPanel";
+import { PricingDialog } from "@/components/pricing-dialog";
 import { useOptimisticNewsletterFavorite } from "@/hooks/useOptimisticNewsletterFavorite";
 import { m } from "@/paraglide/messages.js";
 import {
@@ -403,6 +404,7 @@ function NewsletterDetailPage() {
 
   // Code review fix (HIGH-1): Track hide/unhide feedback state for AC1 confirmation
   const [hideConfirmation, setHideConfirmation] = useState<string | null>(null);
+  const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
 
   // Story 3.4: Mutations for mark read/unread
   const markRead = useMutation(api.newsletters.markNewsletterRead);
@@ -435,6 +437,10 @@ function NewsletterDetailPage() {
       ? [{ _id: newsletter._id, isFavorited: newsletter.isFavorited }]
       : [],
   );
+  const currentReturnPath =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : undefined;
 
   // Show loading skeleton while fetching metadata
   if (isPending) {
@@ -593,9 +599,15 @@ function NewsletterDetailPage() {
               You’ve reached the Free plan history limit. Hushletter Pro unlocks
               all locked newsletters and keeps everything readable.
             </p>
-            <Button onClick={() => (window.location.href = "/settings")}>
+            <Button onClick={() => setPricingDialogOpen(true)}>
               Upgrade to Pro
             </Button>
+            <PricingDialog
+              open={pricingDialogOpen}
+              onOpenChange={setPricingDialogOpen}
+              returnPath={currentReturnPath}
+              billingSource="settings_dialog"
+            />
           </CardContent>
         </Card>
       ) : (

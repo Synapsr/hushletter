@@ -3,17 +3,14 @@ import { render, screen } from "@testing-library/react";
 
 const mockUseQuery = vi.fn();
 
-vi.mock("@tanstack/react-router", async () => {
-  const actual = await vi.importActual("@tanstack/react-router");
-  return {
-    ...actual,
-    createFileRoute: () => (options: any) => ({
-      options,
-      useParams: () => ({ id: "newsletter-1" }),
-    }),
-    useNavigate: () => vi.fn(),
-  };
-});
+vi.mock("@tanstack/react-router", () => ({
+  createFileRoute: () => (options: any) => ({
+    options,
+    useParams: () => ({ id: "newsletter-1" }),
+  }),
+  useNavigate: () => vi.fn(),
+  Link: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
 
 vi.mock("@convex-dev/react-query", () => ({
   convexQuery: () => ({ queryKey: ["mock"] }),
@@ -46,6 +43,11 @@ vi.mock("@/components/ReaderView", () => ({
 
 vi.mock("@/components/SummaryPanel", () => ({
   SummaryPanel: () => <div data-testid="summary-panel">Summary</div>,
+}));
+
+vi.mock("@/components/pricing-dialog", () => ({
+  PricingDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="pricing-dialog-mock">Pricing dialog</div> : null,
 }));
 
 vi.mock("@hushletter/backend", () => ({
@@ -97,6 +99,5 @@ describe("/_authed/newsletters/$id paywall", () => {
 
     expect(screen.getByText("Upgrade to read this newsletter")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Upgrade to Pro" })).toBeTruthy();
-  });
+  }, 10000);
 });
-

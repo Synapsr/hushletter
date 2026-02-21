@@ -108,6 +108,29 @@ describe("ReaderActionBar", () => {
     expect(onShare).toHaveBeenCalledTimes(1);
   });
 
+  it("calls upgrade handler from appearance popover for non-pro users", () => {
+    const onUpgradeToPro = vi.fn();
+
+    render(
+      <ReaderActionBar
+        isRead={false}
+        isHidden={false}
+        isFavorited={false}
+        isFavoritePending={false}
+        onArchive={() => {}}
+        onToggleFavorite={() => {}}
+        onUpgradeToPro={onUpgradeToPro}
+        senderName="Sender"
+        subject="Subject"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reader appearance" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
+
+    expect(onUpgradeToPro).toHaveBeenCalledTimes(1);
+  });
+
   it("calls mark unread and bin handlers from actions menu when newsletter is read", () => {
     const onToggleRead = vi.fn();
     const onBin = vi.fn();

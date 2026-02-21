@@ -14,7 +14,7 @@
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
 import { internalQuery, action, internalAction, type ActionCtx } from "./_generated/server"
-import { internal } from "./_generated/api"
+import { internal, api } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 
 // Gmail API types
@@ -477,6 +477,29 @@ export const checkGmailAccess = action({
   },
   handler: async (ctx, args): Promise<{ valid: boolean; error?: string }> => {
     try {
+      const authUser = await ctx.runQuery(api.auth.getCurrentUser)
+      if (!authUser) {
+        return { valid: false, error: "Please sign in to check Gmail access." }
+      }
+
+      const user = await ctx.runQuery(internal.gmail.getUserByAuthId, {
+        authId: authUser.id,
+      })
+      if (!user) {
+        return { valid: false, error: "User account not found." }
+      }
+
+      const connection = await ctx.runQuery(internal.gmail.getOwnedGmailConnection, {
+        userId: user._id,
+        gmailConnectionId: args.gmailConnectionId,
+      })
+      if (!connection) {
+        return { valid: false, error: "Gmail connection not found." }
+      }
+      if (!connection.isActive) {
+        return { valid: false, error: "Gmail connection is inactive. Please reconnect first." }
+      }
+
       const accessToken = await getFreshAccessToken(ctx, args.gmailConnectionId)
 
       // Try a simple API call to verify token works

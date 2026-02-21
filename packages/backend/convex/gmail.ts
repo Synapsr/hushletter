@@ -15,6 +15,8 @@ import {
   internalQuery,
   action,
   internalAction,
+  type QueryCtx,
+  type MutationCtx,
 } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { internal, api } from "./_generated/api";
@@ -212,6 +214,25 @@ type DetectedSender = {
   isApproved: boolean; // Story 4.3: Approval state after user confirms (defaults to false if undefined)
 };
 
+async function getAuthenticatedAppUser(
+  ctx: QueryCtx | MutationCtx,
+  authId: string,
+) {
+  return await ctx.db
+    .query("users")
+    .withIndex("by_authId", (q) => q.eq("authId", authId))
+    .first();
+}
+
+async function isConnectionOwnedByUser(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  gmailConnectionId: Id<"gmailConnections">,
+): Promise<boolean> {
+  const connection = await ctx.db.get(gmailConnectionId);
+  return !!connection && connection.userId === userId;
+}
+
 /**
  * Get current scan progress for a specific Gmail connection
  *
@@ -225,7 +246,17 @@ export const getScanProgress = query({
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) return null;
 
+    const user = await getAuthenticatedAppUser(ctx, authUser._id);
+    if (!user) return null;
+
     if (args.gmailConnectionId) {
+      const isOwned = await isConnectionOwnedByUser(
+        ctx,
+        user._id,
+        args.gmailConnectionId,
+      );
+      if (!isOwned) return null;
+
       const progress = await ctx.db
         .query("gmailScanProgress")
         .withIndex("by_gmailConnectionId", (q) =>
@@ -236,12 +267,6 @@ export const getScanProgress = query({
     }
 
     // Fallback: get by userId (for backward compat)
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
-      .first();
-    if (!user) return null;
-
     const progress = await ctx.db
       .query("gmailScanProgress")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
@@ -263,8 +288,18 @@ export const getDetectedSenders = query({
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) return [];
 
+    const user = await getAuthenticatedAppUser(ctx, authUser._id);
+    if (!user) return [];
+
     let senders;
     if (args.gmailConnectionId) {
+      const isOwned = await isConnectionOwnedByUser(
+        ctx,
+        user._id,
+        args.gmailConnectionId,
+      );
+      if (!isOwned) return [];
+
       senders = await ctx.db
         .query("detectedSenders")
         .withIndex("by_gmailConnectionId", (q) =>
@@ -272,13 +307,6 @@ export const getDetectedSenders = query({
         )
         .collect();
     } else {
-      // Fallback: get by userId
-      const user = await ctx.db
-        .query("users")
-        .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
-        .first();
-      if (!user) return [];
-
       senders = await ctx.db
         .query("detectedSenders")
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
@@ -712,6 +740,26 @@ export const startScan = action({
         return { success: false, error: "User account not found." };
       }
 
+      const ownedConnection = await ctx.runQuery(
+        internal.gmail.getOwnedGmailConnection,
+        {
+          userId: user._id,
+          gmailConnectionId: args.gmailConnectionId,
+        },
+      );
+      if (!ownedConnection) {
+        return {
+          success: false,
+          error: "Gmail connection not found.",
+        };
+      }
+      if (!ownedConnection.isActive) {
+        return {
+          success: false,
+          error: "Gmail connection is inactive. Please reconnect first.",
+        };
+      }
+
       await ctx.runMutation(internal.gmail.syncGmailImportUsageCounters, {
         userId: user._id,
       });
@@ -909,6 +957,20 @@ export const getUserByAuthId = internalQuery({
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", args.authId))
       .first();
+  },
+});
+
+export const getOwnedGmailConnection = internalQuery({
+  args: {
+    userId: v.id("users"),
+    gmailConnectionId: v.id("gmailConnections"),
+  },
+  handler: async (ctx, args) => {
+    const connection = await ctx.db.get(args.gmailConnectionId);
+    if (!connection || connection.userId !== args.userId) {
+      return null;
+    }
+    return connection;
   },
 });
 
@@ -1265,7 +1327,17 @@ export const getImportProgress = query({
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) return null;
 
+    const user = await getAuthenticatedAppUser(ctx, authUser._id);
+    if (!user) return null;
+
     if (args.gmailConnectionId) {
+      const isOwned = await isConnectionOwnedByUser(
+        ctx,
+        user._id,
+        args.gmailConnectionId,
+      );
+      if (!isOwned) return null;
+
       const progress = await ctx.db
         .query("gmailImportProgress")
         .withIndex("by_gmailConnectionId", (q) =>
@@ -1276,12 +1348,6 @@ export const getImportProgress = query({
     }
 
     // Fallback: get by userId
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
-      .first();
-    if (!user) return null;
-
     const progress = await ctx.db
       .query("gmailImportProgress")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
@@ -1439,6 +1505,26 @@ export const startHistoricalImport = action({
       });
       if (!user) {
         return { success: false, error: "User account not found." };
+      }
+
+      const ownedConnection = await ctx.runQuery(
+        internal.gmail.getOwnedGmailConnection,
+        {
+          userId: user._id,
+          gmailConnectionId: args.gmailConnectionId,
+        },
+      );
+      if (!ownedConnection) {
+        return {
+          success: false,
+          error: "Gmail connection not found.",
+        };
+      }
+      if (!ownedConnection.isActive) {
+        return {
+          success: false,
+          error: "Gmail connection is inactive. Please reconnect first.",
+        };
       }
 
       const isPro = isUserPro({

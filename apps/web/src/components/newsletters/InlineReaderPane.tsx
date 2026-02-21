@@ -14,7 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@hushletter/ui";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { formatForDisplay, useHotkey } from "@tanstack/react-hotkeys";
 import { toast } from "sonner";
 import { X, XIcon } from "lucide-react";
 import {
@@ -32,6 +32,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { FloatingSummaryPanel } from "./FloatingSummaryPanel";
 import { m } from "@/paraglide/messages.js";
 import { Calligraph } from "calligraph";
+import { useAppHotkeys } from "@/hooks/use-app-hotkeys";
 
 interface InlineReaderPaneProps {
   newsletterId: Id<"userNewsletters">;
@@ -132,6 +133,7 @@ export function InlineReaderPane({
   onClose,
   isFullscreen = false,
 }: InlineReaderPaneProps) {
+  const { bindings } = useAppHotkeys();
   const { preferences, setBackground, setFont, setFontSize } =
     useReaderPreferences();
   const paneBackgroundColor =
@@ -187,7 +189,7 @@ export function InlineReaderPane({
     api.share.ensureNewsletterShareToken,
   );
 
-  useHotkey("Escape", () => {
+  useHotkey(bindings.closeInlineReaderPane, () => {
     onClose?.();
   });
 
@@ -584,7 +586,9 @@ export function InlineReaderPane({
               </Button>
             }
           />
-          <TooltipContent>Close (Esc)</TooltipContent>
+          <TooltipContent>
+            {`Close (${formatForDisplay(bindings.closeInlineReaderPane)})`}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
 

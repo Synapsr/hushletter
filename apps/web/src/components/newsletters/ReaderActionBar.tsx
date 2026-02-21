@@ -48,7 +48,8 @@ import {
 } from "@/hooks/useReaderPreferences";
 import { m } from "@/paraglide/messages.js";
 import { cn } from "@hushletter/ui/lib/utils";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { formatForDisplay, useHotkey } from "@tanstack/react-hotkeys";
+import { useAppHotkeys } from "@/hooks/use-app-hotkeys";
 
 interface ReaderActionBarProps {
   isRead: boolean;
@@ -79,6 +80,7 @@ interface ReaderActionBarProps {
   isFullscreen?: boolean;
   isReadEstimateHidden?: boolean;
   onShowReadEstimate?: () => void;
+  onUpgradeToPro?: () => void;
   senderName?: string;
   subject?: string;
   date?: string;
@@ -116,14 +118,19 @@ export function ReaderActionBar({
   isFullscreen = false,
   isReadEstimateHidden = false,
   onShowReadEstimate,
+  onUpgradeToPro,
   senderName,
   subject,
   isBinPending = false,
 }: ReaderActionBarProps) {
+  const { bindings } = useAppHotkeys();
   const archiveLabel = isHidden ? m.newsletters_unhide() : m.reader_archive();
   const binLabel = m.bin_label?.() ?? "Bin";
+  const fullscreenHotkeyLabel = formatForDisplay(
+    bindings.toggleReaderFullscreen,
+  );
 
-  useHotkey("F", () => {
+  useHotkey(bindings.toggleReaderFullscreen, () => {
     onOpenFullscreen?.();
   });
 
@@ -154,7 +161,9 @@ export function ReaderActionBar({
               }
             />
             <TooltipContent>
-              {isFullscreen ? "Exit fullscreen (F)" : "Fullscreen (F)"}
+              {isFullscreen
+                ? `Exit fullscreen (${fullscreenHotkeyLabel})`
+                : `Fullscreen (${fullscreenHotkeyLabel})`}
             </TooltipContent>
           </Tooltip>
 
@@ -252,20 +261,22 @@ export function ReaderActionBar({
               {!isPro ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                     <p className="text-sm font-medium">Reader appearance</p>
                   </div>
                   <p className="text-sm text-muted-foreground">
                     Reader appearance controls are included with Hushletter Pro.
                   </p>
-                  <Button className="w-full" render={<a href="/settings" />}>
+                  <Button
+                    className="w-full"
+                    onClick={onUpgradeToPro}
+                    disabled={!onUpgradeToPro}
+                  >
                     Upgrade to Pro
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                     <p className="text-sm font-medium">Reader appearance</p>
                   </div>
 

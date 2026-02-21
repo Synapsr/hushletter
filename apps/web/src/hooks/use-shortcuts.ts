@@ -1,14 +1,17 @@
 import { importDialogHandle } from "@/components/import";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useAppHotkeys } from "./use-app-hotkeys";
 
 export const useShortcuts = () => {
-  useHotkey("Mod+,", () => {
+  const { bindings } = useAppHotkeys();
+
+  useHotkey(bindings.openSettingsDialog, () => {
     document
       .querySelector<HTMLButtonElement>("[data-settings-trigger]")
       ?.click();
   });
 
-  useHotkey("Mod+I", () => {
+  useHotkey(bindings.openImportDialog, () => {
     importDialogHandle.open(null);
   });
 };

@@ -34,6 +34,7 @@ import { useConvex, useMutation } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import { formatDistanceToNow } from "date-fns";
+import { useAppHotkeys } from "@/hooks/use-app-hotkeys";
 
 type Props = {};
 
@@ -76,6 +77,7 @@ export type Group = {
 };
 
 export const GlobalSearch = ({}: Props) => {
+  const { bindings } = useAppHotkeys();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -281,7 +283,7 @@ export const GlobalSearch = ({}: Props) => {
     setOpen(false);
   }
 
-  useHotkey("Mod+K", () => {
+  useHotkey(bindings.toggleGlobalSearch, () => {
     setOpen((open) => !open);
   });
 
@@ -313,7 +315,7 @@ export const GlobalSearch = ({}: Props) => {
               <SearchIcon className="size-4" />
               <span className="text-sm text-muted-foreground pr-2">Search</span>
             </div>
-            <Kbd>{formatForDisplay("Mod+K")}</Kbd>
+            <Kbd>{formatForDisplay(bindings.toggleGlobalSearch)}</Kbd>
           </Button>
         }
       />

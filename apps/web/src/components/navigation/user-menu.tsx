@@ -7,6 +7,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
 import { useAction } from "convex/react";
 import { signOut, useSession } from "@/lib/auth-client";
+import { formatForDisplay } from "@tanstack/react-hotkeys";
 import {
   Avatar,
   AvatarFallback,
@@ -46,8 +47,10 @@ import {
   ShieldIcon,
 } from "@hushletter/ui/icons";
 import { toast } from "sonner";
+import { useAppHotkeys } from "@/hooks/use-app-hotkeys";
 
 export const UserMenu = () => {
+  const { bindings } = useAppHotkeys();
   const { data: session } = useSession();
   const sendFeedback = useAction(api.users.sendFeedbackToDiscord);
   const { data: currentUser } = useQuery(
@@ -263,7 +266,7 @@ export const UserMenu = () => {
             <DownloadIcon className="size-4" />
             Import newsletters
             <MenuShortcut>
-              <Kbd>⌘I</Kbd>
+              <Kbd>{formatForDisplay(bindings.openImportDialog)}</Kbd>
             </MenuShortcut>
           </MenuItem>
 
@@ -279,7 +282,7 @@ export const UserMenu = () => {
             <CogFourIcon className="size-4" />
             Settings
             <MenuShortcut>
-              <Kbd>⌘,</Kbd>
+              <Kbd>{formatForDisplay(bindings.openSettingsDialog)}</Kbd>
             </MenuShortcut>
           </MenuItem>
 

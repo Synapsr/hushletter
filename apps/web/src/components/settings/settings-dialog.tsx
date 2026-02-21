@@ -18,16 +18,20 @@ import {
   Palette,
   Trash2,
   CreditCard,
+  Keyboard,
 } from "lucide-react";
 import { SettingsProfile } from "./settings-profile";
 import { SettingsPassword } from "./settings-password";
 import { SettingsNotifications } from "./settings-notifications";
 import { SettingsAppearance } from "./settings-appearance";
 import { SettingsBilling } from "./settings-billing";
+import { SettingsHotkeys } from "./settings-hotkeys";
+import { m } from "@/paraglide/messages.js";
 
 const tabs = [
   { id: "profile", label: "Edit profile", icon: User },
   { id: "billing", label: "Billing", icon: CreditCard },
+  { id: "hotkeys", label: "Hotkeys", icon: Keyboard },
   { id: "password", label: "Password", icon: Lock },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "appearance", label: "Appearance", icon: Palette },
@@ -74,7 +78,7 @@ export const SettingsDialog = () => {
                     }`}
                   >
                     <Icon className="size-4 shrink-0" />
-                    {tab.label}
+                    {tab.id === "hotkeys" ? m.settings_hotkeysTab() : tab.label}
                   </button>
                 );
               })}
@@ -90,6 +94,7 @@ export const SettingsDialog = () => {
           <DialogPanel className="flex-1 p-6!" scrollFade={true}>
             {activeTab === "profile" && <SettingsProfile />}
             {activeTab === "billing" && <SettingsBilling />}
+            {activeTab === "hotkeys" && <SettingsHotkeys />}
             {activeTab === "password" && <SettingsPassword />}
             {activeTab === "notifications" && <SettingsNotifications />}
             {activeTab === "appearance" && <SettingsAppearance />}

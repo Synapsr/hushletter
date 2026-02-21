@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useAction, useMutation } from "convex/react";
+import { useConvex, useMutation } from "convex/react";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import DOMPurify from "dompurify";
@@ -41,16 +42,13 @@ interface ReaderViewProps {
 }
 
 /**
- * In-memory LRU cache for newsletter content.
- * Newsletter content is immutable once received, so caching is safe.
- * Stores sanitized reader documents to avoid re-sanitization on cache hits.
- * Limited to MAX_CACHE_SIZE entries to prevent memory leaks.
+ * Reader content cache key namespace for TanStack Query.
+ * Content is immutable once ingested, so staleTime can be infinite.
  */
-const MAX_CACHE_SIZE = 50;
-const contentCache = new Map<string, string | null>();
-const readTimeCache = new Map<string, number | null>();
+const READER_CONTENT_QUERY_KEY_PREFIX = "readerContent";
+const READER_CONTENT_GC_MS = 1000 * 60 * 60 * 6; // 6 hours (session-oriented)
 const iframeHeightCache = new Map<string, number>();
-const contentLoadInFlight = new Map<string, Promise<void>>();
+let activeReaderQueryClient: QueryClient | null = null;
 const MIN_IFRAME_HEIGHT = 200;
 const DEFAULT_IFRAME_HEIGHT = 480;
 const IFRAME_HEIGHT_BUFFER = 4;
@@ -123,62 +121,20 @@ function stripResidualExecutableContent(doc: Document): void {
 }
 
 /** Clear the content cache (exported for testing) */
-export function clearContentCache(): void {
-  contentCache.clear();
-  readTimeCache.clear();
+export function clearContentCache(queryClient?: QueryClient): void {
+  const client = queryClient ?? activeReaderQueryClient;
+  client?.removeQueries({ queryKey: [READER_CONTENT_QUERY_KEY_PREFIX] });
   iframeHeightCache.clear();
-  contentLoadInFlight.clear();
 }
 
 /** Clear a specific entry from the cache (for error boundary reset) */
-export function clearCacheEntry(userNewsletterId: string): void {
-  contentCache.delete(userNewsletterId);
-  readTimeCache.delete(userNewsletterId);
+export function clearCacheEntry(
+  userNewsletterId: string,
+  queryClient?: QueryClient,
+): void {
+  const client = queryClient ?? activeReaderQueryClient;
+  client?.removeQueries({ queryKey: getReaderContentQueryKey(userNewsletterId) });
   iframeHeightCache.delete(userNewsletterId);
-}
-
-/**
- * Set a cache entry with LRU eviction.
- * When cache exceeds MAX_CACHE_SIZE, the oldest entry is removed.
- */
-function setCacheEntry(key: string, value: string | null): void {
-  // If key exists, delete it first so it moves to the end (most recent)
-  if (contentCache.has(key)) {
-    contentCache.delete(key);
-  }
-  // Evict oldest entry if at capacity
-  if (contentCache.size >= MAX_CACHE_SIZE) {
-    const oldestKey = contentCache.keys().next().value;
-    if (oldestKey !== undefined) {
-      contentCache.delete(oldestKey);
-      readTimeCache.delete(oldestKey);
-      iframeHeightCache.delete(oldestKey);
-    }
-  }
-  contentCache.set(key, value);
-}
-
-function setReadTimeCacheEntry(key: string, value: number | null): void {
-  readTimeCache.set(key, value);
-}
-
-function getCachedReadMinutes(
-  userNewsletterId: Id<"userNewsletters">,
-  cachedDocument: string | null,
-): number | null {
-  const cachedValue = readTimeCache.get(userNewsletterId);
-  if (cachedValue !== undefined) {
-    return cachedValue ?? null;
-  }
-
-  if (!cachedDocument) {
-    setReadTimeCacheEntry(userNewsletterId, null);
-    return null;
-  }
-
-  const estimated = estimateReadMinutesFromContent(cachedDocument);
-  setReadTimeCacheEntry(userNewsletterId, estimated);
-  return estimated;
 }
 
 type NewsletterContentActionResult = {
@@ -186,67 +142,71 @@ type NewsletterContentActionResult = {
   contentUrl?: string | null;
 };
 
-type GetNewsletterWithContentFn = (args: {
-  userNewsletterId: Id<"userNewsletters">;
-}) => Promise<NewsletterContentActionResult>;
+type ReaderContentQueryData = {
+  baseDocument: string | null;
+  estimatedReadMinutes: number | null;
+};
 
-async function loadReaderContentIntoCache(
+type ConvexActionCaller = {
+  action: (
+    functionReference: unknown,
+    args: { userNewsletterId: Id<"userNewsletters"> },
+  ) => Promise<NewsletterContentActionResult>;
+};
+
+function getReaderContentQueryKey(
+  userNewsletterId: Id<"userNewsletters"> | string,
+) {
+  return [READER_CONTENT_QUERY_KEY_PREFIX, userNewsletterId] as const;
+}
+
+async function fetchReaderContent(
+  convex: ConvexActionCaller,
   userNewsletterId: Id<"userNewsletters">,
-  getNewsletterWithContent: GetNewsletterWithContentFn,
-): Promise<void> {
-  if (contentCache.has(userNewsletterId)) return;
+): Promise<ReaderContentQueryData> {
+  const result = await convex.action(api.newsletters.getUserNewsletterWithContent, {
+    userNewsletterId,
+  });
 
-  const existingPromise = contentLoadInFlight.get(userNewsletterId);
-  if (existingPromise) {
-    await existingPromise;
-    return;
+  if (result.contentStatus === "missing") {
+    return {
+      baseDocument: null,
+      estimatedReadMinutes: null,
+    };
   }
 
-  const loadPromise = (async () => {
-    const result = await getNewsletterWithContent({ userNewsletterId });
-
-    if (result.contentStatus === "missing") {
-      setCacheEntry(userNewsletterId, null);
-      setReadTimeCacheEntry(userNewsletterId, null);
-      iframeHeightCache.delete(userNewsletterId);
-      return;
-    }
-
-    if (result.contentStatus === "error" || !result.contentUrl) {
-      throw new Error(m.reader_contentUnavailable());
-    }
-
-    const response = await fetch(result.contentUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch content: ${response.status}`);
-    }
-
-    const rawContent = await response.text();
-    const nextEstimatedReadMinutes = estimateReadMinutesFromContent(rawContent);
-    const sanitizedDocument = buildReaderDocument(rawContent);
-
-    setCacheEntry(userNewsletterId, sanitizedDocument);
-    setReadTimeCacheEntry(userNewsletterId, nextEstimatedReadMinutes);
-  })();
-
-  contentLoadInFlight.set(userNewsletterId, loadPromise);
-  try {
-    await loadPromise;
-  } finally {
-    if (contentLoadInFlight.get(userNewsletterId) === loadPromise) {
-      contentLoadInFlight.delete(userNewsletterId);
-    }
+  if (result.contentStatus === "error" || !result.contentUrl) {
+    throw new Error(m.reader_contentUnavailable());
   }
+
+  const response = await fetch(result.contentUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch content: ${response.status}`);
+  }
+
+  const rawContent = await response.text();
+  return {
+    baseDocument: buildReaderDocument(rawContent),
+    estimatedReadMinutes: estimateReadMinutesFromContent(rawContent),
+  };
 }
 
 export function prefetchReaderContent(
+  queryClient: QueryClient,
+  convex: ConvexActionCaller,
   userNewsletterId: Id<"userNewsletters">,
-  getNewsletterWithContent: GetNewsletterWithContentFn,
 ): void {
-  void loadReaderContentIntoCache(
-    userNewsletterId,
-    getNewsletterWithContent,
-  ).catch(() => {});
+  activeReaderQueryClient = queryClient;
+  void queryClient
+    .prefetchQuery({
+      queryKey: getReaderContentQueryKey(userNewsletterId),
+      queryFn: () => fetchReaderContent(convex, userNewsletterId),
+      staleTime: Infinity,
+      gcTime: READER_CONTENT_GC_MS,
+      retry: 1,
+      retryDelay: 250,
+    })
+    .catch(() => {});
 }
 
 /** Escape plain text for safe HTML fallback rendering */
@@ -556,9 +516,6 @@ function ContentEmpty() {
  *
  * Story 3.4: Added scroll progress tracking with auto-mark as read
  *
- * Note on useState for loading: This is an ACCEPTED EXCEPTION to project-context.md rules.
- * Convex useAction doesn't provide isPending like useMutation does, so manual loading
- * state management is required here. See Story 3.2 code review for rationale.
  */
 export function ReaderView({
   userNewsletterId,
@@ -572,29 +529,43 @@ export function ReaderView({
   progressResetSignal,
   skipInitialProgressCheck = false,
 }: ReaderViewProps) {
-  const hasCachedContent = contentCache.has(userNewsletterId);
-  const cachedContentDocument = hasCachedContent
-    ? (contentCache.get(userNewsletterId) ?? null)
-    : null;
-  const cachedReadMinutes = hasCachedContent
-    ? getCachedReadMinutes(userNewsletterId, cachedContentDocument)
-    : null;
-  const cachedIframeHeight = iframeHeightCache.get(userNewsletterId);
+  const queryClient = useQueryClient();
+  const convex = useConvex();
+  activeReaderQueryClient = queryClient;
 
   const { preferences: persistedPreferences } = useReaderPreferences();
-  const [contentDocument, setContentDocument] = useState<string | null>(
-    cachedContentDocument,
-  );
-  const [estimatedReadMinutes, setEstimatedReadMinutes] = useState<
-    number | null
-  >(cachedReadMinutes);
-  // Exception: useAction doesn't have isPending, manual loading state required
-  const [isLoading, setIsLoading] = useState(!hasCachedContent);
-  const [error, setError] = useState<string | null>(null);
+  const readerContentQuery = useQuery({
+    queryKey: getReaderContentQueryKey(userNewsletterId),
+    queryFn: () => fetchReaderContent(convex, userNewsletterId),
+    staleTime: Infinity,
+    gcTime: READER_CONTENT_GC_MS,
+    retry: 1,
+    retryDelay: 250,
+    enabled: typeof window !== "undefined",
+  });
+
+  const contentDocument = readerContentQuery.data?.baseDocument ?? null;
+  const estimatedReadMinutes =
+    readerContentQuery.data?.estimatedReadMinutes ?? null;
+  const isLoading = readerContentQuery.isPending || readerContentQuery.isFetching;
+  const error = readerContentQuery.error
+    ? readerContentQuery.error instanceof Error
+      ? readerContentQuery.error.message
+      : "Unknown error occurred"
+    : null;
+
   const [iframeHeight, setIframeHeight] = useState(
-    cachedIframeHeight ?? DEFAULT_IFRAME_HEIGHT,
+    iframeHeightCache.get(userNewsletterId) ?? DEFAULT_IFRAME_HEIGHT,
   );
   const [iframeMeasured, setIframeMeasured] = useState(false);
+
+  useEffect(() => {
+    setIframeHeight(
+      iframeHeightCache.get(userNewsletterId) ?? DEFAULT_IFRAME_HEIGHT,
+    );
+    setIframeMeasured(false);
+  }, [userNewsletterId]);
+
   const waitingForExternalProgressContainer = progressContainerElement === null;
   const progressTrackingEnabled =
     !isLoading && iframeMeasured && !waitingForExternalProgressContainer;
@@ -603,11 +574,6 @@ export function ReaderView({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
-
-  // Use action for content retrieval (generates signed R2 URL)
-  const getNewsletterWithContent = useAction(
-    api.newsletters.getUserNewsletterWithContent,
-  );
 
   // Story 3.4: Mutation for updating read progress
   const updateReadProgress = useMutation(api.newsletters.setReadProgress);
@@ -694,67 +660,6 @@ export function ReaderView({
   useEffect(() => {
     onEstimatedReadMinutesChange?.(estimatedReadMinutes);
   }, [estimatedReadMinutes, onEstimatedReadMinutesChange]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchContent() {
-      // Check cache first - newsletter content is immutable
-      if (contentCache.has(userNewsletterId)) {
-        const cached = contentCache.get(userNewsletterId);
-        setContentDocument(cached ?? null);
-        setEstimatedReadMinutes(
-          getCachedReadMinutes(userNewsletterId, cached ?? null),
-        );
-        setIframeHeight(
-          iframeHeightCache.get(userNewsletterId) ?? DEFAULT_IFRAME_HEIGHT,
-        );
-        setIframeMeasured(false);
-        setError(null);
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      setContentDocument(null);
-      setEstimatedReadMinutes(null);
-
-      try {
-        await loadReaderContentIntoCache(userNewsletterId, getNewsletterWithContent);
-        if (cancelled) return;
-
-        const cached = contentCache.get(userNewsletterId) ?? null;
-        setContentDocument(cached);
-        setEstimatedReadMinutes(readTimeCache.get(userNewsletterId) ?? null);
-        setIframeHeight(
-          iframeHeightCache.get(userNewsletterId) ?? DEFAULT_IFRAME_HEIGHT,
-        );
-        setIframeMeasured(false);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error ? err.message : "Unknown error occurred";
-        // Don't cache errors - allow retry
-        setError(message);
-        setEstimatedReadMinutes(null);
-        console.error("[ReaderView] Failed to load content:", err);
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchContent();
-
-    return () => {
-      cancelled = true;
-    };
-    // Note: getNewsletterWithContent is excluded from deps intentionally.
-    // useAction returns a stable function reference that doesn't need to trigger re-fetches.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userNewsletterId]);
 
   // Story 3.4 AC2: Scroll to saved position when content loads and initialProgress is provided
   useEffect(() => {

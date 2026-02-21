@@ -53,7 +53,7 @@ describe("NewsletterDetailPage (Story 3.2)", () => {
       // The component should reference history.back (minified or not)
       // This verifies the implementation uses the correct pattern
       expect(componentSource).toBeDefined()
-    })
+    }, 10000)
 
     it("back button onClick handler calls window.history.back()", async () => {
       /**

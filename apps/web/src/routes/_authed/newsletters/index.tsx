@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
-import { useAction } from "convex/react";
+import { useAction, useConvex } from "convex/react";
 import { api } from "@hushletter/backend";
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel";
 import {
@@ -517,6 +517,8 @@ function NewslettersPage() {
         ? folderHeadPending
         : allHeadPending;
 
+  const queryClient = useQueryClient();
+  const convex = useConvex();
   const listAllPage = useAction(api.newsletters.listAllNewslettersPage);
   const listFolderPage = useAction(
     api.newsletters.listUserNewslettersByFolderPage,
@@ -527,9 +529,6 @@ function NewslettersPage() {
   );
   const listBinnedPage = useAction(
     (api.newsletters as any).listBinnedNewslettersPage,
-  );
-  const getNewsletterWithContent = useAction(
-    api.newsletters.getUserNewsletterWithContent,
   );
   const emptyBinAction = useAction((api.newsletters as any).emptyBin);
 
@@ -685,11 +684,19 @@ function NewslettersPage() {
   };
 
   // Handle newsletter selection for inline reader
+  const prefetchNewsletterContent = useCallback(
+    (id: string) => {
+      prefetchReaderContent(
+        queryClient,
+        convex,
+        id as Id<"userNewsletters">,
+      );
+    },
+    [queryClient, convex],
+  );
+
   const handleNewsletterSelect = (id: string) => {
-    prefetchReaderContent(
-      id as Id<"userNewsletters">,
-      getNewsletterWithContent,
-    );
+    prefetchNewsletterContent(id);
     navigate({
       to: "/newsletters",
       search: {
@@ -795,6 +802,22 @@ function NewslettersPage() {
       ? visibleNewsletterList[selectedNewsletterIndex + 1]?._id ?? null
       : null;
 
+  useEffect(() => {
+    if (!effectiveNewsletterId) return;
+    prefetchNewsletterContent(effectiveNewsletterId);
+    if (previousNewsletterId) {
+      prefetchNewsletterContent(previousNewsletterId);
+    }
+    if (nextNewsletterId) {
+      prefetchNewsletterContent(nextNewsletterId);
+    }
+  }, [
+    effectiveNewsletterId,
+    previousNewsletterId,
+    nextNewsletterId,
+    prefetchNewsletterContent,
+  ]);
+
   const handleToggleInlineFullscreen = useCallback(() => {
     setIsReaderFullscreen((current) => !current);
   }, []);
@@ -850,6 +873,7 @@ function NewslettersPage() {
     isEmptyingBin,
     onFolderSelect: handleFolderSelect,
     onNewsletterSelect: handleNewsletterSelect,
+    onNewsletterPrefetch: prefetchNewsletterContent,
     onFilterSelect: handleFilterSelect,
     getIsFavorited,
     isFavoritePending,
@@ -1085,6 +1109,7 @@ function NewslettersPage() {
                 key={newsletter._id}
                 newsletter={newsletter}
                 showUnhide={isFilteringByHidden}
+                onPrefetch={prefetchNewsletterContent}
                 isFavorited={getIsFavorited(
                   newsletter._id,
                   Boolean(newsletter.isFavorited),

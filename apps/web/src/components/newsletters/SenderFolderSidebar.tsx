@@ -111,6 +111,7 @@ interface SenderFolderSidebarProps {
   favoritedPending: boolean;
   onFolderSelect: (folderId: string | null) => void;
   onNewsletterSelect: (newsletterId: string) => void;
+  onNewsletterPrefetch?: (newsletterId: string) => void;
   onFilterSelect: (filter: FilterType | null) => void;
   getIsFavorited: (newsletterId: string, serverValue?: boolean) => boolean;
   isFavoritePending: (newsletterId: string) => boolean;
@@ -458,6 +459,7 @@ export function SenderFolderSidebar({
   favoritedPending,
   onFolderSelect,
   onNewsletterSelect,
+  onNewsletterPrefetch,
   onFilterSelect,
   getIsFavorited,
   isFavoritePending,
@@ -1236,6 +1238,7 @@ export function SenderFolderSidebar({
                             }
                             onFolderSelect={() => {}}
                             onNewsletterSelect={onNewsletterSelect}
+                            onNewsletterPrefetch={onNewsletterPrefetch}
                             newslettersOverride={
                               group.useLiveFolderFeed
                                 ? undefined
@@ -1376,6 +1379,7 @@ export function SenderFolderSidebar({
                               }
                               onFolderSelect={() => {}}
                               onNewsletterSelect={onNewsletterSelect}
+                              onNewsletterPrefetch={onNewsletterPrefetch}
                               newslettersOverride={group.newsletters}
                               selectFolderOnClick={false}
                               showFolderActions={false}
@@ -1473,6 +1477,7 @@ export function SenderFolderSidebar({
                                 enableHideAction
                                 onHide={handleDismissRecentNewsletter}
                                 onClick={onNewsletterSelect}
+                                onPrefetch={onNewsletterPrefetch}
                                 onToggleFavorite={onToggleFavorite}
                                 onToggleRead={handleToggleRead}
                                 onBin={handleMoveToBin}
@@ -1557,6 +1562,7 @@ export function SenderFolderSidebar({
                               newsletter._id,
                             )}
                             onClick={onNewsletterSelect}
+                            onPrefetch={onNewsletterPrefetch}
                             onToggleFavorite={onToggleFavorite}
                             onToggleRead={handleToggleRead}
                             onArchive={handleArchive}
@@ -1616,6 +1622,7 @@ export function SenderFolderSidebar({
                             onFolderSelect(id);
                           }}
                           onNewsletterSelect={onNewsletterSelect}
+                          onNewsletterPrefetch={onNewsletterPrefetch}
                           getIsFavorited={getIsFavorited}
                           isFavoritePending={isFavoritePending}
                           onToggleFavorite={onToggleFavorite}
@@ -1656,6 +1663,7 @@ export function SenderFolderSidebar({
                             onFolderSelect(id);
                           }}
                           onNewsletterSelect={onNewsletterSelect}
+                          onNewsletterPrefetch={onNewsletterPrefetch}
                           getIsFavorited={getIsFavorited}
                           isFavoritePending={isFavoritePending}
                           onToggleFavorite={onToggleFavorite}

@@ -27,6 +27,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.940.0",
     "@convex-dev/better-auth": "^0.10.10",
     "@convex-dev/r2": "^0.8.1",
     "@convex-dev/stripe": "^0.1.3",

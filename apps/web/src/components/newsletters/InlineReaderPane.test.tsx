@@ -6,6 +6,9 @@ import { m } from "@/paraglide/messages.js";
 import { InlineReaderPane } from "./InlineReaderPane";
 
 const mockUseQuery = vi.fn();
+const mockUseQueryClient = vi.fn(() => ({
+  removeQueries: vi.fn(),
+}));
 const mockHideNewsletter = vi.fn();
 const mockUnhideNewsletter = vi.fn();
 const mockMarkRead = vi.fn();
@@ -16,6 +19,7 @@ const mockToastError = vi.fn();
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
+  useQueryClient: () => mockUseQueryClient(),
 }));
 
 vi.mock("@convex-dev/react-query", () => ({

@@ -33,6 +33,7 @@ interface NewsletterListItemProps {
   onArchive?: (newsletterId: string) => Promise<void>;
   onUnarchive?: (newsletterId: string) => Promise<void>;
   onBin?: (newsletterId: string) => Promise<void>;
+  onPrefetch?: (newsletterId: string) => void;
 }
 
 /**
@@ -72,6 +73,7 @@ export function NewsletterListItem({
   onArchive,
   onUnarchive,
   onBin,
+  onPrefetch,
 }: NewsletterListItemProps) {
   const [pendingAction, setPendingAction] = useState<
     "favorite" | "read" | "archive" | "unarchive" | "bin" | null
@@ -201,6 +203,8 @@ export function NewsletterListItem({
         isSelected && "bg-accent",
         !newsletter.isRead && "",
       )}
+      onMouseEnter={() => onPrefetch?.(newsletter._id)}
+      onFocusCapture={() => onPrefetch?.(newsletter._id)}
     >
       <div className="flex items-start gap-2 min-w-0">
         <SenderAvatar

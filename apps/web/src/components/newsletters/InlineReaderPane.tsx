@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@hushletter/backend";
@@ -133,6 +133,7 @@ export function InlineReaderPane({
   onClose,
   isFullscreen = false,
 }: InlineReaderPaneProps) {
+  const queryClient = useQueryClient();
   const { bindings } = useAppHotkeys();
   const { preferences, setBackground, setFont, setFontSize } =
     useReaderPreferences();
@@ -382,7 +383,7 @@ export function InlineReaderPane({
   };
 
   const handleContentReset = () => {
-    clearCacheEntry(newsletterId);
+    clearCacheEntry(newsletterId, queryClient);
   };
 
   const date = new Date(newsletter.receivedAt);

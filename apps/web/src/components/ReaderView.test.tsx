@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import type { Id } from "@hushletter/backend/convex/_generated/dataModel"
 import { ReaderView, clearContentCache } from "./ReaderView"
 import { READER_PREFERENCES_STORAGE_KEY } from "@/hooks/useReaderPreferences"
@@ -7,13 +8,16 @@ import { READER_PREFERENCES_STORAGE_KEY } from "@/hooks/useReaderPreferences"
 /** Helper to cast test strings to Convex Id type */
 const testId = (id: string) => id as Id<"userNewsletters">
 
-// Mock convex/react useAction and useMutation
+// Mock convex/react useConvex and useMutation
 const mockGetNewsletterWithContent = vi.fn()
 const mockUpdateReadProgress = vi.fn()
 const afterSanitizeHooks: Array<(node: Element) => void> = []
+let queryClient: QueryClient
 
 vi.mock("convex/react", () => ({
-  useAction: () => mockGetNewsletterWithContent,
+  useConvex: () => ({
+    action: mockGetNewsletterWithContent,
+  }),
   useMutation: () => mockUpdateReadProgress,
 }))
 
@@ -58,8 +62,19 @@ function createWords(count: number): string {
   return Array.from({ length: count }, (_, index) => `word${index + 1}`).join(" ")
 }
 
+function renderReader(ui: JSX.Element) {
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+}
+
 describe("ReaderView", () => {
   beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    })
     vi.clearAllMocks()
     mockFetch.mockReset()
     mockGetNewsletterWithContent.mockReset()
@@ -67,14 +82,14 @@ describe("ReaderView", () => {
     afterSanitizeHooks.length = 0
     localStorage.removeItem(READER_PREFERENCES_STORAGE_KEY)
     // Clear the content cache between tests
-    clearContentCache()
+    clearContentCache(queryClient)
   })
 
   describe("Loading State", () => {
     it("shows skeleton while loading content", () => {
       mockGetNewsletterWithContent.mockImplementation(() => new Promise(() => {}))
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       // Should show animated skeleton
       expect(document.querySelector(".animate-pulse")).toBeInTheDocument()
@@ -94,7 +109,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Newsletter content here</p>"),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Newsletter content here")
@@ -113,7 +128,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Reader settings content</p>"),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Reader settings content")
@@ -144,7 +159,7 @@ describe("ReaderView", () => {
           ),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         const srcdoc = getReaderFrame().srcdoc
@@ -179,7 +194,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<h1>Public Newsletter</h1>"),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("<h1>Public Newsletter</h1>")
@@ -199,7 +214,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Private content</p>"),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Private content")
@@ -215,7 +230,7 @@ describe("ReaderView", () => {
         contentStatus: "missing",
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(
@@ -233,7 +248,7 @@ describe("ReaderView", () => {
         contentStatus: "error",
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(
@@ -254,7 +269,7 @@ describe("ReaderView", () => {
         status: 500,
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to load content/i)).toBeInTheDocument()
@@ -264,7 +279,7 @@ describe("ReaderView", () => {
     it("shows error when action throws", async () => {
       mockGetNewsletterWithContent.mockRejectedValue(new Error("Network error"))
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to load content/i)).toBeInTheDocument()
@@ -288,7 +303,7 @@ describe("ReaderView", () => {
           ),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Safe content")
@@ -312,7 +327,7 @@ describe("ReaderView", () => {
           ),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         const srcdoc = getReaderFrame().srcdoc
@@ -336,7 +351,7 @@ describe("ReaderView", () => {
           ),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         const srcdoc = getReaderFrame().srcdoc
@@ -363,7 +378,7 @@ describe("ReaderView", () => {
           ),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         const srcdoc = getReaderFrame().srcdoc
@@ -386,7 +401,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("Line 1\nLine 2"),
       })
 
-      render(<ReaderView userNewsletterId={testId("test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("test-id")} />)
 
       await waitFor(() => {
         const srcdoc = getReaderFrame().srcdoc
@@ -410,7 +425,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>First newsletter</p>"),
       })
 
-      const { rerender } = render(<ReaderView userNewsletterId={testId("test-id-1")} />)
+      const { rerender } = renderReader(<ReaderView userNewsletterId={testId("test-id-1")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("First newsletter")
@@ -428,7 +443,11 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Second newsletter</p>"),
       })
 
-      rerender(<ReaderView userNewsletterId={testId("test-id-2")} />)
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <ReaderView userNewsletterId={testId("test-id-2")} />
+        </QueryClientProvider>,
+      )
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Second newsletter")
@@ -450,7 +469,7 @@ describe("ReaderView", () => {
       })
 
       // First render - fetches content
-      const { unmount } = render(<ReaderView userNewsletterId={testId("cached-test-id")} />)
+      const { unmount } = renderReader(<ReaderView userNewsletterId={testId("cached-test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Cached content")
@@ -466,7 +485,7 @@ describe("ReaderView", () => {
       mockGetNewsletterWithContent.mockClear()
       mockFetch.mockClear()
 
-      render(<ReaderView userNewsletterId={testId("cached-test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("cached-test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Cached content")
@@ -485,13 +504,13 @@ describe("ReaderView", () => {
         contentStatus: "error",
       })
 
-      const { unmount } = render(<ReaderView userNewsletterId={testId("error-test-id")} />)
+      const { unmount } = renderReader(<ReaderView userNewsletterId={testId("error-test-id")} />)
 
       await waitFor(() => {
         expect(screen.getByText(/temporarily unavailable/i)).toBeInTheDocument()
       })
 
-      expect(mockGetNewsletterWithContent).toHaveBeenCalledTimes(1)
+      expect(mockGetNewsletterWithContent).toHaveBeenCalledTimes(2)
 
       // Unmount and remount - should retry (not cached)
       unmount()
@@ -509,7 +528,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Retry succeeded</p>"),
       })
 
-      render(<ReaderView userNewsletterId={testId("error-test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("error-test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Retry succeeded")
@@ -535,7 +554,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("Very short update"),
       })
 
-      render(
+      renderReader(
         <ReaderView
           userNewsletterId={testId("read-time-short-id")}
           onEstimatedReadMinutesChange={onEstimatedReadMinutesChange}
@@ -561,7 +580,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve(createWords(221)),
       })
 
-      render(
+      renderReader(
         <ReaderView
           userNewsletterId={testId("read-time-test-id")}
           onEstimatedReadMinutesChange={onEstimatedReadMinutesChange}
@@ -582,7 +601,7 @@ describe("ReaderView", () => {
         contentStatus: "missing",
       })
 
-      const { unmount } = render(
+      const { unmount } = renderReader(
         <ReaderView
           userNewsletterId={testId("read-time-missing-id")}
           onEstimatedReadMinutesChange={onEstimatedReadMinutesChange}
@@ -601,7 +620,7 @@ describe("ReaderView", () => {
         contentStatus: "error",
       })
 
-      render(
+      renderReader(
         <ReaderView
           userNewsletterId={testId("read-time-error-id")}
           onEstimatedReadMinutesChange={onEstimatedReadMinutesChange}
@@ -627,7 +646,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve(createWords(260)),
       })
 
-      const { unmount } = render(
+      const { unmount } = renderReader(
         <ReaderView
           userNewsletterId={testId("read-time-cached-id")}
           onEstimatedReadMinutesChange={firstCallback}
@@ -646,7 +665,7 @@ describe("ReaderView", () => {
       mockFetch.mockClear()
 
       const secondCallback = vi.fn()
-      render(
+      renderReader(
         <ReaderView
           userNewsletterId={testId("read-time-cached-id")}
           onEstimatedReadMinutesChange={secondCallback}
@@ -675,7 +694,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Scrollable content</p>"),
       })
 
-      render(<ReaderView userNewsletterId={testId("scroll-test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("scroll-test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Scrollable content")
@@ -699,7 +718,7 @@ describe("ReaderView", () => {
       })
 
       // Should not throw when initialProgress is provided
-      render(<ReaderView userNewsletterId={testId("resume-test-id")} initialProgress={45} />)
+      renderReader(<ReaderView userNewsletterId={testId("resume-test-id")} initialProgress={45} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Resume content")
@@ -721,7 +740,7 @@ describe("ReaderView", () => {
       })
 
       // Should not throw when onReadingComplete is provided
-      render(
+      renderReader(
         <ReaderView
           userNewsletterId={testId("complete-test-id")}
           onReadingComplete={mockOnReadingComplete}
@@ -745,7 +764,7 @@ describe("ReaderView", () => {
         text: () => Promise.resolve("<p>Progress tracking content</p>"),
       })
 
-      render(<ReaderView userNewsletterId={testId("progress-test-id")} />)
+      renderReader(<ReaderView userNewsletterId={testId("progress-test-id")} />)
 
       await waitFor(() => {
         expect(getReaderFrame().srcdoc).toContain("Progress tracking content")

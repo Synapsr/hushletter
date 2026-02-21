@@ -35,6 +35,8 @@ interface NewsletterCardProps {
   showUnhide?: boolean;
   /** When provided, intercepts click to select inline instead of navigating */
   onSelect?: (id: string) => void;
+  /** Optional callback to prefetch reader content on hover/focus */
+  onPrefetch?: (id: string) => void;
   isFavorited?: boolean;
   isFavoritePending?: boolean;
   onToggleFavorite?: (newsletterId: string, currentValue: boolean) => Promise<void>;
@@ -111,6 +113,7 @@ export function NewsletterCard({
   newsletter,
   showUnhide = false,
   onSelect,
+  onPrefetch,
   isFavorited,
   isFavoritePending = false,
   onToggleFavorite,
@@ -199,6 +202,8 @@ export function NewsletterCard({
       params={{ id: newsletter._id }}
       className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl group"
       onClick={handleClick}
+      onMouseEnter={() => onPrefetch?.(newsletter._id)}
+      onFocus={() => onPrefetch?.(newsletter._id)}
     >
       <Card
         className={cn(

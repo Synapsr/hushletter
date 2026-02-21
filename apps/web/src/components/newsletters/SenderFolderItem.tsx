@@ -32,6 +32,7 @@ interface SenderFolderItemProps {
   onExpandedChange: (expanded: boolean) => void;
   onFolderSelect: (folderId: string) => void;
   onNewsletterSelect: (newsletterId: string) => void;
+  onNewsletterPrefetch?: (newsletterId: string) => void;
   newslettersOverride?: NewsletterData[];
   newslettersPendingOverride?: boolean;
   selectFolderOnClick?: boolean;
@@ -65,6 +66,7 @@ export function SenderFolderItem({
   onExpandedChange,
   onFolderSelect,
   onNewsletterSelect,
+  onNewsletterPrefetch,
   newslettersOverride,
   newslettersPendingOverride = false,
   selectFolderOnClick = true,
@@ -376,6 +378,7 @@ export function SenderFolderItem({
                   )}
                   isFavoritePending={isFavoritePending(newsletter._id)}
                   onClick={onNewsletterSelect}
+                  onPrefetch={onNewsletterPrefetch}
                   onToggleFavorite={onToggleFavorite}
                   onToggleRead={onToggleRead}
                   onArchive={onArchive}

@@ -95,7 +95,7 @@ function toNewsletterListItem(
 }
 
 async function enrichNewsletterListItems(
-  ctx: { db: { get: (id: any) => Promise<any> } },
+  ctx: { db: { get: (table: "newsletterContent", id: any) => Promise<any> } },
   newsletters: Array<Doc<"userNewsletters">>,
 ): Promise<NewsletterListItem[]> {
   const contentIds = newsletters
@@ -104,7 +104,7 @@ async function enrichNewsletterListItems(
 
   const uniqueContentIds = [...new Set(contentIds)];
   const contents = await Promise.all(
-    uniqueContentIds.map((id) => ctx.db.get(id)),
+    uniqueContentIds.map((id) => ctx.db.get("newsletterContent", id)),
   );
   const contentMap = new Map(
     contents
@@ -128,7 +128,11 @@ async function upsertNewsletterReadProgress(
   ctx: {
     db: {
       query: (table: "newsletterReadProgress") => any;
-      patch: (id: any, value: any) => Promise<void>;
+      patch: (
+        table: "newsletterReadProgress",
+        id: any,
+        value: any,
+      ) => Promise<void>;
       insert: (table: "newsletterReadProgress", value: any) => Promise<any>;
     };
   },
@@ -146,7 +150,7 @@ async function upsertNewsletterReadProgress(
     .first();
 
   if (existing) {
-    await ctx.db.patch(existing._id, {
+    await ctx.db.patch("newsletterReadProgress", existing._id, {
       progress: args.progress,
       updatedAt: Date.now(),
     });
@@ -493,7 +497,7 @@ export const createNewsletterContent = internalMutation({
 
     if (existing) {
       // Another request created this content - increment readerCount and return existing
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("newsletterContent", existing._id, {
         readerCount: existing.readerCount + 1,
       });
       console.log(
@@ -551,14 +555,14 @@ export const findByContentHash = internalQuery({
 export const incrementReaderCount = internalMutation({
   args: { contentId: v.id("newsletterContent") },
   handler: async (ctx, args) => {
-    const content = await ctx.db.get(args.contentId);
+    const content = await ctx.db.get("newsletterContent", args.contentId);
     if (!content) {
       throw new ConvexError({
         code: "NOT_FOUND",
         message: "Newsletter content not found",
       });
     }
-    await ctx.db.patch(args.contentId, {
+    await ctx.db.patch("newsletterContent", args.contentId, {
       readerCount: content.readerCount + 1,
     });
   },
@@ -647,7 +651,10 @@ export const getUserNewsletter = query({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get(
+      "userNewsletters",
+      args.userNewsletterId,
+    );
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -867,7 +874,7 @@ export const getUserNewsletterWithContentInternal = internalAction({
 export const getUserNewsletterInternal = internalQuery({
   args: { userNewsletterId: v.id("userNewsletters") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.userNewsletterId);
+    return await ctx.db.get("userNewsletters", args.userNewsletterId);
   },
 });
 
@@ -878,7 +885,7 @@ export const getUserNewsletterInternal = internalQuery({
 export const getNewsletterContentInternal = internalQuery({
   args: { contentId: v.id("newsletterContent") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.contentId);
+    return await ctx.db.get("newsletterContent", args.contentId);
   },
 });
 
@@ -953,7 +960,7 @@ export const listUserNewsletters = query({
 
     const uniqueContentIds = [...new Set(contentIds)];
     const contents = await Promise.all(
-      uniqueContentIds.map((id) => ctx.db.get(id)),
+      uniqueContentIds.map((id) => ctx.db.get("newsletterContent", id)),
     );
     const contentMap = new Map(
       contents
@@ -1045,7 +1052,7 @@ export const listUserNewslettersBySender = query({
 
     const uniqueContentIds = [...new Set(contentIds)];
     const contents = await Promise.all(
-      uniqueContentIds.map((id) => ctx.db.get(id)),
+      uniqueContentIds.map((id) => ctx.db.get("newsletterContent", id)),
     );
     const contentMap = new Map(
       contents
@@ -1129,7 +1136,7 @@ export const listUserNewslettersByFolder = query({
 
     const uniqueContentIds = [...new Set(contentIds)];
     const contents = await Promise.all(
-      uniqueContentIds.map((id) => ctx.db.get(id)),
+      uniqueContentIds.map((id) => ctx.db.get("newsletterContent", id)),
     );
     const contentMap = new Map(
       contents
@@ -1464,7 +1471,7 @@ export const markAsRead = internalMutation({
     readProgress: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       isRead: true,
       readProgress: args.readProgress ?? 100,
     });
@@ -1481,7 +1488,7 @@ export const updateReadProgress = internalMutation({
     readProgress: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       readProgress: args.readProgress,
       isRead: args.readProgress >= 100,
     });
@@ -1498,7 +1505,7 @@ export const toggleHidden = internalMutation({
     isHidden: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       isHidden: args.isHidden,
     });
   },
@@ -1524,7 +1531,7 @@ export const setReadProgress = mutation({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -1552,7 +1559,7 @@ export const setReadProgress = mutation({
     // Only update the primary newsletter doc when we transition to "read".
     // Intermediate progress updates must not touch `userNewsletters`.
     if (clampedProgress === 100 && !userNewsletter.isRead) {
-      await ctx.db.patch(args.userNewsletterId, { isRead: true });
+      await ctx.db.patch("userNewsletters", args.userNewsletterId, { isRead: true });
 
       const searchMeta = await getSearchMetaDoc(
         ctx,
@@ -1573,7 +1580,7 @@ export const setReadProgress = mutation({
           isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
         });
       } else if (!searchMeta.isRead) {
-        await ctx.db.patch(searchMeta._id, { isRead: true });
+        await ctx.db.patch("newsletterSearchMeta", searchMeta._id, { isRead: true });
       }
     }
   },
@@ -1597,7 +1604,7 @@ export const markNewsletterRead = mutation({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -1627,7 +1634,7 @@ export const markNewsletterRead = mutation({
     });
 
     if (!userNewsletter.isRead) {
-      await ctx.db.patch(args.userNewsletterId, { isRead: true });
+      await ctx.db.patch("userNewsletters", args.userNewsletterId, { isRead: true });
     }
 
     const searchMeta = await getSearchMetaDoc(
@@ -1649,7 +1656,7 @@ export const markNewsletterRead = mutation({
         isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
       });
     } else if (!searchMeta.isRead) {
-      await ctx.db.patch(searchMeta._id, { isRead: true });
+      await ctx.db.patch("newsletterSearchMeta", searchMeta._id, { isRead: true });
     }
   },
 });
@@ -1671,7 +1678,7 @@ export const markNewsletterUnread = mutation({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -1688,7 +1695,7 @@ export const markNewsletterUnread = mutation({
       throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       isRead: false,
       // Keep readProgress for "resume reading" feature
     });
@@ -1712,7 +1719,7 @@ export const markNewsletterUnread = mutation({
         isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
       });
     } else if (searchMeta.isRead) {
-      await ctx.db.patch(searchMeta._id, { isRead: false });
+      await ctx.db.patch("newsletterSearchMeta", searchMeta._id, { isRead: false });
     }
   },
 });
@@ -1735,7 +1742,7 @@ export const updateNewsletterReadProgress = mutation({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -1762,7 +1769,7 @@ export const updateNewsletterReadProgress = mutation({
     });
 
     if (clampedProgress === 100 && !userNewsletter.isRead) {
-      await ctx.db.patch(args.userNewsletterId, { isRead: true });
+      await ctx.db.patch("userNewsletters", args.userNewsletterId, { isRead: true });
 
       const searchMeta = await getSearchMetaDoc(
         ctx,
@@ -1783,7 +1790,7 @@ export const updateNewsletterReadProgress = mutation({
           isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
         });
       } else if (!searchMeta.isRead) {
-        await ctx.db.patch(searchMeta._id, { isRead: true });
+        await ctx.db.patch("newsletterSearchMeta", searchMeta._id, { isRead: true });
       }
     }
   },
@@ -1806,7 +1813,7 @@ export const hideNewsletter = mutation({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -1823,7 +1830,7 @@ export const hideNewsletter = mutation({
       throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       isHidden: true,
     });
 
@@ -1846,7 +1853,7 @@ export const hideNewsletter = mutation({
         isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
       });
     } else if (!searchMeta.isHidden) {
-      await ctx.db.patch(searchMeta._id, { isHidden: true });
+      await ctx.db.patch("newsletterSearchMeta", searchMeta._id, { isHidden: true });
     }
   },
 });
@@ -1868,7 +1875,7 @@ export const unhideNewsletter = mutation({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -1885,7 +1892,7 @@ export const unhideNewsletter = mutation({
       throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       isHidden: false,
     });
 
@@ -1908,7 +1915,7 @@ export const unhideNewsletter = mutation({
         isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
       });
     } else if (searchMeta.isHidden) {
-      await ctx.db.patch(searchMeta._id, { isHidden: false });
+      await ctx.db.patch("newsletterSearchMeta", searchMeta._id, { isHidden: false });
     }
   },
 });
@@ -1930,7 +1937,7 @@ export const binNewsletter = mutation({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -1947,7 +1954,7 @@ export const binNewsletter = mutation({
       throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       isBinned: true,
       binnedAt: Date.now(),
     });
@@ -1971,7 +1978,7 @@ export const binNewsletter = mutation({
         isLockedByPlan: Boolean(userNewsletter.isLockedByPlan),
       });
     } else if (!searchMeta.isBinned) {
-      await ctx.db.patch(searchMeta._id, { isBinned: true });
+      await ctx.db.patch("newsletterSearchMeta", searchMeta._id, { isBinned: true });
     }
   },
 });
@@ -1994,7 +2001,7 @@ export const setNewsletterFavorite = mutation({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
     if (!userNewsletter) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -2011,7 +2018,7 @@ export const setNewsletterFavorite = mutation({
       throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
     }
 
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       isFavorited: args.isFavorited,
     });
   },
@@ -2061,7 +2068,7 @@ export const listFavoritedNewsletters = query({
 
     const uniqueContentIds = [...new Set(contentIds)];
     const contents = await Promise.all(
-      uniqueContentIds.map((id) => ctx.db.get(id)),
+      uniqueContentIds.map((id) => ctx.db.get("newsletterContent", id)),
     );
     const contentMap = new Map(
       contents
@@ -2221,7 +2228,7 @@ export const listHiddenNewsletters = query({
 
     const uniqueContentIds = [...new Set(contentIds)];
     const contents = await Promise.all(
-      uniqueContentIds.map((id) => ctx.db.get(id)),
+      uniqueContentIds.map((id) => ctx.db.get("newsletterContent", id)),
     );
     const contentMap = new Map(
       contents
@@ -2600,7 +2607,7 @@ async function backfillNewsletterSearchMetaRecentImpl(
       patch.isLockedByPlan = desired.isLockedByPlan;
 
     if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(current._id, patch);
+      await ctx.db.patch("newsletterSearchMeta", current._id, patch);
       updated++;
     }
   }
@@ -2777,10 +2784,10 @@ async function deleteUserNewsletterRecord(
   userNewsletter: Doc<"userNewsletters">,
 ): Promise<void> {
   if (userNewsletter.source === "community" && userNewsletter.contentId) {
-    const content = await ctx.db.get(userNewsletter.contentId);
+    const content = await ctx.db.get("newsletterContent", userNewsletter.contentId);
     if (content) {
       const newImportCount = Math.max(0, (content.importCount ?? 1) - 1);
-      await ctx.db.patch(userNewsletter.contentId, {
+      await ctx.db.patch("newsletterContent", userNewsletter.contentId, {
         importCount: newImportCount,
       });
     }
@@ -2788,7 +2795,7 @@ async function deleteUserNewsletterRecord(
 
   const searchMeta = await getSearchMetaDoc(ctx, userId, userNewsletter._id);
   if (searchMeta) {
-    await ctx.db.delete(searchMeta._id);
+    await ctx.db.delete("newsletterSearchMeta", searchMeta._id);
   }
 
   const counters = await ctx.db
@@ -2798,7 +2805,7 @@ async function deleteUserNewsletterRecord(
 
   if (counters) {
     const wasLocked = Boolean(userNewsletter.isLockedByPlan);
-    await ctx.db.patch(counters._id, {
+    await ctx.db.patch("userUsageCounters", counters._id, {
       totalStored: Math.max(0, counters.totalStored - 1),
       unlockedStored: Math.max(
         0,
@@ -2809,7 +2816,7 @@ async function deleteUserNewsletterRecord(
     });
   }
 
-  await ctx.db.delete(userNewsletter._id);
+  await ctx.db.delete("userNewsletters", userNewsletter._id);
 }
 
 /**
@@ -2847,7 +2854,7 @@ export const deleteUserNewsletter = mutation({
       });
     }
 
-    const userNewsletter = await ctx.db.get(args.userNewsletterId);
+    const userNewsletter = await ctx.db.get("userNewsletters", args.userNewsletterId);
 
     if (!userNewsletter) {
       throw new ConvexError({

@@ -3,6 +3,7 @@ import { components, internal } from "./_generated/api"
 import { action, internalMutation, internalQuery } from "./_generated/server"
 import { ConvexError, v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
+import Stripe from "stripe"
 
 type Currency = "usd" | "eur"
 type Interval = "month" | "year"
@@ -55,6 +56,46 @@ function getStripeClient() {
   return new StripeSubscriptions(components.stripe, {
     STRIPE_SECRET_KEY: getStripeSecretKey(),
   })
+}
+
+async function createSubscriptionCheckoutSessionWithPromoCode(args: {
+  customerId: string
+  priceId: string
+  successUrl: string
+  cancelUrl: string
+  subscriptionMetadata?: Record<string, string>
+}): Promise<{ url: string | null }> {
+  const stripe = new Stripe(getStripeSecretKey())
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
+    mode: "subscription",
+    customer: args.customerId,
+    allow_promotion_codes: true,
+    success_url: args.successUrl,
+    cancel_url: args.cancelUrl,
+    line_items: [
+      {
+        price: args.priceId,
+        quantity: 1,
+      },
+    ],
+    subscription_data: args.subscriptionMetadata
+      ? {
+          metadata: args.subscriptionMetadata,
+        }
+      : undefined,
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create(sessionParams)
+    return { url: session.url ?? null }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error("[billing.createSubscriptionCheckoutSessionWithPromoCode] Stripe SDK error", message)
+    throw new ConvexError({
+      code: "BILLING_ERROR",
+      message: "Failed to create Stripe checkout session.",
+    })
+  }
 }
 
 export const getUserByAuthIdForBilling = internalQuery({
@@ -124,10 +165,9 @@ export const createProCheckoutUrl = action({
     })
 
     const returnPath = args.returnTo === "onboarding" ? "/onboarding" : args.returnTo === "import" ? "/import" : "/settings"
-    const { url } = await stripe.createCheckoutSession(ctx, {
+    const { url } = await createSubscriptionCheckoutSessionWithPromoCode({
       customerId,
       priceId: getPriceId(args.interval as Interval, args.currency as Currency),
-      mode: "subscription",
       successUrl: `${getSiteUrl()}${returnPath}?billing=success`,
       cancelUrl: `${getSiteUrl()}${returnPath}?billing=cancel`,
       subscriptionMetadata: {

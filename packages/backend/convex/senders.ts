@@ -34,8 +34,8 @@ export const getOrCreateSender = internalMutation({
     if (existingSender) {
       // Update name if provided and not already set (don't increment counts here)
       if (args.name && !existingSender.name) {
-        await ctx.db.patch(existingSender._id, { name: args.name })
-        const updatedSender = await ctx.db.get(existingSender._id)
+        await ctx.db.patch("senders", existingSender._id, { name: args.name })
+        const updatedSender = await ctx.db.get("senders", existingSender._id)
         if (!updatedSender) {
           throw new ConvexError({
             code: "INTERNAL_ERROR",
@@ -76,7 +76,7 @@ export const getOrCreateSender = internalMutation({
 
       // Delete any duplicates (including ours if we lost the race)
       for (const sender of sortedSenders.slice(1)) {
-        await ctx.db.delete(sender._id)
+        await ctx.db.delete("senders", sender._id)
       }
 
       console.log(
@@ -85,7 +85,7 @@ export const getOrCreateSender = internalMutation({
       return keepSender
     }
 
-    const sender = await ctx.db.get(senderId)
+    const sender = await ctx.db.get("senders", senderId)
     if (!sender) {
       throw new ConvexError({
         code: "INTERNAL_ERROR",
@@ -154,7 +154,7 @@ export const getOrCreateUserSenderSettings = internalMutation({
 
       // Delete any duplicates (including ours if we lost the race)
       for (const settings of sortedSettings.slice(1)) {
-        await ctx.db.delete(settings._id)
+        await ctx.db.delete("userSenderSettings", settings._id)
       }
 
       console.log(
@@ -166,14 +166,14 @@ export const getOrCreateUserSenderSettings = internalMutation({
     }
 
     // We successfully created the only record - increment subscriber count
-    const sender = await ctx.db.get(args.senderId)
+    const sender = await ctx.db.get("senders", args.senderId)
     if (sender) {
-      await ctx.db.patch(args.senderId, {
+      await ctx.db.patch("senders", args.senderId, {
         subscriberCount: sender.subscriberCount + 1,
       })
     }
 
-    const settings = await ctx.db.get(settingsId)
+    const settings = await ctx.db.get("userSenderSettings", settingsId)
     if (!settings) {
       throw new ConvexError({
         code: "INTERNAL_ERROR",
@@ -230,12 +230,12 @@ export const updateUserSenderSettings = internalMutation({
       })
     }
 
-    await ctx.db.patch(settings._id, {
+    await ctx.db.patch("userSenderSettings", settings._id, {
       ...(args.isPrivate !== undefined ? { isPrivate: args.isPrivate } : {}),
       ...(args.folderId !== undefined ? { folderId: args.folderId } : {}),
     })
 
-    return await ctx.db.get(settings._id)
+    return await ctx.db.get("userSenderSettings", settings._id)
   },
 })
 
@@ -337,7 +337,7 @@ export const listUserSenderSettings = query({
     // Enrich with sender details
     const enrichedSettings = await Promise.all(
       settings.map(async (setting) => {
-        const sender = await ctx.db.get(setting.senderId)
+        const sender = await ctx.db.get("senders", setting.senderId)
         return {
           ...setting,
           sender,
@@ -371,7 +371,7 @@ export const getSenderById = query({
     senderId: v.id("senders"),
   },
   handler: async (ctx, args) => {
-    const sender = await ctx.db.get(args.senderId)
+    const sender = await ctx.db.get("senders", args.senderId)
     if (!sender) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -421,7 +421,7 @@ export const listSendersForUser = query({
     // For each setting, get the sender and count newsletters using composite index
     const sendersWithCounts = await Promise.all(
       userSettings.map(async (setting) => {
-        const sender = await ctx.db.get(setting.senderId)
+        const sender = await ctx.db.get("senders", setting.senderId)
         if (!sender) return null
 
         // Count newsletters from this sender for this user using composite index
@@ -504,7 +504,7 @@ export const updateSenderSettings = mutation({
 
     // Validate folder ownership if folderId is provided
     if (args.folderId !== undefined) {
-      const folder = await ctx.db.get(args.folderId)
+      const folder = await ctx.db.get("folders", args.folderId)
       if (!folder) {
         throw new ConvexError({
           code: "NOT_FOUND",
@@ -520,7 +520,7 @@ export const updateSenderSettings = mutation({
     }
 
     // Update only provided fields
-    await ctx.db.patch(settings._id, {
+    await ctx.db.patch("userSenderSettings", settings._id, {
       ...(args.isPrivate !== undefined ? { isPrivate: args.isPrivate } : {}),
       ...(args.folderId !== undefined ? { folderId: args.folderId } : {}),
     })
@@ -562,7 +562,7 @@ export const listSendersForUserWithUnreadCounts = query({
     // For each setting, get sender and counts
     const sendersWithCounts = await Promise.all(
       userSettings.map(async (setting) => {
-        const sender = await ctx.db.get(setting.senderId)
+        const sender = await ctx.db.get("senders", setting.senderId)
         if (!sender) return null
 
         // Get newsletters from this sender for this user using composite index
@@ -613,7 +613,7 @@ export const incrementNewsletterCount = internalMutation({
     senderId: v.id("senders"),
   },
   handler: async (ctx, args) => {
-    const sender = await ctx.db.get(args.senderId)
+    const sender = await ctx.db.get("senders", args.senderId)
     if (!sender) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -621,7 +621,7 @@ export const incrementNewsletterCount = internalMutation({
       })
     }
 
-    await ctx.db.patch(args.senderId, {
+    await ctx.db.patch("senders", args.senderId, {
       newsletterCount: sender.newsletterCount + 1,
     })
   },
@@ -661,7 +661,7 @@ export const listFollowedSenders = query({
     // For each setting, check if user has newsletters from that sender
     const results = await Promise.all(
       allSettings.map(async (settings) => {
-        const sender = await ctx.db.get(settings.senderId)
+        const sender = await ctx.db.get("senders", settings.senderId)
         if (!sender) return null
 
         const hasNewsletters = await ctx.db
@@ -811,7 +811,7 @@ export const getOrCreateFolderForSender = internalMutation({
     }
 
     // Step 2: Get sender info for folder name
-    const sender = await ctx.db.get(args.senderId)
+    const sender = await ctx.db.get("senders", args.senderId)
     if (!sender) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -860,7 +860,7 @@ export const getOrCreateFolderForSender = internalMutation({
     // Step 7: Update or create userSenderSettings with folderId
     if (settings) {
       // Settings exists but no folderId - just update it
-      await ctx.db.patch(settings._id, { folderId })
+      await ctx.db.patch("userSenderSettings", settings._id, { folderId })
     } else {
       // Create new settings with folder assignment
       // Story 9.2: isPrivate is always true in private-by-default model
@@ -888,7 +888,7 @@ export const getOrCreateFolderForSender = internalMutation({
 
         // Delete any duplicates (including ours if we lost the race)
         for (const s of sortedSettings.slice(1)) {
-          await ctx.db.delete(s._id)
+          await ctx.db.delete("userSenderSettings", s._id)
         }
 
         console.log(
@@ -900,13 +900,15 @@ export const getOrCreateFolderForSender = internalMutation({
         // (the winner of the race created the folder)
         if (keepSettings.folderId && keepSettings.folderId !== folderId) {
           // Delete our orphaned folder
-          await ctx.db.delete(folderId)
+          await ctx.db.delete("folders", folderId)
           return keepSettings.folderId
         }
 
         // Update the kept settings with our folderId if it doesn't have one
         if (!keepSettings.folderId) {
-          await ctx.db.patch(keepSettings._id, { folderId })
+          await ctx.db.patch("userSenderSettings", keepSettings._id, {
+            folderId,
+          })
         }
 
         // Don't increment subscriberCount - we didn't create a new relationship
@@ -917,7 +919,7 @@ export const getOrCreateFolderForSender = internalMutation({
       }
 
       // We successfully created the only record - increment subscriber count
-      await ctx.db.patch(args.senderId, {
+      await ctx.db.patch("senders", args.senderId, {
         subscriberCount: sender.subscriberCount + 1,
       })
     }
@@ -951,7 +953,7 @@ export const listSendersInFolder = query({
     if (!user) return []
 
     // Verify folder ownership
-    const folder = await ctx.db.get(args.folderId)
+    const folder = await ctx.db.get("folders", args.folderId)
     if (!folder || folder.userId !== user._id) return []
 
     // Get userSenderSettings for this folder using by_folderId index
@@ -965,7 +967,7 @@ export const listSendersInFolder = query({
     // Get sender details for each setting
     const senders = await Promise.all(
       settings.map(async (setting) => {
-        const sender = await ctx.db.get(setting.senderId)
+        const sender = await ctx.db.get("senders", setting.senderId)
         if (!sender) return null
         return {
           _id: sender._id,

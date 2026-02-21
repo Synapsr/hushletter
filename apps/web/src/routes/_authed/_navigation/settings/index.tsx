@@ -8,6 +8,7 @@ import { z } from "zod";
 import { useState, useEffect, useRef } from "react";
 import { DedicatedEmailDisplay } from "@/components/DedicatedEmailDisplay";
 import { HiddenFoldersSection } from "@/components/HiddenFoldersSection";
+import { BillingCheckoutSuccessDialogContent } from "@/components/billing/billing-checkout-success-dialog-content";
 import {
   Button,
   Card,
@@ -16,11 +17,7 @@ import {
   CardHeader,
   CardTitle,
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  DialogPopup,
   Input,
 } from "@hushletter/ui";
 import {
@@ -79,7 +76,8 @@ function GmailSettingsSection({ isPro }: { isPro: boolean }) {
 
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [disconnectTarget, setDisconnectTarget] = useState<GmailConnectionData | null>(null);
+  const [disconnectTarget, setDisconnectTarget] =
+    useState<GmailConnectionData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Query all Gmail connections
@@ -87,7 +85,9 @@ function GmailSettingsSection({ isPro }: { isPro: boolean }) {
     data,
     isPending,
     error: queryError,
-  } = useQuery(convexQuery(api.gmailConnections.getGmailConnections, isPro ? {} : "skip"));
+  } = useQuery(
+    convexQuery(api.gmailConnections.getGmailConnections, isPro ? {} : "skip"),
+  );
   const connections = (data ?? []) as GmailConnectionData[];
 
   const isConnected = connections.length > 0;
@@ -128,7 +128,11 @@ function GmailSettingsSection({ isPro }: { isPro: boolean }) {
     setError(null);
 
     try {
-      await removeConnection({ gmailConnectionId: disconnectTarget._id as Parameters<typeof removeConnection>[0]["gmailConnectionId"] });
+      await removeConnection({
+        gmailConnectionId: disconnectTarget._id as Parameters<
+          typeof removeConnection
+        >[0]["gmailConnectionId"],
+      });
       await queryClient.invalidateQueries();
       setError(null);
       setIsDialogOpen(false);
@@ -409,7 +413,7 @@ function SettingsPage() {
       window.location.href = url;
     } catch (error) {
       console.error("[settings] Failed to start checkout:", error);
-      setBillingError("Unable to start checkout. Please try again.");
+      setBillingError(m.settings_billingCheckoutError());
     } finally {
       setBillingPending(false);
     }
@@ -423,7 +427,7 @@ function SettingsPage() {
       window.location.href = url;
     } catch (error) {
       console.error("[settings] Failed to open customer portal:", error);
-      setBillingError("Unable to open billing portal. Please try again.");
+      setBillingError(m.settings_billingPortalError());
     } finally {
       setBillingPending(false);
     }
@@ -437,8 +441,8 @@ function SettingsPage() {
       if (!res.ok) {
         setBillingSyncError(
           res.reason === "no_subscription_found"
-            ? "Payment received, but subscription is still activating. Try again in a moment."
-            : "Could not sync subscription status from Stripe. Please try again.",
+            ? m.billingSuccessDialog_errorNoSubscriptionYet()
+            : m.billingSuccessDialog_errorSyncFailed(),
         );
       } else {
         // Ensure UI flips immediately even if reactive queries are momentarily stale.
@@ -446,9 +450,7 @@ function SettingsPage() {
       }
     } catch (error) {
       console.error("[settings] Failed to sync Pro status:", error);
-      setBillingSyncError(
-        "Could not sync subscription status from Stripe. Please try again.",
-      );
+      setBillingSyncError(m.billingSuccessDialog_errorSyncFailed());
     } finally {
       setBillingSyncPending(false);
     }
@@ -459,7 +461,7 @@ function SettingsPage() {
     // hasn't been updated yet, this silently fixes it when opening Settings.
     if (autoSyncedRef.current) return;
     if (entitlementsData === undefined) return;
-    if (Boolean(entitlements?.isPro)) {
+    if (entitlements?.isPro) {
       autoSyncedRef.current = true;
       return;
     }
@@ -492,7 +494,7 @@ function SettingsPage() {
     );
 
     if (billing === "cancel") {
-      toast.info("Checkout canceled");
+      toast.info(m.onboarding_checkoutCanceled());
       return;
     }
 
@@ -579,58 +581,15 @@ function SettingsPage() {
           if (!open) setBillingSyncError(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {isPro ? "Welcome to Hushletter Pro" : "Activating your Pro plan"}
-            </DialogTitle>
-            <DialogDescription>
-              {isPro
-                ? "Your subscription is active. Here’s what you can do now."
-                : "This usually takes a few seconds. If it takes longer, you can retry the sync."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            {billingSyncError && (
-              <p className="text-sm text-destructive" role="alert">
-                {billingSyncError}
-              </p>
-            )}
-
-            {!isPro ? (
-              <div className="text-sm text-muted-foreground">
-                {billingSyncPending
-                  ? "Syncing subscription status from Stripe…"
-                  : "Waiting for subscription activation…"}
-              </div>
-            ) : (
-              <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-                <li>AI summaries</li>
-                <li>Gmail import and sync</li>
-                <li>Vanity email alias</li>
-                <li>Premium reader appearance controls</li>
-                <li>Unlocks any locked newsletters</li>
-              </ul>
-            )}
-          </div>
-
-          <DialogFooter>
-            {!isPro && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleBillingSync()}
-                disabled={billingSyncPending}
-              >
-                Retry sync
-              </Button>
-            )}
-            <Button type="button" onClick={() => setBillingSuccessOpen(false)}>
-              {isPro ? "Continue" : "Close"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+        <DialogPopup>
+          <BillingCheckoutSuccessDialogContent
+            isPro={isPro}
+            billingSyncPending={billingSyncPending}
+            billingSyncError={billingSyncError}
+            onRetrySync={() => void handleBillingSync()}
+            onClose={() => setBillingSuccessOpen(false)}
+          />
+        </DialogPopup>
       </Dialog>
 
       <div className="container mx-auto px-4 py-8 overflow-y-auto h-full">

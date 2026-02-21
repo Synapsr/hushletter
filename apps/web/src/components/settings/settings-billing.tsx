@@ -5,7 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { useAction } from "convex/react";
 import { api } from "@hushletter/backend";
-import { getLocale } from "@/paraglide/runtime.js";
+import { PricingDialog } from "@/components/pricing-dialog";
+import { m } from "@/paraglide/messages.js";
 import {
   Button,
   Separator,
@@ -30,35 +31,17 @@ type EntitlementsData = {
 };
 
 export function SettingsBilling() {
-  const locale = getLocale();
-  const currency = locale.startsWith("fr") ? ("eur" as const) : ("usd" as const);
-  const currencySymbol = currency === "eur" ? "€" : "$";
-
   const { data: entitlementsData, isPending } = useQuery(
     convexQuery(api.entitlements.getEntitlements, {}),
   );
   const entitlements = entitlementsData as EntitlementsData | null | undefined;
   const isPro = Boolean(entitlements?.isPro);
 
-  const createCheckout = useAction(api.billing.createProCheckoutUrl);
   const createPortal = useAction(api.billing.createCustomerPortalUrl);
 
   const [billingPending, setBillingPending] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
-
-  const handleUpgrade = async (interval: "month" | "year") => {
-    setBillingPending(true);
-    setBillingError(null);
-    try {
-      const { url } = await createCheckout({ interval, currency });
-      window.location.href = url;
-    } catch (error) {
-      console.error("[settings-dialog] Failed to start checkout:", error);
-      setBillingError("Unable to start checkout. Please try again.");
-    } finally {
-      setBillingPending(false);
-    }
-  };
+  const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
 
   const handleManageSubscription = async () => {
     setBillingPending(true);
@@ -68,7 +51,7 @@ export function SettingsBilling() {
       window.location.href = url;
     } catch (error) {
       console.error("[settings-dialog] Failed to open customer portal:", error);
-      setBillingError("Unable to open billing portal. Please try again.");
+      setBillingError(m.settings_billingPortalError());
     } finally {
       setBillingPending(false);
     }
@@ -98,6 +81,10 @@ export function SettingsBilling() {
     : at80
       ? "bg-primary/70"
       : "bg-primary";
+  const currentReturnPath =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : undefined;
 
   return (
     <div className="space-y-6">
@@ -206,21 +193,18 @@ export function SettingsBilling() {
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={billingPending}
-                  onClick={() => handleUpgrade("month")}
-                >
-                  Upgrade monthly ({currencySymbol}9)
-                </Button>
-                <Button
-                  disabled={billingPending}
-                  variant="outline"
-                  onClick={() => handleUpgrade("year")}
-                >
-                  Upgrade yearly ({currencySymbol}90)
-                </Button>
-              </div>
+              <Button
+                disabled={billingPending}
+                onClick={() => setPricingDialogOpen(true)}
+              >
+                Upgrade to Pro
+              </Button>
+              <PricingDialog
+                open={pricingDialogOpen}
+                onOpenChange={setPricingDialogOpen}
+                returnPath={currentReturnPath}
+                billingSource="settings_dialog"
+              />
 
               <p className="text-sm text-muted-foreground">
                 30-day money-back guarantee.

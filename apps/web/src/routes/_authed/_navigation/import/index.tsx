@@ -101,14 +101,12 @@ function ImportPage() {
       if (!res.ok) {
         setBillingSyncError(
           res.reason === "no_subscription_found"
-            ? "Payment received, but subscription is still activating. Try again in a moment."
-            : "Could not sync subscription status from Stripe. Please try again.",
+            ? m.billingSuccessDialog_errorNoSubscriptionYet()
+            : m.billingSuccessDialog_errorSyncFailed(),
         );
       }
     } catch {
-      setBillingSyncError(
-        "Could not sync subscription status from Stripe. Please try again.",
-      );
+      setBillingSyncError(m.billingSuccessDialog_errorSyncFailed());
     } finally {
       setBillingSyncPending(false);
     }
@@ -128,7 +126,7 @@ function ImportPage() {
     );
 
     if (billing === "cancel") {
-      toast.info("Checkout canceled");
+      toast.info(m.onboarding_checkoutCanceled());
       return;
     }
 
@@ -159,7 +157,7 @@ function ImportPage() {
       <div className="space-y-5">
         {billingSyncPending && (
           <div className="rounded-xl border border-border/60 bg-card p-5 text-sm text-muted-foreground">
-            Activating your Pro plan...
+            {m.billingSuccessDialog_titleActivatingPro()}...
           </div>
         )}
 
@@ -172,7 +170,7 @@ function ImportPage() {
               onClick={() => void handleBillingSync()}
               disabled={billingSyncPending}
             >
-              Retry sync
+              {m.billingSuccessDialog_retrySync()}
             </Button>
           </div>
         )}

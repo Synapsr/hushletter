@@ -116,7 +116,7 @@ export const getEntitlements = query({
 export const getUserEntitlementsByUserId = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args): Promise<Entitlements> => {
-    const user = await ctx.db.get(args.userId)
+    const user = await ctx.db.get("users", args.userId)
     if (!user) {
       return {
         plan: "free",
@@ -228,7 +228,7 @@ export const upsertUserUsageCounters = internalMutation({
       return
     }
 
-    await ctx.db.patch(existing._id, value)
+    await ctx.db.patch("userUsageCounters", existing._id, value)
   },
 })
 
@@ -257,7 +257,7 @@ export const incrementUserUsageCounters = internalMutation({
       return
     }
 
-    await ctx.db.patch(existing._id, next)
+    await ctx.db.patch("userUsageCounters", existing._id, next)
   },
 })
 
@@ -274,7 +274,9 @@ export const unlockAllLockedNewslettersForUser = internalMutation({
     if (locked.length === 0) return { unlocked: 0 }
 
     for (const newsletter of locked) {
-      await ctx.db.patch(newsletter._id, { isLockedByPlan: false })
+      await ctx.db.patch("userNewsletters", newsletter._id, {
+        isLockedByPlan: false,
+      })
 
       const meta = await ctx.db
         .query("newsletterSearchMeta")
@@ -283,7 +285,9 @@ export const unlockAllLockedNewslettersForUser = internalMutation({
         )
         .first()
       if (meta) {
-        await ctx.db.patch(meta._id, { isLockedByPlan: false })
+        await ctx.db.patch("newsletterSearchMeta", meta._id, {
+          isLockedByPlan: false,
+        })
       }
     }
 
@@ -293,7 +297,7 @@ export const unlockAllLockedNewslettersForUser = internalMutation({
       .first()
 
     if (counters) {
-      await ctx.db.patch(counters._id, {
+      await ctx.db.patch("userUsageCounters", counters._id, {
         unlockedStored: counters.unlockedStored + locked.length,
         lockedStored: Math.max(0, counters.lockedStored - locked.length),
         updatedAt: Date.now(),

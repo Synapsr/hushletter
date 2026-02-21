@@ -333,7 +333,7 @@ export const getNewsletterSummary = query({
       })
     }
 
-    const newsletter = await ctx.db.get(userNewsletterId)
+    const newsletter = await ctx.db.get("userNewsletters", userNewsletterId)
     if (!newsletter) {
       return { summary: null, isShared: false, generatedAt: null }
     }
@@ -354,7 +354,7 @@ export const getNewsletterSummary = query({
 
     // Priority 2: Shared summary (public newsletters only)
     if (!newsletter.isPrivate && newsletter.contentId) {
-      const content = await ctx.db.get(newsletter.contentId)
+      const content = await ctx.db.get("newsletterContent", newsletter.contentId)
       if (content?.summary) {
         return {
           summary: content.summary,
@@ -380,7 +380,7 @@ export const getNewsletterSummary = query({
 export const getNewsletterForSummary = internalQuery({
   args: { userNewsletterId: v.id("userNewsletters") },
   handler: async (ctx, { userNewsletterId }) => {
-    return await ctx.db.get(userNewsletterId)
+    return await ctx.db.get("userNewsletters", userNewsletterId)
   },
 })
 
@@ -391,7 +391,7 @@ export const getNewsletterForSummary = internalQuery({
 export const getSharedSummary = internalQuery({
   args: { contentId: v.id("newsletterContent") },
   handler: async (ctx, { contentId }) => {
-    const content = await ctx.db.get(contentId)
+    const content = await ctx.db.get("newsletterContent", contentId)
     return content?.summary ?? null
   },
 })
@@ -406,7 +406,7 @@ export const storeSharedSummary = internalMutation({
     summary: v.string(),
   },
   handler: async (ctx, { contentId, summary }) => {
-    await ctx.db.patch(contentId, {
+    await ctx.db.patch("newsletterContent", contentId, {
       summary,
       summaryGeneratedAt: Date.now(),
     })
@@ -423,7 +423,7 @@ export const storePrivateSummary = internalMutation({
     summary: v.string(),
   },
   handler: async (ctx, { userNewsletterId, summary }) => {
-    await ctx.db.patch(userNewsletterId, {
+    await ctx.db.patch("userNewsletters", userNewsletterId, {
       summary,
       summaryGeneratedAt: Date.now(),
     })
@@ -436,7 +436,9 @@ export const setLastSummaryRequestAt = internalMutation({
     at: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userNewsletterId, { lastSummaryRequestAt: args.at })
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
+      lastSummaryRequestAt: args.at,
+    })
   },
 })
 
@@ -469,7 +471,7 @@ export const incrementAiUsageDaily = internalMutation({
       return
     }
 
-    await ctx.db.patch(existing._id, {
+    await ctx.db.patch("aiUsageDaily", existing._id, {
       count: existing.count + 1,
       updatedAt: Date.now(),
     })
@@ -502,7 +504,7 @@ export const releaseAiInFlight = internalMutation({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .first()
     if (existing) {
-      await ctx.db.delete(existing._id)
+      await ctx.db.delete("aiInFlight", existing._id)
     }
   },
 })

@@ -82,7 +82,7 @@ export const getAccessToken = internalQuery({
     gmailConnectionId: v.id("gmailConnections"),
   },
   handler: async (ctx, args): Promise<{ accessToken: string; expiresAt: number | null; needsRefresh: boolean }> => {
-    const connection = await ctx.db.get(args.gmailConnectionId)
+    const connection = await ctx.db.get("gmailConnections", args.gmailConnectionId)
 
     if (!connection || !connection.isActive) {
       throw new ConvexError({

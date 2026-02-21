@@ -169,7 +169,7 @@ export const cleanupUserScanData = internalMutation({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
     for (const p of progress) {
-      await ctx.db.delete(p._id);
+      await ctx.db.delete("gmailScanProgress", p._id);
     }
 
     // Delete detected senders
@@ -178,7 +178,7 @@ export const cleanupUserScanData = internalMutation({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
     for (const sender of senders) {
-      await ctx.db.delete(sender._id);
+      await ctx.db.delete("detectedSenders", sender._id);
     }
   },
 });
@@ -229,7 +229,7 @@ async function isConnectionOwnedByUser(
   userId: Id<"users">,
   gmailConnectionId: Id<"gmailConnections">,
 ): Promise<boolean> {
-  const connection = await ctx.db.get(gmailConnectionId);
+  const connection = await ctx.db.get("gmailConnections", gmailConnectionId);
   return !!connection && connection.userId === userId;
 }
 
@@ -453,7 +453,7 @@ export const syncGmailImportUsageCounters = internalMutation({
     const fallbackUsage = deriveGmailUsageFromNewsletters(newsletters);
 
     if (counters) {
-      await ctx.db.patch(counters._id, {
+      await ctx.db.patch("userUsageCounters", counters._id, {
         gmailImportedEmails: fallbackUsage.importedEmails,
         gmailImportedSenderEmails: fallbackUsage.importedSenderEmails,
         updatedAt: Date.now(),
@@ -489,7 +489,7 @@ export const trackGmailImportUsageIncrement = internalMutation({
         importedSenderEmails: [...senderEmails],
       };
 
-      await ctx.db.patch(counters._id, {
+      await ctx.db.patch("userUsageCounters", counters._id, {
         gmailImportedEmails: nextUsage.importedEmails,
         gmailImportedSenderEmails: nextUsage.importedSenderEmails,
         updatedAt: Date.now(),
@@ -509,7 +509,7 @@ export const trackGmailImportUsageIncrement = internalMutation({
     const fallbackUsage = deriveGmailUsageFromNewsletters(newsletters);
 
     if (counters) {
-      await ctx.db.patch(counters._id, {
+      await ctx.db.patch("userUsageCounters", counters._id, {
         gmailImportedEmails: fallbackUsage.importedEmails,
         gmailImportedSenderEmails: fallbackUsage.importedSenderEmails,
         updatedAt: Date.now(),
@@ -541,7 +541,7 @@ export const initScanProgress = internalMutation({
       .collect();
 
     for (const p of existingProgress) {
-      await ctx.db.delete(p._id);
+      await ctx.db.delete("gmailScanProgress", p._id);
     }
 
     // Delete existing detected senders for this connection (clean slate for rescan)
@@ -553,7 +553,7 @@ export const initScanProgress = internalMutation({
       .collect();
 
     for (const sender of existingSenders) {
-      await ctx.db.delete(sender._id);
+      await ctx.db.delete("detectedSenders", sender._id);
     }
 
     // Create new scan progress record
@@ -580,7 +580,7 @@ export const updateScanProgress = internalMutation({
     sendersFound: v.number(),
   },
   handler: async (ctx, args): Promise<void> => {
-    await ctx.db.patch(args.progressId, {
+    await ctx.db.patch("gmailScanProgress", args.progressId, {
       processedEmails: args.processedEmails,
       sendersFound: args.sendersFound,
     });
@@ -617,7 +617,7 @@ export const completeScan = internalMutation({
       updates.sendersFound = args.sendersFound;
     }
 
-    await ctx.db.patch(args.progressId, updates);
+    await ctx.db.patch("gmailScanProgress", args.progressId, updates);
   },
 });
 
@@ -647,7 +647,7 @@ export const upsertDetectedSender = internalMutation({
       .first();
 
     if (existingSender) {
-      await ctx.db.patch(existingSender._id, {
+      await ctx.db.patch("detectedSenders", existingSender._id, {
         name: args.name ?? existingSender.name,
         gmailConnectionId: args.gmailConnectionId,
         emailCount: args.emailCount,
@@ -966,7 +966,7 @@ export const getOwnedGmailConnection = internalQuery({
     gmailConnectionId: v.id("gmailConnections"),
   },
   handler: async (ctx, args) => {
-    const connection = await ctx.db.get(args.gmailConnectionId);
+    const connection = await ctx.db.get("gmailConnections", args.gmailConnectionId);
     if (!connection || connection.userId !== args.userId) {
       return null;
     }
@@ -1029,7 +1029,7 @@ export const updateSenderSelection = mutation({
     }
 
     // Get the sender and verify ownership
-    const sender = await ctx.db.get(args.senderId);
+    const sender = await ctx.db.get("detectedSenders", args.senderId);
     if (!sender) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -1044,7 +1044,9 @@ export const updateSenderSelection = mutation({
       });
     }
 
-    await ctx.db.patch(args.senderId, { isSelected: args.isSelected });
+    await ctx.db.patch("detectedSenders", args.senderId, {
+      isSelected: args.isSelected,
+    });
   },
 });
 
@@ -1077,7 +1079,7 @@ export const setExclusiveSenderSelection = mutation({
       });
     }
 
-    const targetSender = await ctx.db.get(args.senderId);
+    const targetSender = await ctx.db.get("detectedSenders", args.senderId);
     if (!targetSender) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -1105,7 +1107,11 @@ export const setExclusiveSenderSelection = mutation({
       const isSelected = sender.isSelected !== false;
 
       if (isSelected !== shouldBeSelected) {
-        updates.push(ctx.db.patch(sender._id, { isSelected: shouldBeSelected }));
+        updates.push(
+          ctx.db.patch("detectedSenders", sender._id, {
+            isSelected: shouldBeSelected,
+          }),
+        );
         updatedCount += 1;
       }
     }
@@ -1153,7 +1159,9 @@ export const selectAllSenders = mutation({
     // Update all to selected (treating undefined as true, so only update explicit false)
     const unselectedSenders = senders.filter((s) => s.isSelected === false);
     await Promise.all(
-      unselectedSenders.map((s) => ctx.db.patch(s._id, { isSelected: true })),
+      unselectedSenders.map((s) =>
+        ctx.db.patch("detectedSenders", s._id, { isSelected: true }),
+      ),
     );
 
     return { updatedCount: unselectedSenders.length };
@@ -1197,7 +1205,9 @@ export const deselectAllSenders = mutation({
     // Update all to deselected (treating undefined as true, so deselect those too)
     const selectedSenders = senders.filter((s) => s.isSelected !== false);
     await Promise.all(
-      selectedSenders.map((s) => ctx.db.patch(s._id, { isSelected: false })),
+      selectedSenders.map((s) =>
+        ctx.db.patch("detectedSenders", s._id, { isSelected: false }),
+      ),
     );
 
     return { updatedCount: selectedSenders.length };
@@ -1289,7 +1299,9 @@ export const approveSelectedSenders = mutation({
 
     // Mark all selected senders as approved
     await Promise.all(
-      selectedSenders.map((s) => ctx.db.patch(s._id, { isApproved: true })),
+      selectedSenders.map((s) =>
+        ctx.db.patch("detectedSenders", s._id, { isApproved: true }),
+      ),
     );
 
     return { approvedCount: selectedSenders.length };
@@ -1376,7 +1388,7 @@ export const initImportProgress = internalMutation({
       .collect();
 
     for (const p of existingProgress) {
-      await ctx.db.delete(p._id);
+      await ctx.db.delete("gmailImportProgress", p._id);
     }
 
     return await ctx.db.insert("gmailImportProgress", {
@@ -1404,7 +1416,7 @@ export const updateImportProgress = internalMutation({
     skippedEmails: v.number(),
   },
   handler: async (ctx, args): Promise<void> => {
-    await ctx.db.patch(args.progressId, {
+    await ctx.db.patch("gmailImportProgress", args.progressId, {
       importedEmails: args.importedEmails,
       failedEmails: args.failedEmails,
       skippedEmails: args.skippedEmails,
@@ -1436,7 +1448,7 @@ export const completeImport = internalMutation({
       updates.error = args.error;
     }
 
-    await ctx.db.patch(args.progressId, updates);
+    await ctx.db.patch("gmailImportProgress", args.progressId, updates);
   },
 });
 
@@ -1960,7 +1972,7 @@ export const checkEmailDuplicate = internalMutation({
 export const markImportedAsRead = internalMutation({
   args: { userNewsletterId: v.id("userNewsletters") },
   handler: async (ctx, args): Promise<void> => {
-    await ctx.db.patch(args.userNewsletterId, {
+    await ctx.db.patch("userNewsletters", args.userNewsletterId, {
       isRead: true,
       readProgress: 100,
     });

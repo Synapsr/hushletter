@@ -61,7 +61,7 @@ export const getGmailConnections = query({
 export const getConnectionWithTokens = internalQuery({
   args: { gmailConnectionId: v.id("gmailConnections") },
   handler: async (ctx, args) => {
-    const connection = await ctx.db.get(args.gmailConnectionId)
+    const connection = await ctx.db.get("gmailConnections", args.gmailConnectionId)
     if (!connection || !connection.isActive) return null
     return connection
   },
@@ -200,7 +200,7 @@ export const upsertConnection = internalMutation({
       .first()
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("gmailConnections", existing._id, {
         accessToken: args.accessToken,
         refreshToken: args.refreshToken ?? existing.refreshToken,
         accessTokenExpiresAt: args.accessTokenExpiresAt,
@@ -299,7 +299,7 @@ export const storeOAuthState = internalMutation({
       .collect()
     for (const s of existingStates) {
       if (s.expiresAt < Date.now()) {
-        await ctx.db.delete(s._id)
+        await ctx.db.delete("oauthStates", s._id)
       }
     }
 
@@ -324,12 +324,12 @@ export const verifyAndConsumeOAuthState = internalMutation({
 
     if (!stateRecord) return null
     if (stateRecord.expiresAt < Date.now()) {
-      await ctx.db.delete(stateRecord._id)
+      await ctx.db.delete("oauthStates", stateRecord._id)
       return null
     }
 
     const userId = stateRecord.userId
-    await ctx.db.delete(stateRecord._id)
+    await ctx.db.delete("oauthStates", stateRecord._id)
     return { userId }
   },
 })
@@ -459,7 +459,7 @@ export const processOAuthCallback = action({
 export const getAccessTokenForConnection = internalQuery({
   args: { gmailConnectionId: v.id("gmailConnections") },
   handler: async (ctx, args): Promise<{ accessToken: string; expiresAt: number; needsRefresh: boolean } | null> => {
-    const connection = await ctx.db.get(args.gmailConnectionId)
+    const connection = await ctx.db.get("gmailConnections", args.gmailConnectionId)
     if (!connection || !connection.isActive) return null
 
     const needsRefresh = connection.accessTokenExpiresAt < Date.now() + 5 * 60 * 1000 // 5 min buffer
@@ -535,7 +535,7 @@ export const updateTokens = internalMutation({
     accessTokenExpiresAt: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.gmailConnectionId, {
+    await ctx.db.patch("gmailConnections", args.gmailConnectionId, {
       accessToken: args.accessToken,
       accessTokenExpiresAt: args.accessTokenExpiresAt,
     })
@@ -594,7 +594,7 @@ export const deactivateConnection = internalMutation({
   args: { gmailConnectionId: v.id("gmailConnections") },
   handler: async (ctx, args) => {
     // Deactivate the connection
-    await ctx.db.patch(args.gmailConnectionId, { isActive: false })
+    await ctx.db.patch("gmailConnections", args.gmailConnectionId, { isActive: false })
 
     // Clean up scan progress for this connection
     const scanProgress = await ctx.db
@@ -602,7 +602,7 @@ export const deactivateConnection = internalMutation({
       .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
       .collect()
     for (const p of scanProgress) {
-      await ctx.db.delete(p._id)
+      await ctx.db.delete("gmailScanProgress", p._id)
     }
 
     // Clean up detected senders for this connection
@@ -611,7 +611,7 @@ export const deactivateConnection = internalMutation({
       .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
       .collect()
     for (const s of senders) {
-      await ctx.db.delete(s._id)
+      await ctx.db.delete("detectedSenders", s._id)
     }
 
     // Clean up import progress for this connection
@@ -620,7 +620,7 @@ export const deactivateConnection = internalMutation({
       .withIndex("by_gmailConnectionId", (q) => q.eq("gmailConnectionId", args.gmailConnectionId))
       .collect()
     for (const p of importProgress) {
-      await ctx.db.delete(p._id)
+      await ctx.db.delete("gmailImportProgress", p._id)
     }
   },
 })

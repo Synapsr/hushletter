@@ -29,8 +29,9 @@ export const createFolder = mutation({
     // Check for duplicate folder name
     const existingFolder = await ctx.db
       .query("folders")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .filter((q) => q.eq(q.field("name"), args.name))
+      .withIndex("by_userId_name", (q) =>
+        q.eq("userId", user._id).eq("name", args.name)
+      )
       .first()
 
     if (existingFolder) {
@@ -118,8 +119,9 @@ export const updateFolder = mutation({
     if (args.name && args.name !== folder.name) {
       const existingFolder = await ctx.db
         .query("folders")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .filter((q) => q.eq(q.field("name"), args.name))
+        .withIndex("by_userId_name", (q) =>
+          q.eq("userId", user._id).eq("name", args.name)
+        )
         .first()
 
       if (existingFolder) {
@@ -426,8 +428,9 @@ export const getFolderWithSenders = query({
     // Get senders in this folder (same logic as listSendersInFolder)
     const settings = await ctx.db
       .query("userSenderSettings")
-      .withIndex("by_folderId", (q) => q.eq("folderId", args.folderId))
-      .filter((q) => q.eq(q.field("userId"), user._id))
+      .withIndex("by_folderId_userId", (q) =>
+        q.eq("folderId", args.folderId).eq("userId", user._id)
+      )
       .collect()
 
     const senders = await Promise.all(
@@ -522,7 +525,9 @@ export const deleteFolder = mutation({
     // Remove folder reference from any userSenderSettings (Story 9.1: use by_folderId index)
     const settingsWithFolder = await ctx.db
       .query("userSenderSettings")
-      .withIndex("by_folderId", (q) => q.eq("folderId", args.folderId))
+      .withIndex("by_folderId_userId", (q) =>
+        q.eq("folderId", args.folderId).eq("userId", user._id)
+      )
       .collect()
 
     for (const setting of settingsWithFolder) {
@@ -836,15 +841,12 @@ export const mergeFolders = mutation({
     // Move userSenderSettings to target folder - Task 3.2
     const senderSettings = await ctx.db
       .query("userSenderSettings")
-      .withIndex("by_folderId", (q) => q.eq("folderId", args.sourceFolderId))
+      .withIndex("by_folderId_userId", (q) =>
+        q.eq("folderId", args.sourceFolderId).eq("userId", user._id)
+      )
       .collect()
 
-    // Filter to only this user's settings (index doesn't include userId)
-    const userSenderSettings = senderSettings.filter(
-      (s) => s.userId === user._id
-    )
-
-    for (const setting of userSenderSettings) {
+    for (const setting of senderSettings) {
       await ctx.db.patch(setting._id, { folderId: args.targetFolderId })
     }
 
@@ -869,7 +871,7 @@ export const mergeFolders = mutation({
       sourceFolderName: sourceFolder.name,
       sourceFolderColor: sourceFolder.color,
       targetFolderId: args.targetFolderId,
-      movedSenderSettingIds: userSenderSettings.map((s) => s._id),
+      movedSenderSettingIds: senderSettings.map((s) => s._id),
       movedNewsletterIds: newsletters.map((n) => n._id),
       createdAt: now,
       expiresAt: now + 30000, // 30 seconds to undo - Task 6.6
@@ -884,7 +886,7 @@ export const mergeFolders = mutation({
     return {
       mergeId,
       movedNewsletterCount: newsletters.length,
-      movedSenderCount: userSenderSettings.length,
+      movedSenderCount: senderSettings.length,
     }
   },
 })
@@ -1012,8 +1014,7 @@ export const cleanupExpiredMergeHistory = internalMutation({
     // Find all expired records using by_expiresAt index
     const expiredRecords = await ctx.db
       .query("folderMergeHistory")
-      .withIndex("by_expiresAt")
-      .filter((q) => q.lt(q.field("expiresAt"), now))
+      .withIndex("by_expiresAt", (q) => q.lt("expiresAt", now))
       .collect()
 
     let deletedCount = 0

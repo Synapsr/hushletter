@@ -295,7 +295,7 @@ export const storeOAuthState = internalMutation({
     // Clean up expired states for this user
     const existingStates = await ctx.db
       .query("oauthStates")
-      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect()
     for (const s of existingStates) {
       if (s.expiresAt < Date.now()) {

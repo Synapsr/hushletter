@@ -74,7 +74,7 @@ export default defineSchema({
   // Story 5.1: Task 1.2 - Added summary fields for personal/private summaries
   // Story 8.4: Task 1 - Added messageId for duplicate detection
   // Story 9.1: Task 1.3, 1.4, 1.6 - Added folderId (required at app-level), source, and index
-	  userNewsletters: defineTable({
+  userNewsletters: defineTable({
 	    userId: v.id("users"),
 	    senderId: v.id("senders"),
 	    folderId: v.optional(v.id("folders")), // Story 9.1: Required at app-level after migration
@@ -126,8 +126,10 @@ export default defineSchema({
     .index("by_contentId", ["contentId"])
     .index("by_receivedAt", ["receivedAt"]) // Story 7.1: Admin recent activity queries
     .index("by_userId_messageId", ["userId", "messageId"]) // Story 8.4: Duplicate detection
+    .index("by_userId_contentId", ["userId", "contentId"])
     .index("by_userId_folderId", ["userId", "folderId"]) // Story 9.1: Task 1.6 - For folder queries
     .index("by_userId_folderId_receivedAt", ["userId", "folderId", "receivedAt"]) // Perf: folder view sorted by date
+    .index("by_userId_isLockedByPlan", ["userId", "isLockedByPlan"])
     .index("by_shareToken", ["shareToken"])
     .index("by_userId_isFavorited_isHidden_receivedAt", [
       "userId",
@@ -202,6 +204,7 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_senderId", ["userId", "senderId"])
     .index("by_senderId", ["senderId"]) // Story 7.3: Privacy admin queries
+    .index("by_folderId_userId", ["folderId", "userId"])
     .index("by_folderId", ["folderId"]), // Story 9.1: Task 1.7 - For folder membership queries
 
   // Folders for organizing senders (created now for Epic 3)
@@ -215,7 +218,9 @@ export default defineSchema({
     sortOrder: v.optional(v.number()), // Drag-to-reorder position
     createdAt: v.number(), // Unix timestamp ms
     updatedAt: v.number(), // Story 9.1: For folder modification tracking
-  }).index("by_userId", ["userId"]),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_name", ["userId", "name"]),
 
   // ============================================================
   // Story 9.5: Folder Merge Undo History
@@ -313,7 +318,9 @@ export default defineSchema({
     userId: v.id("users"),
     state: v.string(),
     expiresAt: v.number(), // Unix timestamp ms
-  }).index("by_state", ["state"]),
+  })
+    .index("by_state", ["state"])
+    .index("by_userId", ["userId"]),
 
   // Story 4.2: Newsletter Sender Scanning
   // Track ongoing Gmail scan progress per user+connection

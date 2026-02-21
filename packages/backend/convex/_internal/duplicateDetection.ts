@@ -92,8 +92,9 @@ export const checkDuplicateByContentHash = internalQuery({
         // Check if user already has this content
         const existing = await ctx.db
           .query("userNewsletters")
-          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-          .filter((q) => q.eq(q.field("contentId"), content._id))
+          .withIndex("by_userId_contentId", (q) =>
+            q.eq("userId", args.userId).eq("contentId", content._id)
+          )
           .first()
 
         return existing?._id ?? null

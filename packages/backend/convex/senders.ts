@@ -957,8 +957,9 @@ export const listSendersInFolder = query({
     // Get userSenderSettings for this folder using by_folderId index
     const settings = await ctx.db
       .query("userSenderSettings")
-      .withIndex("by_folderId", (q) => q.eq("folderId", args.folderId))
-      .filter((q) => q.eq(q.field("userId"), user._id))
+      .withIndex("by_folderId_userId", (q) =>
+        q.eq("folderId", args.folderId).eq("userId", user._id)
+      )
       .collect()
 
     // Get sender details for each setting

@@ -14,7 +14,7 @@
 
 import { query, action, internalMutation, internalQuery, internalAction } from "./_generated/server"
 import { v, ConvexError } from "convex/values"
-import { internal, api } from "./_generated/api"
+import { internal } from "./_generated/api"
 import { authComponent, createAuth } from "./auth"
 import { httpAction } from "./_generated/server"
 import type { Id } from "./_generated/dataModel"
@@ -94,7 +94,7 @@ export const getConnectionByEmail = internalQuery({
 export const autoConnectFromBetterAuth = action({
   args: {},
   handler: async (ctx): Promise<{ connected: boolean; email?: string }> => {
-    const authUser = await ctx.runQuery(api.auth.getCurrentUser)
+    const authUser = await ctx.runQuery(internal.auth.getCurrentAuthUser)
     if (!authUser) return { connected: false }
 
     const user = await ctx.runQuery(internal.gmail.getUserByAuthId, {
@@ -233,7 +233,7 @@ export const upsertConnection = internalMutation({
 export const generateOAuthUrl = action({
   args: {},
   handler: async (ctx): Promise<{ url: string }> => {
-    const authUser = await ctx.runQuery(api.auth.getCurrentUser)
+    const authUser = await ctx.runQuery(internal.auth.getCurrentAuthUser)
     if (!authUser) throw new ConvexError({ code: "UNAUTHORIZED", message: "Please sign in." })
 
     const user = await ctx.runQuery(internal.gmail.getUserByAuthId, {
@@ -552,7 +552,7 @@ export const updateTokens = internalMutation({
 export const removeConnection = action({
   args: { gmailConnectionId: v.id("gmailConnections") },
   handler: async (ctx, args): Promise<{ success: boolean }> => {
-    const authUser = await ctx.runQuery(api.auth.getCurrentUser)
+    const authUser = await ctx.runQuery(internal.auth.getCurrentAuthUser)
     if (!authUser) throw new ConvexError({ code: "UNAUTHORIZED", message: "Please sign in." })
 
     const user = await ctx.runQuery(internal.gmail.getUserByAuthId, {

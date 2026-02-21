@@ -4,7 +4,7 @@ import { createClient, type GenericCtx, type AuthFunctions } from "@convex-dev/b
 import { convex } from "@convex-dev/better-auth/plugins"
 import { components, internal } from "./_generated/api"
 import type { DataModel } from "./_generated/dataModel"
-import { query } from "./_generated/server"
+import { query, internalQuery } from "./_generated/server"
 import authConfig from "./auth.config"
 import { generateDedicatedEmail } from "./_internal/emailGeneration"
 
@@ -188,6 +188,26 @@ export const getCurrentUser = query({
       plan: user?.plan ?? "free",
       proExpiresAt: user?.proExpiresAt ?? null,
       vanityEmail: user?.vanityEmail ?? null,
+    }
+  },
+})
+
+// Internal version for server-side actions/mutations.
+// Keeps auth lookups off the public api namespace when called via ctx.runQuery.
+export const getCurrentAuthUser = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    let authUser
+    try {
+      authUser = await authComponent.getAuthUser(ctx)
+    } catch {
+      return null
+    }
+    if (!authUser) return null
+    return {
+      id: authUser._id,
+      email: authUser.email,
+      name: authUser.name,
     }
   },
 })

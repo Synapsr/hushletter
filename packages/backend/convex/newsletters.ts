@@ -5,6 +5,7 @@ import {
   mutation,
   query,
   action,
+  type ActionCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
@@ -727,103 +728,56 @@ type UserNewsletterWithContentResult = {
  * This is an action because r2.getUrl() makes external API calls
  * Story 2.5.1: Updated for userNewsletters table with public/private paths
  */
-export const getUserNewsletterWithContent = action({
-  args: { userNewsletterId: v.id("userNewsletters") },
-  handler: async (ctx, args): Promise<UserNewsletterWithContentResult> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError({
-        code: "UNAUTHORIZED",
-        message: "Not authenticated",
-      });
-    }
-
-    // Get userNewsletter via internal query
-    const userNewsletter = await ctx.runQuery(
-      internal.newsletters.getUserNewsletterInternal,
-      {
-        userNewsletterId: args.userNewsletterId,
-      },
-    );
-
-    if (!userNewsletter) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Newsletter not found",
-      });
-    }
-
-    // Get user record to check permissions
-    const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
-      authId: identity.subject,
+async function getUserNewsletterWithContentImpl(
+  ctx: Pick<ActionCtx, "auth" | "runQuery">,
+  args: { userNewsletterId: Id<"userNewsletters"> },
+): Promise<UserNewsletterWithContentResult> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new ConvexError({
+      code: "UNAUTHORIZED",
+      message: "Not authenticated",
     });
+  }
 
-    if (!user) {
-      throw new ConvexError({
-        code: "UNAUTHORIZED",
-        message: "User not found",
-      });
-    }
+  // Get userNewsletter via internal query
+  const userNewsletter = await ctx.runQuery(
+    internal.newsletters.getUserNewsletterInternal,
+    {
+      userNewsletterId: args.userNewsletterId,
+    },
+  );
 
-    // Privacy check - user can only access their own newsletters
-    if (userNewsletter.userId !== user._id) {
-      throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
-    }
-
-    const isPro = isUserPro({
-      plan: user.plan ?? "free",
-      proExpiresAt: user.proExpiresAt,
+  if (!userNewsletter) {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Newsletter not found",
     });
+  }
 
-    if (!isPro && userNewsletter.isLockedByPlan) {
-      const progressDoc = await ctx.runQuery(
-        internal.newsletters.getNewsletterReadProgressInternal,
-        { userId: user._id, userNewsletterId: args.userNewsletterId },
-      );
-      const effectiveReadProgress =
-        progressDoc?.progress ?? userNewsletter.readProgress;
+  // Get user record to check permissions
+  const user = await ctx.runQuery(internal._internal.users.findByAuthId, {
+    authId: identity.subject,
+  });
 
-      return {
-        ...userNewsletter,
-        readProgress: effectiveReadProgress,
-        contentUrl: null,
-        contentStatus: "locked",
-      };
-    }
+  if (!user) {
+    throw new ConvexError({
+      code: "UNAUTHORIZED",
+      message: "User not found",
+    });
+  }
 
-    // Determine R2 key based on public/private path
-    let r2Key: string | null = null;
+  // Privacy check - user can only access their own newsletters
+  if (userNewsletter.userId !== user._id) {
+    throw new ConvexError({ code: "FORBIDDEN", message: "Access denied" });
+  }
 
-    if (userNewsletter.isPrivate && userNewsletter.privateR2Key) {
-      // Private content - use privateR2Key directly
-      r2Key = userNewsletter.privateR2Key;
-    } else if (!userNewsletter.isPrivate && userNewsletter.contentId) {
-      // Public content - get R2 key from newsletterContent
-      const content = await ctx.runQuery(
-        internal.newsletters.getNewsletterContentInternal,
-        {
-          contentId: userNewsletter.contentId,
-        },
-      );
-      if (content) {
-        r2Key = content.r2Key;
-      }
-    }
+  const isPro = isUserPro({
+    plan: user.plan ?? "free",
+    proExpiresAt: user.proExpiresAt,
+  });
 
-    // Generate signed URL for R2 content (valid for 1 hour)
-    let contentUrl: string | null = null;
-    let contentStatus: ContentStatus = "missing";
-
-    if (r2Key) {
-      try {
-        contentUrl = await r2.getUrl(r2Key, { expiresIn: 3600 });
-        contentStatus = "available";
-      } catch (error) {
-        console.error("[newsletters] Failed to generate R2 signed URL:", error);
-        contentStatus = "error";
-      }
-    }
-
+  if (!isPro && userNewsletter.isLockedByPlan) {
     const progressDoc = await ctx.runQuery(
       internal.newsletters.getNewsletterReadProgressInternal,
       { userId: user._id, userNewsletterId: args.userNewsletterId },
@@ -834,9 +788,70 @@ export const getUserNewsletterWithContent = action({
     return {
       ...userNewsletter,
       readProgress: effectiveReadProgress,
-      contentUrl,
-      contentStatus,
+      contentUrl: null,
+      contentStatus: "locked",
     };
+  }
+
+  // Determine R2 key based on public/private path
+  let r2Key: string | null = null;
+
+  if (userNewsletter.isPrivate && userNewsletter.privateR2Key) {
+    // Private content - use privateR2Key directly
+    r2Key = userNewsletter.privateR2Key;
+  } else if (!userNewsletter.isPrivate && userNewsletter.contentId) {
+    // Public content - get R2 key from newsletterContent
+    const content = await ctx.runQuery(
+      internal.newsletters.getNewsletterContentInternal,
+      {
+        contentId: userNewsletter.contentId,
+      },
+    );
+    if (content) {
+      r2Key = content.r2Key;
+    }
+  }
+
+  // Generate signed URL for R2 content (valid for 1 hour)
+  let contentUrl: string | null = null;
+  let contentStatus: ContentStatus = "missing";
+
+  if (r2Key) {
+    try {
+      contentUrl = await r2.getUrl(r2Key, { expiresIn: 3600 });
+      contentStatus = "available";
+    } catch (error) {
+      console.error("[newsletters] Failed to generate R2 signed URL:", error);
+      contentStatus = "error";
+    }
+  }
+
+  const progressDoc = await ctx.runQuery(
+    internal.newsletters.getNewsletterReadProgressInternal,
+    { userId: user._id, userNewsletterId: args.userNewsletterId },
+  );
+  const effectiveReadProgress =
+    progressDoc?.progress ?? userNewsletter.readProgress;
+
+  return {
+    ...userNewsletter,
+    readProgress: effectiveReadProgress,
+    contentUrl,
+    contentStatus,
+  };
+}
+
+export const getUserNewsletterWithContent = action({
+  args: { userNewsletterId: v.id("userNewsletters") },
+  handler: async (ctx, args): Promise<UserNewsletterWithContentResult> => {
+    return await getUserNewsletterWithContentImpl(ctx, args);
+  },
+});
+
+export const getUserNewsletterWithContentInternal = internalAction({
+  args: { userNewsletterId: v.id("userNewsletters") },
+  handler: async (ctx, args): Promise<UserNewsletterWithContentResult> => {
+    return await getUserNewsletterWithContentImpl(ctx, args);
   },
 });
 

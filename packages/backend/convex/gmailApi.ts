@@ -14,7 +14,7 @@
 import { v } from "convex/values"
 import { ConvexError } from "convex/values"
 import { internalQuery, action, internalAction, type ActionCtx } from "./_generated/server"
-import { internal, api } from "./_generated/api"
+import { internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 
 // Gmail API types
@@ -477,7 +477,7 @@ export const checkGmailAccess = action({
   },
   handler: async (ctx, args): Promise<{ valid: boolean; error?: string }> => {
     try {
-      const authUser = await ctx.runQuery(api.auth.getCurrentUser)
+      const authUser = await ctx.runQuery(internal.auth.getCurrentAuthUser)
       if (!authUser) {
         return { valid: false, error: "Please sign in to check Gmail access." }
       }

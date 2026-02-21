@@ -26,7 +26,7 @@ import {
   query,
 } from "./_generated/server"
 import { v, ConvexError } from "convex/values"
-import { internal, api } from "./_generated/api"
+import { internal } from "./_generated/api"
 import { generateCompletion } from "./lib/openrouter"
 import type { Id } from "./_generated/dataModel"
 import { AI_DAILY_LIMIT, isUserPro } from "./entitlements"
@@ -197,7 +197,7 @@ async function generateSummaryWithExistingLogic(
   }
 ): Promise<{ summary: string; isShared: boolean }> {
   // Get newsletter content (validates access internally)
-  const result = await ctx.runAction(api.newsletters.getUserNewsletterWithContent, {
+  const result = await ctx.runAction(internal.newsletters.getUserNewsletterWithContentInternal, {
     userNewsletterId: args.userNewsletterId,
   })
 

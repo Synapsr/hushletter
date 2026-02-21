@@ -19,7 +19,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
-import { internal, api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { authComponent } from "./auth";
 import {
   calculateNewsletterScore,
@@ -728,7 +728,7 @@ export const startScan = action({
     let progressId: Id<"gmailScanProgress"> | null = null;
 
     try {
-      const authUser = await ctx.runQuery(api.auth.getCurrentUser);
+      const authUser = await ctx.runQuery(internal.auth.getCurrentAuthUser);
       if (!authUser) {
         return { success: false, error: "Please sign in to scan your Gmail." };
       }
@@ -1492,7 +1492,7 @@ export const startHistoricalImport = action({
     let progressId: Id<"gmailImportProgress"> | null = null;
 
     try {
-      const authUser = await ctx.runQuery(api.auth.getCurrentUser);
+      const authUser = await ctx.runQuery(internal.auth.getCurrentAuthUser);
       if (!authUser) {
         return {
           success: false,

@@ -191,4 +191,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## License
 
-[MIT](LICENSE)
+This project is source-available under **Commons Clause + Apache 2.0**.
+
+- You may use, modify, and distribute the code under Apache 2.0 terms.
+- You may **not** sell the software (or services whose value substantially derives from the software) without separate permission.
+
+See [LICENSE](LICENSE) for the full terms.
+For commercial usage requests, see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md).

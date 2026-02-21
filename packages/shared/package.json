@@ -22,5 +22,6 @@
   },
   "dependencies": {
     "postal-mime": "^2.7.3"
-  }
+  },
+  "license": "SEE LICENSE IN LICENSE"
 }

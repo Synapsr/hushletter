@@ -100,6 +100,10 @@ Follow conventional commits:
 - **i18n**: Paraglide JS v2 (English + French)
 - **Styling**: Tailwind CSS v4 with shadcn/ui components
 
+## License and Contributions
+
+By submitting a contribution, you agree that your contribution is licensed under this repository's license terms in [LICENSE](LICENSE).
+
 ## Questions?
 
 Open an issue or start a discussion if you have questions about contributing.

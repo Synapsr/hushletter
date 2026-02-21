@@ -1,5 +1,6 @@
 {
   "name": "@hushletter/config",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE"
 }

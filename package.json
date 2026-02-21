@@ -2,8 +2,7 @@
   "name": "hushletter",
   "version": "0.0.0",
   "devDependencies": {
-        "@hushletter/config": "workspace:*",
-
+    "@hushletter/config": "workspace:*",
     "oxfmt": "^0.28.0",
     "oxlint": "^1.0.0",
     "turbo": "^2.7.5"
@@ -18,5 +17,9 @@
     "format": "oxfmt --write .",
     "deploy:convex:web": "cd packages/backend && bunx convex deploy --yes --cmd-url-env-var-name VITE_CONVEX_URL --cmd 'cd ../.. && bun run --filter @hushletter/web build'"
   },
-  "workspaces": ["apps/*", "packages/*"]
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "license": "SEE LICENSE IN LICENSE"
 }

@@ -2,7 +2,6 @@
 
 import { Link } from "@tanstack/react-router";
 import { SharedLogo } from "../shared/shared-logo";
-import { GlobalSearch } from "./global-search";
 import { UserMenu } from "./user-menu";
 
 type Props = {};

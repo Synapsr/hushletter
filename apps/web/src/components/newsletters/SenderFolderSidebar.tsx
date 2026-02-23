@@ -56,7 +56,7 @@ const FILTER_BIN = "bin" as const;
 const LAST_NEWSLETTERS_VISIT_KEY = "hushletter:lastNewslettersVisit";
 const RECENT_UNREAD_HEAD_SIZE = 8;
 const RECENT_UNREAD_PAGE_SIZE = 20;
-const RECENT_UNREAD_NOW_BUCKET_MS = 60_000;
+const RECENT_UNREAD_NOW_BUCKET_MS = 1_800_000;
 type FilterType =
   | typeof FILTER_HIDDEN
   | typeof FILTER_STARRED
@@ -579,18 +579,17 @@ export function SenderFolderSidebar({
     return () => window.clearInterval(intervalId);
   }, [shouldShowRecentSection]);
 
-  const { data: recentUnreadHead, isPending: recentUnreadPending } = useQuery(
-    convexQuery(
-      api.newsletters.listRecentUnreadNewslettersHead,
-      shouldShowRecentSection && isLastConnectedReady
-        ? {
-            lastConnectedAt,
-            numItems: RECENT_UNREAD_HEAD_SIZE,
-            nowTs: recentUnreadNowTs,
-          }
-        : "skip",
-    ),
-  );
+  const recentUnreadHeadQuery = shouldShowRecentSection && isLastConnectedReady
+    ? convexQuery(api.newsletters.listRecentUnreadNewslettersHead, {
+      lastConnectedAt,
+      numItems: RECENT_UNREAD_HEAD_SIZE,
+      nowTs: recentUnreadNowTs,
+    })
+    : convexQuery(api.newsletters.listRecentUnreadNewslettersHead, "skip");
+  const { data: recentUnreadHead, isPending: recentUnreadPending } = useQuery({
+    ...recentUnreadHeadQuery,
+    placeholderData: (previousData) => previousData,
+  });
 
   const folderList = useMemo(() => {
     if (!folders) return [];
@@ -843,7 +842,6 @@ export function SenderFolderSidebar({
       | undefined;
     return (data?.page ?? []) as NewsletterData[];
   }, [recentUnreadHead]);
-
   const recentUnreadNewsletters = useMemo(() => {
     const merged: NewsletterData[] = [];
     const seen = new Set<string>();
@@ -1448,7 +1446,7 @@ export function SenderFolderSidebar({
                     <div ref={recentSectionRef} className="max-h-60">
                       <ScrollArea scrollFade className="*:max-h-60 min-h-0">
                         <div className="space-y-0.5 min-h-0">
-                          {recentUnreadPending ? (
+                          {recentUnreadPending && recentUnreadNewsletters.length === 0 ? (
                             <div className="space-y-1 py-1">
                               {[0, 1, 2].map((index) => (
                                 <div

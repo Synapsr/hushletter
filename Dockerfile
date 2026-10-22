@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:22-slim AS base
+FROM node:22.23.4-slim AS base
 
 RUN npm install -g bun@1.3.9
 
@@ -46,7 +46,7 @@ RUN if [ "$RUN_CONVEX_DEPLOY" = "true" ] && [ -n "$CONVEX_DEPLOY_KEY" ]; then \
     fi
 
 # Production stage
-FROM node:22-slim AS runner
+FROM node:22.23.4-slim AS runner
 
 WORKDIR /app
 
